@@ -1,30 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
 
 const SESSION_COOKIE_NAME = "cesar_admin_session";
 const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET;
 
 const SESSION_VERSION = "v1";
 
-function verifySignature(token: string, signature: string) {
+async function verifySignature(token: string, signature: string) {
   if (!ADMIN_SESSION_SECRET) return false;
 
-  const expectedSignature = crypto
-    .createHmac("sha256", ADMIN_SESSION_SECRET)
-    .update(token)
-    .digest("hex");
+  const encoder = new TextEncoder();
 
-  try {
-    return crypto.timingSafeEqual(
-      Buffer.from(signature),
-      Buffer.from(expectedSignature)
-    );
-  } catch {
-    return false;
-  }
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(ADMIN_SESSION_SECRET),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+
+  const signed = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    encoder.encode(token)
+  );
+
+  const expected = Buffer.from(signed).toString("hex");
+
+  return expected === signature;
 }
 
-function isValidSession(value: string | undefined) {
+async function isValidSession(value: string | undefined) {
   if (!value) return false;
 
   const parts = value.split(":");
@@ -42,38 +47,38 @@ function isValidSession(value: string | undefined) {
   if (!token || !signature) return false;
   if (token.length < 10) return false;
 
-  return verifySignature(token, signature);
+  return await verifySignature(token, signature);
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow login page
   if (pathname === "/admin/login") {
     return NextResponse.next();
   }
 
-  // Protect admin pages
   if (pathname.startsWith("/admin")) {
     const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME)?.value;
 
-    if (!isValidSession(sessionCookie)) {
+    const valid = await isValidSession(sessionCookie);
+
+    if (!valid) {
       const loginUrl = request.nextUrl.clone();
       loginUrl.pathname = "/admin/login";
       return NextResponse.redirect(loginUrl);
     }
   }
 
-  // Allow login API
   if (pathname === "/api/admin/login") {
     return NextResponse.next();
   }
 
-  // Protect admin APIs
   if (pathname.startsWith("/api/admin")) {
     const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME)?.value;
 
-    if (!isValidSession(sessionCookie)) {
+    const valid = await isValidSession(sessionCookie);
+
+    if (!valid) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
   }
