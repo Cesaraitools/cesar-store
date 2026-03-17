@@ -1,41 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 
 const SESSION_COOKIE_NAME = "cesar_admin_session";
 const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET;
 
 const SESSION_VERSION = "v1";
 
-function toHex(buffer: ArrayBuffer) {
-  return Array.from(new Uint8Array(buffer))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-async function verifySignature(token: string, signature: string) {
+function verifySignature(token: string, signature: string) {
   if (!ADMIN_SESSION_SECRET) return false;
 
-  const encoder = new TextEncoder();
-
-  const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(ADMIN_SESSION_SECRET),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-
-  const signed = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    encoder.encode(token)
-  );
-
-  const expected = toHex(signed);
+  const expected = crypto
+    .createHmac("sha256", ADMIN_SESSION_SECRET)
+    .update(token)
+    .digest("hex");
 
   return expected === signature;
 }
 
-async function isValidSession(value: string | undefined) {
+function isValidSession(value: string | undefined) {
   if (!value) return false;
 
   const parts = value.split(":");
@@ -53,12 +35,13 @@ async function isValidSession(value: string | undefined) {
   if (!token || !signature) return false;
   if (token.length < 10) return false;
 
-  return await verifySignature(token, signature);
+  return verifySignature(token, signature);
 }
 
-export async function middleware(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // login page always allowed
   if (pathname === "/admin/login") {
     return NextResponse.next();
   }
@@ -66,7 +49,7 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith("/admin")) {
     const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME)?.value;
 
-    const valid = await isValidSession(sessionCookie);
+    const valid = isValidSession(sessionCookie);
 
     if (!valid) {
       const loginUrl = request.nextUrl.clone();
@@ -82,7 +65,7 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith("/api/admin")) {
     const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME)?.value;
 
-    const valid = await isValidSession(sessionCookie);
+    const valid = isValidSession(sessionCookie);
 
     if (!valid) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
