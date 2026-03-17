@@ -18,13 +18,16 @@ export const dynamic = "force-dynamic";
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [authorized, setAuthorized] = useState(false);
+
+  // 🟡 null = لسه بنشيّك
+  const [authorized, setAuthorized] = useState<boolean | null>(null);
 
   // 🔐 UI GUARD
   useEffect(() => {
     const hasSession = document.cookie.includes("cesar_admin_session");
 
     if (!hasSession) {
+      setAuthorized(false);
       router.replace("/admin/login");
     } else {
       setAuthorized(true);
@@ -37,8 +40,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     router.refresh();
   }
 
-  // ⛔ امنع render لحد ما نتأكد
-  if (!authorized) return null;
+  // ⏳ لسه بنشيّك → ما نرندرش حاجة
+  if (authorized === null) return null;
+
+  // ⛔ مش مصرح → ما نرندرش
+  if (authorized === false) return null;
 
   const navItems = [
     { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
