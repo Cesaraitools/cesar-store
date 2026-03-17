@@ -1,18 +1,32 @@
 import { NextResponse } from "next/server";
-import { getIronSession } from "iron-session";
-import { sessionOptions, SessionData } from "@/lib/session";
 import crypto from "crypto";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
+const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET;
+
+const SESSION_COOKIE_NAME = "cesar_admin_session";
+const SESSION_TTL_SECONDS = 60 * 60 * 8; // 8 hours
+const SESSION_VERSION = "v1";
 
 function hashPassword(password: string) {
   return crypto.createHash("sha256").update(password).digest("hex");
 }
 
+function signToken(token: string) {
+  if (!ADMIN_SESSION_SECRET) {
+    throw new Error("Missing ADMIN_SESSION_SECRET");
+  }
+
+  return crypto
+    .createHmac("sha256", ADMIN_SESSION_SECRET)
+    .update(token)
+    .digest("hex");
+}
+
 export async function POST(request: Request) {
   try {
-    if (!ADMIN_USERNAME || !ADMIN_PASSWORD_HASH) {
+    if (!ADMIN_USERNAME || !ADMIN_PASSWORD_HASH || !ADMIN_SESSION_SECRET) {
       return NextResponse.json(
         { error: "Admin credentials are not configured" },
         { status: 500 }
@@ -21,7 +35,6 @@ export async function POST(request: Request) {
 
     const { username, password } = await request.json();
 
-    // التحقق من اسم المستخدم
     if (username !== ADMIN_USERNAME) {
       return NextResponse.json(
         { error: "Invalid credentials" },
@@ -29,36 +42,36 @@ export async function POST(request: Request) {
       );
     }
 
-    // التحقق من كلمة المرور باستخدام timingSafeEqual لمنع هجمات التوقيت
     const incomingHash = hashPassword(password);
-    
-    try {
-      const isPasswordValid = crypto.timingSafeEqual(
-        Buffer.from(incomingHash, 'hex'),
-        Buffer.from(ADMIN_PASSWORD_HASH, 'hex')
-      );
 
-      if (!isPasswordValid) {
-        return NextResponse.json(
-          { error: "Invalid credentials" },
-          { status: 401 }
-        );
-      }
-    } catch (error) {
-      // في حالة خطأ في المقارنة (مثلاً طول مختلف)
+    const isValid = crypto.timingSafeEqual(
+      Buffer.from(incomingHash, "hex"),
+      Buffer.from(ADMIN_PASSWORD_HASH, "hex")
+    );
+
+    if (!isValid) {
       return NextResponse.json(
         { error: "Invalid credentials" },
         { status: 401 }
       );
     }
 
-    // إنشاء الجلسة
+    const token = crypto.randomUUID();
+    const signature = signToken(token);
+
+    const sessionValue = `${SESSION_VERSION}:${token}.${signature}`;
+
     const response = NextResponse.json({ success: true });
-    const session = await getIronSession<SessionData>(request, response, sessionOptions);
-    
-    session.isAdmin = true;
-    session.username = username;
-    await session.save();
+
+    response.cookies.set({
+      name: SESSION_COOKIE_NAME,
+      value: sessionValue,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      path: "/",
+      maxAge: SESSION_TTL_SECONDS,
+    });
 
     return response;
   } catch (error) {
