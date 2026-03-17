@@ -8,10 +8,11 @@ import {
   FileText, 
   Truck, 
   Home, 
-  ExternalLink,
-  ShoppingBag,
   MessageCircle
 } from "lucide-react";
+
+// ✅ Prevent prerender (CRITICAL)
+export const dynamic = "force-dynamic";
 
 type InvoiceData = {
   invoice: {
@@ -57,13 +58,11 @@ export default function ConfirmPage() {
     <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-6 text-right" dir="rtl">
       
       <div className="max-w-md w-full relative">
-        {/* Background Decorative Element */}
         <div className="absolute -top-10 -left-10 w-32 h-32 bg-green-50 rounded-full blur-3xl opacity-70"></div>
         <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-blue-50 rounded-full blur-3xl opacity-70"></div>
 
         <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 p-10 text-center relative overflow-hidden">
           
-          {/* Success Animation Header */}
           <div className="flex justify-center mb-8 relative">
             <div className="w-24 h-24 rounded-full bg-green-50 flex items-center justify-center text-green-500 relative z-10 animate-bounce">
               <CheckCircle2 size={48} strokeWidth={2.5} />
@@ -71,7 +70,6 @@ export default function ConfirmPage() {
             <div className="absolute inset-0 w-24 h-24 bg-green-100 rounded-full blur-xl scale-125 opacity-30 mx-auto"></div>
           </div>
 
-          {/* Text Content */}
           <h1 className="text-3xl font-black text-slate-900 mb-3 tracking-tight">
             تم استلام طلبك!
           </h1>
@@ -82,7 +80,6 @@ export default function ConfirmPage() {
             <span className="text-sm">طلبك الآن في مرحلة المراجعة وسنتواصل معك قريباً.</span>
           </p>
 
-          {/* Order Snapshot Card */}
           {orderId && (
             <div className="bg-slate-50 rounded-2xl p-4 mb-8 border border-slate-100 inline-block px-8">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">رقم الطلب الخاص بك</p>
@@ -90,7 +87,6 @@ export default function ConfirmPage() {
             </div>
           )}
 
-          {/* Action Buttons */}
           <div className="space-y-3">
             
             <a
@@ -120,7 +116,6 @@ export default function ConfirmPage() {
 
           </div>
 
-          {/* WhatsApp Support Badge */}
           <div className="mt-10 pt-8 border-t border-slate-50 flex items-center justify-center gap-4">
              <div className="text-right">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">هل لديك استفسار؟</p>
