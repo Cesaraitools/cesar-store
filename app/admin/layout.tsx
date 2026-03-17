@@ -3,7 +3,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
 import { 
   LayoutDashboard, 
   Tag, 
@@ -19,32 +18,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // 🟡 null = لسه بنشيّك
-  const [authorized, setAuthorized] = useState<boolean | null>(null);
-
-  // 🔐 UI GUARD
-  useEffect(() => {
-    const hasSession = document.cookie.includes("cesar_admin_session");
-
-    if (!hasSession) {
-      setAuthorized(false);
-      router.replace("/admin/login");
-    } else {
-      setAuthorized(true);
-    }
-  }, [router]);
-
   async function handleLogout() {
     await fetch("/api/admin/logout", { method: "POST" });
     router.replace("/admin/login");
-    router.refresh();
   }
-
-  // ⏳ لسه بنشيّك → ما نرندرش حاجة
-  if (authorized === null) return null;
-
-  // ⛔ مش مصرح → ما نرندرش
-  if (authorized === false) return null;
 
   const navItems = [
     { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
