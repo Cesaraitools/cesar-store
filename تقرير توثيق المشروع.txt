@@ -1,0 +1,642 @@
+CESAR STORE — MASTER ENGINEERING RECOVERY PROMPT
+Project Identity
+
+Project Name: Cesar Store
+Type: Production-Grade E-Commerce Platform
+
+Goal:
+
+Build a scalable online store with:
+
+Clean architecture
+
+Minimal technical debt
+
+Secure backend
+
+Realtime order tracking
+
+Production-ready deployment
+
+TECH STACK
+Frontend
+
+Next.js 14 (App Router)
+
+React 18
+
+TypeScript
+
+TailwindCSS
+
+Backend
+
+Supabase
+
+PostgreSQL
+
+Supabase Auth
+
+Supabase Realtime
+
+Infrastructure
+
+Frontend
+Vercel
+
+Database
+Supabase PostgreSQL
+
+Auth
+Supabase Auth
+
+API
+Next.js Route Handlers
+
+Repository
+GitHub
+
+PRODUCTION DEPLOYMENT
+
+Production URL
+
+https://cesar-store.vercel.app
+
+Environment Architecture
+
+Client
+→ Next.js App Router
+
+API
+→ Next.js Route Handlers
+
+Database
+→ Supabase PostgreSQL
+
+Auth
+→ Supabase Auth
+
+Realtime
+→ Supabase Realtime
+
+The system is successfully deployed and running in production.
+
+STRICT DEVELOPMENT RULES
+
+These rules must always be respected.
+
+1️⃣ Never modify a file without requesting the full file first
+2️⃣ Always return full files with full paths
+3️⃣ Never send partial snippets
+4️⃣ Never assume file names or structures
+5️⃣ Avoid technical debt
+6️⃣ Maintain Single Source of Truth architecture
+7️⃣ Do not break existing working systems
+8️⃣ If conversation becomes long → generate Completion Prompt
+
+PROJECT STRUCTURE
+
+Actual structure of the project:
+
+cesar-store
+
+app
+
+   layout.tsx
+   page.tsx
+
+   shop
+   product
+   categories
+   cart
+   orders
+
+   (checkout)
+        checkout
+        review
+        confirm
+
+   admin
+        analytics
+        orders
+        categories
+
+   api
+
+        orders
+        order-tracking
+        invoice
+        cart
+
+   auth
+        callback
+
+components
+
+   Navbar
+   ProductCard
+   CategoryCard
+   ExploreCategories
+   PromoBanner
+   LayoutComponents
+
+context
+
+   AuthContext
+   CartContext
+   CheckoutContext
+   LanguageContext
+   OrderTrackingContext
+
+hooks
+
+   useRequireAuth
+
+lib
+
+   supabase
+   filters
+
+data-store
+
+   products
+   categories
+   promos
+
+public
+
+   images
+   products
+   categories
+   promos
+   slides
+
+middleware.ts
+SYSTEM ARCHITECTURE
+
+The system is divided into multiple layers.
+
+CLIENT LAYER
+
+Built with:
+
+Next.js App Router
+React Components
+
+Pages include:
+
+Home
+
+Shop
+
+Product Page
+
+Cart
+
+Checkout
+
+Orders
+
+Admin Dashboard
+
+STATE MANAGEMENT
+
+The application uses React Context.
+
+Main contexts:
+
+AuthContext
+Manages authentication state and user session.
+
+CartContext
+Handles cart state.
+
+CheckoutContext
+Controls checkout flow.
+
+LanguageContext
+Handles RTL/LTR switching.
+
+OrderTrackingContext
+Handles realtime tracking updates.
+
+API LAYER
+
+Backend logic is implemented using Next.js Route Handlers.
+
+API routes include:
+
+Orders
+
+GET /api/orders
+GET /api/orders/[id]
+POST /api/orders
+
+Tracking
+
+GET /api/order-tracking/[orderId]
+
+Invoice
+
+GET /api/invoice/[orderId]/pdf
+
+Cart
+
+GET /api/cart
+POST /api/cart
+
+These APIs communicate with Supabase using the Server Client.
+
+SUPABASE CLIENT ARCHITECTURE
+
+The project uses:
+
+@supabase/ssr
+
+Two client types are used.
+
+Browser Client
+
+Used inside React components.
+
+createBrowserClient()
+
+Server Client
+
+Used inside API routes.
+
+createServerClient()
+DATABASE ARCHITECTURE
+
+Main database tables:
+
+users
+orders
+order_tracking_events
+carts
+cart_items
+
+USERS TABLE
+
+Primary user profile table.
+
+Columns
+
+id uuid PK
+email text
+name text
+avatar_url text
+providers text[]
+is_admin boolean
+is_catalog_admin boolean
+created_at timestamp
+
+Relations
+
+users.id
+↓
+orders.user_id
+carts.user_id
+ORDERS TABLE
+
+Stores customer orders.
+
+Columns
+
+id uuid PK
+user_id uuid FK → users.id
+status text
+total numeric
+created_at timestamp
+
+Relations
+
+orders.id
+↓
+order_tracking_events.order_id
+ORDER TRACKING EVENTS
+
+Stores the timeline of order status changes.
+
+Columns
+
+id uuid PK
+order_id uuid FK → orders.id
+status text
+created_at timestamp
+
+CARTS TABLE
+
+Stores carts per user.
+
+Columns
+
+id uuid PK
+user_id uuid FK → users.id
+created_at timestamp
+
+CART ITEMS TABLE
+
+Items inside carts.
+
+Columns
+
+id uuid PK
+cart_id uuid FK → carts.id
+product_id uuid
+quantity integer
+
+DATABASE INDEXES
+
+Recommended indexes:
+
+users.email
+
+orders.user_id
+
+order_tracking_events.order_id
+
+cart_items.cart_id
+
+ROW LEVEL SECURITY (RLS)
+
+RLS is enabled.
+
+users
+
+Policy
+
+Users can read their own profile.
+
+auth.uid() = id
+
+orders
+
+Policy
+
+Users can read their own orders.
+
+auth.uid() = user_id
+
+cart_items
+
+Users can modify only items belonging to their cart.
+
+Service Role is used only for server-side operations.
+
+USER CREATION ARCHITECTURE
+
+User creation is handled via database trigger.
+
+Flow
+
+Supabase Auth
+↓
+auth.users
+↓
+Trigger
+↓
+public.users
+
+This ensures:
+
+no duplicate users
+
+no race conditions
+
+consistent user records
+
+TRIGGER
+
+Trigger Name
+
+on_auth_user_created
+
+Event
+
+AFTER INSERT ON auth.users
+
+Function
+
+handle_new_user()
+
+The function copies auth user data into public.users.
+
+ORDER LIFECYCLE
+
+Order statuses follow this lifecycle.
+
+requested
+
+confirmed
+
+preparing
+
+shipped
+
+delivered
+
+canceled
+
+Each change creates a record in:
+
+order_tracking_events
+
+REALTIME SYSTEM
+
+Realtime channel
+
+order-tracking:{orderId}
+
+Clients subscribe to:
+
+order_tracking_events INSERT
+
+Helper used by frontend:
+
+subscribeToOrderTrackingEvents(orderId)
+
+This allows live updates of order status.
+
+CHECKOUT FLOW
+
+The checkout process follows this sequence.
+
+Cart
+↓
+Checkout Page
+↓
+Review Order
+↓
+Confirm Order
+↓
+Create Order
+↓
+Insert Tracking Event
+↓
+Realtime Updates
+
+INVOICE SYSTEM
+
+Invoices are generated using:
+
+@react-pdf/renderer
+
+API endpoint:
+
+GET /api/invoice/[orderId]/pdf
+
+The endpoint:
+
+1 generates PDF
+2 sends it to client
+
+ADMIN SYSTEM
+
+Admin dashboard is located in:
+
+/admin
+
+Main sections:
+
+admin/orders
+admin/categories
+admin/analytics
+
+Future role:
+
+Catalog Admin
+
+Can manage product catalog but cannot modify orders.
+
+PRODUCT DATA SOURCE
+
+Currently products are loaded from:
+
+data-store/products
+
+This is temporary mock data.
+
+Future architecture:
+
+Products will be fetched from:
+
+/api/products
+
+backed by the database.
+
+LANGUAGE SYSTEM
+
+The store supports:
+
+RTL
+LTR
+
+Implemented using:
+
+LanguageContext
+rtl-detect
+
+MEDIA STORAGE
+
+Images stored inside:
+
+public/products
+public/categories
+public/promos
+public/slides
+
+Uploads supported.
+
+LIBRARIES USED
+
+Core
+
+next
+react
+typescript
+
+Database
+
+@supabase/ssr
+@supabase/supabase-js
+
+Invoice
+
+@react-pdf/renderer
+
+Bulk import
+
+xlsx
+
+UI utilities
+
+swiper
+rtl-detect
+qrcode
+
+SECURITY ARCHITECTURE
+
+Security is enforced through:
+
+Supabase Auth
+
+Row Level Security
+
+Server-side API routes
+
+Service Role restricted to backend only.
+
+VERIFIED WORKING FEATURES
+
+Email Signup ✔
+
+Google OAuth ✔
+
+User Trigger Sync ✔
+
+Orders System ✔
+
+Order Tracking ✔
+
+Realtime Updates ✔
+
+Invoice Generation ✔
+
+Deployment ✔
+
+CURRENT SYSTEM STATE
+
+Auth System → Stable
+
+Trigger System → Stable
+
+Orders → Working
+
+Tracking → Working
+
+Realtime → Working
+
+Deployment → Production Ready
+
+Admin Dashboard → Available
+
+NEXT DEVELOPMENT PHASE
+
+Upcoming work:
+
+Admin Order Management Improvements
+
+Invoice System Enhancements
+
+Analytics Dashboard
+
+Catalog Admin Role
+
+Product Database Migration
+
+FINAL STATUS
+
+Cesar Store has successfully reached a stable production architecture.
+
+This document represents the complete engineering baseline of the system and can be used as a Recovery Prompt for any future development sessions.

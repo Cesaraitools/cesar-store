@@ -1,0 +1,110 @@
+[
+  {
+    "type": "category",
+    "id": "equipment",
+    "image": "/uploads/categorys/492d8a7c-9934-496c-99b7-8a412496e471.jpg",
+    "category": "equipment",
+    "en": {
+      "title": "Equipment & Tools",
+      "subtitle": "Peace of mind on every journey"
+    },
+    "ar": {
+      "title": "عدد و أدوات",
+      "subtitle": "إطمئن وانت على الطريق"
+    },
+    "active": true,
+    "order": 4,
+    "createdAt": "2026-02-17T00:00:00Z",
+    "updatedAt": "2026-03-12T20:21:41.056Z"
+  },
+  {
+    "type": "category",
+    "id": "air",
+    "image": "/uploads/categorys/46c71b00-0d8b-4f45-bfd1-69f7b0527088.webp",
+    "category": "air-fresheners",
+    "en": {
+      "title": "Air Fresheners",
+      "subtitle": "A refreshing and unique driving experience"
+    },
+    "ar": {
+      "title": "معطرات هواء",
+      "subtitle": "تجربة قيادة منعشة وفريدة"
+    },
+    "active": true,
+    "order": 2,
+    "createdAt": "2026-02-17T00:00:00Z",
+    "updatedAt": "2026-02-21T13:38:52.158Z"
+  },
+  {
+    "type": "category",
+    "id": "fluids",
+    "image": "/uploads/categorys/715fcbe0-d1a8-40db-b530-5a26a000ce67.png",
+    "category": "additives-fluids",
+    "en": {
+      "title": "Additives & Fluids",
+      "subtitle": "Power and protection for your engine"
+    },
+    "ar": {
+      "title": "سوائل و إضافات",
+      "subtitle": "قوة وحماية لمحركك"
+    },
+    "active": true,
+    "order": 3,
+    "createdAt": "2026-02-17T00:00:00Z",
+    "updatedAt": "2026-02-21T13:39:05.225Z"
+  },
+  {
+    "type": "category",
+    "id": "accessories",
+    "image": "/uploads/categorys/90fcd943-2b47-46f5-bce8-42863f637015.jpg",
+    "category": "accessories",
+    "en": {
+      "title": "Accessories",
+      "subtitle": "Smart details that make the difference"
+    },
+    "ar": {
+      "title": "إكسسوارات",
+      "subtitle": "تفاصيل ذكية تصنع الفارق"
+    },
+    "active": true,
+    "order": 1,
+    "createdAt": "2026-02-17T00:00:00Z",
+    "updatedAt": "2026-03-12T20:21:27.492Z"
+  },
+  {
+    "type": "category",
+    "id": "lit",
+    "category": "Cars lights",
+    "image": "/uploads/categorys/ac281d80-a74a-4b46-b3bd-ff67a3c3ecad.jpg",
+    "order": 5,
+    "active": true,
+    "ar": {
+      "title": "إضاءات السياره",
+      "subtitle": "إجعل الليل مضيء"
+    },
+    "en": {
+      "title": "Cars lights",
+      "subtitle": "Make Your Road Clear"
+    },
+    "createdAt": "2026-02-20T22:34:53.478Z",
+    "updatedAt": "2026-02-21T13:39:31.773Z"
+  },
+  {
+    "type": "category",
+    "id": "DET",
+    "category": "Detergent",
+    "image": "/uploads/categorys/06863a94-5471-420b-8ef0-2752d7cae015.jpg",
+    "order": 6,
+    "active": true,
+    "ar": {
+      "title": "منظفات",
+      "subtitle": "مجهود أقل و نتيجه مبهره"
+    },
+    "en": {
+      "title": "Detergent",
+      "subtitle": "Less Effort More Revenue"
+    },
+    "createdAt": "2026-02-21T13:41:47.976Z",
+    "updatedAt": "2026-02-21T13:42:11.078Z"
+  }
+]
