@@ -2,16 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 
-/* ================= Runtime ================= */
-
-export const runtime = "nodejs";
-
-/* ================= Supabase (Service Role) ================= */
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// ✅ Prevent static optimization
+export const dynamic = "force-dynamic";
 
 /* ================= Admin Auth ================= */
 
@@ -37,6 +29,16 @@ function unauthorized() {
 
 export async function GET(req: NextRequest) {
   try {
+    // ✅ Safe ENV + Client
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      throw new Error("Missing Supabase ENV");
+    }
+
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+
     /* -------- Basic Auth -------- */
 
     const authHeader = req.headers.get("authorization");
@@ -79,7 +81,6 @@ export async function GET(req: NextRequest) {
       .order("created_at", { ascending: true });
 
     if (error) {
-      console.error("load tracking events error:", error);
       return NextResponse.json(
         { ok: false, error: "Failed to load tracking events" },
         { status: 500 }

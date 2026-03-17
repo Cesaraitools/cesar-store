@@ -5,9 +5,11 @@ const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
 
 const SESSION_COOKIE_NAME = "cesar_admin_session";
-const SESSION_VERSION = "v1";
-
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
+
+function getSessionVersion() {
+  return globalThis.ADMIN_SESSION_VERSION || "v1";
+}
 
 function hashPassword(password: string) {
   return crypto.createHash("sha256").update(password).digest("hex");
@@ -24,21 +26,7 @@ export async function POST(request: Request) {
 
     const { username, password } = await request.json();
 
-    if (!username || !password) {
-      return NextResponse.json(
-        { error: "Username and password are required" },
-        { status: 400 }
-      );
-    }
-
     const incomingHash = hashPassword(password);
-
-    if (incomingHash.length !== ADMIN_PASSWORD_HASH.length) {
-      return NextResponse.json(
-        { error: "Invalid credentials" },
-        { status: 401 }
-      );
-    }
 
     const isValidUser =
       username === ADMIN_USERNAME &&
@@ -60,7 +48,7 @@ export async function POST(request: Request) {
 
     response.cookies.set({
       name: SESSION_COOKIE_NAME,
-      value: `${SESSION_VERSION}:${sessionToken}`,
+      value: `${getSessionVersion()}:${sessionToken}`,
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",

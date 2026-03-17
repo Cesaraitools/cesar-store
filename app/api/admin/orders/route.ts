@@ -2,12 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 
-/* ---------------- Supabase (Service Role) ---------------- */
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// ✅ Prevent static optimization
+export const dynamic = "force-dynamic";
 
 /* ---------------- Admin Credentials ---------------- */
 
@@ -33,6 +29,16 @@ function unauthorized() {
 
 export async function GET(req: NextRequest) {
   try {
+    // ✅ Safe ENV + Client
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      throw new Error("Missing Supabase ENV");
+    }
+
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+
     /* -------- Basic Auth -------- */
 
     const authHeader = req.headers.get("authorization");
@@ -56,12 +62,11 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const limit = Number(searchParams.get("limit") || 20);
 
-    /* -------- Load Orders + Latest Status -------- */
+    /* -------- Load Orders -------- */
 
     const { data, error } = await supabase
       .from("orders")
-      .select(
-        `
+      .select(`
         id,
         total,
         currency,
@@ -71,8 +76,7 @@ export async function GET(req: NextRequest) {
           status,
           created_at
         )
-      `
-      )
+      `)
       .order("created_at", { ascending: false })
       .limit(limit);
 
@@ -82,8 +86,6 @@ export async function GET(req: NextRequest) {
         { status: 500 }
       );
     }
-
-    /* -------- Normalize Status -------- */
 
     const orders = data.map((order) => {
       const events = order.order_tracking_events || [];
