@@ -5,6 +5,12 @@ const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET;
 
 const SESSION_VERSION = "v1";
 
+function toHex(buffer: ArrayBuffer) {
+  return Array.from(new Uint8Array(buffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 async function verifySignature(token: string, signature: string) {
   if (!ADMIN_SESSION_SECRET) return false;
 
@@ -24,7 +30,7 @@ async function verifySignature(token: string, signature: string) {
     encoder.encode(token)
   );
 
-  const expected = Buffer.from(signed).toString("hex");
+  const expected = toHex(signed);
 
   return expected === signature;
 }
