@@ -1,6 +1,6 @@
 "use client";
 
-import { categories } from "@/data/categories";
+import categories from "@/data-store/categories.json";
 import { useLanguage } from "@/context/LanguageContext";
 import CategoryCard from "@/components/category/CategoryCard";
 
@@ -14,7 +14,7 @@ export default function ExploreCategories() {
       </h2>
 
       <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-        {categories.map((cat) => (
+        {categories.map((cat: any) => (
           <CategoryCard key={cat.id} category={cat} />
         ))}
       </div>
