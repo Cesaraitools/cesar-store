@@ -4,34 +4,30 @@
 // Route: /api/admin/analytics
 // Method: GET
 // =====================================================
-// DATA SOURCES (VIEWS):
-// - analytics_volume
-// - analytics_orders_per_day
-// - analytics_financial_totals
-// - analytics_revenue_per_day
-// - analytics_lifecycle_durations
-// - analytics_reliability
-// - analytics_orders_multiple_versions
-// - analytics_orders_index
-//
-// RULES:
-// - Read-only
-// - No mutations
-// - No background jobs
-// - No realtime
-// - Filters applied safely
-// =====================================================
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// ✅ Prevent static optimization (CRITICAL)
+export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
+    // -------------------------------------------------
+    // ENV Validation (CRITICAL)
+    // -------------------------------------------------
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      throw new Error("Missing Supabase environment variables");
+    }
+
+    // -------------------------------------------------
+    // Supabase Client (SAFE INIT)
+    // -------------------------------------------------
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+
     const { searchParams } = new URL(req.url);
 
     const dateFrom = searchParams.get("from");
@@ -118,7 +114,7 @@ export async function GET(req: NextRequest) {
     if (mvError) throw mvError;
 
     // -------------------------------------------------
-    // Orders Index (Filters: status / search / date)
+    // Orders Index (Filters)
     // -------------------------------------------------
     let ordersIndexQuery = supabase
       .from("analytics_orders_index")
@@ -148,7 +144,7 @@ export async function GET(req: NextRequest) {
     if (oiError) throw oiError;
 
     // -------------------------------------------------
-    // Response (Analytics Data Contract)
+    // Response
     // -------------------------------------------------
     return NextResponse.json({
       volume,
