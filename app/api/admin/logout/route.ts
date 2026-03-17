@@ -1,26 +1,17 @@
 import { NextResponse } from "next/server";
+import { getIronSession } from "iron-session";
+import { sessionOptions, SessionData } from "@/lib/session";
 
-const SESSION_COOKIE_NAME = "cesar_admin_session";
-
-export async function POST() {
+export async function POST(request: Request) {
   try {
-    const response = NextResponse.json(
-      { success: true },
-      { status: 200 }
-    );
-
-    response.cookies.set({
-      name: SESSION_COOKIE_NAME,
-      value: "",
-      path: "/",
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 0, // يمسح الكوكي فورًا
-    });
-
+    const response = NextResponse.json({ success: true });
+    const session = await getIronSession<SessionData>(request, response, sessionOptions);
+    
+    session.destroy();
+    
     return response;
   } catch (error) {
+    console.error("Logout error:", error);
     return NextResponse.json(
       { error: "Failed to logout" },
       { status: 500 }
