@@ -14,7 +14,8 @@ export async function POST() {
       value: "",
       path: "/",
       httpOnly: true,
-      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
       maxAge: 0, // يمسح الكوكي فورًا
     });
 

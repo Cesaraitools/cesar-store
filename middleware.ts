@@ -1,9 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 
 const SESSION_COOKIE_NAME = "cesar_admin_session";
+const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET;
 
-function getSessionVersion() {
-  return globalThis.ADMIN_SESSION_VERSION || "v1";
+const SESSION_VERSION = "v1";
+
+function verifySignature(token: string, signature: string) {
+  if (!ADMIN_SESSION_SECRET) return false;
+
+  const expectedSignature = crypto
+    .createHmac("sha256", ADMIN_SESSION_SECRET)
+    .update(token)
+    .digest("hex");
+
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(signature),
+      Buffer.from(expectedSignature)
+    );
+  } catch {
+    return false;
+  }
 }
 
 function isValidSession(value: string | undefined) {
@@ -12,21 +30,30 @@ function isValidSession(value: string | undefined) {
   const parts = value.split(":");
   if (parts.length !== 2) return false;
 
-  const [version, token] = parts;
+  const [version, rest] = parts;
 
-  if (version !== getSessionVersion()) return false;
-  if (!token || token.length < 10) return false;
+  if (version !== SESSION_VERSION) return false;
 
-  return true;
+  const tokenParts = rest.split(".");
+  if (tokenParts.length !== 2) return false;
+
+  const [token, signature] = tokenParts;
+
+  if (!token || !signature) return false;
+  if (token.length < 10) return false;
+
+  return verifySignature(token, signature);
 }
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Allow login page
   if (pathname === "/admin/login") {
     return NextResponse.next();
   }
 
+  // Protect admin pages
   if (pathname.startsWith("/admin")) {
     const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME)?.value;
 
@@ -37,10 +64,12 @@ export function middleware(request: NextRequest) {
     }
   }
 
+  // Allow login API
   if (pathname === "/api/admin/login") {
     return NextResponse.next();
   }
 
+  // Protect admin APIs
   if (pathname.startsWith("/api/admin")) {
     const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME)?.value;
 

@@ -1,0 +1,281 @@
+CESAR STORE — MASTER RECOVERY / CONTINUATION PROMPT
+Project Identity
+
+Project: Cesar Store
+Type: Production-Grade E-Commerce Platform
+
+Goal:
+Build a scalable, secure, production-ready online store with clean architecture, strict separation of concerns, and zero technical debt.
+
+🧠 CURRENT REAL STATE (CRITICAL)
+
+The project is now:
+
+✅ Successfully deployed on Vercel (Production READY)
+
+After resolving multiple critical architectural issues.
+
+🔥 MAJOR ISSUES THAT WERE FIXED (VERY IMPORTANT CONTEXT)
+1️⃣ Supabase Initialization Crash
+❌ Problem
+const supabase = createClient(...) // at module level
+💥 Result
+
+Runs during build
+
+ENV not guaranteed
+
+Crash:
+
+supabaseUrl is required
+✅ Fix
+
+Move createClient inside request handler
+
+Add ENV validation
+
+Ensure server-only usage
+
+2️⃣ Wrong ENV Usage (Vercel)
+❌ Problem
+
+ENV name was written as:
+
+process.env.NEXT_PUBLIC_SUPABASE_URL
+💥 Result
+
+Invalid ENV
+
+Runtime crash
+
+✅ Fix
+
+Correct usage:
+
+In Vercel:
+
+NEXT_PUBLIC_SUPABASE_URL
+
+In code:
+
+process.env.NEXT_PUBLIC_SUPABASE_URL
+3️⃣ Vercel Deployment Misunderstanding
+Key Insight:
+Vercel ALWAYS serves last successful build
+
+So:
+
+Failed deploy ≠ new code live
+
+Old version continues
+
+4️⃣ Next.js Static vs Dynamic (CRITICAL)
+❌ Problem
+
+APIs using:
+
+request.headers
+
+But Next.js tried to statically render them
+
+💥 Error:
+Dynamic server usage error
+✅ Fix
+
+Add to ALL dynamic API routes:
+
+export const dynamic = "force-dynamic";
+Also:
+
+Move Supabase init inside handler
+
+5️⃣ App Router — useSearchParams Crash
+❌ Problem
+
+Using:
+
+useSearchParams()
+
+inside page → causes prerender crash
+
+💥 Error:
+must be wrapped in suspense boundary
+❌ WRONG ATTEMPTS (IMPORTANT LESSON)
+
+Adding "use client" to page ❌
+
+Adding force-dynamic only ❌
+
+✅ FINAL CORRECT ARCHITECTURE
+
+Split into:
+
+Server Page:
+<Suspense>
+  <ClientComponent />
+</Suspense>
+Client Component:
+
+Contains useSearchParams
+
+Contains all logic
+
+📦 CURRENT STABLE ARCHITECTURE
+Frontend
+
+Next.js 14 (App Router)
+
+Clear separation:
+
+Server Components
+
+Client Components
+
+No illegal hook usage
+
+Backend (API Routes)
+
+All admin routes:
+
+force-dynamic
+
+No module-level Supabase init
+
+Uses:
+
+Service Role Key (server only)
+
+Security (Current)
+
+Admin auth:
+
+Basic Auth
+
+ENV-based credentials
+
+NOT fully secured yet (middleware missing)
+
+Database
+
+Supabase PostgreSQL
+
+Stable schema:
+
+users
+
+orders
+
+order_tracking_events
+
+carts
+
+cart_items
+
+RLS partially applied
+
+Deployment
+
+Platform: Vercel
+
+Status:
+
+🟢 Production READY
+⚠️ CRITICAL ARCHITECTURAL RULES (MUST FOLLOW)
+
+Never modify any file without receiving full file first
+
+Always return FULL file with FULL path
+
+Never send partial snippets
+
+Never assume file structure
+
+Maintain Single Source of Truth
+
+No temporary fixes
+
+No technical debt
+
+Fix root cause only (not symptoms)
+
+🔐 SECURITY WARNING
+SUPABASE_SERVICE_ROLE_KEY
+
+MUST only exist in server routes
+
+NEVER exposed to client
+
+Any leak = full DB compromise
+
+🧠 IMPORTANT LESSONS LEARNED (KEEP THESE)
+Next.js:
+
+Static vs Dynamic MUST be explicit
+
+App Router is strict
+
+Hooks like useSearchParams:
+→ Client only
+→ Inside Suspense
+
+Vercel:
+
+Build failure ≠ deploy failure
+
+Always check:
+
+Deployments → Status
+Supabase:
+
+Never initialize at module level in API routes
+
+Always validate ENV
+
+🎯 CURRENT BLOCKER
+❌ NONE
+
+System is stable.
+
+🚨 NEXT PHASE (CRITICAL)
+🔐 Admin Access Control (HIGH PRIORITY)
+Current Risk:
+
+/admin may be accessible without proper protection
+
+🎯 REQUIRED IMPLEMENTATION
+
+Protect all /admin/* routes
+
+Enforce authentication
+
+Prevent bypass
+
+Validate session securely
+
+Do NOT break APIs
+
+📌 NEXT STEP (MANDATORY)
+
+You MUST request:
+
+middleware.ts
+
+Then:
+
+Analyze routing protection
+
+Implement admin guard
+
+Ensure:
+
+No public access
+
+No API break
+
+Clean architecture
+
+🏁 FINAL STATUS
+✅ Deployment: SUCCESS
+✅ Architecture: STABLE
+⚠️ Security: NEEDS HARDENING (Admin)
+END OF PROMPT
