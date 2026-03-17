@@ -1,33 +1,18 @@
 import { NextResponse } from "next/server";
+import { getIronSession } from "iron-session";
+import { sessionOptions, SessionData } from "@/lib/session";
 import crypto from "crypto";
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
-const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET;
-
-const SESSION_COOKIE_NAME = "cesar_admin_session";
-const SESSION_TTL_SECONDS = 60 * 60 * 8;
-
-const SESSION_VERSION = "v1";
 
 function hashPassword(password: string) {
   return crypto.createHash("sha256").update(password).digest("hex");
 }
 
-function signToken(token: string) {
-  if (!ADMIN_SESSION_SECRET) {
-    throw new Error("Missing ADMIN_SESSION_SECRET");
-  }
-
-  return crypto
-    .createHmac("sha256", ADMIN_SESSION_SECRET)
-    .update(token)
-    .digest("hex");
-}
-
 export async function POST(request: Request) {
   try {
-    if (!ADMIN_USERNAME || !ADMIN_PASSWORD_HASH || !ADMIN_SESSION_SECRET) {
+    if (!ADMIN_USERNAME || !ADMIN_PASSWORD_HASH) {
       return NextResponse.json(
         { error: "Admin credentials are not configured" },
         { status: 500 }
@@ -36,41 +21,48 @@ export async function POST(request: Request) {
 
     const { username, password } = await request.json();
 
-    const incomingHash = hashPassword(password);
-
-    const isValidUser =
-      username === ADMIN_USERNAME &&
-      crypto.timingSafeEqual(
-        Buffer.from(incomingHash),
-        Buffer.from(ADMIN_PASSWORD_HASH)
-      );
-
-    if (!isValidUser) {
+    // التحقق من اسم المستخدم
+    if (username !== ADMIN_USERNAME) {
       return NextResponse.json(
         { error: "Invalid credentials" },
         { status: 401 }
       );
     }
 
-    const sessionToken = crypto.randomUUID();
-    const signature = signToken(sessionToken);
+    // التحقق من كلمة المرور باستخدام timingSafeEqual لمنع هجمات التوقيت
+    const incomingHash = hashPassword(password);
+    
+    try {
+      const isPasswordValid = crypto.timingSafeEqual(
+        Buffer.from(incomingHash, 'hex'),
+        Buffer.from(ADMIN_PASSWORD_HASH, 'hex')
+      );
 
-    const sessionValue = `${SESSION_VERSION}:${sessionToken}.${signature}`;
+      if (!isPasswordValid) {
+        return NextResponse.json(
+          { error: "Invalid credentials" },
+          { status: 401 }
+        );
+      }
+    } catch (error) {
+      // في حالة خطأ في المقارنة (مثلاً طول مختلف)
+      return NextResponse.json(
+        { error: "Invalid credentials" },
+        { status: 401 }
+      );
+    }
 
+    // إنشاء الجلسة
     const response = NextResponse.json({ success: true });
-
-    response.cookies.set({
-      name: SESSION_COOKIE_NAME,
-      value: sessionValue,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      path: "/",
-      maxAge: SESSION_TTL_SECONDS,
-    });
+    const session = await getIronSession<SessionData>(request, response, sessionOptions);
+    
+    session.isAdmin = true;
+    session.username = username;
+    await session.save();
 
     return response;
-  } catch {
+  } catch (error) {
+    console.error("Login error:", error);
     return NextResponse.json(
       { error: "Unexpected server error" },
       { status: 500 }
