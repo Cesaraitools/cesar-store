@@ -1,37 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 
 const SESSION_COOKIE_NAME = "cesar_admin_session";
 const SESSION_VERSION = "v1";
 
-async function verifySignature(token: string, signature: string) {
+function verifySignature(token: string, signature: string) {
   const secret = process.env.ADMIN_SESSION_SECRET;
 
   if (!secret) return false;
 
-  const encoder = new TextEncoder();
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(token)
+    .digest("hex");
 
-  const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-
-  const signed = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    encoder.encode(token)
-  );
-
-  const expectedSignature = Array.from(new Uint8Array(signed))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-
-  return expectedSignature === signature;
+  return expected === signature;
 }
 
-export async function middleware(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   /* ===============================
@@ -66,7 +52,7 @@ export async function middleware(request: NextRequest) {
         return redirectToLogin(request);
       }
 
-      const isValid = await verifySignature(token, signature);
+      const isValid = verifySignature(token, signature);
 
       if (!isValid) {
         return redirectToLogin(request);

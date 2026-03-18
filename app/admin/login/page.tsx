@@ -31,7 +31,8 @@ export default function AdminLoginPage() {
         return;
       }
 
-      // نجاح → دخول الادمن
+      // ✅ نجاح
+      setLoading(false);
       router.replace("/admin");
     } catch {
       setError("Unexpected error");
