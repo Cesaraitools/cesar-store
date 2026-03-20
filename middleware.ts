@@ -1,64 +1,56 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 
 const SESSION_COOKIE_NAME = "cesar_admin_session";
-const SESSION_VERSION = "v1"; // ← Version المسموح بها حاليًا
+const SESSION_VERSION = "v1";
+const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET!;
+
+function verifyToken(token: string, signature: string) {
+  const expected = crypto
+    .createHmac("sha256", ADMIN_SESSION_SECRET)
+    .update(token)
+    .digest("hex");
+
+  return crypto.timingSafeEqual(
+    Buffer.from(signature),
+    Buffer.from(expected)
+  );
+}
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  /* ===============================
-     Admin Pages
-  =============================== */
-
-  // السماح بصفحة تسجيل الدخول
+  // السماح لصفحة login
   if (pathname === "/admin/login") {
     return NextResponse.next();
   }
 
-  if (pathname.startsWith("/admin")) {
-    const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME);
-
-    if (!sessionCookie) {
-      const loginUrl = request.nextUrl.clone();
-      loginUrl.pathname = "/admin/login";
-      return NextResponse.redirect(loginUrl);
-    }
-
-    const [version] = sessionCookie.value.split(":");
-
-    if (version !== SESSION_VERSION) {
-      const loginUrl = request.nextUrl.clone();
-      loginUrl.pathname = "/admin/login";
-      return NextResponse.redirect(loginUrl);
-    }
-  }
-
-  /* ===============================
-     Admin APIs
-  =============================== */
-
-  // السماح بتسجيل الدخول بدون Session
+  // السماح ل API login
   if (pathname === "/api/admin/login") {
     return NextResponse.next();
   }
 
-  if (pathname.startsWith("/api/admin")) {
+  if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
     const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME);
 
     if (!sessionCookie) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      if (pathname.startsWith("/api")) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+
+      const loginUrl = request.nextUrl.clone();
+      loginUrl.pathname = "/admin/login";
+      return NextResponse.redirect(loginUrl);
     }
 
-    const [version] = sessionCookie.value.split(":");
+    const [version, payload] = sessionCookie.value.split(":");
+    if (version !== SESSION_VERSION || !payload) {
+      return NextResponse.redirect(new URL("/admin/login", request.url));
+    }
 
-    if (version !== SESSION_VERSION) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+    const [token, signature] = payload.split(".");
+    if (!token || !signature || !verifyToken(token, signature)) {
+      return NextResponse.redirect(new URL("/admin/login", request.url));
     }
   }
 
