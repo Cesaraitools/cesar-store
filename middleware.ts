@@ -24,13 +24,13 @@ export function middleware(request: NextRequest) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
 
-      return NextResponse.redirect(new URL("/admin/login", request.url));
+      return NextResponse.redirect(new URL("/admin-login", request.url));
     }
 
     const [version] = sessionCookie.value.split(":");
 
     if (version !== SESSION_VERSION) {
-      return NextResponse.redirect(new URL("/admin/login", request.url));
+      return NextResponse.redirect(new URL("/admin-login", request.url));
     }
   }
 
