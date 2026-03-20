@@ -35,7 +35,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   if (!payload || payload.length < 10) {
     redirect("/admin/login");
   }
-
+console.log("ADMIN LAYOUT RUNNING");
   // ✅ سليم → يدخل
   return <AdminClientLayout>{children}</AdminClientLayout>;
 }
