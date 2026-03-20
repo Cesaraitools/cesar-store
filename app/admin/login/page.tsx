@@ -31,8 +31,9 @@ export default function AdminLoginPage() {
         return;
       }
 
-      // نجاح → دخول الادمن
+      // ✅ الحل هنا
       router.replace("/admin");
+      router.refresh(); // 🔥 مهم جدًا
     } catch {
       setError("Unexpected error");
       setLoading(false);
@@ -55,8 +56,7 @@ export default function AdminLoginPage() {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-              placeholder="Admin username"
+              className="w-full border rounded px-3 py-2 text-sm"
               required
             />
           </div>
@@ -69,8 +69,7 @@ export default function AdminLoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-              placeholder="Admin password"
+              className="w-full border rounded px-3 py-2 text-sm"
               required
             />
           </div>
@@ -84,7 +83,7 @@ export default function AdminLoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-black text-white py-2 rounded text-sm hover:bg-gray-900 disabled:opacity-60"
+            className="w-full bg-black text-white py-2 rounded text-sm"
           >
             {loading ? "Logging in..." : "Login"}
           </button>
