@@ -12,18 +12,30 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const cookieStore = cookies();
   const session = cookieStore.get(SESSION_COOKIE_NAME);
 
-  // ❌ مفيش session → رجوع login
-  if (!session) {
+  // ❌ لا يوجد كوكي
+  if (!session || !session.value) {
     redirect("/admin/login");
   }
 
-  const [version] = session.value.split(":");
+  const parts = session.value.split(":");
 
-  // ❌ session غير صالحة
+  // ❌ كوكي تالفة
+  if (parts.length < 2) {
+    redirect("/admin/login");
+  }
+
+  const [version, payload] = parts;
+
+  // ❌ version غلط
   if (version !== SESSION_VERSION) {
     redirect("/admin/login");
   }
 
-  // ✅ UI بدون تغيير
+  // ❌ payload فاضي
+  if (!payload || payload.length < 10) {
+    redirect("/admin/login");
+  }
+
+  // ✅ سليم → يدخل
   return <AdminClientLayout>{children}</AdminClientLayout>;
 }
