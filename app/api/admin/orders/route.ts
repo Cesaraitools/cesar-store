@@ -1,35 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import crypto from "crypto";
 
 // ✅ Prevent static optimization
 export const dynamic = "force-dynamic";
 
-/* ---------------- Admin Credentials ---------------- */
-
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "";
-const ADMIN_PASSWORD_HASH = (process.env.ADMIN_PASSWORD_HASH || "").toLowerCase();
-
-/* ---------------- Helpers ---------------- */
-
-function sha256(input: string) {
-  return crypto.createHash("sha256").update(input).digest("hex");
-}
-
-function unauthorized() {
-  return new NextResponse("Unauthorized", {
-    status: 401,
-    headers: {
-      "WWW-Authenticate": 'Basic realm="Admin Area"',
-    },
-  });
-}
-
-/* ---------------- Route ---------------- */
+const SESSION_COOKIE_NAME = "cesar_admin_session";
+const SESSION_VERSION = "v1";
 
 export async function GET(req: NextRequest) {
   try {
-    // ✅ Safe ENV + Client
+    /* -------- Check Session Cookie -------- */
+
+    const session = req.cookies.get(SESSION_COOKIE_NAME);
+
+    if (!session || !session.value) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const parts = session.value.split(":");
+
+    if (parts.length < 2 || parts[0] !== SESSION_VERSION) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    /* -------- Supabase -------- */
+
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -39,30 +34,10 @@ export async function GET(req: NextRequest) {
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    /* -------- Basic Auth -------- */
-
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader || !authHeader.startsWith("Basic ")) {
-      return unauthorized();
-    }
-
-    const base64 = authHeader.replace("Basic ", "");
-    const decoded = Buffer.from(base64, "base64").toString("utf8");
-    const [username, password] = decoded.split(":");
-
-    if (
-      username !== ADMIN_USERNAME ||
-      sha256(password) !== ADMIN_PASSWORD_HASH
-    ) {
-      return unauthorized();
-    }
-
-    /* -------- Pagination -------- */
+    /* -------- Load Orders -------- */
 
     const { searchParams } = new URL(req.url);
     const limit = Number(searchParams.get("limit") || 20);
-
-    /* -------- Load Orders -------- */
 
     const { data, error } = await supabase
       .from("orders")
