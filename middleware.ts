@@ -6,30 +6,34 @@ const SESSION_VERSION = "v1";
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // ✅ استثناء صفحة اللوجين (أي شكل)
-  if (pathname.startsWith("/admin/login")) {
+  // ✅ أهم حاجة: استثناء صريح ونهائي
+  if (
+    pathname === "/admin/login" ||
+    pathname.startsWith("/admin/login") ||
+    pathname.startsWith("/api/admin/login")
+  ) {
     return NextResponse.next();
   }
 
-  // ✅ استثناء API اللوجين بالكامل
-  if (pathname.startsWith("/api/admin/login")) {
-    return NextResponse.next();
-  }
-
-  // ✅ حماية كل admin
+  // ✅ حماية admin
   if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
     const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME);
 
-    // ❌ مفيش session
     if (!sessionCookie) {
       if (pathname.startsWith("/api")) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
 
-      return NextResponse.redirect(new URL("/admin/login", request.url));
+      const loginUrl = new URL("/admin/login", request.url);
+
+      // 🔥 مهم: منع loop
+      if (pathname !== "/admin/login") {
+        return NextResponse.redirect(loginUrl);
+      }
+
+      return NextResponse.next();
     }
 
-    // ❌ session version غلط
     const [version] = sessionCookie.value.split(":");
 
     if (version !== SESSION_VERSION) {
@@ -37,9 +41,7 @@ export function middleware(request: NextRequest) {
         new URL("/admin/login", request.url)
       );
 
-      // 🔥 امسح الكوكي عشان تمنع loops
       response.cookies.delete(SESSION_COOKIE_NAME);
-
       return response;
     }
   }
