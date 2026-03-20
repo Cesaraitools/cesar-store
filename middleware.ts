@@ -6,16 +6,7 @@ const SESSION_VERSION = "v1";
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // ✅ أهم حاجة: استثناء صريح ونهائي
-  if (
-    pathname === "/admin/login" ||
-    pathname.startsWith("/admin/login") ||
-    pathname.startsWith("/api/admin/login")
-  ) {
-    return NextResponse.next();
-  }
-
-  // ✅ حماية admin
+  // حماية admin
   if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
     const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME);
 
@@ -24,14 +15,7 @@ export function middleware(request: NextRequest) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
 
-      const loginUrl = new URL("/admin/login", request.url);
-
-      // 🔥 مهم: منع loop
-      if (pathname !== "/admin/login") {
-        return NextResponse.redirect(loginUrl);
-      }
-
-      return NextResponse.next();
+      return NextResponse.redirect(new URL("/admin/login", request.url));
     }
 
     const [version] = sessionCookie.value.split(":");
@@ -50,5 +34,11 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/api/admin/:path*"],
+  matcher: [
+    /*
+      ❗ استثناء login من البداية
+    */
+    "/admin((?!/login).*)",
+    "/api/admin((?!/login).*)",
+  ],
 };
