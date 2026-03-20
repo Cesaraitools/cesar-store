@@ -6,7 +6,16 @@ const SESSION_VERSION = "v1";
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // حماية admin
+  // ✅ مهم جدًا: السماح لأي request فيه login
+  if (pathname.startsWith("/admin/login")) {
+    return NextResponse.next();
+  }
+
+  if (pathname.startsWith("/api/admin/login")) {
+    return NextResponse.next();
+  }
+
+  // حماية باقي الادمن
   if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
     const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME);
 
@@ -21,12 +30,7 @@ export function middleware(request: NextRequest) {
     const [version] = sessionCookie.value.split(":");
 
     if (version !== SESSION_VERSION) {
-      const response = NextResponse.redirect(
-        new URL("/admin/login", request.url)
-      );
-
-      response.cookies.delete(SESSION_COOKIE_NAME);
-      return response;
+      return NextResponse.redirect(new URL("/admin/login", request.url));
     }
   }
 
@@ -34,11 +38,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    /*
-      ❗ استثناء login من البداية
-    */
-    "/admin((?!/login).*)",
-    "/api/admin((?!/login).*)",
-  ],
+  matcher: ["/admin/:path*", "/api/admin/:path*"],
 };
