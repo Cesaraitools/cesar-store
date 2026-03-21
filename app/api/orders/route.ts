@@ -1,3 +1,5 @@
+// app/api/orders/route.ts
+
 import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
@@ -165,7 +167,7 @@ export async function POST(request: Request) {
       .insert({
         id,
         order_number,
-        status: "confirmed",
+        status: "requested", // 🔥 FIX
         subtotal,
         total: subtotal,
         currency,
@@ -190,7 +192,7 @@ export async function POST(request: Request) {
 
     await serviceSupabase.from("order_tracking_events").insert([
       { order_id: id, status: "requested", actor: "system" },
-      { order_id: id, status: "confirmed", actor: "system" },
+      // ❌ حذف confirmed من البداية
     ]);
 
     return NextResponse.json({
