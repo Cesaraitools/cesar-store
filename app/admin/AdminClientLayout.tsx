@@ -24,7 +24,7 @@ export default function AdminClientLayout({ children }: { children: ReactNode })
       });
 
       // ✅ مهم جدًا: hard redirect
-      window.location.href = "/";
+      window.location.href = "/admin-login";
 
     } catch (error) {
       console.error("Logout failed", error);
