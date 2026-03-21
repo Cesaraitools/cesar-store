@@ -2,15 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 
+// ✅ NEW
+import { validateAdminSession } from "@/lib/admin/validateAdminSession";
+
 export const runtime = "nodejs";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
-
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "";
-const ADMIN_PASSWORD_HASH = (process.env.ADMIN_PASSWORD_HASH || "").toLowerCase();
 
 type TrackingStatus =
   | "requested"
@@ -29,19 +29,6 @@ const ALLOWED_TRANSITIONS: Record<TrackingStatus, TrackingStatus[]> = {
   canceled: [],
 };
 
-function sha256(input: string) {
-  return crypto.createHash("sha256").update(input).digest("hex");
-}
-
-function unauthorized() {
-  return new NextResponse("Unauthorized", {
-    status: 401,
-    headers: {
-      "WWW-Authenticate": 'Basic realm="Admin Area"',
-    },
-  });
-}
-
 async function getCurrentStatus(orderId: string): Promise<TrackingStatus> {
   const { data } = await supabase
     .from("order_tracking_events")
@@ -59,25 +46,9 @@ async function getCurrentStatus(orderId: string): Promise<TrackingStatus> {
 
 export async function POST(req: NextRequest) {
   try {
-
-    const authHeader = req.headers.get("authorization");
-
-    if (!authHeader || !authHeader.startsWith("Basic ")) {
-      return unauthorized();
-    }
-
-    const decoded = Buffer.from(
-      authHeader.replace("Basic ", ""),
-      "base64"
-    ).toString("utf8");
-
-    const [username, password] = decoded.split(":");
-
-    if (
-      username !== ADMIN_USERNAME ||
-      sha256(password) !== ADMIN_PASSWORD_HASH
-    ) {
-      return unauthorized();
+    // 🔒 NEW: UNIFIED ADMIN AUTH
+    if (!validateAdminSession()) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await req.json();
@@ -128,7 +99,7 @@ export async function POST(req: NextRequest) {
         id: crypto.randomUUID(),
         order_id: orderId,
         status: event,
-        actor: ADMIN_USERNAME,
+        actor: "admin",
       });
 
     if (insertError) {
