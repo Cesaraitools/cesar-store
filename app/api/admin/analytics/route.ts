@@ -8,11 +8,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+// ✅ NEW: Admin Session Validation
+import { validateAdminSession } from "@/lib/admin/validateAdminSession";
+
 // ✅ Prevent static optimization (CRITICAL)
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
+    // 🔒 NEW: SECURITY LAYER (DO NOT REMOVE)
+    if (!validateAdminSession()) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     // -------------------------------------------------
     // ENV Validation (CRITICAL)
     // -------------------------------------------------
@@ -144,7 +152,7 @@ export async function GET(req: NextRequest) {
     if (oiError) throw oiError;
 
     // -------------------------------------------------
-    // Response
+    // Response (UNCHANGED)
     // -------------------------------------------------
     return NextResponse.json({
       volume,
