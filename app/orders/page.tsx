@@ -101,6 +101,24 @@ export default function OrdersPage() {
     load();
   }, []);
 
+  // 🔥 NEW: REALTIME UPDATE (SAFE)
+  useEffect(() => {
+    const channel = supabase
+      .channel("orders-list")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "orders" },
+        () => {
+          load(); // فقط نعمل reload — بدون أي تغيير UI
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   if (loading) {
     return (
       <div className="p-6 text-center text-sm text-muted-foreground">
