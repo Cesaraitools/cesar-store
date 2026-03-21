@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Tag,
@@ -15,12 +15,20 @@ import {
 export const dynamic = "force-dynamic";
 
 export default function AdminClientLayout({ children }: { children: ReactNode }) {
-  const router = useRouter();
   const pathname = usePathname();
 
   async function handleLogout() {
-    await fetch("/api/admin/logout", { method: "POST" });
-    router.replace("/admin/login");
+    try {
+      await fetch("/api/admin/logout", {
+        method: "POST",
+      });
+
+      // ✅ مهم جدًا: hard redirect
+      window.location.href = "/";
+
+    } catch (error) {
+      console.error("Logout failed", error);
+    }
   }
 
   const navItems = [
