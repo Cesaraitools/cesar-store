@@ -1,25 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+// ✅ NEW
+import { validateAdminSession } from "@/lib/admin/validateAdminSession";
+
 // ✅ Prevent static optimization
 export const dynamic = "force-dynamic";
 
-const SESSION_COOKIE_NAME = "cesar_admin_session";
-const SESSION_VERSION = "v1";
-
 export async function GET(req: NextRequest) {
   try {
-    /* -------- Check Session Cookie -------- */
-
-    const session = req.cookies.get(SESSION_COOKIE_NAME);
-
-    if (!session || !session.value) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const parts = session.value.split(":");
-
-    if (parts.length < 2 || parts[0] !== SESSION_VERSION) {
+    /* 🔒 NEW: SECURE VALIDATION */
+    if (!validateAdminSession()) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -37,7 +28,7 @@ export async function GET(req: NextRequest) {
     /* -------- Load Orders -------- */
 
     const { searchParams } = new URL(req.url);
-    const limit = Number(searchParams.get("limit") || 20);
+    const limit = Number(searchParams.get("limit") || 100);
 
     const { data, error } = await supabase
       .from("orders")
