@@ -1,34 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import crypto from "crypto";
+
+// ✅ NEW
+import { validateAdminSession } from "@/lib/admin/validateAdminSession";
 
 // ✅ Prevent static optimization
 export const dynamic = "force-dynamic";
 
-/* ================= Admin Auth ================= */
-
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "";
-const ADMIN_PASSWORD_HASH = (process.env.ADMIN_PASSWORD_HASH || "").toLowerCase();
-
-/* ================= Helpers ================= */
-
-function sha256(input: string) {
-  return crypto.createHash("sha256").update(input).digest("hex");
-}
-
-function unauthorized() {
-  return new NextResponse("Unauthorized", {
-    status: 401,
-    headers: {
-      "WWW-Authenticate": 'Basic realm="Admin Area"',
-    },
-  });
-}
-
-/* ================= Route ================= */
-
 export async function GET(req: NextRequest) {
   try {
+    // 🔒 NEW: UNIFIED ADMIN AUTH
+    if (!validateAdminSession()) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     // ✅ Safe ENV + Client
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -38,27 +23,6 @@ export async function GET(req: NextRequest) {
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
-
-    /* -------- Basic Auth -------- */
-
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader || !authHeader.startsWith("Basic ")) {
-      return unauthorized();
-    }
-
-    const decoded = Buffer.from(
-      authHeader.replace("Basic ", ""),
-      "base64"
-    ).toString("utf8");
-
-    const [username, password] = decoded.split(":");
-
-    if (
-      username !== ADMIN_USERNAME ||
-      sha256(password) !== ADMIN_PASSWORD_HASH
-    ) {
-      return unauthorized();
-    }
 
     /* -------- Params -------- */
 
