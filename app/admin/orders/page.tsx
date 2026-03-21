@@ -14,8 +14,7 @@ import {
   XCircle, 
   Package,
   Calendar,
-  ChevronLeft,
-  ChevronRight
+  ChevronLeft
 } from "lucide-react";
 
 /* ---------------- Types ---------------- */
@@ -38,7 +37,7 @@ type TrackingEvent = {
   created_at: string;
 };
 
-/* ---------------- Pagination Config ---------------- */
+/* ---------------- Pagination ---------------- */
 const PAGE_SIZE = 10;
 
 /* ---------------- Status Helpers ---------------- */
@@ -68,20 +67,44 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-/* ---------------- Page ---------------- */
+/* ---------------- CSV Helper ---------------- */
+function exportOrdersToCSV(rows: OrderRow[]) {
+  if (!rows.length) return;
+  const headers = ["ID", "Customer", "Status", "Total", "Currency", "Date"];
+  const csvRows = [
+    headers.join(","),
+    ...rows.map((o) => [
+      o.id,
+      o.customer_snapshot?.name || "",
+      STATUS_LABELS[o.status] || o.status,
+      o.total,
+      o.currency,
+      new Date(o.created_at).toISOString(),
+    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(","))
+  ];
+
+  const blob = new Blob([csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `orders_${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  /* -------- Pagination State -------- */
-  const [page, setPage] = useState(1);
 
   /* -------- Filters -------- */
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [fromDate, setFromDate] = useState<string>("");
   const [toDate, setToDate] = useState<string>("");
   const [search, setSearch] = useState<string>("");
+
+  /* -------- Pagination State -------- */
+  const [page, setPage] = useState(1);
 
   const channelsRef = useRef<RealtimeChannel[]>([]);
 
@@ -141,64 +164,67 @@ export default function AdminOrdersPage() {
   }, [filteredOrders, page]);
 
   useEffect(() => {
-    setPage(1); // reset عند تغيير الفلاتر
+    setPage(1);
   }, [statusFilter, fromDate, toDate, search]);
 
   if (loading) return <div className="p-20 text-center animate-pulse text-blue-600 font-bold">جاري تحميل لوحة الطلبات...</div>;
   if (error) return <div className="p-20 text-center text-rose-600">{error}</div>;
 
+  const delivered = filteredOrders.filter(o => o.status === "delivered");
+  const revenue = delivered.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+
   return (
     <div className="space-y-8 text-right" dir="rtl">
 
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-black text-gray-900">سجل الطلبات اللحظي</h1>
+        </div>
+        <button onClick={() => exportOrdersToCSV(filteredOrders)} className="flex items-center gap-2 bg-white border px-5 py-2.5 rounded-xl text-sm font-bold">
+          <Download className="w-4 h-4" />
+          تصدير
+        </button>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white p-4 rounded-2xl flex gap-4 flex-wrap">
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="بحث..." className="p-2 bg-gray-50 rounded-xl"/>
+        <select value={statusFilter} onChange={(e)=>setStatusFilter(e.target.value)}>
+          <option value="all">الكل</option>
+          {Object.entries(STATUS_LABELS).map(([v,l])=>(
+            <option key={v} value={v}>{l}</option>
+          ))}
+        </select>
+      </div>
+
       {/* Table */}
-      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-right border-collapse">
-            <tbody className="divide-y divide-gray-50">
-              {paginatedOrders.map((o) => (
-                <tr key={o.id}>
-                  <td className="px-6 py-5 font-mono text-xs text-blue-600 font-bold">
-                    #{o.id.slice(0, 8)}
-                  </td>
-                  <td className="px-6 py-5">
-                    {o.customer_snapshot?.name || "—"}
-                  </td>
-                  <td className="px-6 py-5">
-                    <StatusBadge status={o.status} />
-                  </td>
-                  <td className="px-6 py-5">
-                    <Link href={`/admin/orders/${o.id}`}>
-                      التفاصيل
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <div className="bg-white rounded-3xl border overflow-hidden">
+        <table className="w-full">
+          <tbody>
+            {paginatedOrders.map(o=>(
+              <tr key={o.id}>
+                <td>{o.customer_snapshot?.name}</td>
+                <td><StatusBadge status={o.status}/></td>
+                <td><Link href={`/admin/orders/${o.id}`}>التفاصيل</Link></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
 
-        {/* 🔥 Pagination UI */}
-        <div className="flex items-center justify-between px-6 py-4 border-t">
-          <button
-            onClick={() => setPage(p => Math.max(p - 1, 1))}
-            disabled={page === 1}
-            className="flex items-center gap-1 text-sm font-bold disabled:opacity-40"
-          >
-            السابق <ChevronRight size={16} />
-          </button>
-
-          <div className="text-sm font-bold">
-            صفحة {page} من {totalPages || 1}
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex justify-between p-4">
+            <button onClick={()=>setPage(p=>Math.max(p-1,1))} disabled={page===1}>
+              السابق
+            </button>
+            <div>صفحة {page} من {totalPages}</div>
+            <button onClick={()=>setPage(p=>Math.min(p+1,totalPages))} disabled={page===totalPages}>
+              التالي
+            </button>
           </div>
+        )}
 
-          <button
-            onClick={() => setPage(p => Math.min(p + 1, totalPages))}
-            disabled={page === totalPages}
-            className="flex items-center gap-1 text-sm font-bold disabled:opacity-40"
-          >
-            التالي <ChevronLeft size={16} />
-          </button>
-        </div>
       </div>
     </div>
   );
