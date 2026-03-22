@@ -13,7 +13,8 @@ import {
   History,
   Package,
   Receipt,
-  Info
+  Info,
+  Printer
 } from "lucide-react";
 
 /* ---------------- Types ---------------- */
@@ -74,18 +75,13 @@ export default function AdminOrderDetailsPage() {
         setLoading(true);
         setError(null);
 
-        // 1. جلب الطلبات من مسار الأدمن (للحصول على بيانات العميل والحالة)
-        const ordersRes = await fetch(`/api/admin/orders`);
-        if (!ordersRes.ok) throw new Error("فشل جلب قائمة الطلبات");
-        const ordersData = await ordersRes.json();
-        const foundOrder = (ordersData.orders || []).find((o: any) => o.id === id);
+        // جلب تفاصيل الطلب (المنتجات والبيانات) من المسار العام للطلب
+        // أزلنا أي باراميتر يتعلق بالبريد الإلكتروني لضمان جلب البيانات للأدمن
+        const res = await fetch(`/api/orders/${id}`);
+        if (!res.ok) throw new Error("تعذر جلب تفاصيل المنتجات");
+        const data = await res.json();
 
-        if (!foundOrder) {
-          setError("الطلب غير موجود");
-          return;
-        }
-
-        // 2. جلب سجل التتبع
+        // جلب سجل التتبع
         const trackingRes = await fetch(`/api/admin/order-tracking-events?orderId=${id}`);
         let events: TrackingEvent[] = [];
         if (trackingRes.ok) {
@@ -93,24 +89,18 @@ export default function AdminOrderDetailsPage() {
           events = trackingData.events || [];
         }
 
-        // 3. محاولة جلب المنتجات (Items) من مسار الأدمن التفصيلي إذا وجد
-        // أو استخدام البيانات الموجودة في الكائن إذا كان الـ API يرسلها
-        setOrder({
-          ...foundOrder,
-          items: foundOrder.items || [], // تأكد أن الـ API الخاص بالأدمن يرسل الـ items
-          subtotal: foundOrder.subtotal || foundOrder.total,
-          shipping_fee: foundOrder.shipping_fee || 0
-        });
-
+        setOrder(data);
         setTracking(events);
+        
+        // ضبط الحالة الحالية بناءً على آخر حدث تتبع أو حالة الطلب الأساسية
         if (events.length > 0) {
           setStatus(events[events.length - 1].status as OrderStatus);
-        } else {
-          setStatus(foundOrder.status as OrderStatus);
+        } else if (data.status) {
+          setStatus(data.status as OrderStatus);
         }
 
       } catch (err: any) {
-        setError("خطأ في تحميل البيانات");
+        setError("خطأ في تحميل بيانات الطلب");
       } finally {
         setLoading(false);
       }
@@ -131,7 +121,7 @@ export default function AdminOrderDetailsPage() {
 
   async function runAction(nextStatus: OrderStatus) {
     if (!order || actionLoading) return;
-    if (!window.confirm(`هل أنت متأكد من تحويل الحالة إلى: ${nextStatus}؟`)) return;
+    if (!window.confirm(`تغيير حالة الطلب إلى: ${nextStatus}؟`)) return;
 
     try {
       setActionLoading(true);
@@ -140,7 +130,7 @@ export default function AdminOrderDetailsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ orderId: order.id, event: nextStatus }),
       });
-      if (!res.ok) throw new Error("فشل تحديث الحالة");
+      if (!res.ok) throw new Error("فشل التحديث");
     } catch (err: any) {
       alert(err.message);
     } finally {
@@ -148,119 +138,106 @@ export default function AdminOrderDetailsPage() {
     }
   }
 
-  if (loading) return <div className="p-20 text-center font-bold text-blue-600 animate-pulse">جاري جلب بيانات الطلب...</div>;
+  if (loading) return <div className="p-20 text-center font-bold text-blue-600 animate-pulse">جاري التحميل...</div>;
   if (error || !order) return <div className="p-20 text-center text-red-500 font-bold">⚠️ {error}</div>;
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] pb-20 px-4 md:px-8 pt-8 text-right" dir="rtl">
       <div className="max-w-5xl mx-auto">
-        
-        {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <Link href="/admin/orders" className="text-blue-600 flex items-center gap-1 text-sm font-bold hover:underline">
-            <ChevronRight size={16} /> العودة للطلبات
+            <ChevronRight size={16} /> العودة
           </Link>
-          <h1 className="text-2xl font-black text-slate-900">
-            تفاصيل الطلب <span className="text-blue-600">#{order.order_number || order.id.slice(0, 8)}</span>
-          </h1>
+          <div className="flex items-center gap-4">
+             <button className="p-2 bg-white border rounded-xl hover:bg-gray-50"><Printer size={18}/></button>
+             <h1 className="text-2xl font-black text-slate-900">الطلب #{order.order_number || order.id.slice(0,8)}</h1>
+          </div>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             
-            {/* 1. أزرار التحكم في الحالة (تمت استعادتها بالكامل) */}
+            {/* الحالة والتحكم */}
             <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 font-sans">إدارة حالة الطلب</p>
               <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className={`text-2xl font-black px-6 py-3 rounded-2xl ${status === "canceled" ? "text-red-600 bg-red-50" : "text-blue-600 bg-blue-50"}`}>
+                <div className="px-6 py-3 rounded-2xl bg-blue-50 text-blue-600 font-black text-xl">
                   {status}
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex gap-2">
                   {status === "requested" && (
-                    <>
-                      <button onClick={() => runAction("confirmed")} disabled={actionLoading} className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold hover:bg-black transition-colors">تأكيد</button>
-                      <button onClick={() => runAction("canceled")} disabled={actionLoading} className="bg-red-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-700 transition-colors">إلغاء</button>
-                    </>
+                    <button onClick={() => runAction("confirmed")} className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold">تأكيد</button>
                   )}
                   {status === "confirmed" && (
-                    <>
-                      <button onClick={() => runAction("preparing")} disabled={actionLoading} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition-colors">تجهيز</button>
-                      <button onClick={() => runAction("canceled")} disabled={actionLoading} className="bg-red-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-700 transition-colors">إلغاء</button>
-                    </>
+                    <button onClick={() => runAction("preparing")} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold">تجهيز</button>
                   )}
                   {status === "preparing" && (
-                    <button onClick={() => runAction("shipped")} disabled={actionLoading} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition-colors">شحن</button>
+                    <button onClick={() => runAction("shipped")} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold">شحن</button>
                   )}
                   {status === "shipped" && (
-                    <button onClick={() => runAction("delivered")} disabled={actionLoading} className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-green-700 transition-colors">تسليم</button>
+                    <button onClick={() => runAction("delivered")} className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold">تسليم</button>
+                  )}
+                  {status !== "delivered" && status !== "canceled" && (
+                    <button onClick={() => runAction("canceled")} className="bg-red-50 text-red-600 px-6 py-3 rounded-xl font-bold">إلغاء</button>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* 2. محتويات الطلب (الميزة الجديدة) */}
-            <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 font-sans">
-              <div className="flex items-center gap-2 mb-6 font-black text-slate-800 border-b pb-4">
-                <Package size={20} className="text-blue-600" /> محتويات الطلب
-              </div>
+            {/* تفاصيل المنتجات */}
+            <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+              <h3 className="font-black text-slate-800 mb-6 flex items-center gap-2">
+                <Package className="text-blue-600" size={20}/> محتويات الطلب
+              </h3>
               <div className="space-y-4">
-                {order.items && order.items.length > 0 ? (
-                  order.items.map((item, index) => (
-                    <div key={index} className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                      <div className="flex items-center gap-4">
-                        <span className="font-bold text-blue-600">{item.quantity}x</span>
-                        <p className="font-bold text-slate-900">{item.name}</p>
-                      </div>
-                      <div className="font-black text-slate-700">{(item.price * item.quantity).toFixed(2)} {order.currency}</div>
+                {order.items?.map((item, index) => (
+                  <div key={index} className="flex justify-between items-center p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                    <div className="flex items-center gap-3">
+                      <span className="w-8 h-8 rounded-lg bg-white flex items-center justify-center font-bold text-blue-600 border shadow-sm">{item.quantity}</span>
+                      <span className="font-bold text-slate-800">{item.name}</span>
                     </div>
-                  ))
-                ) : (
-                  <div className="text-center py-4 text-slate-400 italic flex flex-col items-center gap-2">
-                    <Info size={24} />
-                    يتم جلب المنتجات من قاعدة البيانات...
+                    <span className="font-black text-slate-700">{item.price} {order.currency}</span>
                   </div>
-                )}
+                ))}
               </div>
             </div>
 
-            {/* 3. بيانات العميل (تمت استعادتها) */}
-            <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 font-sans">
-              <div className="flex items-center gap-2 mb-6 font-black text-slate-800">
-                <User size={20} className="text-blue-600" /> معلومات العميل
-              </div>
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <p className="text-xs text-slate-400 mb-1 font-bold">الاسم</p>
-                  <p className="font-bold text-slate-900">{order.customer_snapshot?.name || "—"}</p>
+            {/* بيانات العميل */}
+            <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+               <h3 className="font-black text-slate-800 mb-6 flex items-center gap-2">
+                <User className="text-blue-600" size={20}/> بيانات العميل
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-gray-50 rounded-2xl">
+                  <p className="text-xs text-slate-400 mb-1">الاسم</p>
+                  <p className="font-bold">{order.customer_snapshot?.name || "—"}</p>
                 </div>
-                <div>
-                  <p className="text-xs text-slate-400 mb-1 font-bold">الهاتف</p>
-                  <p className="font-bold text-slate-700 tracking-wider" dir="ltr">{order.customer_snapshot?.phone || "—"}</p>
+                <div className="p-4 bg-gray-50 rounded-2xl">
+                  <p className="text-xs text-slate-400 mb-1">الهاتف</p>
+                  <p className="font-bold tracking-widest">{order.customer_snapshot?.phone || "—"}</p>
                 </div>
               </div>
             </div>
 
           </div>
 
-          {/* 4. السجل المباشر (الجانبي) */}
-          <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 h-fit font-sans">
-            <h2 className="font-black text-slate-900 flex items-center gap-2 mb-6 border-b pb-4">
-              <History size={18} className="text-blue-500" /> السجل المباشر
-            </h2>
-            <div className="space-y-6 relative">
+          {/* سجل التتبع */}
+          <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 h-fit">
+            <h3 className="font-black text-slate-800 mb-6 flex items-center gap-2 border-b pb-4">
+              <History className="text-blue-600" size={20}/> التحديثات اللحظية
+            </h3>
+            <div className="space-y-6 relative pr-4">
               <div className="absolute right-3.5 top-0 bottom-0 w-px bg-slate-100"></div>
               {tracking.map((e, i) => (
                 <div key={i} className="relative z-10 flex gap-4">
-                  <div className={`w-7 h-7 rounded-full border-4 border-white shadow-sm flex-shrink-0 ${e.status === "canceled" ? "bg-red-500" : i === tracking.length - 1 ? "bg-blue-600 animate-pulse" : "bg-slate-200"}`}></div>
+                  <div className={`w-7 h-7 rounded-full border-4 border-white shadow-sm ${e.status === "canceled" ? "bg-red-500" : i === tracking.length-1 ? "bg-blue-600 animate-pulse" : "bg-slate-200"}`}></div>
                   <div>
                     <p className="font-bold text-sm text-slate-800">{e.status}</p>
-                    <p className="text-[10px] text-slate-400 font-medium">{new Date(e.created_at).toLocaleString("ar-EG")}</p>
+                    <p className="text-[10px] text-slate-400">{new Date(e.created_at).toLocaleString("ar-EG")}</p>
                   </div>
                 </div>
               ))}
             </div>
           </div>
-
         </div>
       </div>
     </div>
