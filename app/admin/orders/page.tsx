@@ -8,13 +8,15 @@ import {
   Search, 
   Filter, 
   Download, 
-  Eye, 
-  TrendingUp, 
-  CheckCircle, 
-  XCircle, 
   Package,
   Calendar,
-  ChevronLeft
+  ChevronLeft,
+  ChevronRight,
+  ChevronLast,
+  ChevronFirst,
+  TrendingUp,
+  CheckCircle,
+  XCircle
 } from "lucide-react";
 
 /* ---------------- Types ---------------- */
@@ -37,7 +39,6 @@ type TrackingEvent = {
   created_at: string;
 };
 
-/* ---------------- Status Helpers ---------------- */
 const STATUS_LABELS: Record<string, string> = {
   requested: "تم الاستلام",
   confirmed: "تم التأكيد",
@@ -56,7 +57,6 @@ function StatusBadge({ status }: { status: string }) {
     requested: "bg-slate-50 text-slate-600 border-slate-100",
     canceled: "bg-rose-50 text-rose-600 border-rose-100",
   };
-
   return (
     <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${styles[status] || "bg-gray-50 text-gray-600 border-gray-100"}`}>
       {STATUS_LABELS[status] || status}
@@ -64,7 +64,6 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-/* ---------------- CSV Helper ---------------- */
 function exportOrdersToCSV(rows: OrderRow[]) {
   if (!rows.length) return;
   const headers = ["ID", "Customer", "Status", "Total", "Currency", "Date"];
@@ -79,7 +78,6 @@ function exportOrdersToCSV(rows: OrderRow[]) {
       new Date(o.created_at).toISOString(),
     ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(","))
   ];
-
   const blob = new Blob([csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -99,6 +97,10 @@ export default function AdminOrdersPage() {
   const [fromDate, setFromDate] = useState<string>("");
   const [toDate, setToDate] = useState<string>("");
   const [search, setSearch] = useState<string>("");
+
+  /* -------- Pagination State -------- */
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10; // عدد الطلبات في كل صفحة
 
   const channelsRef = useRef<RealtimeChannel[]>([]);
 
@@ -135,7 +137,7 @@ export default function AdminOrdersPage() {
   }, [orders.length]);
 
   const filteredOrders = useMemo(() => {
-    return orders.filter((o) => {
+    const filtered = orders.filter((o) => {
       if (statusFilter !== "all" && o.status !== statusFilter) return false;
       if (fromDate && new Date(o.created_at) < new Date(fromDate)) return false;
       if (toDate && new Date(o.created_at) > new Date(toDate)) return false;
@@ -147,12 +149,25 @@ export default function AdminOrdersPage() {
       }
       return true;
     });
+    // إعادة التعيين للصفحة الأولى عند تغيير الفلاتر
+    return filtered;
   }, [orders, statusFilter, fromDate, toDate, search]);
+
+  // منطق تقسيم الصفحات
+  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+  const paginatedOrders = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredOrders.slice(start, start + itemsPerPage);
+  }, [filteredOrders, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, fromDate, toDate, search]);
 
   if (loading) return <div className="p-20 text-center animate-pulse text-blue-600 font-bold">جاري تحميل لوحة الطلبات...</div>;
   if (error) return <div className="p-20 text-center text-rose-600">{error}</div>;
 
-  const delivered = filteredOrders.filter(o => o.status === "delivered");
+  const delivered = orders.filter(o => o.status === "delivered");
   const revenue = delivered.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
 
   return (
@@ -177,9 +192,9 @@ export default function AdminOrdersPage() {
 
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard title="إجمالي الطلبات" value={filteredOrders.length} icon={<Package />} color="blue" />
+        <MetricCard title="إجمالي الطلبات" value={orders.length} icon={<Package />} color="blue" />
         <MetricCard title="طلبات مكتملة" value={delivered.length} icon={<CheckCircle />} color="emerald" />
-        <MetricCard title="طلبات ملغاة" value={filteredOrders.filter(o => o.status === "canceled").length} icon={<XCircle />} color="rose" />
+        <MetricCard title="طلبات ملغاة" value={orders.filter(o => o.status === "canceled").length} icon={<XCircle />} color="rose" />
         <MetricCard title="الإيرادات" value={`${revenue.toLocaleString()} ${orders[0]?.currency || "EGP"}`} icon={<TrendingUp />} color="blue" isBold />
       </div>
 
@@ -195,7 +210,6 @@ export default function AdminOrdersPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        
         <div className="flex items-center gap-2 bg-gray-50 px-3 py-1 rounded-xl border border-gray-100">
           <Filter className="w-4 h-4 text-gray-400" />
           <select 
@@ -209,7 +223,6 @@ export default function AdminOrdersPage() {
             ))}
           </select>
         </div>
-
         <div className="flex items-center gap-2">
           <Calendar className="w-4 h-4 text-gray-400" />
           <input type="date" className="bg-gray-50 border-none rounded-xl text-xs font-medium p-2" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
@@ -233,7 +246,7 @@ export default function AdminOrdersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {filteredOrders.map((o) => (
+              {paginatedOrders.map((o) => (
                 <tr key={o.id} className="hover:bg-blue-50/30 transition-colors group">
                   <td className="px-6 py-5 font-mono text-xs text-blue-600 font-bold">#{o.id.slice(0, 8)}</td>
                   <td className="px-6 py-5">
@@ -257,10 +270,68 @@ export default function AdminOrdersPage() {
             </tbody>
           </table>
         </div>
+
         {filteredOrders.length === 0 && (
           <div className="p-20 text-center flex flex-col items-center gap-3">
             <Package className="w-12 h-12 text-gray-200" />
             <p className="text-gray-400 text-sm font-medium italic">لا توجد طلبات تطابق معايير البحث.</p>
+          </div>
+        )}
+
+        {/* أزرار التنقل (Pagination Buttons) */}
+        {totalPages > 1 && (
+          <div className="p-6 bg-gray-50 border-t border-gray-100 flex items-center justify-between gap-4">
+            <div className="text-xs font-bold text-gray-400">
+              عرض {paginatedOrders.length} من أصل {filteredOrders.length} طلب
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setCurrentPage(1)} 
+                disabled={currentPage === 1}
+                className="p-2 bg-white border border-gray-200 rounded-lg disabled:opacity-30 hover:bg-gray-100 transition-colors"
+              >
+                <ChevronLast size={16} className="text-gray-600" />
+              </button>
+              <button 
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
+                disabled={currentPage === 1}
+                className="flex items-center gap-1 px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-black text-gray-700 disabled:opacity-30 hover:bg-gray-100 transition-colors"
+              >
+                السابق <ChevronRight size={14} />
+              </button>
+              
+              <div className="flex items-center gap-1">
+                {[...Array(totalPages)].map((_, i) => {
+                  const pageNum = i + 1;
+                  // عرض الصفحات القريبة فقط إذا كان العدد كبيراً
+                  if (totalPages > 5 && Math.abs(pageNum - currentPage) > 1 && pageNum !== 1 && pageNum !== totalPages) return null;
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${currentPage === pageNum ? "bg-blue-600 text-white shadow-md shadow-blue-200" : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-100"}`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button 
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
+                disabled={currentPage === totalPages}
+                className="flex items-center gap-1 px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-black text-gray-700 disabled:opacity-30 hover:bg-gray-100 transition-colors"
+              >
+                <ChevronLeft size={14} /> التالي
+              </button>
+              <button 
+                onClick={() => setCurrentPage(totalPages)} 
+                disabled={currentPage === totalPages}
+                className="p-2 bg-white border border-gray-200 rounded-lg disabled:opacity-30 hover:bg-gray-100 transition-colors"
+              >
+                <ChevronFirst size={16} className="text-gray-600" />
+              </button>
+            </div>
           </div>
         )}
       </div>
