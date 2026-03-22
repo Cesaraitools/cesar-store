@@ -37,30 +37,10 @@ async function resolveUser(request: Request) {
   }
 }
 
-/* ================= Order Number ================= */
 function generateOrderNumber() {
   const timestamp = Date.now().toString().slice(-6);
   const random = Math.floor(Math.random() * 900 + 100);
   return `CS-${timestamp}${random}`;
-}
-
-/* ================= GET Orders ================= */
-export async function GET(request: Request) {
-  try {
-    const user = await resolveUser(request);
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const { data, error } = await serviceSupabase
-      .from("orders")
-      .select("id, order_number, created_at, status, total, currency")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-
-    if (error) return NextResponse.json({ error: "Failed" }, { status: 500 });
-    return NextResponse.json({ orders: data ?? [] });
-  } catch (err) {
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
-  }
 }
 
 /* ================= POST Create Order ================= */
@@ -86,28 +66,16 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (recentOrder) {
-      return NextResponse.json({
-        success: true,
-        reused: true,
-        orderId: recentOrder.id,
-        order_number: recentOrder.order_number,
-      });
+      return NextResponse.json({ success: true, reused: true, orderId: recentOrder.id });
     }
 
-    /* ================= Build Order Data ================= */
     const order_id = crypto.randomUUID();
-    const items_snapshot = items.map(item => ({
-      product_id: String(item.product_id),
-      name: item.name,
-      price: item.price,
-      quantity: item.quantity,
-      image: item.image ?? null,
-    }));
-
-    const subtotal = items_snapshot.reduce((sum, i) => sum + i.price * i.quantity, 0);
     const order_number = generateOrderNumber();
 
-    /* -------- 1. INSERT INTO ORDERS -------- */
+    // حساب الإجمالي
+    const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+
+    /* -------- 1. إدخال الطلب الرئيسي في جدول orders -------- */
     const { error: orderError } = await serviceSupabase
       .from("orders")
       .insert({
@@ -122,34 +90,32 @@ export async function POST(request: Request) {
           phone: customer?.phone ?? "",
           address: customer?.address ?? "",
         },
-        items_snapshot,
+        items_snapshot: items, // للأرشفة فقط
         user_id: user.id,
       });
 
     if (orderError) throw orderError;
 
-    /* -------- 2. INSERT INTO ORDER_ITEMS (الحل المفقود) -------- */
-    // نقوم بإدراج كل صنف في الجدول المستقل ليظهر في لوحة التحكم
-    const { error: itemsTableError } = await serviceSupabase
+    /* -------- 2. إدخال المنتجات في جدول order_items (الحل المفقود) -------- */
+    const { error: itemsError } = await serviceSupabase
       .from("order_items")
       .insert(
-        items_snapshot.map(item => ({
-          order_id: order_id, // ربط الصنف بالطلب الرئيسي
-          product_id: item.product_id,
+        items.map((item) => ({
+          order_id: order_id, // الربط بالطلب الرئيسي
+          product_id: String(item.product_id),
           name: item.name,
           price: item.price,
           quantity: item.quantity,
-          image: item.image
+          image: item.image ?? null
         }))
       );
 
-    if (itemsTableError) {
-      console.error("ORDER_ITEMS INSERT ERROR:", itemsTableError);
-      // ملاحظة: لم نوقف العملية هنا لأن الطلب الرئيسي تم إنشاؤه بالفعل، 
-      // ولكن هذا الخطأ يفسر لماذا كان الجدول يظل فارغاً.
+    if (itemsError) {
+      console.error("فشل إدراج الأصناف في الجدول:", itemsError);
+      // لا نوقف العملية هنا لأن الطلب الرئيسي تم إنشاؤه، لكن يجب معالجة هذا الخطأ مستقبلاً
     }
 
-    /* -------- 3. TRACKING EVENTS -------- */
+    /* -------- 3. تسجيل الحدث في التتبع -------- */
     await serviceSupabase.from("order_tracking_events").insert([
       { order_id: order_id, status: "requested", actor: "system" },
     ]);
@@ -161,7 +127,7 @@ export async function POST(request: Request) {
     });
 
   } catch (error: any) {
-    console.error("POST error:", error);
+    console.error("Unexpected POST error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
