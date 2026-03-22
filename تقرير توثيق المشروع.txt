@@ -1,642 +1,280 @@
-CESAR STORE — MASTER ENGINEERING RECOVERY PROMPT
-Project Identity
+CESAR STORE — MASTER ARCHITECTURE & COMPLETION DOCUMENT (FINAL FORM)
+🧾 PROJECT IDENTITY
 
 Project Name: Cesar Store
 Type: Production-Grade E-Commerce Platform
 
-Goal:
+Mission:
+بناء نظام متجر إلكتروني قابل للتوسع (Scalable) وآمن (Secure) بدون أي Technical Debt، مع معمارية واضحة تمنع الأخطاء المستقبلية.
 
-Build a scalable online store with:
-
-Clean architecture
-
-Minimal technical debt
-
-Secure backend
-
-Realtime order tracking
-
-Production-ready deployment
-
-TECH STACK
+🧱 TECH STACK (LOCKED)
 Frontend
-
 Next.js 14 (App Router)
-
-React 18
-
 TypeScript
-
-TailwindCSS
-
+React (Client + Server Components Hybrid)
+Tailwind CSS
 Backend
-
 Supabase
-
 PostgreSQL
-
-Supabase Auth
-
-Supabase Realtime
-
-Infrastructure
-
-Frontend
-Vercel
-
-Database
-Supabase PostgreSQL
-
 Auth
-Supabase Auth
-
-API
-Next.js Route Handlers
-
-Repository
-GitHub
-
-PRODUCTION DEPLOYMENT
-
-Production URL
-
-https://cesar-store.vercel.app
-
-Environment Architecture
-
-Client
-→ Next.js App Router
-
-API
-→ Next.js Route Handlers
-
-Database
-→ Supabase PostgreSQL
-
-Auth
-→ Supabase Auth
-
 Realtime
-→ Supabase Realtime
+Deployment
+Vercel (Edge Runtime)
+Middleware (Security Layer)
+🧠 CORE ARCHITECTURE PRINCIPLES (NON-NEGOTIABLE)
+1. Single Source of Truth
+كل state له مصدر واحد فقط
+❌ ممنوع duplication (مثلاً: order status في مكانين)
+2. Separation of Concerns
 
-The system is successfully deployed and running in production.
+فصل كامل بين:
 
-STRICT DEVELOPMENT RULES
+UI Layer
+Business Logic
+Security Layer
+3. Zero Technical Debt Policy
+❌ لا يوجد حلول مؤقتة
+❌ لا hacks
+✔ كل شيء قابل للتوسع
+4. Security First
+لا يوجد bypass
+كل request يتم التحقق منه
+🗺️ PROJECT STRUCTURE MAP (REAL)
+/app
+├── /admin
+│   ├── /orders
+│   ├── /products
+│   ├── /categories
+│   └── layout.tsx
+│
+├── /admin-login
+│
+├── /orders
+│   ├── page.tsx
+│   └── [id]/page.tsx
+│
+├── /api
+│   ├── /orders
+│   ├── /admin
+│   │   ├── /orders
+│   │   ├── /login
+│   │   └── /logout
+│
+├── /cart
+├── /products
+└── layout.tsx
+🗄️ DATABASE ARCHITECTURE (CRITICAL — FULL DEFINITION)
+🔹 users
+column	type	notes
+id	uuid	PK (matches auth.users)
+email	text	unique
+name	text	
+created_at	timestamp	DEFAULT now()
+🔹 orders
+column	type	notes
+id	uuid	PK
+user_id	uuid	FK → users.id
+order_number	text	unique
+status	text	MUST sync with tracking
+subtotal	numeric	
+total	numeric	
+currency	text	
+customer_snapshot	jsonb	immutable
+items_snapshot	jsonb	immutable
+created_at	timestamp	DEFAULT now()
+🔹 order_tracking_events
+column	type
+id	uuid
+order_id	uuid FK
+status	text
+actor	text (admin/system)
+created_at	timestamp DEFAULT now()
+🔹 carts
+column	type
+id	uuid
+user_id	uuid
+created_at	timestamp
+🔹 cart_items
+column	type
+id	uuid
+cart_id	uuid
+product_id	uuid
+quantity	int
+🔐 RLS (IMPORTANT — MISSING BEFORE)
+users
+user can read/update own data only
+orders
+user يرى طلباته فقط
+admin يرى الكل
+order_tracking_events
+user يرى events الخاصة بطلبه فقط
+🔁 ORDER STATE MACHINE (LOCKED)
+FLOW
+requested → confirmed → preparing → shipped → delivered
+            ↘ canceled
+RULES
+✔ أول event = requested (إجباري)
+❌ ممنوع auto-confirm
+✔ فقط admin يغير الحالة
+✔ كل تغيير = event جديد (append only)
+🔥 CRITICAL RULE
 
-These rules must always be respected.
+❌ لا تعتمد على orders.status كمصدر الحقيقة
+✔ المصدر الحقيقي = order_tracking_events
 
-1️⃣ Never modify a file without requesting the full file first
-2️⃣ Always return full files with full paths
-3️⃣ Never send partial snippets
-4️⃣ Never assume file names or structures
-5️⃣ Avoid technical debt
-6️⃣ Maintain Single Source of Truth architecture
-7️⃣ Do not break existing working systems
-8️⃣ If conversation becomes long → generate Completion Prompt
+orders.status = derived / cached فقط
 
-PROJECT STRUCTURE
-
-Actual structure of the project:
-
-cesar-store
-
-app
-
-   layout.tsx
-   page.tsx
-
-   shop
-   product
-   categories
-   cart
-   orders
-
-   (checkout)
-        checkout
-        review
-        confirm
-
-   admin
-        analytics
-        orders
-        categories
-
-   api
-
-        orders
-        order-tracking
-        invoice
-        cart
-
-   auth
-        callback
-
-components
-
-   Navbar
-   ProductCard
-   CategoryCard
-   ExploreCategories
-   PromoBanner
-   LayoutComponents
-
-context
-
-   AuthContext
-   CartContext
-   CheckoutContext
-   LanguageContext
-   OrderTrackingContext
-
-hooks
-
-   useRequireAuth
-
-lib
-
-   supabase
-   filters
-
-data-store
-
-   products
-   categories
-   promos
-
-public
-
-   images
-   products
-   categories
-   promos
-   slides
-
-middleware.ts
-SYSTEM ARCHITECTURE
-
-The system is divided into multiple layers.
-
-CLIENT LAYER
-
-Built with:
-
-Next.js App Router
-React Components
-
-Pages include:
-
-Home
-
-Shop
-
-Product Page
-
-Cart
-
-Checkout
-
-Orders
-
-Admin Dashboard
-
-STATE MANAGEMENT
-
-The application uses React Context.
-
-Main contexts:
-
-AuthContext
-Manages authentication state and user session.
-
-CartContext
-Handles cart state.
-
-CheckoutContext
-Controls checkout flow.
-
-LanguageContext
-Handles RTL/LTR switching.
-
-OrderTrackingContext
-Handles realtime tracking updates.
-
-API LAYER
-
-Backend logic is implemented using Next.js Route Handlers.
-
-API routes include:
-
-Orders
-
+🔌 API ARCHITECTURE (STRICT CONTRACTS)
+Public
 GET /api/orders
-GET /api/orders/[id]
+returns user orders
+requires auth
 POST /api/orders
 
-Tracking
-
-GET /api/order-tracking/[orderId]
-
-Invoice
-
-GET /api/invoice/[orderId]/pdf
-
-Cart
-
-GET /api/cart
-POST /api/cart
-
-These APIs communicate with Supabase using the Server Client.
-
-SUPABASE CLIENT ARCHITECTURE
-
-The project uses:
-
-@supabase/ssr
-
-Two client types are used.
-
-Browser Client
-
-Used inside React components.
-
-createBrowserClient()
-
-Server Client
-
-Used inside API routes.
-
-createServerClient()
-DATABASE ARCHITECTURE
-
-Main database tables:
-
-users
-orders
-order_tracking_events
-carts
-cart_items
-
-USERS TABLE
-
-Primary user profile table.
-
-Columns
-
-id uuid PK
-email text
-name text
-avatar_url text
-providers text[]
-is_admin boolean
-is_catalog_admin boolean
-created_at timestamp
-
-Relations
-
-users.id
-↓
-orders.user_id
-carts.user_id
-ORDERS TABLE
-
-Stores customer orders.
-
-Columns
-
-id uuid PK
-user_id uuid FK → users.id
-status text
-total numeric
-created_at timestamp
-
-Relations
-
-orders.id
-↓
-order_tracking_events.order_id
-ORDER TRACKING EVENTS
-
-Stores the timeline of order status changes.
-
-Columns
-
-id uuid PK
-order_id uuid FK → orders.id
-status text
-created_at timestamp
-
-CARTS TABLE
-
-Stores carts per user.
-
-Columns
-
-id uuid PK
-user_id uuid FK → users.id
-created_at timestamp
-
-CART ITEMS TABLE
-
-Items inside carts.
-
-Columns
-
-id uuid PK
-cart_id uuid FK → carts.id
-product_id uuid
-quantity integer
-
-DATABASE INDEXES
-
-Recommended indexes:
-
-users.email
-
-orders.user_id
-
-order_tracking_events.order_id
-
-cart_items.cart_id
-
-ROW LEVEL SECURITY (RLS)
-
-RLS is enabled.
-
-users
-
-Policy
-
-Users can read their own profile.
-
-auth.uid() = id
-
-orders
-
-Policy
-
-Users can read their own orders.
-
-auth.uid() = user_id
-
-cart_items
-
-Users can modify only items belonging to their cart.
-
-Service Role is used only for server-side operations.
-
-USER CREATION ARCHITECTURE
-
-User creation is handled via database trigger.
-
-Flow
-
-Supabase Auth
-↓
-auth.users
-↓
-Trigger
-↓
-public.users
-
-This ensures:
-
-no duplicate users
-
-no race conditions
-
-consistent user records
-
-TRIGGER
-
-Trigger Name
-
-on_auth_user_created
-
-Event
-
-AFTER INSERT ON auth.users
-
-Function
-
-handle_new_user()
-
-The function copies auth user data into public.users.
-
-ORDER LIFECYCLE
-
-Order statuses follow this lifecycle.
-
-requested
-
-confirmed
-
-preparing
-
-shipped
-
-delivered
-
-canceled
-
-Each change creates a record in:
-
-order_tracking_events
-
-REALTIME SYSTEM
-
-Realtime channel
-
-order-tracking:{orderId}
-
-Clients subscribe to:
-
-order_tracking_events INSERT
-
-Helper used by frontend:
-
-subscribeToOrderTrackingEvents(orderId)
-
-This allows live updates of order status.
-
-CHECKOUT FLOW
-
-The checkout process follows this sequence.
-
-Cart
-↓
-Checkout Page
-↓
-Review Order
-↓
-Confirm Order
-↓
-Create Order
-↓
-Insert Tracking Event
-↓
-Realtime Updates
-
-INVOICE SYSTEM
-
-Invoices are generated using:
-
-@react-pdf/renderer
-
-API endpoint:
-
-GET /api/invoice/[orderId]/pdf
-
-The endpoint:
-
-1 generates PDF
-2 sends it to client
-
-ADMIN SYSTEM
-
-Admin dashboard is located in:
-
-/admin
-
-Main sections:
-
-admin/orders
-admin/categories
-admin/analytics
-
-Future role:
-
-Catalog Admin
-
-Can manage product catalog but cannot modify orders.
-
-PRODUCT DATA SOURCE
-
-Currently products are loaded from:
-
-data-store/products
-
-This is temporary mock data.
-
-Future architecture:
-
-Products will be fetched from:
-
-/api/products
-
-backed by the database.
-
-LANGUAGE SYSTEM
-
-The store supports:
-
-RTL
-LTR
-
-Implemented using:
-
-LanguageContext
-rtl-detect
-
-MEDIA STORAGE
-
-Images stored inside:
-
-public/products
-public/categories
-public/promos
-public/slides
-
-Uploads supported.
-
-LIBRARIES USED
-
-Core
-
-next
-react
-typescript
-
-Database
-
-@supabase/ssr
-@supabase/supabase-js
-
-Invoice
-
-@react-pdf/renderer
-
-Bulk import
-
-xlsx
-
-UI utilities
-
-swiper
-rtl-detect
-qrcode
-
-SECURITY ARCHITECTURE
-
-Security is enforced through:
-
-Supabase Auth
-
-Row Level Security
-
-Server-side API routes
-
-Service Role restricted to backend only.
-
-VERIFIED WORKING FEATURES
-
-Email Signup ✔
-
-Google OAuth ✔
-
-User Trigger Sync ✔
-
-Orders System ✔
-
-Order Tracking ✔
-
-Realtime Updates ✔
-
-Invoice Generation ✔
-
-Deployment ✔
-
-CURRENT SYSTEM STATE
-
-Auth System → Stable
-
-Trigger System → Stable
-
-Orders → Working
-
-Tracking → Working
-
-Realtime → Working
-
-Deployment → Production Ready
-
-Admin Dashboard → Available
-
-NEXT DEVELOPMENT PHASE
-
-Upcoming work:
-
-Admin Order Management Improvements
-
-Invoice System Enhancements
-
+Creates:
+
+order
+tracking event (requested)
+Admin
+POST /api/admin/login
+sets cookie
+POST /api/admin/logout
+clears cookie
+GET /api/admin/orders
+protected
+paginated (future)
+GET /api/admin/orders/tracking
+timeline
+🔐 ADMIN SECURITY SYSTEM (FINAL FORM)
+Middleware
+
+يحمي:
+
+/admin/*
+/api/admin/*
+
+يسمح:
+
+/admin-login
+/api/admin/login
+Session Cookie
+cesar_admin_session
+Validation Layer
+validateAdminSession()
+🔥 SECURITY GUARANTEE
+لا يوجد API بدون validation
+لا يوجد UI bypass
+🔄 REALTIME ARCHITECTURE
+Channels
+User
+subscribe → orders (user_id)
+Order Details
+subscribe → tracking_events (order_id)
+Admin
+subscribe → all orders
+Behavior
+DB change → realtime push → UI update
+❌ no polling
+❌ no refresh
+🧨 ISSUES FIXED (ROOT CAUSE LEVEL)
+Issue	Root Cause	Fix
+Admin access open	no middleware	middleware added
+Redirect loop	wrong route	fixed
+Logout broken	router issue	window.location
+Status bug	wrong initial state	requested enforced
+UI desync	no realtime	realtime added
+⚠️ DEFERRED ISSUES (TRACKED)
+1. Pagination
+لازم Server-side
+current UI partially broken
+2. created_at Bug
+
+مطلوب:
+
+DEFAULT now()
+ORDER BY created_at DESC, id DESC
+🧱 ARCHITECTURAL RISKS (REAL)
+❗ 1. Double Source of Truth
+orders.status vs events
+👉 لازم تثبيت واحد فقط (events)
+❗ 2. UI Editing بدون فهم
+
+👉 أكبر سبب كسر حصل فعلاً
+
+❗ 3. Pagination غلط
+client-side = كارثة مستقبلية
+❗ 4. Realtime Overload
+subscriptions كثيرة بدون filtering
+🚀 ROADMAP (LOCKED)
+Phase 1
+✅ Fix Admin Orders UI
+✅ Server Pagination
+Phase 2
+Invoice PDF System (immutable)
+Phase 3
 Analytics Dashboard
+Phase 4
+Role-based Admin (Catalog Admin Read-only)
+🔒 DEVELOPMENT RULES (ENFORCED)
+🚫 ممنوع
+تعديل بدون كود كامل
+حذف UI
+إعادة كتابة صفحة
+✅ مطلوب
+تحليل قبل أي تعديل
+Patch فقط
+الحفاظ على:
+UI
+Logic
+Data Flow
+🧠 CURRENT SYSTEM STATE (REAL)
+✅ Admin Auth
+Secure
+Stable
+Middleware enforced
+✅ Orders Engine
+يعمل بشكل صحيح
+state machine سليم
+✅ Realtime
+فعال
+⚠️ Admin Orders Page
+فيه كسر جزئي
+السبب: محاولة pagination
+🎯 FINAL SYSTEM STATUS
 
-Catalog Admin Role
+✔ Secure
+✔ Stable
+✔ Scalable (Core Ready)
 
-Product Database Migration
+🚨 CRITICAL NEXT STEP
+Fix:
+/admin/orders
+Constraints:
+❌ بدون تغيير UI
+❌ بدون rewrite
+✔ Patch فقط
+✔ Server-side pagination
+🧾 FINAL NOTE (IMPORTANT)
 
-FINAL STATUS
+هذا المشروع:
 
-Cesar Store has successfully reached a stable production architecture.
+ليس مجرد متجر
+بل نظام مصمم ليكون قابل للتوسع مثل Shopify (Mini Architecture)
 
-This document represents the complete engineering baseline of the system and can be used as a Recovery Prompt for any future development sessions.
+أي خطأ صغير في:
+
+state
+auth
+data flow
+
+قد يؤدي لانهيار النظام بالكامل.
+
+✅ الخلاصة
+
+أنت حاليًا في مرحلة:
+
+Post-Architecture Stabilization
+
+وأخطر نقطة دلوقتي:
+
+❗ التعديل بدون تحليل (وده حصل قبل كده وسبب كسر)
