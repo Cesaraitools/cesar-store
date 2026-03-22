@@ -1,5 +1,3 @@
-// app/api/admin/orders/[orderId]/route.ts
-
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
@@ -10,7 +8,6 @@ function validateAdminSession() {
 
   if (!session) return false;
 
-  // هنا تقدر تضيف signature validation لو حابب
   return true;
 }
 
@@ -29,42 +26,61 @@ export async function GET(
 
     const supabase = createClient(
       process.env.SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY! // مهم
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
     const { orderId } = params;
 
-    // 1. جلب الطلب
+    // ✅ FIX: maybeSingle بدل single
     const { data: order, error } = await supabase
       .from("orders")
       .select("*")
       .eq("id", orderId)
-      .single();
+      .maybeSingle();
 
-    if (error || !order) {
+    if (error) {
+      console.error("ORDER FETCH ERROR:", error);
+      return NextResponse.json(
+        { error: error.message },
+        { status: 500 }
+      );
+    }
+
+    if (!order) {
       return NextResponse.json(
         { error: "Order not found" },
         { status: 404 }
       );
     }
 
-    // 2. جلب tracking
-    const { data: tracking } = await supabase
+    // ✅ حماية إضافية
+    const items = Array.isArray(order.items_snapshot)
+      ? order.items_snapshot
+      : [];
+
+    // tracking
+    const { data: tracking, error: trackingError } = await supabase
       .from("order_tracking_events")
       .select("*")
       .eq("order_id", orderId)
       .order("created_at", { ascending: true });
 
+    if (trackingError) {
+      console.error("TRACKING ERROR:", trackingError);
+    }
+
     return NextResponse.json({
       order: {
         ...order,
-        items: order.items_snapshot,
+        items,
         tracking: tracking || [],
       },
     });
-  } catch (err) {
+  } catch (err: any) {
+    console.error("🔥 API CRASH:", err);
+
     return NextResponse.json(
-      { error: "Server error" },
+      { error: "Server error", details: err.message },
       { status: 500 }
     );
   }
