@@ -13,7 +13,8 @@ import {
   History,
   Package,
   ShoppingCart,
-  Receipt
+  Receipt,
+  Info
 } from "lucide-react";
 
 /* ---------------- Types ---------------- */
@@ -39,7 +40,10 @@ type OrderItem = {
 
 type OrderDetails = {
   id: string;
+  order_number?: string;
   total: number;
+  subtotal?: number;
+  shipping_fee?: number;
   currency: string;
   created_at: string;
   status?: string;
@@ -48,8 +52,8 @@ type OrderDetails = {
     email?: string;
     phone?: string;
   };
-  // إضافة ملخص المنتجات لدعم العرض في لوحة الأدمن
-  items_snapshot?: OrderItem[]; 
+  // البيانات التي يتم جلبها من الـ API
+  items?: OrderItem[];
 };
 
 export default function AdminOrderDetailsPage() {
@@ -72,21 +76,25 @@ export default function AdminOrderDetailsPage() {
         setLoading(true);
         setError(null);
 
-        const orderRes = await fetch(`/api/admin/orders`);
-        if (!orderRes.ok) throw new Error("تعذر الوصول لمسار الطلبات");
+        // جلب بيانات الطلب التفصيلية (بما في ذلك المنتجات)
+        // ملاحظة: نستخدم المسار العام للطلب للحصول على الـ items كما في صفحة العميل
+        const res = await fetch(`/api/orders/${id}`);
+        if (!res.ok) throw new Error("تعذر الوصول لبيانات الطلب التفصيلية");
 
-        const orderData = await orderRes.json();
-        const found = (orderData.orders || []).find(
-          (o: OrderDetails) => o.id === id
-        );
+        const data = await res.json();
+        const found = data.order;
 
         if (!found) {
           setError("الطلب غير موجود في النظام");
           return;
         }
 
-        setOrder(found);
+        setOrder({
+          ...found,
+          id: found.order_id // توحيد المعرف مع هيكلة الأدمن
+        });
 
+        // جلب سجل التتبع
         const trackingRes = await fetch(
           `/api/admin/order-tracking-events?orderId=${id}`
         );
@@ -180,7 +188,7 @@ export default function AdminOrderDetailsPage() {
           </Link>
 
           <h1 className="text-2xl font-black text-slate-900">
-            تفاصيل الطلب #{order.id.slice(0, 8)}
+            تفاصيل الطلب <span className="text-blue-600">#{order.order_number || order.id.slice(0, 8)}</span>
           </h1>
         </div>
 
@@ -265,41 +273,55 @@ export default function AdminOrderDetailsPage() {
               </div>
             </div>
 
-            {/* تفاصيل بنود الطلب - القسم الجديد المضاف */}
+            {/* تفاصيل المنتجات - القسم الذي كان يظهر فارغاً */}
             <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
               <div className="flex items-center gap-2 mb-6 font-black text-slate-800 border-b pb-4">
-                <Package size={20} className="text-blue-600" /> محتويات الطلب
+                <Package size={20} className="text-blue-600" /> محتويات الطلب (البنود)
               </div>
 
               <div className="space-y-4">
-                {order.items_snapshot && order.items_snapshot.length > 0 ? (
-                  order.items_snapshot.map((item, index) => (
-                    <div key={index} className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                {order.items && order.items.length > 0 ? (
+                  order.items.map((item, index) => (
+                    <div key={index} className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl border border-slate-100 group hover:border-blue-200 transition-colors">
                       <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm text-blue-600 font-bold">
+                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm text-blue-600 font-bold border border-slate-100">
                           {item.quantity}x
                         </div>
                         <div>
-                          <p className="font-bold text-slate-900">{item.name}</p>
-                          <p className="text-xs text-slate-400">سعر الوحدة: {item.price} {order.currency}</p>
+                          <p className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{item.name}</p>
+                          <p className="text-[10px] text-slate-400">سعر الوحدة: {item.price.toFixed(2)} {order.currency}</p>
                         </div>
                       </div>
                       <div className="font-black text-slate-700">
-                        {(item.price * item.quantity).toFixed(2)} {order.currency}
+                        {(item.price * item.quantity).toFixed(2)} <span className="text-[10px] text-slate-400 mr-1">{order.currency}</span>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <p className="text-center py-4 text-slate-400 italic">لا توجد بيانات للمنتجات في هذا الطلب</p>
+                  <div className="text-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                     <Info className="mx-auto text-slate-300 mb-2" size={32} />
+                     <p className="text-slate-400 font-medium">لا توجد بيانات منتجات متوفرة لهذا الطلب</p>
+                  </div>
                 )}
 
-                <div className="mt-6 pt-6 border-t border-dashed border-slate-200 flex justify-between items-center">
-                  <div className="flex items-center gap-2 font-black text-slate-900 text-lg">
-                    <Receipt size={20} className="text-slate-400" /> الإجمالي النهائي
-                  </div>
-                  <div className="text-2xl font-black text-blue-600">
-                    {order.total} <span className="text-sm">{order.currency}</span>
-                  </div>
+                {/* تفاصيل الحساب */}
+                <div className="mt-6 pt-6 border-t border-slate-100 space-y-3">
+                   <div className="flex justify-between text-sm text-slate-500 font-medium px-2">
+                      <span>المجموع الفرعي:</span>
+                      <span>{(order.subtotal || 0).toFixed(2)} {order.currency}</span>
+                   </div>
+                   <div className="flex justify-between text-sm text-slate-500 font-medium px-2">
+                      <span>رسوم الشحن:</span>
+                      <span>{(order.shipping_fee || 0).toFixed(2)} {order.currency}</span>
+                   </div>
+                   <div className="flex justify-between items-center bg-blue-50/50 p-4 rounded-2xl border border-blue-100 mt-4">
+                      <div className="font-black text-slate-900 text-lg flex items-center gap-2">
+                        <Receipt size={18} className="text-blue-500" /> الإجمالي النهائي
+                      </div>
+                      <div className="text-2xl font-black text-blue-600">
+                        {order.total.toFixed(2)} <span className="text-xs font-bold text-blue-400 mr-1">{order.currency}</span>
+                      </div>
+                   </div>
                 </div>
               </div>
             </div>
@@ -319,7 +341,7 @@ export default function AdminOrderDetailsPage() {
                 </div>
                 <div>
                   <p className="text-xs text-slate-400 mb-1">الهاتف</p>
-                  <p className="font-bold text-slate-700" dir="ltr">
+                  <p className="font-bold text-slate-700 tracking-wider" dir="ltr">
                     {order.customer_snapshot?.phone || "—"}
                   </p>
                 </div>
@@ -327,7 +349,7 @@ export default function AdminOrderDetailsPage() {
             </div>
           </div>
 
-          {/* Timeline */}
+          {/* Timeline Sidebar */}
           <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 h-fit">
             <h2 className="font-black text-slate-900 flex items-center gap-2 mb-6 border-b pb-4">
               <History size={18} className="text-blue-500" />
@@ -340,17 +362,17 @@ export default function AdminOrderDetailsPage() {
               {tracking.map((e, i) => (
                 <div key={i} className="relative z-10 flex gap-4">
                   <div
-                    className={`w-7 h-7 rounded-full border-4 border-white shadow-sm flex-shrink-0 ${
+                    className={`w-7 h-7 rounded-full border-4 border-white shadow-sm flex-shrink-0 transition-colors duration-500 ${
                       e.status === "canceled"
                         ? "bg-red-500"
                         : i === tracking.length - 1
-                        ? "bg-blue-600"
+                        ? "bg-blue-600 animate-pulse"
                         : "bg-slate-200"
                     }`}
                   ></div>
 
                   <div>
-                    <p className="font-bold text-sm text-slate-800 uppercase">
+                    <p className="font-bold text-sm text-slate-800 uppercase tracking-tight">
                       {e.status}
                     </p>
                     <p className="text-[10px] text-slate-400 font-medium">
