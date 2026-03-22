@@ -48,11 +48,11 @@ type OrderDetails = {
     email?: string;
     phone?: string;
   };
+  // الحقول الجديدة التي سيتم ملؤها من API التفاصيل
   items?: OrderItem[];
   subtotal?: number;
   shipping_fee?: number;
   order_number?: string;
-  tracking?: TrackingEvent[];
 };
 
 export default function AdminOrderDetailsPage() {
@@ -67,38 +67,77 @@ export default function AdminOrderDetailsPage() {
   const [error, setError] = useState<string | null>(null);
   const channelRef = useRef<any>(null);
 
-  /* ================= FIX: moved outside ================= */
-  async function loadInitialData() {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const res = await fetch(`/api/admin/orders/${id}`);
-      if (!res.ok) throw new Error("تعذر تحميل الطلب");
-
-      const data = await res.json();
-      const orderData = data.order;
-
-      setOrder(orderData);
-      setTracking(orderData.tracking || []);
-      setStatus(orderData.status as OrderStatus);
-
-    } catch (err: any) {
-      console.error("Fetch Error:", err);
-      setError("حدث خطأ في استلام البيانات من الخادم");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   useEffect(() => {
     if (!id) return;
 
+    async function loadInitialData() {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // 1. جلب بيانات الطلب الأساسية (بما فيها بيانات العميل) من كود الأدمن الأصلي
+        const orderRes = await fetch(`/api/admin/orders`);
+        if (!orderRes.ok) throw new Error("تعذر الوصول لمسار الطلبات");
+
+        const orderData = await orderRes.json();
+        const found = (orderData.orders || []).find(
+          (o: OrderDetails) => o.id === id
+        );
+
+        if (!found) {
+          setError("الطلب غير موجود في النظام");
+          return;
+        }
+
+        // 2. جلب تفاصيل البنود من API تفاصيل الطلب (نفس المسار في صفحة العميل)
+        const detailsRes = await fetch(`/api/orders/${id}`);
+        let finalOrder = { ...found };
+        
+        if (detailsRes.ok) {
+          const detailsData = await detailsRes.json();
+          if (detailsData.order) {
+            // دمج تفاصيل المنتجات والحسابات مع كائن الطلب الأصلي دون حذف بيانات العميل
+            finalOrder = {
+              ...found,
+              items: detailsData.order.items,
+              subtotal: detailsData.order.subtotal,
+              shipping_fee: detailsData.order.shipping_fee,
+              order_number: detailsData.order.order_number
+            };
+          }
+        }
+
+        setOrder(finalOrder);
+
+        // 3. جلب سجل تتبع الأحداث للأدمن (الكود الأصلي)
+        const trackingRes = await fetch(
+          `/api/admin/order-tracking-events?orderId=${id}`
+        );
+
+        if (trackingRes.ok) {
+          const trackingData = await trackingRes.json();
+          const events = trackingData.events || [];
+          setTracking(events);
+          if (events.length > 0) {
+            setStatus(events[events.length - 1].status as OrderStatus);
+          } else {
+            setStatus(found.status as OrderStatus);
+          }
+        }
+      } catch (err: any) {
+        console.error("Fetch Error:", err);
+        setError("حدث خطأ في استلام البيانات من الخادم");
+      } finally {
+        setLoading(false);
+      }
+    }
+
     loadInitialData();
 
-    channelRef.current = subscribeToOrderTrackingEvents(id, () => {
-      // ✅ FIX: realtime refetch
-      loadInitialData();
+    channelRef.current = subscribeToOrderTrackingEvents(id, (payload) => {
+      const newEvent = payload.new as TrackingEvent;
+      setTracking((prev) => [...prev, newEvent]);
+      setStatus(newEvent.status as OrderStatus);
     });
 
     return () => {
@@ -118,10 +157,6 @@ export default function AdminOrderDetailsPage() {
         body: JSON.stringify({ orderId: order.id, event: nextStatus }),
       });
       if (!res.ok) throw new Error("فشل تحديث الحالة");
-
-      // ✅ تحديث بعد الأكشن
-      await loadInitialData();
-
     } catch (err: any) {
       alert(err.message);
     } finally {
@@ -144,7 +179,6 @@ export default function AdminOrderDetailsPage() {
   return (
     <div className="min-h-screen bg-[#F9FAFB] pb-20 px-4 md:px-8 pt-8 text-right" dir="rtl">
       <div className="max-w-5xl mx-auto">
-
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <Link href="/admin/orders" className="text-blue-600 flex items-center gap-1 text-sm font-bold hover:underline">
@@ -157,7 +191,6 @@ export default function AdminOrderDetailsPage() {
 
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
-
             {/* Status Card */}
             <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">الحالة الحالية ومفاتيح التحكم</p>
@@ -165,7 +198,6 @@ export default function AdminOrderDetailsPage() {
                 <div className={`text-3xl font-black px-6 py-3 rounded-2xl ${status === "canceled" ? "text-red-600 bg-red-50" : "text-blue-600 bg-blue-50"}`}>
                   {status}
                 </div>
-
                 <div className="flex flex-wrap gap-2">
                   {status === "requested" && (
                     <>
@@ -173,26 +205,21 @@ export default function AdminOrderDetailsPage() {
                       <button onClick={() => runAction("canceled")} disabled={actionLoading} className="bg-red-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-700 transition-colors">إلغاء الطلب</button>
                     </>
                   )}
-
                   {status === "confirmed" && (
                     <>
                       <button onClick={() => runAction("preparing")} disabled={actionLoading} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition-colors">تجهيز</button>
                       <button onClick={() => runAction("canceled")} disabled={actionLoading} className="bg-red-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-700 transition-colors">إلغاء الطلب</button>
                     </>
                   )}
-
                   {status === "preparing" && (
                     <button onClick={() => runAction("shipped")} disabled={actionLoading} className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition-colors">شحن</button>
                   )}
-
                   {status === "shipped" && (
                     <button onClick={() => runAction("delivered")} disabled={actionLoading} className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-green-700 transition-colors">تسليم</button>
                   )}
                 </div>
               </div>
             </div>
-
-            {/* باقي UI untouched بالكامل */}
 
             {/* تفاصيل بنود الطلب - إضافة الميزة الجديدة */}
             <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
