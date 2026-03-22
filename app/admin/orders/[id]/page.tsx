@@ -1,5 +1,3 @@
-//app/admin/orders/[id]/page.tsx
-
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -91,8 +89,8 @@ export default function AdminOrderDetailsPage() {
           return;
         }
 
-        // 2. جلب تفاصيل البنود من API تفاصيل الطلب (نفس المسار في صفحة العميل)
-        const detailsRes = await fetch(`/api/orders/${id}`);
+        // 2. جلب تفاصيل البنود من API تفاصيل الطلب (تم التعديل هنا فقط)
+        const detailsRes = await fetch(`/api/admin/orders/${id}`);
         let finalOrder = { ...found };
         
         if (detailsRes.ok) {
@@ -223,7 +221,7 @@ export default function AdminOrderDetailsPage() {
               </div>
             </div>
 
-            {/* تفاصيل بنود الطلب - إضافة الميزة الجديدة */}
+            {/* تفاصيل بنود الطلب */}
             <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
               <div className="flex items-center gap-2 mb-6 font-black text-slate-800 border-b pb-4">
                 <Package size={20} className="text-blue-600" /> محتويات الطلب
@@ -248,7 +246,6 @@ export default function AdminOrderDetailsPage() {
                      <p className="text-slate-400 font-medium italic">لا توجد بيانات بنود متاحة حالياً</p>
                   </div>
                 )}
-                {/* ملخص الحسابات */}
                 <div className="mt-6 pt-6 border-t border-slate-100 space-y-2">
                    <div className="flex justify-between text-sm text-slate-500 font-medium px-2">
                       <span>المجموع الفرعي:</span>
@@ -266,7 +263,7 @@ export default function AdminOrderDetailsPage() {
               </div>
             </div>
 
-            {/* Customer Info - الحفاظ التام على الكود الأصلي */}
+            {/* Customer Info */}
             <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
               <div className="flex items-center gap-2 mb-6 font-black text-slate-800">
                 <User size={20} className="text-blue-600" /> معلومات العميل
@@ -284,7 +281,7 @@ export default function AdminOrderDetailsPage() {
             </div>
           </div>
 
-          {/* Timeline - الحفاظ التام على الكود الأصلي */}
+          {/* Timeline */}
           <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 h-fit">
             <h2 className="font-black text-slate-900 flex items-center gap-2 mb-6 border-b pb-4">
               <History size={18} className="text-blue-500" /> السجل المباشر
