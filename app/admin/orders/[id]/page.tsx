@@ -99,7 +99,10 @@ export default function AdminOrderDetailsPage() {
             // دمج تفاصيل المنتجات والحسابات مع كائن الطلب الأصلي دون حذف بيانات العميل
             finalOrder = {
               ...found,
-              items: detailsData.order.items,
+              items:
+              detailsData.order.items ||
+              detailsData.order.items_snapshot ||
+              [],
               subtotal: detailsData.order.subtotal,
               shipping_fee: detailsData.order.shipping_fee,
               order_number: detailsData.order.order_number
@@ -138,6 +141,10 @@ export default function AdminOrderDetailsPage() {
       const newEvent = payload.new as TrackingEvent;
       setTracking((prev) => [...prev, newEvent]);
       setStatus(newEvent.status as OrderStatus);
+
+      setOrder((prev) =>
+      prev ? { ...prev, status: newEvent.status } : prev
+     );
     });
 
     return () => {
