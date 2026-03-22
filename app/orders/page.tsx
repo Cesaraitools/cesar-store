@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { ChevronLeft, ChevronRight, ChevronLast, ChevronFirst } from "lucide-react";
 
 /* ================================
    Types (API Contract)
@@ -68,15 +69,17 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  /* -------- Pagination State -------- */
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   async function load() {
     try {
       setLoading(true);
       setError(null);
-
       const {
         data: { session },
       } = await supabase.auth.getSession();
-
       if (!session) throw new Error("User not authenticated");
 
       const res = await fetch("/api/orders", {
@@ -84,11 +87,9 @@ export default function OrdersPage() {
           Authorization: `Bearer ${session.access_token}`,
         },
       });
-
       if (!res.ok) throw new Error("Failed to load orders");
 
       const json = (await res.json()) as OrdersResponse;
-
       setOrders(json.orders ?? []);
     } catch (err: any) {
       setError(err.message ?? "Unknown error");
@@ -101,7 +102,6 @@ export default function OrdersPage() {
     load();
   }, []);
 
-  // 🔥 NEW: REALTIME UPDATE (SAFE)
   useEffect(() => {
     const channel = supabase
       .channel("orders-list")
@@ -109,7 +109,7 @@ export default function OrdersPage() {
         "postgres_changes",
         { event: "*", schema: "public", table: "orders" },
         () => {
-          load(); // فقط نعمل reload — بدون أي تغيير UI
+          load(); 
         }
       )
       .subscribe();
@@ -118,6 +118,13 @@ export default function OrdersPage() {
       supabase.removeChannel(channel);
     };
   }, []);
+
+  /* -------- Pagination Logic -------- */
+  const totalPages = Math.ceil(orders.length / itemsPerPage);
+  const paginatedOrders = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return orders.slice(start, start + itemsPerPage);
+  }, [orders, currentPage]);
 
   if (loading) {
     return (
@@ -149,16 +156,16 @@ export default function OrdersPage() {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-4xl mx-auto">
+    <div className="p-6 space-y-6 max-w-4xl mx-auto text-right" dir="rtl">
       <header>
         <h1 className="text-2xl font-semibold">طلباتي</h1>
       </header>
 
       <div className="space-y-4">
-        {orders.map((order) => (
+        {paginatedOrders.map((order) => (
           <div
             key={order.id}
-            className="rounded-xl border p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+            className="rounded-xl border p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white"
           >
             <div className="space-y-1">
               <div className="text-sm font-medium">
@@ -185,7 +192,7 @@ export default function OrdersPage() {
 
               <Link
                 href={`/orders/${order.id}`}
-                className="text-sm underline"
+                className="text-sm underline text-blue-600 font-medium"
               >
                 عرض التفاصيل
               </Link>
@@ -193,6 +200,59 @@ export default function OrdersPage() {
           </div>
         ))}
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="mt-8 flex items-center justify-center gap-2 border-t pt-6" dir="ltr">
+          <button 
+            onClick={() => setCurrentPage(1)} 
+            disabled={currentPage === 1}
+            className="p-2 border rounded-lg disabled:opacity-30 hover:bg-gray-50 transition-colors"
+          >
+            <ChevronFirst size={18} />
+          </button>
+          
+          <button 
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
+            disabled={currentPage === 1}
+            className="flex items-center gap-1 px-3 py-2 border rounded-lg text-sm disabled:opacity-30 hover:bg-gray-50 transition-colors"
+          >
+             السابق <ChevronRight size={16} />
+          </button>
+
+          <div className="flex items-center gap-1 mx-2">
+            {[...Array(totalPages)].map((_, i) => {
+              const pageNum = i + 1;
+              if (totalPages > 5 && Math.abs(pageNum - currentPage) > 1 && pageNum !== 1 && pageNum !== totalPages) return null;
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={`w-9 h-9 rounded-lg text-sm font-bold transition-all ${currentPage === pageNum ? "bg-blue-600 text-white shadow-sm" : "bg-white border hover:bg-gray-50 text-gray-600"}`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+          </div>
+
+          <button 
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
+            disabled={currentPage === totalPages}
+            className="flex items-center gap-1 px-3 py-2 border rounded-lg text-sm disabled:opacity-30 hover:bg-gray-50 transition-colors"
+          >
+            <ChevronLeft size={16} /> التالي
+          </button>
+
+          <button 
+            onClick={() => setCurrentPage(totalPages)} 
+            disabled={currentPage === totalPages}
+            className="p-2 border rounded-lg disabled:opacity-30 hover:bg-gray-50 transition-colors"
+          >
+            <ChevronLast size={18} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
