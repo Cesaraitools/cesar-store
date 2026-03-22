@@ -9,14 +9,11 @@ import {
 } from "@/lib/supabaseClient";
 import {
   ChevronRight,
-  Printer,
   User,
-  Phone,
-  Mail,
   History,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
+  Package,
+  ShoppingCart,
+  Receipt
 } from "lucide-react";
 
 /* ---------------- Types ---------------- */
@@ -34,6 +31,12 @@ type OrderStatus =
   | "delivered"
   | "canceled";
 
+type OrderItem = {
+  name: string;
+  price: number;
+  quantity: number;
+};
+
 type OrderDetails = {
   id: string;
   total: number;
@@ -45,6 +48,8 @@ type OrderDetails = {
     email?: string;
     phone?: string;
   };
+  // إضافة ملخص المنتجات لدعم العرض في لوحة الأدمن
+  items_snapshot?: OrderItem[]; 
 };
 
 export default function AdminOrderDetailsPage() {
@@ -57,7 +62,6 @@ export default function AdminOrderDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const channelRef = useRef<any>(null);
 
   useEffect(() => {
@@ -111,7 +115,6 @@ export default function AdminOrderDetailsPage() {
 
     channelRef.current = subscribeToOrderTrackingEvents(id, (payload) => {
       const newEvent = payload.new as TrackingEvent;
-
       setTracking((prev) => [...prev, newEvent]);
       setStatus(newEvent.status as OrderStatus);
     });
@@ -123,12 +126,10 @@ export default function AdminOrderDetailsPage() {
 
   async function runAction(nextStatus: OrderStatus) {
     if (!order || actionLoading) return;
-
     if (!window.confirm("هل أنت متأكد من تغيير حالة الطلب؟")) return;
 
     try {
       setActionLoading(true);
-
       const res = await fetch("/api/admin/order-tracking", {
         method: "POST",
         headers: {
@@ -179,23 +180,22 @@ export default function AdminOrderDetailsPage() {
           </Link>
 
           <h1 className="text-2xl font-black text-slate-900">
-            طلب #{order.id.slice(0, 8)}
+            تفاصيل الطلب #{order.id.slice(0, 8)}
           </h1>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
 
-          {/* Status Card */}
           <div className="lg:col-span-2 space-y-6">
 
+            {/* Status Card */}
             <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">
-                الحالة الحالية
+                الحالة الحالية ومفاتيح التحكم
               </p>
 
               <div className="flex flex-wrap items-center justify-between gap-4">
-
-                <div className={`text-3xl font-black px-6 py-3 rounded-2xl ${
+                <div className={`text-2xl font-black px-6 py-3 rounded-2xl ${
                   status === "canceled"
                     ? "text-red-600 bg-red-50"
                     : "text-blue-600 bg-blue-50"
@@ -204,23 +204,21 @@ export default function AdminOrderDetailsPage() {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-
                   {status === "requested" && (
                     <>
                       <button
                         onClick={() => runAction("confirmed")}
                         disabled={actionLoading}
-                        className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold hover:bg-black"
+                        className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold hover:bg-black transition-colors"
                       >
-                        تأكيد
+                        تأكيد الطلب
                       </button>
-
                       <button
                         onClick={() => runAction("canceled")}
                         disabled={actionLoading}
-                        className="bg-red-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-700"
+                        className="bg-red-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-700 transition-colors"
                       >
-                        إلغاء الطلب
+                        إلغاء
                       </button>
                     </>
                   )}
@@ -230,17 +228,16 @@ export default function AdminOrderDetailsPage() {
                       <button
                         onClick={() => runAction("preparing")}
                         disabled={actionLoading}
-                        className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700"
+                        className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition-colors"
                       >
-                        تجهيز
+                        بدء التجهيز
                       </button>
-
                       <button
                         onClick={() => runAction("canceled")}
                         disabled={actionLoading}
-                        className="bg-red-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-700"
+                        className="bg-red-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-700 transition-colors"
                       >
-                        إلغاء الطلب
+                        إلغاء
                       </button>
                     </>
                   )}
@@ -249,9 +246,9 @@ export default function AdminOrderDetailsPage() {
                     <button
                       onClick={() => runAction("shipped")}
                       disabled={actionLoading}
-                      className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700"
+                      className="bg-blue-900 text-white px-6 py-3 rounded-xl font-bold hover:bg-black transition-colors"
                     >
-                      شحن
+                      تأكيد الشحن
                     </button>
                   )}
 
@@ -259,12 +256,50 @@ export default function AdminOrderDetailsPage() {
                     <button
                       onClick={() => runAction("delivered")}
                       disabled={actionLoading}
-                      className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-green-700"
+                      className="bg-green-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-green-700 transition-colors"
                     >
-                      تسليم
+                      إتمام التسليم
                     </button>
                   )}
+                </div>
+              </div>
+            </div>
 
+            {/* تفاصيل بنود الطلب - القسم الجديد المضاف */}
+            <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+              <div className="flex items-center gap-2 mb-6 font-black text-slate-800 border-b pb-4">
+                <Package size={20} className="text-blue-600" /> محتويات الطلب
+              </div>
+
+              <div className="space-y-4">
+                {order.items_snapshot && order.items_snapshot.length > 0 ? (
+                  order.items_snapshot.map((item, index) => (
+                    <div key={index} className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm text-blue-600 font-bold">
+                          {item.quantity}x
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-900">{item.name}</p>
+                          <p className="text-xs text-slate-400">سعر الوحدة: {item.price} {order.currency}</p>
+                        </div>
+                      </div>
+                      <div className="font-black text-slate-700">
+                        {(item.price * item.quantity).toFixed(2)} {order.currency}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-center py-4 text-slate-400 italic">لا توجد بيانات للمنتجات في هذا الطلب</p>
+                )}
+
+                <div className="mt-6 pt-6 border-t border-dashed border-slate-200 flex justify-between items-center">
+                  <div className="flex items-center gap-2 font-black text-slate-900 text-lg">
+                    <Receipt size={20} className="text-slate-400" /> الإجمالي النهائي
+                  </div>
+                  <div className="text-2xl font-black text-blue-600">
+                    {order.total} <span className="text-sm">{order.currency}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -276,21 +311,18 @@ export default function AdminOrderDetailsPage() {
               </div>
 
               <div className="grid md:grid-cols-2 gap-6">
-
                 <div>
                   <p className="text-xs text-slate-400 mb-1">الاسم</p>
                   <p className="font-bold text-slate-900">
                     {order.customer_snapshot?.name || "—"}
                   </p>
                 </div>
-
                 <div>
                   <p className="text-xs text-slate-400 mb-1">الهاتف</p>
                   <p className="font-bold text-slate-700" dir="ltr">
-                    {order.customer_snapshot?.phone}
+                    {order.customer_snapshot?.phone || "—"}
                   </p>
                 </div>
-
               </div>
             </div>
           </div>
@@ -303,12 +335,10 @@ export default function AdminOrderDetailsPage() {
             </h2>
 
             <div className="space-y-6 relative">
-
               <div className="absolute right-3.5 top-0 bottom-0 w-px bg-slate-100"></div>
 
               {tracking.map((e, i) => (
                 <div key={i} className="relative z-10 flex gap-4">
-
                   <div
                     className={`w-7 h-7 rounded-full border-4 border-white shadow-sm flex-shrink-0 ${
                       e.status === "canceled"
@@ -320,18 +350,15 @@ export default function AdminOrderDetailsPage() {
                   ></div>
 
                   <div>
-                    <p className="font-bold text-sm text-slate-800">
+                    <p className="font-bold text-sm text-slate-800 uppercase">
                       {e.status}
                     </p>
-
                     <p className="text-[10px] text-slate-400 font-medium">
                       {new Date(e.created_at).toLocaleString("ar-EG")}
                     </p>
                   </div>
-
                 </div>
               ))}
-
             </div>
           </div>
 
