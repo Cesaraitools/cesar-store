@@ -143,7 +143,15 @@ export async function GET(_req: Request, { params }: { params: { orderId: string
   }
 
   const customer = order.customer_snapshot || {};
-  const items = Array.isArray(order.items_snapshot) ? order.items_snapshot : [];
+  const rawItems = Array.isArray(order.items_snapshot) ? order.items_snapshot : [];
+
+  /* ================= ULTRA SAFE ADDITION ================= */
+  const items = rawItems.map((item: any) => ({
+    name: item?.name || "—",
+    price: Number(item?.price || 0),
+    quantity: Number(item?.quantity || 0),
+  }));
+  /* ===================================================== */
 
   const document = React.createElement(
     Document,
@@ -152,7 +160,6 @@ export async function GET(_req: Request, { params }: { params: { orderId: string
       Page,
       { size: "A4", style: styles.page },
 
-      /* Header */
       React.createElement(
         View,
         { style: styles.brandHeader },
@@ -170,7 +177,6 @@ export async function GET(_req: Request, { params }: { params: { orderId: string
         )
       ),
 
-      /* Customer */
       React.createElement(
         View,
         { style: styles.infoGrid },
@@ -191,7 +197,6 @@ export async function GET(_req: Request, { params }: { params: { orderId: string
         )
       ),
 
-      /* Table */
       React.createElement(
         View,
         { style: { marginTop: 20 } },
@@ -204,23 +209,18 @@ export async function GET(_req: Request, { params }: { params: { orderId: string
           React.createElement(Text, { style: styles.colAmount }, smartText("Amount / الإجمالي"))
         ),
 
-        ...items.map((item: any) => {
-          const price = Number(item?.price || 0);
-          const qty = Number(item?.quantity || 0);
-          const amount = price * qty;
-
-          return React.createElement(
+        ...items.map((item: any) =>
+          React.createElement(
             View,
             { style: styles.tableRow },
-            React.createElement(Text, { style: styles.colDescription }, smartText(item?.name || "—")),
-            React.createElement(Text, { style: styles.colQty }, String(qty)),
-            React.createElement(Text, { style: styles.colPrice }, `${price}`),
-            React.createElement(Text, { style: styles.colAmount }, amount.toFixed(2))
-          );
-        })
+            React.createElement(Text, { style: styles.colDescription }, smartText(item.name)),
+            React.createElement(Text, { style: styles.colQty }, String(item.quantity)),
+            React.createElement(Text, { style: styles.colPrice }, `${item.price}`),
+            React.createElement(Text, { style: styles.colAmount }, `${(item.price * item.quantity).toFixed(2)}`)
+          )
+        )
       ),
 
-      /* Total */
       React.createElement(
         View,
         { style: styles.summaryContainer },
@@ -234,13 +234,12 @@ export async function GET(_req: Request, { params }: { params: { orderId: string
             React.createElement(
               Text,
               { style: { color: "#2563EB", fontWeight: 700, fontSize: 14 } },
-              `${order.total || 0} ${order.currency || "EGP"}`
+              `${order.total} ${order.currency || "EGP"}`
             )
           )
         )
       ),
 
-      /* Footer */
       React.createElement(
         View,
         { style: styles.footer },
