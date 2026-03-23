@@ -1,280 +1,192 @@
-CESAR STORE — MASTER ARCHITECTURE & COMPLETION DOCUMENT (FINAL FORM)
-🧾 PROJECT IDENTITY
+CESAR STORE — SYSTEM BIBLE
 
-Project Name: Cesar Store
-Type: Production-Grade E-Commerce Platform
+(نسخة احترافية قابلة لإعادة البناء 100%)
 
-Mission:
-بناء نظام متجر إلكتروني قابل للتوسع (Scalable) وآمن (Secure) بدون أي Technical Debt، مع معمارية واضحة تمنع الأخطاء المستقبلية.
+🧾 1. PROJECT IDENTITY
 
-🧱 TECH STACK (LOCKED)
-Frontend
-Next.js 14 (App Router)
-TypeScript
-React (Client + Server Components Hybrid)
-Tailwind CSS
-Backend
-Supabase
-PostgreSQL
-Auth
-Realtime
-Deployment
-Vercel (Edge Runtime)
-Middleware (Security Layer)
-🧠 CORE ARCHITECTURE PRINCIPLES (NON-NEGOTIABLE)
-1. Single Source of Truth
-كل state له مصدر واحد فقط
-❌ ممنوع duplication (مثلاً: order status في مكانين)
-2. Separation of Concerns
+Name: Cesar Store
+Type: Scalable E-Commerce Platform
+Goal: نظام إنتاجي بدون Technical Debt + قابل للتوسع
 
-فصل كامل بين:
-
-UI Layer
-Business Logic
-Security Layer
-3. Zero Technical Debt Policy
-❌ لا يوجد حلول مؤقتة
-❌ لا hacks
-✔ كل شيء قابل للتوسع
-4. Security First
-لا يوجد bypass
-كل request يتم التحقق منه
-🗺️ PROJECT STRUCTURE MAP (REAL)
-/app
-├── /admin
-│   ├── /orders
-│   ├── /products
-│   ├── /categories
-│   └── layout.tsx
-│
-├── /admin-login
-│
-├── /orders
-│   ├── page.tsx
-│   └── [id]/page.tsx
-│
-├── /api
-│   ├── /orders
-│   ├── /admin
-│   │   ├── /orders
-│   │   ├── /login
-│   │   └── /logout
-│
-├── /cart
-├── /products
-└── layout.tsx
-🗄️ DATABASE ARCHITECTURE (CRITICAL — FULL DEFINITION)
-🔹 users
-column	type	notes
-id	uuid	PK (matches auth.users)
-email	text	unique
-name	text	
-created_at	timestamp	DEFAULT now()
-🔹 orders
-column	type	notes
-id	uuid	PK
-user_id	uuid	FK → users.id
-order_number	text	unique
-status	text	MUST sync with tracking
-subtotal	numeric	
-total	numeric	
-currency	text	
-customer_snapshot	jsonb	immutable
-items_snapshot	jsonb	immutable
-created_at	timestamp	DEFAULT now()
-🔹 order_tracking_events
-column	type
-id	uuid
-order_id	uuid FK
-status	text
-actor	text (admin/system)
-created_at	timestamp DEFAULT now()
-🔹 carts
-column	type
-id	uuid
-user_id	uuid
-created_at	timestamp
-🔹 cart_items
-column	type
-id	uuid
-cart_id	uuid
-product_id	uuid
-quantity	int
-🔐 RLS (IMPORTANT — MISSING BEFORE)
-users
-user can read/update own data only
+🧠 2. CORE ARCHITECTURE RULES
+2.1 Single Source of Truth
+Feature	Source
+Orders	DB (orders table)
+Tracking	order_tracking_events
+Admin	Admin API فقط (NOT DB direct)
+2.2 Forbidden Patterns ❌
+استخدام Service Role داخل UI
+قراءة DB مباشرة من صفحات
+دمج APIs متعددة لنفس الداتا
+🗺️ 3. SYSTEM ARCHITECTURE (ACTUAL vs TARGET)
+🔴 الوضع الحالي (Actual)
+Admin Page → Supabase مباشرة (Service Role)
+🟢 الوضع الصحيح (Target)
+Admin UI
+   ↓
+Admin API
+   ↓
+Supabase (Service Role)
+🗄️ 4. DATABASE BLUEPRINT (FULL)
+4.1 orders
+id uuid PK
+user_id uuid FK → auth.users.id
+status text CHECK
+total numeric
+currency text DEFAULT 'EGP'
+customer_snapshot jsonb
+items_snapshot jsonb
+created_at timestamp DEFAULT now()
+4.2 order_tracking_events
+id uuid PK
+order_id uuid FK → orders.id
+status text
+actor text CHECK ('admin','system')
+created_at timestamp DEFAULT now()
+4.3 carts
+id uuid PK
+user_id uuid FK
+created_at timestamp
+4.4 cart_items
+id uuid PK
+cart_id uuid FK
+product_id uuid
+quantity int
+🔐 5. RLS STRATEGY
 orders
-user يرى طلباته فقط
-admin يرى الكل
-order_tracking_events
-user يرى events الخاصة بطلبه فقط
-🔁 ORDER STATE MACHINE (LOCKED)
-FLOW
-requested → confirmed → preparing → shipped → delivered
-            ↘ canceled
-RULES
-✔ أول event = requested (إجباري)
-❌ ممنوع auto-confirm
-✔ فقط admin يغير الحالة
-✔ كل تغيير = event جديد (append only)
-🔥 CRITICAL RULE
-
-❌ لا تعتمد على orders.status كمصدر الحقيقة
-✔ المصدر الحقيقي = order_tracking_events
-
-orders.status = derived / cached فقط
-
-🔌 API ARCHITECTURE (STRICT CONTRACTS)
-Public
-GET /api/orders
-returns user orders
-requires auth
+SELECT → user_id = auth.uid()
+INSERT → auth.uid()
+UPDATE → ممنوع (admin only via service role)
+🔌 6. API CONTRACT (COMPLETE)
+6.1 Create Order
 POST /api/orders
-
-Creates:
-
-order
-tracking event (requested)
-Admin
-POST /api/admin/login
-sets cookie
-POST /api/admin/logout
-clears cookie
+Flow:
+جلب cart
+validate
+إنشاء snapshot
+insert order
+insert tracking event
+6.2 Admin Orders
 GET /api/admin/orders
-protected
-paginated (future)
-GET /api/admin/orders/tracking
-timeline
-🔐 ADMIN SECURITY SYSTEM (FINAL FORM)
-Middleware
+GET /api/admin/orders/[id]
+PATCH /api/admin/orders/[id]
+6.3 Tracking Update
+POST /api/admin/order-tracking
+🔁 7. DATA FLOW (CRITICAL)
+Cart → Order
+Cart (live data)
+   ↓
+Validation
+   ↓
+Snapshot freeze
+   ↓
+Order created
+   ↓
+Tracking: requested
+⚠️ RULE
 
-يحمي:
+snapshot = immutable
+لا يتم التعديل عليه بعد الإنشاء
 
-/admin/*
-/api/admin/*
-
-يسمح:
-
-/admin-login
-/api/admin/login
-Session Cookie
-cesar_admin_session
-Validation Layer
-validateAdminSession()
-🔥 SECURITY GUARANTEE
-لا يوجد API بدون validation
-لا يوجد UI bypass
-🔄 REALTIME ARCHITECTURE
+🔄 8. REALTIME SYSTEM (SPEC)
 Channels
-User
-subscribe → orders (user_id)
-Order Details
-subscribe → tracking_events (order_id)
+Customer
+orders:user_id=eq.{userId}
 Admin
-subscribe → all orders
+order_tracking_events
 Behavior
-DB change → realtime push → UI update
-❌ no polling
-❌ no refresh
-🧨 ISSUES FIXED (ROOT CAUSE LEVEL)
-Issue	Root Cause	Fix
-Admin access open	no middleware	middleware added
-Redirect loop	wrong route	fixed
-Logout broken	router issue	window.location
-Status bug	wrong initial state	requested enforced
-UI desync	no realtime	realtime added
-⚠️ DEFERRED ISSUES (TRACKED)
-1. Pagination
-لازم Server-side
-current UI partially broken
-2. created_at Bug
+on event → refetchOrder()
 
-مطلوب:
+❌ ممنوع:
 
-DEFAULT now()
-ORDER BY created_at DESC, id DESC
-🧱 ARCHITECTURAL RISKS (REAL)
-❗ 1. Double Source of Truth
-orders.status vs events
-👉 لازم تثبيت واحد فقط (events)
-❗ 2. UI Editing بدون فهم
+patch state
+optimistic updates هنا
+🧾 9. INVOICE SYSTEM
+Endpoint
+/api/invoice/[orderId]/pdf
+Rules
+يعتمد على snapshot فقط
+لا يعتمد على products table
+🛡️ 10. ADMIN SECURITY
+🔴 الوضع الحالي
+cookie فقط
+بدون auth حقيقي
+🟢 المطلوب
+ربط بـ Supabase Auth
+Role = admin
+middleware يتحقق من role
+🧨 11. CRITICAL ISSUES (REAL)
+1. Service Role Exposure
 
-👉 أكبر سبب كسر حصل فعلاً
+موجود فعليًا في الكود ❌
 
-❗ 3. Pagination غلط
-client-side = كارثة مستقبلية
-❗ 4. Realtime Overload
-subscriptions كثيرة بدون filtering
-🚀 ROADMAP (LOCKED)
-Phase 1
-✅ Fix Admin Orders UI
-✅ Server Pagination
+الحل:
+نقله إلى API فقط
+2. Missing API Layer
+
+Admin بيعتمد على DB مباشرة
+
+3. Missing Order Creation Flow
+🧪 12. TESTING MATRIX
+الحالة	لازم ينجح
+Order بدون items	✅
+50 item	✅
+invalid data	✅
+realtime update	✅
+🚨 13. FAILURE STRATEGY
+المشكلة	الحل
+DB fail	retry + log
+realtime lost	manual refetch
+invalid snapshot	sanitize
+📈 14. ROADMAP (REALISTIC)
+Phase 1 (اللي لازم يتعمل فورًا)
+❗ بناء Admin API Layer
+❗ إزالة Service Role من UI
+❗ بناء Create Order API
 Phase 2
-Invoice PDF System (immutable)
+Realtime implementation
+Order tracking UI
 Phase 3
-Analytics Dashboard
-Phase 4
-Role-based Admin (Catalog Admin Read-only)
-🔒 DEVELOPMENT RULES (ENFORCED)
-🚫 ممنوع
-تعديل بدون كود كامل
-حذف UI
-إعادة كتابة صفحة
-✅ مطلوب
-تحليل قبل أي تعديل
-Patch فقط
-الحفاظ على:
-UI
-Logic
-Data Flow
-🧠 CURRENT SYSTEM STATE (REAL)
-✅ Admin Auth
-Secure
-Stable
-Middleware enforced
-✅ Orders Engine
-يعمل بشكل صحيح
-state machine سليم
-✅ Realtime
-فعال
-⚠️ Admin Orders Page
-فيه كسر جزئي
-السبب: محاولة pagination
-🎯 FINAL SYSTEM STATUS
+Payments
+Shipping
+Emails
+🔒 15. DEVELOPMENT LAW (MANDATORY)
 
-✔ Secure
-✔ Stable
-✔ Scalable (Core Ready)
+(مطابقة لقواعدك)
 
-🚨 CRITICAL NEXT STEP
-Fix:
-/admin/orders
-Constraints:
-❌ بدون تغيير UI
-❌ بدون rewrite
-✔ Patch فقط
-✔ Server-side pagination
-🧾 FINAL NOTE (IMPORTANT)
+ملف كامل فقط
+لا افتراض
+لا تعديل جزئي
+الحفاظ على UI
+كل تغيير موثق
+🎯 16. FINAL TRUTH
+المشروع الحالي:
 
-هذا المشروع:
+🔥 أساس قوي
+❌ لكنه ليس Production Ready بعد
 
-ليس مجرد متجر
-بل نظام مصمم ليكون قابل للتوسع مثل Shopify (Mini Architecture)
+السبب؟
 
-أي خطأ صغير في:
+مش Bugs
+لكن نقص طبقات معمارية
 
-state
-auth
-data flow
+🧠 أهم Insight
 
-قد يؤدي لانهيار النظام بالكامل.
+أنت بنيت "Core System" ممتاز
+لكن لسه محتاج:
 
-✅ الخلاصة
+👉 "Execution Layers"
+⚡ الخطوة القادمة (مهمة جدًا)
 
-أنت حاليًا في مرحلة:
+دلوقتي مفيش اختيار عشوائي:
 
-Post-Architecture Stabilization
+لازم نبدأ بـ:
+🔴 1. بناء Admin API Layer (صح)
 
-وأخطر نقطة دلوقتي:
+ثم
 
-❗ التعديل بدون تحليل (وده حصل قبل كده وسبب كسر)
+🔴 2. نقل كل Admin UI ليه
+
+ثم
+
+🔴 3. بناء Order Creation
