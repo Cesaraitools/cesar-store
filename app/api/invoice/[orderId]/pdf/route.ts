@@ -1,5 +1,3 @@
-// app/api/invoice/[orderId]/pdf/route.ts
-
 export const runtime = "nodejs";
 
 import { createClient } from "@supabase/supabase-js";
@@ -19,30 +17,27 @@ import fs from "fs";
 import arabicReshaper from "arabic-reshaper";
 
 /* ================= تسجيل الخطوط ================= */
-// نستخدم خط يدعم اللغتين معاً بشكل احترافي
 Font.register({
   family: "Cairo",
   src: path.join(process.cwd(), "public", "fonts", "Cairo-VariableFont_slnt,wght.ttf"),
 });
 
-/* ================= دالة ذكية لمعالجة النصوص المختلطة ================= */
+/* ================= معالجة النص ================= */
 const smartText = (text: string) => {
   if (!text) return "";
-  
-  // التحقق إذا كان النص يحتوي على حروف عربية
+
   const hasArabic = /[\u0600-\u06FF]/.test(text);
-  
+
   if (hasArabic) {
     try {
       const reshaper = (arabicReshaper as any).default || arabicReshaper;
       const reshaped = reshaper.reshape(text);
-      // عكس الكلمات فقط للنصوص العربية ليتم عرضها بشكل صحيح في PDF
-      return reshaped.split(' ').reverse().join(' ');
+      return reshaped.split(" ").reverse().join(" ");
     } catch (e) {
       return text;
     }
   }
-  return text; // إرجاع النص كما هو إذا كان إنجليزي
+  return text;
 };
 
 const supabase = createClient(
@@ -51,17 +46,17 @@ const supabase = createClient(
   { auth: { persistSession: false } }
 );
 
-/* ================= التنسيقات المرنة ================= */
+/* ================= Styles ================= */
 const styles = StyleSheet.create({
   page: {
     padding: 50,
     fontSize: 10,
     color: "#334155",
     backgroundColor: "#FFFFFF",
-    fontFamily: "Cairo", // تطبيق الخط على كل الصفحة لدعم اللغتين
+    fontFamily: "Cairo",
   },
   brandHeader: {
-    flexDirection: "row", // العودة للمنطق الإنجليزي الافتراضي
+    flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
     marginBottom: 40,
@@ -74,7 +69,7 @@ const styles = StyleSheet.create({
     color: "#0F172A",
   },
   rightHeaderSection: {
-    alignItems: "flex-end", // اللوجو والمعلومات جهة اليمين كالتصميم الأصلي
+    alignItems: "flex-end",
   },
   logo: {
     width: 60,
@@ -88,8 +83,7 @@ const styles = StyleSheet.create({
   },
   infoBlock: {
     width: "45%",
-    // نستخدم textAlign: 'left' كافتراضي ولكن smartText سيعالج المحتوى العربي
-    textAlign: "left", 
+    textAlign: "left",
   },
   tableHeader: {
     flexDirection: "row",
@@ -127,14 +121,16 @@ const styles = StyleSheet.create({
 
 export async function GET(_req: Request, { params }: { params: { orderId: string } }) {
   const orderId = params.orderId;
-  
+
   let logoBuffer;
   try {
     const logoPath = path.join(process.cwd(), "public", "logo (1).png");
     if (fs.existsSync(logoPath)) {
       logoBuffer = fs.readFileSync(logoPath);
     }
-  } catch (err) { console.error("Logo Error:", err); }
+  } catch (err) {
+    console.error("Logo Error:", err);
+  }
 
   const { data: order, error: orderError } = await supabase
     .from("orders")
@@ -147,7 +143,7 @@ export async function GET(_req: Request, { params }: { params: { orderId: string
   }
 
   const customer = order.customer_snapshot || {};
-  const items = order.items_snapshot || [];
+  const items = Array.isArray(order.items_snapshot) ? order.items_snapshot : [];
 
   const document = React.createElement(
     Document,
@@ -156,7 +152,7 @@ export async function GET(_req: Request, { params }: { params: { orderId: string
       Page,
       { size: "A4", style: styles.page },
 
-      /* --- الهيدر (يدعم اللغتين تلقائياً) --- */
+      /* Header */
       React.createElement(
         View,
         { style: styles.brandHeader },
@@ -164,16 +160,17 @@ export async function GET(_req: Request, { params }: { params: { orderId: string
         React.createElement(
           View,
           { style: styles.rightHeaderSection },
-          logoBuffer && React.createElement(Image, { 
-            style: styles.logo, 
-            src: { data: logoBuffer, format: "png" } 
-          }),
+          logoBuffer &&
+            React.createElement(Image, {
+              style: styles.logo,
+              src: { data: logoBuffer, format: "png" },
+            }),
           React.createElement(Text, null, smartText("Invoice / فاتورة")),
           React.createElement(Text, { style: { fontSize: 9 } }, `#${order.id.slice(0, 8)}`)
         )
       ),
 
-      /* --- بيانات العميل (تدعم الإدخال العربي) --- */
+      /* Customer */
       React.createElement(
         View,
         { style: styles.infoGrid },
@@ -182,19 +179,19 @@ export async function GET(_req: Request, { params }: { params: { orderId: string
           { style: styles.infoBlock },
           React.createElement(Text, { style: { color: "#94A3B8", fontSize: 8 } }, smartText("Billed To / فاتورة إلى:")),
           React.createElement(Text, { style: { fontWeight: 700 } }, smartText(customer.name || "Customer")),
-          React.createElement(Text, null, customer.phone),
-          React.createElement(Text, null, smartText(customer.address))
+          React.createElement(Text, null, customer.phone || ""),
+          React.createElement(Text, null, smartText(customer.address || ""))
         ),
         React.createElement(
           View,
-          { style: [styles.infoBlock, { alignItems: 'flex-end' }] },
+          { style: [styles.infoBlock, { alignItems: "flex-end" }] },
           React.createElement(Text, { style: { color: "#94A3B8", fontSize: 8 } }, smartText("Order Details / تفاصيل الطلب:")),
-          React.createElement(Text, null, `Date: ${new Date(order.created_at).toLocaleDateString('en-US')}`),
+          React.createElement(Text, null, `Date: ${new Date(order.created_at).toLocaleDateString("en-US")}`),
           React.createElement(Text, null, `Currency: ${order.currency || "EGP"}`)
         )
       ),
 
-      /* --- الجدول --- */
+      /* Table */
       React.createElement(
         View,
         { style: { marginTop: 20 } },
@@ -206,19 +203,24 @@ export async function GET(_req: Request, { params }: { params: { orderId: string
           React.createElement(Text, { style: styles.colPrice }, smartText("Price / السعر")),
           React.createElement(Text, { style: styles.colAmount }, smartText("Amount / الإجمالي"))
         ),
-        ...items.map((item: any) =>
-          React.createElement(
+
+        ...items.map((item: any) => {
+          const price = Number(item?.price || 0);
+          const qty = Number(item?.quantity || 0);
+          const amount = price * qty;
+
+          return React.createElement(
             View,
             { style: styles.tableRow },
-            React.createElement(Text, { style: styles.colDescription }, smartText(item.name)),
-            React.createElement(Text, { style: styles.colQty }, String(item.quantity)),
-            React.createElement(Text, { style: styles.colPrice }, `${item.price}`),
-            React.createElement(Text, { style: styles.colAmount }, `${(item.price * item.quantity).toFixed(2)}`)
-          )
-        )
+            React.createElement(Text, { style: styles.colDescription }, smartText(item?.name || "—")),
+            React.createElement(Text, { style: styles.colQty }, String(qty)),
+            React.createElement(Text, { style: styles.colPrice }, `${price}`),
+            React.createElement(Text, { style: styles.colAmount }, amount.toFixed(2))
+          );
+        })
       ),
 
-      /* --- الإجمالي --- */
+      /* Total */
       React.createElement(
         View,
         { style: styles.summaryContainer },
@@ -229,16 +231,24 @@ export async function GET(_req: Request, { params }: { params: { orderId: string
             View,
             { style: { flexDirection: "row", justifyContent: "space-between" } },
             React.createElement(Text, null, smartText("Total / الإجمالي")),
-            React.createElement(Text, { style: { color: "#2563EB", fontWeight: 700, fontSize: 14 } }, `${order.total} ${order.currency || "EGP"}`)
+            React.createElement(
+              Text,
+              { style: { color: "#2563EB", fontWeight: 700, fontSize: 14 } },
+              `${order.total || 0} ${order.currency || "EGP"}`
+            )
           )
         )
       ),
 
-      /* --- التذييل --- */
+      /* Footer */
       React.createElement(
         View,
         { style: styles.footer },
-        React.createElement(Text, null, smartText("Thank you for choosing Cesar Store / شكراً لتعاملك مع متجر سيزر.")),
+        React.createElement(
+          Text,
+          null,
+          smartText("Thank you for choosing Cesar Store / شكراً لتعاملك مع متجر سيزر.")
+        ),
         React.createElement(Text, { style: { marginTop: 4 } }, "support@cesarstore.com")
       )
     )
