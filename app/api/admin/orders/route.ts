@@ -1,85 +1,95 @@
+// =====================================================
+// Admin Orders API (Optimized & Secure)
+// Cesar Store
+// Path: /app/api/admin/orders/route.ts
+// =====================================================
+
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-
-// ✅ NEW
 import { validateAdminSession } from "@/lib/admin/validateAdminSession";
 
-// ✅ Prevent static optimization
 export const dynamic = "force-dynamic";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function GET(req: NextRequest) {
   try {
-    /* 🔒 NEW: SECURE VALIDATION */
+    /* 🔒 Security */
     if (!validateAdminSession()) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    /* -------- Supabase -------- */
-
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl || !serviceRoleKey) {
-      throw new Error("Missing Supabase ENV");
-    }
-
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
-
-    /* -------- Load Orders -------- */
-
+    /* -------- Params -------- */
     const { searchParams } = new URL(req.url);
     const limit = Number(searchParams.get("limit") || 100);
 
-    const { data, error } = await supabase
+    /* -------- Orders -------- */
+    const { data: orders, error } = await supabase
       .from("orders")
       .select(`
         id,
         total,
         currency,
         created_at,
-        customer_snapshot,
-        order_tracking_events (
-          status,
-          created_at
-        )
+        customer_snapshot
       `)
       .order("created_at", { ascending: false })
       .limit(limit);
 
     if (error) {
+      console.error("Orders Fetch Error:", error);
       return NextResponse.json(
-        { ok: false, error: "Failed to load orders" },
+        { error: "Failed to load orders" },
         { status: 500 }
       );
     }
 
-    const orders = data.map((order) => {
-      const events = order.order_tracking_events || [];
-      const latest =
-        events.sort(
-          (a: any, b: any) =>
-            new Date(b.created_at).getTime() -
-            new Date(a.created_at).getTime()
-        )[0] || null;
+    const orderIds = (orders || []).map(o => o.id);
 
-      return {
-        id: order.id,
-        total: order.total,
-        currency: order.currency,
-        created_at: order.created_at,
-        customer_snapshot: order.customer_snapshot,
-        status: latest?.status || "requested",
-      };
+    /* -------- Tracking (Batch) -------- */
+    const { data: tracking } = await supabase
+      .from("order_tracking_events")
+      .select("order_id, status, created_at")
+      .in("order_id", orderIds);
+
+    /* -------- Build Map -------- */
+    const latestStatusMap: Record<string, string> = {};
+
+    tracking?.forEach((t) => {
+      const existing = latestStatusMap[t.order_id];
+
+      if (!existing) {
+        latestStatusMap[t.order_id] = t.status;
+      } else {
+        // compare timestamps
+        const current = tracking
+          .filter(x => x.order_id === t.order_id)
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+
+        latestStatusMap[t.order_id] = current.status;
+      }
     });
 
-    return NextResponse.json({
-      ok: true,
-      orders,
-    });
+    /* -------- Final Shape -------- */
+    const result = (orders || []).map((o) => ({
+      id: o.id,
+      total: o.total,
+      currency: o.currency,
+      created_at: o.created_at,
+      customer_snapshot: o.customer_snapshot,
+      status: latestStatusMap[o.id] || "requested",
+    }));
+
+    return NextResponse.json({ orders: result });
+
   } catch (err) {
-    console.error(err);
+    console.error("Admin Orders API Crash:", err);
+
     return NextResponse.json(
-      { ok: false, error: "Unexpected server error" },
+      { error: "Internal Server Error" },
       { status: 500 }
     );
   }
