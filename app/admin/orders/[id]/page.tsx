@@ -109,10 +109,14 @@ export default function AdminOrderDetailsPage() {
 
     loadInitialData();
 
+    // الكود المسؤول عن التحديث اللحظي للحالة والأزرار
     channelRef.current = subscribeToOrderTrackingEvents(id, (payload) => {
       const newEvent = payload.new as TrackingEvent;
-
+      
+      // تحديث مصفوفة السجل لإظهار الحدث الجديد في التايم لاين
       setTracking((prev) => [...prev, newEvent]);
+      
+      // تحديث الحالة الأساسية للصفحة فوراً لتتغير الأزرار والـ UI
       setStatus(newEvent.status as OrderStatus);
     });
 
@@ -141,6 +145,9 @@ export default function AdminOrderDetailsPage() {
       });
 
       if (!res.ok) throw new Error("فشل تحديث الحالة");
+      
+      // ملاحظة: لا نحتاج لتحديث الـ State هنا يدوياً 
+      // لأن الـ Subscription في الـ useEffect سيقوم بذلك فور نجاح العملية في قاعدة البيانات
     } catch (err: any) {
       alert(err.message);
     } finally {
