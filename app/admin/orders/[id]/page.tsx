@@ -45,6 +45,12 @@ type OrderDetails = {
     email?: string;
     phone?: string;
   };
+  items?: {
+    name: string;
+    price: number;
+    quantity: number;
+  }[];
+  tracking?: TrackingEvent[];
 };
 
 export default function AdminOrderDetailsPage() {
@@ -60,64 +66,38 @@ export default function AdminOrderDetailsPage() {
 
   const channelRef = useRef<any>(null);
 
+  /* ================= Fetch ================= */
+  async function loadInitialData() {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const res = await fetch(`/api/admin/orders/${id}`);
+      if (!res.ok) throw new Error("تعذر تحميل الطلب");
+
+      const data = await res.json();
+      const orderData = data.order;
+
+      setOrder(orderData);
+      setTracking(orderData.tracking || []);
+      setStatus(orderData.status as OrderStatus);
+
+    } catch (err: any) {
+      console.error("Fetch Error:", err);
+      setError("حدث خطأ في استلام البيانات من الخادم");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
     if (!id) return;
 
-    async function loadInitialData() {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const orderRes = await fetch(`/api/admin/orders`);
-        if (!orderRes.ok) throw new Error("تعذر الوصول لمسار الطلبات");
-
-        const orderData = await orderRes.json();
-        const found = (orderData.orders || []).find(
-          (o: OrderDetails) => o.id === id
-        );
-
-        if (!found) {
-          setError("الطلب غير موجود في النظام");
-          return;
-        }
-
-        setOrder(found);
-
-        const trackingRes = await fetch(
-          `/api/admin/order-tracking-events?orderId=${id}`
-        );
-
-        if (trackingRes.ok) {
-          const trackingData = await trackingRes.json();
-          const events = trackingData.events || [];
-
-          setTracking(events);
-
-          if (events.length > 0) {
-            setStatus(events[events.length - 1].status as OrderStatus);
-          } else {
-            setStatus(found.status as OrderStatus);
-          }
-        }
-      } catch (err: any) {
-        console.error("Fetch Error:", err);
-        setError("حدث خطأ في استلام البيانات من الخادم");
-      } finally {
-        setLoading(false);
-      }
-    }
-
     loadInitialData();
 
-    // الكود المسؤول عن التحديث اللحظي للحالة والأزرار
-    channelRef.current = subscribeToOrderTrackingEvents(id, (payload) => {
-      const newEvent = payload.new as TrackingEvent;
-      
-      // تحديث مصفوفة السجل لإظهار الحدث الجديد في التايم لاين
-      setTracking((prev) => [...prev, newEvent]);
-      
-      // تحديث الحالة الأساسية للصفحة فوراً لتتغير الأزرار والـ UI
-      setStatus(newEvent.status as OrderStatus);
+    channelRef.current = subscribeToOrderTrackingEvents(id, () => {
+      // 🔥 تحديث كامل لضمان التزامن
+      loadInitialData();
     });
 
     return () => {
@@ -125,6 +105,7 @@ export default function AdminOrderDetailsPage() {
     };
   }, [id]);
 
+  /* ================= Actions ================= */
   async function runAction(nextStatus: OrderStatus) {
     if (!order || actionLoading) return;
 
@@ -145,15 +126,18 @@ export default function AdminOrderDetailsPage() {
       });
 
       if (!res.ok) throw new Error("فشل تحديث الحالة");
-      
-      // ملاحظة: لا نحتاج لتحديث الـ State هنا يدوياً 
-      // لأن الـ Subscription في الـ useEffect سيقوم بذلك فور نجاح العملية في قاعدة البيانات
+
+      // ✅ إعادة تحميل البيانات بعد التحديث
+      await loadInitialData();
+
     } catch (err: any) {
       alert(err.message);
     } finally {
       setActionLoading(false);
     }
   }
+
+  /* ================= UI ================= */
 
   if (loading)
     return (
@@ -294,7 +278,7 @@ export default function AdminOrderDetailsPage() {
                 <div>
                   <p className="text-xs text-slate-400 mb-1">الهاتف</p>
                   <p className="font-bold text-slate-700" dir="ltr">
-                    {order.customer_snapshot?.phone}
+                    {order.customer_snapshot?.phone || "—"}
                   </p>
                 </div>
 
