@@ -286,6 +286,53 @@ export default function AdminOrderDetailsPage() {
             </div>
           </div>
 
+            {/* Order Items */}
+            <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+              <div className="flex items-center gap-2 mb-6 font-black text-slate-800">
+                 تفاصيل الطلب
+              </div>
+
+              <div className="space-y-4">
+                {order.items && order.items.length > 0 ? (
+                  order.items.map((item, index) => (
+                    <div
+                      key={index}
+                      className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl border border-slate-100"
+                    >
+                      <div>
+                        <p className="font-bold text-slate-900">
+                          {item.name}
+                        </p>
+                        <p className="text-xs text-slate-400">
+                          الكمية: {item.quantity}
+                        </p>
+                      </div>
+
+                      <div className="text-left">
+                       <p className="font-bold text-slate-900">
+                         {item.price} {order.currency}
+                       </p>
+                       <p className="text-xs text-slate-400">
+                         الإجمالي: {item.price * item.quantity}
+                       </p>
+                     </div>
+                   </div>
+                 ))
+              ) : (
+                <div className="text-center py-6 text-slate-400">
+                  لا توجد عناصر
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 border-t pt-4 flex justify-between font-black text-slate-900">
+              <span>إجمالي الطلب</span>
+              <span>
+                {order.total} {order.currency}
+              </span>
+            </div>
+          </div>
+          
           {/* Timeline */}
           <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 h-fit">
             <h2 className="font-black text-slate-900 flex items-center gap-2 mb-6 border-b pb-4">
