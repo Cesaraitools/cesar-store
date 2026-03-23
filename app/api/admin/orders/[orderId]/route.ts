@@ -5,9 +5,7 @@ import { cookies } from "next/headers";
 function validateAdminSession() {
   const cookieStore = cookies();
   const session = cookieStore.get("cesar_admin_session");
-
   if (!session) return false;
-
   return true;
 }
 
@@ -16,7 +14,6 @@ export async function GET(
   { params }: { params: { orderId: string } }
 ) {
   try {
-    // 🔐 حماية الأدمن
     if (!validateAdminSession()) {
       return NextResponse.json(
         { error: "Unauthorized" },
@@ -25,13 +22,12 @@ export async function GET(
     }
 
     const supabase = createClient(
-      process.env.SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_URL!, // ✅ FIX
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
     const { orderId } = params;
 
-    // ✅ FIX: maybeSingle بدل single
     const { data: order, error } = await supabase
       .from("orders")
       .select("*")
@@ -39,7 +35,7 @@ export async function GET(
       .maybeSingle();
 
     if (error) {
-      console.error("ORDER FETCH ERROR:", error);
+      console.error("ORDER ERROR:", error);
       return NextResponse.json(
         { error: error.message },
         { status: 500 }
@@ -53,12 +49,10 @@ export async function GET(
       );
     }
 
-    // ✅ حماية إضافية
     const items = Array.isArray(order.items_snapshot)
       ? order.items_snapshot
       : [];
 
-    // tracking
     const { data: tracking, error: trackingError } = await supabase
       .from("order_tracking_events")
       .select("*")
@@ -76,6 +70,7 @@ export async function GET(
         tracking: tracking || [],
       },
     });
+
   } catch (err: any) {
     console.error("🔥 API CRASH:", err);
 
