@@ -152,9 +152,15 @@ export async function POST(request: Request) {
     writeProducts(products);
 
     return Response.json(productToSave, { status: 201 });
-  } catch {
+
+  } catch (err) {
+    console.error("PRODUCT CREATE ERROR:", err);
+
     return Response.json(
-      { error: "Failed to create product" },
+      {
+        error: "Failed to create product",
+        details: err instanceof Error ? err.message : "unknown",
+      },
       { status: 500 }
     );
   }
