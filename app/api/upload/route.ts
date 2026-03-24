@@ -1,9 +1,26 @@
+// =====================================================
+// Upload API (Supabase Storage Version)
+// Cesar Store
+// =====================================================
+
 import { NextRequest, NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
+import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 
 export const runtime = "nodejs";
+
+/* =========================
+   Supabase Client
+========================= */
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+/* =========================
+   API
+========================= */
 
 export async function POST(req: NextRequest) {
   try {
@@ -34,40 +51,46 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    /* 🔥 DEBUG STEP */
-    if (!file.name) {
-      throw new Error("File has no name");
-    }
+    /* =========================
+       Prepare File
+    ========================= */
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    const ext = path.extname(file.name) || ".jpg";
-    const fileName = `${crypto.randomUUID()}${ext}`;
+    const ext = file.name.split(".").pop() || "jpg";
+    const fileName = `${type}/${crypto.randomUUID()}.${ext}`;
 
-    const uploadDir = path.join(
-      process.cwd(),
-      "public",
-      "uploads",
-      `${type}s`
-    );
+    /* =========================
+       Upload to Supabase
+    ========================= */
 
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
+    const { error: uploadError } = await supabase.storage
+      .from("uploads")
+      .upload(fileName, buffer, {
+        contentType: file.type,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      console.error("SUPABASE UPLOAD ERROR:", uploadError);
+      return NextResponse.json(
+        { error: "Upload failed", details: uploadError.message },
+        { status: 500 }
+      );
     }
 
-    const filePath = path.join(uploadDir, fileName);
+    /* =========================
+       Get Public URL
+    ========================= */
 
-    /* 🔥 DEBUG STEP */
-    if (!uploadDir.includes("public")) {
-      throw new Error("Invalid upload path");
-    }
+    const { data } = supabase.storage
+      .from("uploads")
+      .getPublicUrl(fileName);
 
-    fs.writeFileSync(filePath, buffer);
-
-    const url = `/uploads/${type}s/${fileName}`;
-
-    return NextResponse.json({ url });
+    return NextResponse.json({
+      url: data.publicUrl,
+    });
 
   } catch (err) {
     console.error("UPLOAD ERROR FULL:", err);
