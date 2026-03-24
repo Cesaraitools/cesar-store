@@ -34,6 +34,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    /* 🔥 DEBUG STEP */
+    if (!file.name) {
+      throw new Error("File has no name");
+    }
+
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
@@ -52,15 +57,26 @@ export async function POST(req: NextRequest) {
     }
 
     const filePath = path.join(uploadDir, fileName);
+
+    /* 🔥 DEBUG STEP */
+    if (!uploadDir.includes("public")) {
+      throw new Error("Invalid upload path");
+    }
+
     fs.writeFileSync(filePath, buffer);
 
     const url = `/uploads/${type}s/${fileName}`;
 
     return NextResponse.json({ url });
+
   } catch (err) {
-    console.error("Upload error:", err);
+    console.error("UPLOAD ERROR FULL:", err);
+
     return NextResponse.json(
-      { error: "Upload failed" },
+      {
+        error: "Upload failed",
+        details: err instanceof Error ? err.message : String(err),
+      },
       { status: 500 }
     );
   }
