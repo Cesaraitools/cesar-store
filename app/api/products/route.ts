@@ -25,16 +25,27 @@ function writeProducts(products: Product[]): void {
   writeFileSync(PRODUCTS_FILE, JSON.stringify(products, null, 2));
 }
 
-/* 🔥 FIX الحقيقي هنا */
+/* 🔥 FINAL FIX — Safe Category Reader */
 function getValidCategorySlugs(): string[] {
   try {
     const categories = readJSON<any[]>(CATEGORIES_FILE);
 
-    return categories
+    const valid = categories
       .filter((c) => c.active === true && typeof c.category === "string")
-      .map((c) => c.category.toLowerCase().trim()); // ✅ بدل slug
-  } catch {
-    return [];
+      .map((c) => c.category.toLowerCase().trim());
+
+    if (valid.length === 0) {
+      console.warn("⚠️ No categories found — fallback triggered");
+      return ["accessories", "air-fresheners", "additives-fluids", "equipment"];
+    }
+
+    return valid;
+
+  } catch (err) {
+    console.error("CATEGORY READ ERROR:", err);
+
+    /* 🔥 fallback production safe */
+    return ["accessories", "air-fresheners", "additives-fluids", "equipment"];
   }
 }
 
@@ -116,7 +127,6 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as Partial<Product>;
 
-    /* ✅ normalize category */
     if (typeof body.category === "string") {
       body.category = body.category.toLowerCase().trim();
     }
