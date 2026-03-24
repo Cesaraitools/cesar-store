@@ -21,11 +21,16 @@ function readProducts(): Product[] {
   }
 }
 
+/* ❌ disabled write on vercel */
 function writeProducts(products: Product[]): void {
-  writeFileSync(PRODUCTS_FILE, JSON.stringify(products, null, 2));
+  try {
+    writeFileSync(PRODUCTS_FILE, JSON.stringify(products, null, 2));
+  } catch (err) {
+    console.warn("⚠️ write skipped (vercel environment)");
+  }
 }
 
-/* 🔥 FINAL FIX — Safe Category Reader */
+/* Safe Category Reader */
 function getValidCategorySlugs(): string[] {
   try {
     const categories = readJSON<any[]>(CATEGORIES_FILE);
@@ -35,16 +40,11 @@ function getValidCategorySlugs(): string[] {
       .map((c) => c.category.toLowerCase().trim());
 
     if (valid.length === 0) {
-      console.warn("⚠️ No categories found — fallback triggered");
       return ["accessories", "air-fresheners", "additives-fluids", "equipment"];
     }
 
     return valid;
-
-  } catch (err) {
-    console.error("CATEGORY READ ERROR:", err);
-
-    /* 🔥 fallback production safe */
+  } catch {
     return ["accessories", "air-fresheners", "additives-fluids", "equipment"];
   }
 }
@@ -166,7 +166,9 @@ export async function POST(request: Request) {
     };
 
     products.push(productToSave);
-    writeProducts(products);
+
+    /* 🔥 هنا الفرق */
+    writeProducts(products); // safe (مش هيكسر)
 
     return Response.json(productToSave, { status: 201 });
 
