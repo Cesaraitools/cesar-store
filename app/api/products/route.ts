@@ -1,9 +1,17 @@
 import { readFileSync, writeFileSync } from "fs";
 import { join } from "path";
+import { createClient } from "@supabase/supabase-js";
 import type { Product } from "@/types/product";
 
 const PRODUCTS_FILE = join(process.cwd(), "data-store", "products.json");
 const CATEGORIES_FILE = join(process.cwd(), "data-store", "categories.json");
+
+/* ---------------- Supabase ---------------- */
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 /* ---------------- Helpers ---------------- */
 
@@ -25,12 +33,11 @@ function readProducts(): Product[] {
 function writeProducts(products: Product[]): void {
   try {
     writeFileSync(PRODUCTS_FILE, JSON.stringify(products, null, 2));
-  } catch (err) {
+  } catch {
     console.warn("⚠️ write skipped (vercel environment)");
   }
 }
 
-/* Safe Category Reader */
 function getValidCategorySlugs(): string[] {
   try {
     const categories = readJSON<any[]>(CATEGORIES_FILE);
@@ -102,6 +109,33 @@ function isValidProductInput(
 
 export async function GET() {
   try {
+    /* 🔥 1. حاول تجيب من Supabase */
+    const { data, error } = await supabase.from("products").select("*");
+
+    if (!error && data && data.length > 0) {
+      const formatted: Product[] = data.map((p: any) => ({
+        id: p.id,
+        name: {
+          ar: p.name_ar,
+          en: p.name_en,
+        },
+        description: {
+          ar: p.description_ar,
+          en: p.description_en,
+        },
+        price: p.price,
+        category: "equipment", // مؤقت
+        images: p.image_url ? [p.image_url] : [],
+        stock: p.stock ?? 0,
+        active: true,
+        createdAt: p.created_at || new Date().toISOString(),
+        updatedAt: p.updated_at || new Date().toISOString(),
+      }));
+
+      return Response.json(formatted);
+    }
+
+    /* 🔄 fallback JSON */
     const products = readProducts();
 
     const safeProducts = products.filter(
@@ -113,7 +147,10 @@ export async function GET() {
     );
 
     return Response.json(safeProducts);
-  } catch {
+
+  } catch (err) {
+    console.error("GET PRODUCTS ERROR:", err);
+
     return Response.json(
       { error: "Failed to fetch products" },
       { status: 500 }
@@ -141,15 +178,6 @@ export async function POST(request: Request) {
       );
     }
 
-    const products = readProducts();
-
-    if (products.find((p) => p.id === body.id)) {
-      return Response.json(
-        { error: "Product with this ID already exists" },
-        { status: 409 }
-      );
-    }
-
     const now = new Date().toISOString();
 
     const productToSave: Product = {
@@ -165,10 +193,24 @@ export async function POST(request: Request) {
       updatedAt: now,
     };
 
-    products.push(productToSave);
+    /* 🔥 INSERT في Supabase */
+    await supabase.from("products").insert([
+      {
+        id: productToSave.id,
+        name_ar: productToSave.name.ar,
+        name_en: productToSave.name.en,
+        description_ar: productToSave.description.ar,
+        description_en: productToSave.description.en,
+        price: productToSave.price,
+        image_url: productToSave.images[0],
+        stock: productToSave.stock,
+      },
+    ]);
 
-    /* 🔥 هنا الفرق */
-    writeProducts(products); // safe (مش هيكسر)
+    /* 🔄 fallback local */
+    const products = readProducts();
+    products.push(productToSave);
+    writeProducts(products);
 
     return Response.json(productToSave, { status: 201 });
 
@@ -200,40 +242,17 @@ export async function PUT(request: Request) {
       );
     }
 
-    const products = readProducts();
-    const index = products.findIndex((p) => p.id === id);
+    await supabase
+      .from("products")
+      .update({
+        price: updates.price,
+        stock: updates.stock,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id);
 
-    if (index === -1) {
-      return Response.json(
-        { error: "Product not found" },
-        { status: 404 }
-      );
-    }
+    return Response.json({ success: true });
 
-    const updatedProduct: Product = {
-      ...products[index],
-      ...updates,
-      id,
-      updatedAt: new Date().toISOString(),
-    };
-
-    const validCategories = getValidCategorySlugs();
-    const validationError = isValidProductInput(
-      updatedProduct,
-      validCategories
-    );
-
-    if (validationError) {
-      return Response.json(
-        { error: validationError },
-        { status: 400 }
-      );
-    }
-
-    products[index] = updatedProduct;
-    writeProducts(products);
-
-    return Response.json(updatedProduct);
   } catch {
     return Response.json(
       { error: "Failed to update product" },
@@ -255,19 +274,10 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const products = readProducts();
-    const filtered = products.filter((p) => p.id !== id);
-
-    if (filtered.length === products.length) {
-      return Response.json(
-        { error: "Product not found" },
-        { status: 404 }
-      );
-    }
-
-    writeProducts(filtered);
+    await supabase.from("products").delete().eq("id", id);
 
     return Response.json({ message: "Product deleted successfully" });
+
   } catch {
     return Response.json(
       { error: "Failed to delete product" },
