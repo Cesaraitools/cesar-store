@@ -29,12 +29,11 @@ function readProducts(): Product[] {
   }
 }
 
-/* ❌ disabled write on vercel */
 function writeProducts(products: Product[]): void {
   try {
     writeFileSync(PRODUCTS_FILE, JSON.stringify(products, null, 2));
   } catch {
-    console.warn("⚠️ write skipped (vercel environment)");
+    console.warn("⚠️ write skipped (vercel)");
   }
 }
 
@@ -109,33 +108,59 @@ function isValidProductInput(
 
 export async function GET() {
   try {
-    /* 🔥 1. حاول تجيب من Supabase */
     const { data, error } = await supabase.from("products").select("*");
 
+    const fallbackProducts = readProducts();
+
     if (!error && data && data.length > 0) {
-      const formatted: Product[] = data.map((p: any) => ({
-        id: p.id,
-        name: {
-          ar: p.name_ar,
-          en: p.name_en,
-        },
-        description: {
-          ar: p.description_ar,
-          en: p.description_en,
-        },
-        price: p.price,
-        category: "equipment", // مؤقت
-        images: p.image_url ? [p.image_url] : [],
-        stock: p.stock ?? 0,
-        active: true,
-        createdAt: p.created_at || new Date().toISOString(),
-        updatedAt: p.updated_at || new Date().toISOString(),
-      }));
+      const formatted: Product[] = data.map((p: any) => {
+        const fallback = fallbackProducts.find(fp => fp.id === p.id);
+
+        return {
+          id: p.id,
+
+          name: {
+            ar: p.name_ar || fallback?.name?.ar || "",
+            en:
+              p.name_en ||
+              fallback?.name?.en ||
+              p.name_ar ||
+              "",
+          },
+
+          description: {
+            ar: p.description_ar || fallback?.description?.ar || "",
+            en:
+              p.description_en ||
+              fallback?.description?.en ||
+              p.description_ar ||
+              "",
+          },
+
+          price: p.price,
+
+          category: fallback?.category || "equipment",
+
+          images:
+            p.image_url
+              ? [p.image_url]
+              : fallback?.images || [],
+
+          stock: p.stock ?? 0,
+          active: true,
+
+          createdAt:
+            fallback?.createdAt || new Date().toISOString(),
+
+          updatedAt:
+            p.updated_at || new Date().toISOString(),
+        };
+      });
 
       return Response.json(formatted);
     }
 
-    /* 🔄 fallback JSON */
+    /* fallback القديم زي ما هو */
     const products = readProducts();
 
     const safeProducts = products.filter(
@@ -178,6 +203,15 @@ export async function POST(request: Request) {
       );
     }
 
+    const products = readProducts();
+
+    if (products.find((p) => p.id === body.id)) {
+      return Response.json(
+        { error: "Product with this ID already exists" },
+        { status: 409 }
+      );
+    }
+
     const now = new Date().toISOString();
 
     const productToSave: Product = {
@@ -193,7 +227,7 @@ export async function POST(request: Request) {
       updatedAt: now,
     };
 
-    /* 🔥 INSERT في Supabase */
+    /* Supabase insert */
     await supabase.from("products").insert([
       {
         id: productToSave.id,
@@ -207,8 +241,7 @@ export async function POST(request: Request) {
       },
     ]);
 
-    /* 🔄 fallback local */
-    const products = readProducts();
+    /* fallback local */
     products.push(productToSave);
     writeProducts(products);
 
