@@ -25,12 +25,13 @@ function writeProducts(products: Product[]): void {
   writeFileSync(PRODUCTS_FILE, JSON.stringify(products, null, 2));
 }
 
+/* ✅ FIX: استخدام slug بدل category */
 function getValidCategorySlugs(): string[] {
   try {
     const categories = readJSON<any[]>(CATEGORIES_FILE);
     return categories
-      .filter((c) => c.active === true && typeof c.category === "string")
-      .map((c) => c.category);
+      .filter((c) => c.active === true && typeof c.slug === "string")
+      .map((c) => c.slug.toLowerCase().trim());
   } catch {
     return [];
   }
@@ -68,7 +69,7 @@ function isValidProductInput(
   if (
     !product.category ||
     typeof product.category !== "string" ||
-    !validCategories.includes(product.category)
+    !validCategories.includes(product.category.toLowerCase().trim()) // ✅ FIX
   )
     return "Invalid product category";
 
@@ -113,6 +114,11 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as Partial<Product>;
+
+    /* ✅ FIX: normalize category */
+    if (typeof body.category === "string") {
+      body.category = body.category.toLowerCase().trim();
+    }
 
     const validCategories = getValidCategorySlugs();
     const validationError = isValidProductInput(body, validCategories);
