@@ -229,17 +229,32 @@ export async function POST(request: Request) {
 
     /* Supabase insert */
     await supabase.from("products").insert([
-      {
-        id: productToSave.id,
-        name_ar: productToSave.name.ar,
-        name_en: productToSave.name.en,
-        description_ar: productToSave.description.ar,
-        description_en: productToSave.description.en,
-        price: productToSave.price,
-        image_url: productToSave.images[0],
-        stock: productToSave.stock,
-      },
-    ]);
+  {
+    id: productToSave.id,
+    name_ar: productToSave.name.ar,
+    name_en:
+      productToSave.name.en && productToSave.name.en.trim() !== ""
+        ? productToSave.name.en
+        : productToSave.name.ar,
+
+    description_ar: productToSave.description.ar,
+    description_en:
+      productToSave.description.en &&
+      productToSave.description.en.trim() !== ""
+        ? productToSave.description.en
+        : productToSave.description.ar,
+
+    price: productToSave.price,
+
+    image_url:
+      Array.isArray(productToSave.images) &&
+      productToSave.images.length > 0
+        ? productToSave.images[0]
+        : null,
+
+    stock: productToSave.stock,
+  },
+]);
 
     /* fallback local */
     products.push(productToSave);
