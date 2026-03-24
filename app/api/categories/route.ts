@@ -52,7 +52,7 @@ function isValidCategory(cat: Partial<Category>) {
 }
 
 /* ---------------- GET ---------------- */
-// قراءة الأقسام الفعالة فقط + مرتبة
+
 export async function GET() {
   try {
     const categories = readCategories();
@@ -71,10 +71,24 @@ export async function GET() {
 }
 
 /* ---------------- POST ---------------- */
-// إضافة قسم جديد
+
 export async function POST(request: Request) {
   try {
-    const newCategory = (await request.json()) as Category;
+    const body = (await request.json()) as Partial<Category>;
+
+    /* 🔥 FIX: normalize input بدون كسر أي حاجة */
+    const newCategory: Category = {
+      type: "category",
+      id: String(body.id || body.category).toLowerCase().trim(),
+      category: String(body.category || body.id).toLowerCase().trim(),
+      image: body.image || "",
+      en: body.en || { title: "", subtitle: "" },
+      ar: body.ar || { title: "", subtitle: "" },
+      active: body.active ?? true,
+      order: Number(body.order ?? 0),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
 
     if (!isValidCategory(newCategory)) {
       return Response.json(
@@ -92,27 +106,25 @@ export async function POST(request: Request) {
       );
     }
 
-    const categoryToSave: Category = {
-      ...newCategory,
-      active: newCategory.active ?? true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    categories.push(categoryToSave);
+    categories.push(newCategory);
     writeCategories(categories);
 
-    return Response.json(categoryToSave, { status: 201 });
-  } catch {
+    return Response.json(newCategory, { status: 201 });
+  } catch (err) {
+    console.error("CATEGORY CREATE ERROR:", err);
+
     return Response.json(
-      { error: "Failed to create category" },
+      {
+        error: "Failed to create category",
+        details: err instanceof Error ? err.message : "unknown",
+      },
       { status: 500 }
     );
   }
 }
 
 /* ---------------- PUT ---------------- */
-// تحديث قسم
+
 export async function PUT(request: Request) {
   try {
     const { id, ...updates } = (await request.json()) as Partial<Category> & {
@@ -139,7 +151,7 @@ export async function PUT(request: Request) {
     const updatedCategory: Category = {
       ...categories[index],
       ...updates,
-      id, // منع تغيير الـ ID
+      id,
       updatedAt: new Date().toISOString(),
     };
 
@@ -163,7 +175,7 @@ export async function PUT(request: Request) {
 }
 
 /* ---------------- DELETE ---------------- */
-// حذف قسم
+
 export async function DELETE(request: Request) {
   try {
     const { id } = (await request.json()) as { id: string };
