@@ -1,8 +1,11 @@
+// =====================================================
+// Admin Order Tracking API (Hardened Version)
+// Cesar Store
+// =====================================================
+
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
-
-// ✅ NEW
 import { validateAdminSession } from "@/lib/admin/validateAdminSession";
 
 export const runtime = "nodejs";
@@ -19,6 +22,15 @@ type TrackingStatus =
   | "shipped"
   | "delivered"
   | "canceled";
+
+const VALID_STATUSES: TrackingStatus[] = [
+  "requested",
+  "confirmed",
+  "preparing",
+  "shipped",
+  "delivered",
+  "canceled",
+];
 
 const ALLOWED_TRANSITIONS: Record<TrackingStatus, TrackingStatus[]> = {
   requested: ["confirmed", "canceled"],
@@ -37,16 +49,14 @@ async function getCurrentStatus(orderId: string): Promise<TrackingStatus> {
     .order("created_at", { ascending: false })
     .limit(1);
 
-  if (!data || data.length === 0) {
-    return "requested";
-  }
+  if (!data || data.length === 0) return "requested";
 
   return data[0].status as TrackingStatus;
 }
 
 export async function POST(req: NextRequest) {
   try {
-    // 🔒 NEW: UNIFIED ADMIN AUTH
+    /* 🔒 Auth */
     if (!validateAdminSession()) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -54,17 +64,32 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     const { orderId, event } = body as {
-      orderId?: string;
-      event?: TrackingStatus;
+      orderId?: unknown;
+      event?: unknown;
     };
 
-    if (!orderId || !event) {
+    /* 🛡️ Input Validation */
+    if (
+      typeof orderId !== "string" ||
+      orderId.length < 10 ||
+      typeof event !== "string"
+    ) {
       return NextResponse.json(
-        { ok: false, error: "Invalid payload" },
+        { ok: false, error: "Invalid payload format" },
         { status: 400 }
       );
     }
 
+    if (!VALID_STATUSES.includes(event as TrackingStatus)) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid status value" },
+        { status: 400 }
+      );
+    }
+
+    const safeEvent = event as TrackingStatus;
+
+    /* 📦 Order Check */
     const { data: order } = await supabase
       .from("orders")
       .select("id")
@@ -79,26 +104,34 @@ export async function POST(req: NextRequest) {
     }
 
     const currentStatus = await getCurrentStatus(orderId);
+
+    /* 🚫 Prevent duplicate */
+    if (currentStatus === safeEvent) {
+      return NextResponse.json(
+        { ok: false, error: "Already in this status" },
+        { status: 400 }
+      );
+    }
+
     const allowedNext = ALLOWED_TRANSITIONS[currentStatus];
 
-    if (!allowedNext.includes(event)) {
+    if (!allowedNext.includes(safeEvent)) {
       return NextResponse.json(
         {
           ok: false,
-          error: `Invalid transition: ${currentStatus} → ${event}`,
+          error: `Invalid transition: ${currentStatus} → ${safeEvent}`,
         },
         { status: 400 }
       );
     }
 
-    /* ---------- Insert Tracking Event ---------- */
-
+    /* 📝 Insert Event */
     const { error: insertError } = await supabase
       .from("order_tracking_events")
       .insert({
         id: crypto.randomUUID(),
         order_id: orderId,
-        status: event,
+        status: safeEvent,
         actor: "admin",
       });
 
@@ -110,17 +143,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    /* ---------- Update Order Status ---------- */
-
+    /* 🔄 Update Order */
     const { data: updatedOrder, error: updateError } = await supabase
       .from("orders")
-      .update({ status: event })
+      .update({ status: safeEvent })
       .eq("id", orderId)
       .select("id, status")
       .single();
 
     if (updateError) {
-      console.error("update order status error:", updateError);
+      console.error(updateError);
       return NextResponse.json(
         { ok: false, error: "Failed to update order status" },
         { status: 500 }
