@@ -99,7 +99,10 @@ export async function GET() {
               "",
           },
           price: p.price,
-          category: fallback?.category || "equipment",
+          category:
+            p.category ||
+            fallback?.category ||
+             "equipment",
           images:
             p.image_url
               ? [p.image_url]
