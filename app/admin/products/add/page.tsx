@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation"; // أضفنا الراوتر للتوجيه بعد النجاح
+import { useRouter } from "next/navigation";
 import type { Product } from "@/types/product";
 
 const PLACEHOLDER_IMAGE = "/placeholder.png";
@@ -54,6 +54,7 @@ export default function AddProductPage() {
     setForm((prev) => ({ ...prev, [name]: val }));
   };
 
+  // التعديل هنا ليتوافق مع الـ API الذي يتوقع حقل "file" واحد وحقل "type"
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -61,21 +62,31 @@ export default function AddProductPage() {
     setUploading(true);
     setUploadError(null);
 
-    const formData = new FormData();
-    for (let i = 0; i < files.length; i++) {
-      formData.append("files", files[i]);
-    }
+    const uploadedUrls: string[] = [];
 
     try {
-      const res = await fetch("/api/admin/upload", {
-        method: "POST",
-        body: formData,
-      });
-      if (!res.ok) throw new Error("فشل رفع الصور");
-      const data = await res.json();
+      // رفع الصور واحدة تلو الأخرى لتتوافق مع معالجة الـ API الحالية (formData.get("file"))
+      for (let i = 0; i < files.length; i++) {
+        const formData = new FormData();
+        formData.append("file", files[i]); // المسمى الذي يتوقعه الـ API
+        formData.append("type", "product"); // النوع المطلوب في الـ API للتحقق
+
+        const res = await fetch("/api/admin/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.details || "فشل رفع إحدى الصور");
+        }
+
+        const data = await res.json();
+        uploadedUrls.push(data.url);
+      }
       
-      setForm((prev) => ({ ...prev, images: [...prev.images, ...data.urls] }));
-      setPreviews((prev) => [...prev, ...data.urls]);
+      setForm((prev) => ({ ...prev, images: [...prev.images, ...uploadedUrls] }));
+      setPreviews((prev) => [...prev, ...uploadedUrls]);
     } catch (err: any) {
       setUploadError(err.message);
     } finally {
@@ -83,28 +94,26 @@ export default function AddProductPage() {
     }
   };
 
-  // --- المنطق المستوحى من البالك إمبورت لضمان النجاح ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError(null);
 
     try {
-      // تجهيز البيانات بنفس هيكل البالك إمبورت
+      // تجهيز البيانات بنفس هيكل البالك إمبورت والـ API الموحد
       const productData = {
-        id: form.id.trim() || undefined, // إذا كان فارغاً نتركه للنظام
+        id: form.id.trim() || undefined,
         nameAr: form.nameAr,
         nameEn: form.nameEn,
         descriptionAr: form.descriptionAr,
         descriptionEn: form.descriptionEn,
-        price: parseFloat(form.price),
-        stock: parseInt(form.stock),
+        price: parseFloat(form.price), // التحويل لرقم لضمان قبول قاعدة البيانات
+        stock: parseInt(form.stock),   // التحويل لرقم لضمان قبول قاعدة البيانات
         category: form.category,
         images: form.images,
         active: form.active,
       };
 
-      // الإرسال إلى نفس مسار الـ API الذي يستخدمه البالك
       const res = await fetch("/api/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -117,7 +126,6 @@ export default function AddProductPage() {
         throw new Error(result.error || "حدث خطأ أثناء حفظ المنتج");
       }
 
-      // إذا نجح الرفع، نوجه المستخدم لصفحة المنتجات
       router.push("/admin/products");
       router.refresh();
 
