@@ -193,7 +193,7 @@ export default function EditProductPage({ params }: Props) {
       price: Number(form.price),
       stock: Number(form.stock),
       category: form.category,
-      images: form.images,
+      images: cleanImages,
       active: form.active,
     };
 
