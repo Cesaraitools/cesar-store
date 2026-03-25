@@ -135,33 +135,35 @@ export default function AddProductPage() {
     }
      console.log("FORM STATE:", form);
 
-      setSaving(true); 
-    const cleanImages = form.images.filter(
+setSaving(true);
+
+const cleanImages = form.images.filter(
   (img) => typeof img === "string" && !img.startsWith("blob:")
 );
 
-    setSaving(true);
+const now = new Date().toISOString();
 
-    const now = new Date().toISOString();
+const payload: Product = {
+  id: form.id?.trim() || crypto.randomUUID(),
 
-    const payload: Product = {
-      id: form.id,
-      name: {
-        ar: form.nameAr.trim(),
-        en: form.nameEn.trim(),
-      },
-      description: {
-        ar: form.descriptionAr.trim(),
-        en: form.descriptionEn.trim(),
-      },
-      price: Number(form.price),
-      stock: Number(form.stock),
-      category: form.category,
-      images: cleanImages,
-      active: form.active,
-      createdAt: now,
-      updatedAt: now,
-    };
+  name: {
+    ar: form.nameAr.trim(),
+    en: form.nameEn.trim(),
+  },
+
+  description: {
+    ar: form.descriptionAr.trim(),
+    en: form.descriptionEn.trim(),
+  },
+
+  price: Number(form.price),
+  stock: Number(form.stock),
+  category: form.category,
+  images: cleanImages,
+  active: form.active,
+  createdAt: now,
+  updatedAt: now,
+};
 
     try {
       const res = await fetch("/api/products", {
