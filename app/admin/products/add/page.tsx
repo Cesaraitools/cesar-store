@@ -104,6 +104,7 @@ export default function AddProductPage() {
     setError(null);
 
     try {
+      // بناء كائن المنتج
       const productData = {
         id: form.id.trim() || undefined,
         nameAr: form.nameAr,
@@ -113,14 +114,15 @@ export default function AddProductPage() {
         price: parseFloat(form.price),
         stock: parseInt(form.stock),
         category: form.category,
-        images: form.images,
+        images: form.images, // مصفوفة الروابط
         active: form.active,
       };
 
+      // السر هنا: نرسل المنتج داخل مصفوفة [productData] ليتوافق مع API البالك
       const res = await fetch("/api/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(productData),
+        body: JSON.stringify([productData]), // لاحظ الأقواس المربعة هنا
       });
 
       const result = await res.json();
