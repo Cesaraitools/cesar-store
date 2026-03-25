@@ -68,42 +68,6 @@ function isValidLangField(
   );
 }
 
-function isValidProductInput(
-  product: Partial<Product>,
-  validCategories: string[]
-): string | null {
-  if (!product.id || typeof product.id !== "string")
-    return "Product id is required";
-
-  if (!isValidLangField(product.name))
-    return "Product name (ar/en) is required";
-
-  if (!isValidLangField(product.description))
-    return "Product description (ar/en) is required";
-
-  if (typeof product.price !== "number" || product.price <= 0)
-    return "Product price must be a number greater than 0";
-
-  if (
-    !product.category ||
-    typeof product.category !== "string" ||
-    !validCategories.includes(product.category.toLowerCase().trim())
-  )
-    return "Invalid product category";
-
-  if (
-    !Array.isArray(product.images) ||
-    product.images.length === 0 ||
-    !product.images.every((img) => typeof img === "string")
-  )
-    return "Product images must be a non-empty array of strings";
-
-  if (product.stock !== undefined && product.stock < 0)
-    return "Product stock cannot be negative";
-
-  return null;
-}
-
 /* ---------------- GET ---------------- */
 
 export async function GET() {
@@ -118,7 +82,6 @@ export async function GET() {
 
         return {
           id: p.id,
-
           name: {
             ar: p.name_ar || fallback?.name?.ar || "",
             en:
@@ -127,7 +90,6 @@ export async function GET() {
               p.name_ar ||
               "",
           },
-
           description: {
             ar: p.description_ar || fallback?.description?.ar || "",
             en:
@@ -136,22 +98,16 @@ export async function GET() {
               p.description_ar ||
               "",
           },
-
           price: p.price,
-
           category: fallback?.category || "equipment",
-
           images:
             p.image_url
               ? [p.image_url]
               : fallback?.images || [],
-
           stock: p.stock ?? 0,
           active: true,
-
           createdAt:
             fallback?.createdAt || new Date().toISOString(),
-
           updatedAt:
             p.updated_at || new Date().toISOString(),
         };
@@ -160,7 +116,6 @@ export async function GET() {
       return Response.json(formatted);
     }
 
-    /* fallback القديم زي ما هو */
     const products = readProducts();
 
     const safeProducts = products.filter(
@@ -194,13 +149,9 @@ export async function POST(request: Request) {
     }
 
     const validCategories = getValidCategorySlugs();
-    const validationError = isValidProductInput(body, validCategories);
 
-    if (validationError) {
-      return Response.json(
-        { error: validationError },
-        { status: 400 }
-      );
+    if (!body.id) {
+      return Response.json({ error: "Product id is required" }, { status: 400 });
     }
 
     const products = readProducts();
@@ -227,36 +178,20 @@ export async function POST(request: Request) {
       updatedAt: now,
     };
 
-    /* Supabase insert */
     await supabase.from("products").insert([
-  {
-    id: productToSave.id,
-    name_ar: productToSave.name.ar,
-    name_en:
-      productToSave.name.en && productToSave.name.en.trim() !== ""
-        ? productToSave.name.en
-        : productToSave.name.ar,
+      {
+        id: productToSave.id,
+        name_ar: productToSave.name.ar,
+        name_en: productToSave.name.en || productToSave.name.ar,
+        description_ar: productToSave.description.ar,
+        description_en:
+          productToSave.description.en || productToSave.description.ar,
+        price: productToSave.price,
+        image_url: productToSave.images[0] || null,
+        stock: productToSave.stock,
+      },
+    ]);
 
-    description_ar: productToSave.description.ar,
-    description_en:
-      productToSave.description.en &&
-      productToSave.description.en.trim() !== ""
-        ? productToSave.description.en
-        : productToSave.description.ar,
-
-    price: productToSave.price,
-
-    image_url:
-      Array.isArray(productToSave.images) &&
-      productToSave.images.length > 0
-        ? productToSave.images[0]
-        : null,
-
-    stock: productToSave.stock,
-  },
-]);
-
-    /* fallback local */
     products.push(productToSave);
     writeProducts(products);
 
@@ -275,7 +210,7 @@ export async function POST(request: Request) {
   }
 }
 
-/* ---------------- PUT ---------------- */
+/* ---------------- PUT (FIXED) ---------------- */
 
 export async function PUT(request: Request) {
   try {
@@ -290,18 +225,48 @@ export async function PUT(request: Request) {
       );
     }
 
+    // 🟢 تحديث Supabase بالكامل
     await supabase
       .from("products")
       .update({
+        name_ar: updates.name?.ar,
+        name_en: updates.name?.en || updates.name?.ar,
+
+        description_ar: updates.description?.ar,
+        description_en:
+          updates.description?.en || updates.description?.ar,
+
         price: updates.price,
         stock: updates.stock,
+
+        image_url:
+          Array.isArray(updates.images) && updates.images.length > 0
+            ? updates.images[0]
+            : null,
+
         updated_at: new Date().toISOString(),
       })
       .eq("id", id);
 
+    // 🟢 تحديث fallback JSON
+    const products = readProducts();
+    const index = products.findIndex((p) => p.id === id);
+
+    if (index !== -1) {
+      products[index] = {
+        ...products[index],
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      } as Product;
+
+      writeProducts(products);
+    }
+
     return Response.json({ success: true });
 
-  } catch {
+  } catch (err) {
+    console.error("UPDATE ERROR:", err);
+
     return Response.json(
       { error: "Failed to update product" },
       { status: 500 }
