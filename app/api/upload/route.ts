@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
     ========================= */
 
     const { data } = supabase.storage
-      .from("uploads")
+      .from("upload") // ✅ FIX هنا (كان uploads)
       .getPublicUrl(fileName);
 
     return NextResponse.json({
