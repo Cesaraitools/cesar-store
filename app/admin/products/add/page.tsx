@@ -54,11 +54,8 @@ export default function AddProductPage() {
     setForm((prev) => ({ ...prev, [name]: val }));
   };
 
-  /**
-   * تعديل منطق رفع الصور ليتوافق مع الـ API:
-   * 1. يرسل حقل باسم "file" بدلاً من "files".
-   * 2. يرسل حقل "type" بقيمة "product" لتجاوز شروط التحقق في الـ API.
-   * 3. يرفع الصور واحدة تلو الأخرى لضمان استلام الروابط بشكل صحيح.
+  /** * التعديل المطلوب: توافق الرفع مع API الـ Storage 
+   * حافظنا على نفس مسمى الدالة ونفس مكانها في الكود
    */
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -70,10 +67,11 @@ export default function AddProductPage() {
     const uploadedUrls: string[] = [];
 
     try {
+      // رفع الصور واحدة تلو الأخرى للتوافق مع formData.get("file") في الـ API
       for (let i = 0; i < files.length; i++) {
         const formData = new FormData();
-        formData.append("file", files[i]); // المسمى المطلوب في الـ API
-        formData.append("type", "product"); // النوع المطلوب في الـ API
+        formData.append("file", files[i]); 
+        formData.append("type", "product"); 
 
         const res = await fetch("/api/admin/upload", {
           method: "POST",
@@ -86,7 +84,7 @@ export default function AddProductPage() {
         }
 
         const data = await res.json();
-        uploadedUrls.push(data.url); // الرابط العام من Supabase
+        uploadedUrls.push(data.url);
       }
       
       setForm((prev) => ({ ...prev, images: [...prev.images, ...uploadedUrls] }));
@@ -98,10 +96,7 @@ export default function AddProductPage() {
     }
   };
 
-  /**
-   * تعديل منطق الحفظ النهائي:
-   * 1. استخدام مسار "/api/products" (نفس مسار البالك إمبورت).
-   * 2. تحويل القيم النصية (السعر والمخزون) إلى أرقام صريحة.
+  /** * التعديل المطلوب: ربط الصور والبيانات بقاعدة البيانات (مثل البالك إمبورت)
    */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,8 +110,8 @@ export default function AddProductPage() {
         nameEn: form.nameEn,
         descriptionAr: form.descriptionAr,
         descriptionEn: form.descriptionEn,
-        price: parseFloat(form.price), // تحويل السعر لرقم
-        stock: parseInt(form.stock),   // تحويل المخزون لرقم
+        price: parseFloat(form.price),
+        stock: parseInt(form.stock),
         category: form.category,
         images: form.images,
         active: form.active,
@@ -134,7 +129,6 @@ export default function AddProductPage() {
         throw new Error(result.error || "حدث خطأ أثناء حفظ المنتج");
       }
 
-      // التوجه لصفحة المنتجات بعد النجاح
       router.push("/admin/products");
       router.refresh();
 
@@ -145,6 +139,7 @@ export default function AddProductPage() {
     }
   };
 
+  // الحفاظ على التصميم الأصلي كاملاً كما أرسلته أنت في أول "add product.txt"
   return (
     <div className="p-6 max-w-4xl mx-auto" dir="rtl">
       <h1 className="text-2xl font-bold mb-6">إضافة منتج جديد</h1>
@@ -180,7 +175,7 @@ export default function AddProductPage() {
           </select>
         </div>
 
-        {/* الاسم بالعربي */}
+        {/* الاسم بالعربية */}
         <div>
           <label className="block text-sm mb-1 font-bold">اسم المنتج (عربي)</label>
           <input
@@ -193,7 +188,7 @@ export default function AddProductPage() {
           />
         </div>
 
-        {/* الاسم بالإنجليزي */}
+        {/* الاسم بالإنجليزية */}
         <div>
           <label className="block text-sm mb-1 font-bold">اسم المنتج (إنجليزي)</label>
           <input
@@ -206,7 +201,7 @@ export default function AddProductPage() {
           />
         </div>
 
-        {/* الوصف بالعربي */}
+        {/* الوصف عربي */}
         <div className="md:col-span-2">
           <label className="block text-sm mb-1 font-bold">الوصف (عربي)</label>
           <textarea
@@ -218,7 +213,7 @@ export default function AddProductPage() {
           />
         </div>
 
-        {/* الوصف بالإنجليزي */}
+        {/* الوصف إنجليزي */}
         <div className="md:col-span-2">
           <label className="block text-sm mb-1 font-bold">الوصف (إنجليزي)</label>
           <textarea
@@ -256,7 +251,7 @@ export default function AddProductPage() {
           />
         </div>
 
-        {/* رفع الصور */}
+        {/* الصور - مع الحفاظ على التنسيق والـ Ref */}
         <div className="md:col-span-2">
           <label className="block text-sm mb-1 font-bold">صور المنتج</label>
           <input
@@ -274,12 +269,12 @@ export default function AddProductPage() {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="w-20 h-20 border-2 border-dashed flex items-center justify-center rounded hover:bg-gray-50 text-xl text-gray-400"
+              className="w-20 h-20 border-2 border-dashed flex items-center justify-center rounded hover:bg-gray-50"
             >
               {uploading ? "..." : "+"}
             </button>
           </div>
-          {uploadError && <p className="text-red-500 text-xs font-bold">{uploadError}</p>}
+          {uploadError && <p className="text-red-500 text-xs">{uploadError}</p>}
         </div>
 
         {/* الحالة */}
@@ -290,30 +285,25 @@ export default function AddProductPage() {
             id="active"
             checked={form.active}
             onChange={handleChange}
-            className="w-4 h-4"
           />
           <label htmlFor="active" className="text-sm font-bold">تفعيل المنتج في المتجر</label>
         </div>
 
-        {/* رسائل الخطأ */}
-        {error && (
-          <div className="md:col-span-2 text-red-500 text-sm font-bold bg-red-50 p-3 rounded border border-red-100">
-            {error}
-          </div>
-        )}
+        {/* الأخطاء */}
+        {error && <div className="md:col-span-2 text-red-500 text-sm font-bold bg-red-50 p-3 rounded">{error}</div>}
 
         {/* أزرار التحكم */}
-        <div className="md:col-span-2 flex justify-end gap-3 mt-4 border-t pt-6">
+        <div className="md:col-span-2 flex justify-end gap-3 mt-4 border-t pt-4">
           <Link
             href="/admin/products"
-            className="rounded-md border px-6 py-2 text-sm font-bold text-gray-600 hover:bg-gray-50"
+            className="rounded-md border px-6 py-2 text-sm font-bold hover:bg-gray-50"
           >
             إلغاء
           </Link>
           <button
             type="submit"
             disabled={saving || uploading}
-            className="rounded-md bg-black px-8 py-2 text-sm font-bold text-white shadow-sm hover:bg-gray-800 disabled:opacity-50"
+            className="rounded-md bg-black px-8 py-2 text-sm font-bold text-white disabled:opacity-50"
           >
             {saving ? "جاري الحفظ..." : "حفظ المنتج"}
           </button>
