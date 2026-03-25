@@ -134,10 +134,9 @@ export default function AddProductPage() {
       return;
     }
 
-    if (form.images.some((img) => img.startsWith("blob:"))) {
-      setError("Invalid images detected. Please re-upload images.");
-      return;
-    }
+    const cleanImages = form.images.filter(
+  (img) => typeof img === "string" && !img.startsWith("blob:")
+);
 
     setSaving(true);
 
@@ -156,7 +155,7 @@ export default function AddProductPage() {
       price: Number(form.price),
       stock: Number(form.stock),
       category: form.category,
-      images: form.images,
+      images: cleanImages,
       active: form.active,
       createdAt: now,
       updatedAt: now,
