@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     ========================= */
 
     const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    const fileData = new Uint8Array(bytes);
 
     const ext = file.name.split(".").pop() || "jpg";
     const fileName = `${type}/${crypto.randomUUID()}.${ext}`;
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
 
     const { error: uploadError } = await supabase.storage
       .from("upload")
-      .upload(fileName, buffer, {
+      .upload(fileName, fileData, {
         contentType: file.type,
         upsert: false,
       });
