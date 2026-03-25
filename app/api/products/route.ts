@@ -68,7 +68,7 @@ function isValidLangField(
   );
 }
 
-/* ---------------- GET ---------------- */
+/* ---------------- GET (FIXED ONLY) ---------------- */
 
 export async function GET() {
   try {
@@ -76,60 +76,67 @@ export async function GET() {
 
     const fallbackProducts = readProducts();
 
-    if (!error && data && data.length > 0) {
-      const formatted: Product[] = data.map((p: any) => {
-        const fallback = fallbackProducts.find(fp => fp.id === p.id);
-
-        return {
-          id: p.id,
-          name: {
-            ar: p.name_ar || fallback?.name?.ar || "",
-            en:
-              p.name_en ||
-              fallback?.name?.en ||
-              p.name_ar ||
-              "",
-          },
-          description: {
-            ar: p.description_ar || fallback?.description?.ar || "",
-            en:
-              p.description_en ||
-              fallback?.description?.en ||
-              p.description_ar ||
-              "",
-          },
-          price: p.price,
-          category:
-            p.category ||
-            fallback?.category ||
-             "equipment",
-          images:
-            p.image_url
-              ? [p.image_url]
-              : fallback?.images || [],
-          stock: p.stock ?? 0,
-          active: true,
-          createdAt:
-            fallback?.createdAt || new Date().toISOString(),
-          updatedAt:
-            p.updated_at || new Date().toISOString(),
-        };
-      });
-
-      return Response.json(formatted);
-    }
-
-    const products = readProducts();
-
-    const safeProducts = products.filter(
-      (p) =>
-        p.active !== false &&
-        isValidLangField(p.name) &&
-        typeof p.price === "number" &&
-        Array.isArray(p.images)
+    const supabaseMap = new Map(
+      (data || []).map((p: any) => [p.id, p])
     );
 
-    return Response.json(safeProducts);
+    const allIds = Array.from(new Set([
+      ...fallbackProducts.map((p) => p.id),
+      ...(data || []).map((p: any) => p.id),
+    ]));
+
+    // ✅ FIX: كان ناقص
+    const formatted: Product[] = [];
+
+    allIds.forEach((id) => {
+      const p = supabaseMap.get(id);
+      const fallback = fallbackProducts.find(fp => fp.id === id);
+
+      formatted.push({
+        id,
+
+        name: {
+          ar: p?.name_ar || fallback?.name?.ar || "",
+          en:
+            p?.name_en ||
+            fallback?.name?.en ||
+            p?.name_ar ||
+            "",
+        },
+
+        description: {
+          ar: p?.description_ar || fallback?.description?.ar || "",
+          en:
+            p?.description_en ||
+            fallback?.description?.en ||
+            p?.description_ar ||
+            "",
+        },
+
+        price: p?.price ?? fallback?.price ?? 0,
+
+        category:
+          p?.category ||
+          fallback?.category ||
+          "equipment",
+
+        images:
+          p?.image_url
+            ? [p.image_url]
+            : fallback?.images || [],
+
+        stock: p?.stock ?? fallback?.stock ?? 0,
+        active: fallback?.active ?? true,
+
+        createdAt:
+          fallback?.createdAt || new Date().toISOString(),
+
+        updatedAt:
+          p?.updated_at || new Date().toISOString(),
+      });
+    });
+
+    return Response.json(formatted);
 
   } catch (err) {
     console.error("GET PRODUCTS ERROR:", err);
@@ -213,7 +220,7 @@ export async function POST(request: Request) {
   }
 }
 
-/* ---------------- PUT (FIXED) ---------------- */
+/* ---------------- PUT ---------------- */
 
 export async function PUT(request: Request) {
   try {
@@ -228,33 +235,25 @@ export async function PUT(request: Request) {
       );
     }
 
-    // 🟢 تحديث Supabase
     await supabase
       .from("products")
       .update({
         name_ar: updates.name?.ar,
         name_en: updates.name?.en || updates.name?.ar,
-
         description_ar: updates.description?.ar,
         description_en:
           updates.description?.en || updates.description?.ar,
-
         price: updates.price,
         stock: updates.stock,
-
         image_url:
           Array.isArray(updates.images) && updates.images.length > 0
             ? updates.images[0]
             : null,
-
-        // ✅ FIX: إضافة الكاتيجوري
         category: updates.category,
-
         updated_at: new Date().toISOString(),
       })
       .eq("id", id);
 
-    // 🟢 تحديث JSON fallback
     const products = readProducts();
     const index = products.findIndex((p) => p.id === id);
 
@@ -280,6 +279,7 @@ export async function PUT(request: Request) {
     );
   }
 }
+
 /* ---------------- DELETE ---------------- */
 
 export async function DELETE(request: Request) {
