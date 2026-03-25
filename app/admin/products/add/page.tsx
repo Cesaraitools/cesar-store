@@ -133,7 +133,9 @@ export default function AddProductPage() {
       setError("Please upload at least one image");
       return;
     }
+     console.log("FORM STATE:", form);
 
+      setSaving(true); 
     const cleanImages = form.images.filter(
   (img) => typeof img === "string" && !img.startsWith("blob:")
 );
