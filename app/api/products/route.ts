@@ -225,7 +225,7 @@ export async function PUT(request: Request) {
       );
     }
 
-    // 🟢 تحديث Supabase بالكامل
+    // 🟢 تحديث Supabase
     await supabase
       .from("products")
       .update({
@@ -244,11 +244,14 @@ export async function PUT(request: Request) {
             ? updates.images[0]
             : null,
 
+        // ✅ FIX: إضافة الكاتيجوري
+        category: updates.category,
+
         updated_at: new Date().toISOString(),
       })
       .eq("id", id);
 
-    // 🟢 تحديث fallback JSON
+    // 🟢 تحديث JSON fallback
     const products = readProducts();
     const index = products.findIndex((p) => p.id === id);
 
@@ -256,6 +259,7 @@ export async function PUT(request: Request) {
       products[index] = {
         ...products[index],
         ...updates,
+        category: updates.category ?? products[index].category,
         updatedAt: new Date().toISOString(),
       } as Product;
 
@@ -273,7 +277,6 @@ export async function PUT(request: Request) {
     );
   }
 }
-
 /* ---------------- DELETE ---------------- */
 
 export async function DELETE(request: Request) {
