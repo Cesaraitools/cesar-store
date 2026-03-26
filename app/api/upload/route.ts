@@ -26,12 +26,13 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
 
-    const file = formData.get("file") as File | null;
+    const file = formData.get("file");
     const type = formData.get("type") as string | null;
 
-    if (!file || !type) {
+    // ✅ Validation (محسّن بدون تكرار)
+    if (!file || typeof file === "string" || !type) {
       return NextResponse.json(
-        { error: "Missing file or type" },
+        { error: "Missing or invalid file/type" },
         { status: 400 }
       );
     }
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
     }
 
     /* =========================
-       Prepare File
+       Prepare File (مرة واحدة فقط)
     ========================= */
 
     const bytes = await file.arrayBuffer();
@@ -85,7 +86,7 @@ export async function POST(req: NextRequest) {
     ========================= */
 
     const { data } = supabase.storage
-      .from("upload") // ✅ FIX هنا (كان uploads)
+      .from("upload")
       .getPublicUrl(fileName);
 
     return NextResponse.json({
