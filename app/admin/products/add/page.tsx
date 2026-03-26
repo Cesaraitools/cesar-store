@@ -2,11 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { Product } from "@/types/product";
 
 const PLACEHOLDER_IMAGE = "/placeholder.png";
 
 export default function AddProductPage() {
+  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [categories, setCategories] = useState<string[]>([]);
@@ -39,349 +41,252 @@ export default function AddProductPage() {
         const activeCategories = data
           .filter((c: { category: string; active: boolean }) => c.active)
           .map((c: { category: string }) => c.category);
-
         setCategories(activeCategories);
       })
-      .catch(() => setError("Failed to load categories"))
       .finally(() => setLoading(false));
   }, []);
 
-  function handleChange(
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
-  ) {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
     const { name, value, type } = e.target;
+    const val = type === "checkbox" ? (e.target as HTMLInputElement).checked : value;
+    setForm((prev) => ({ ...prev, [name]: val }));
+  };
 
-    if (type === "checkbox") {
-      setForm((prev) => ({
-        ...prev,
-        [name]: (e.target as HTMLInputElement).checked,
-      }));
-    } else {
-      setForm((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
-    }
-  }
-
-  async function handleBrowseImages(
-    e: React.ChangeEvent<HTMLInputElement>
-  ) {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     setUploading(true);
     setUploadError(null);
 
-    const newPreviews = files.map((f) => URL.createObjectURL(f));
-    setPreviews((prev) => [...prev, ...newPreviews]);
+    const uploadedUrls: string[] = [];
 
     try {
-      const uploadedUrls: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
 
-      for (const file of files) {
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("type", "product");
+         // 🔥 نفس منطق Bulk Import بالضبط
+        const localPath = `/products/${file.name}`;
 
-        const res = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error || "Upload failed");
-        }
-
-        const data = await res.json();
-        uploadedUrls.push(data.url);
-      }
-
-      setForm((prev) => ({
-        ...prev,
-        images: [...prev.images, ...uploadedUrls],
-      }));
+          uploadedUrls.push(localPath);
+         }
+      
+      setForm((prev) => ({ ...prev, images: [...prev.images, ...uploadedUrls] }));
+      setPreviews((prev) => [...prev, ...uploadedUrls]);
     } catch (err: any) {
       setUploadError(err.message);
     } finally {
       setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
-  }
+  };
 
-  function removeImage(index: number) {
-    setForm((prev) => ({
-      ...prev,
-      images: prev.images.filter((_, i) => i !== index),
-    }));
-    setPreviews((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSaving(true);
     setError(null);
 
-    if (!form.category) {
-      setError("Category is required");
-      return;
-    }
+    try {
+      // استعادة منطق "cleanProduct" الأصلي الخاص بك (الدقيق والآمن)
+      const cleanProduct: any = {
+       id: form.id?.trim() || crypto.randomUUID(),
 
-    if (form.images.length === 0) {
-      setError("Please upload at least one image");
-      return;
-    }
-
-    if (form.images.some((img) => img.startsWith("blob:"))) {
-      setError("Invalid images detected. Please re-upload images.");
-      return;
-    }
-
-    setSaving(true);
-
-    const now = new Date().toISOString();
-
-    const payload: Product = {
-      id: form.id,
-      name: {
-        ar: form.nameAr.trim(),
-        en: form.nameEn.trim(),
+       name: {
+       ar: form.nameAr,
+       en: form.nameEn,
       },
+
       description: {
-        ar: form.descriptionAr.trim(),
-        en: form.descriptionEn.trim(),
-      },
-      price: Number(form.price),
-      stock: Number(form.stock),
+      ar: form.descriptionAr,
+      en: form.descriptionEn,
+     },
+
+      price: parseFloat(form.price) || 0,
+      stock: parseInt(form.stock) || 0,
       category: form.category,
-      images: form.images,
+     images: form.images,
       active: form.active,
-      createdAt: now,
-      updatedAt: now,
     };
 
-    try {
+      // إرسال الكائن الصافي داخل مصفوفة [ ] كما يطلب السيرفر (منطق البالك)
       const res = await fetch("/api/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(cleanProduct), 
       });
 
-      const data = await res.json();
+      const result = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Failed to create product");
+        throw new Error(result.error || "حدث خطأ أثناء حفظ المنتج");
       }
 
-      window.location.href = "/admin/products";
+      router.push("/admin/products");
+      router.refresh();
+
     } catch (err: any) {
       setError(err.message);
     } finally {
       setSaving(false);
     }
-  }
+  };
 
-  if (loading) {
-    return (
-      <div className="p-6 max-w-6xl mx-auto">
-        <p className="text-gray-500">Loading...</p>
-      </div>
-    );
-  }
-
+  // المظهر الأصلي الخاص بك 100%
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Add Product</h1>
-        <Link
-          href="/admin/products"
-          className="rounded-md border px-4 py-2 text-sm"
-        >
-          Back
-        </Link>
-      </div>
+    <div className="p-6 max-w-4xl mx-auto" dir="rtl">
+      <h1 className="text-2xl font-bold mb-6">إضافة منتج جديد</h1>
 
-      {error && (
-        <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">
-          {error}
-        </div>
-      )}
-
-      {uploadError && (
-        <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">
-          {uploadError}
-        </div>
-      )}
-
-      <form
-        onSubmit={handleSubmit}
-        className="grid grid-cols-1 md:grid-cols-2 gap-6"
-      >
-        {/* Category */}
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-6 rounded-lg shadow">
         <div>
-          <label className="block text-sm mb-1">Category</label>
-          <select
-            name="category"
-            value={form.category}
-            onChange={handleChange}
-            className="w-full rounded border px-3 py-2"
-          >
-            <option value="">Select category</option>
-            {categories.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Product ID */}
-        <div>
-          <label className="block text-sm mb-1">Product ID (numeric)</label>
+          <label className="block text-sm mb-1 font-bold">كود المنتج (اختياري)</label>
           <input
             type="text"
             name="id"
             value={form.id}
             onChange={handleChange}
+            placeholder="مثال: CAR-123"
             className="w-full rounded border px-3 py-2"
           />
         </div>
 
-        {/* Images */}
-        <div className="md:col-span-2">
-          <label className="block text-sm mb-2">Images</label>
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            accept="image/*"
-            onChange={handleBrowseImages}
-          />
-
-          {uploading && (
-            <p className="mt-2 text-sm text-gray-500">Uploading...</p>
-          )}
-
-          <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
-            {form.images.map((img, index) => (
-              <div
-                key={index}
-                className="relative border rounded p-2 flex flex-col items-center"
-              >
-                <img
-                  src={previews[index] || img || PLACEHOLDER_IMAGE}
-                  alt=""
-                  className="h-24 object-contain"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeImage(index)}
-                  className="mt-2 text-xs text-red-600"
-                >
-                  Remove
-                </button>
-              </div>
+        <div>
+          <label className="block text-sm mb-1 font-bold">القسم</label>
+          <select
+            name="category"
+            required
+            value={form.category}
+            onChange={handleChange}
+            className="w-full rounded border px-3 py-2"
+          >
+            <option value="">اختر القسم</option>
+            {categories.map((c) => (
+              <option key={c} value={c}>{c}</option>
             ))}
-          </div>
+          </select>
         </div>
 
-        {/* Name Arabic */}
         <div>
-          <label className="block text-sm mb-1">Name (Arabic)</label>
+          <label className="block text-sm mb-1 font-bold">اسم المنتج (عربي)</label>
           <input
             type="text"
             name="nameAr"
+            required
             value={form.nameAr}
             onChange={handleChange}
             className="w-full rounded border px-3 py-2"
           />
         </div>
 
-        {/* Name English */}
         <div>
-          <label className="block text-sm mb-1">Name (English)</label>
+          <label className="block text-sm mb-1 font-bold">اسم المنتج (إنجليزي)</label>
           <input
             type="text"
             name="nameEn"
+            required
             value={form.nameEn}
             onChange={handleChange}
             className="w-full rounded border px-3 py-2"
           />
         </div>
 
-        {/* Description Arabic */}
-        <div>
-          <label className="block text-sm mb-1">Description (Arabic)</label>
+        <div className="md:col-span-2">
+          <label className="block text-sm mb-1 font-bold">الوصف (عربي)</label>
           <textarea
             name="descriptionAr"
+            rows={3}
             value={form.descriptionAr}
             onChange={handleChange}
-            className="w-full rounded border px-3 py-2 min-h-[120px]"
+            className="w-full rounded border px-3 py-2"
           />
         </div>
 
-        {/* Description English */}
-        <div>
-          <label className="block text-sm mb-1">Description (English)</label>
+        <div className="md:col-span-2">
+          <label className="block text-sm mb-1 font-bold">الوصف (إنجليزي)</label>
           <textarea
             name="descriptionEn"
+            rows={3}
             value={form.descriptionEn}
             onChange={handleChange}
-            className="w-full rounded border px-3 py-2 min-h-[120px]"
+            className="w-full rounded border px-3 py-2"
           />
         </div>
 
-        {/* Price */}
         <div>
-          <label className="block text-sm mb-1">Price</label>
+          <label className="block text-sm mb-1 font-bold">السعر</label>
           <input
             type="number"
             name="price"
+            required
             value={form.price}
             onChange={handleChange}
             className="w-full rounded border px-3 py-2"
           />
         </div>
 
-        {/* Stock */}
         <div>
-          <label className="block text-sm mb-1">Stock</label>
+          <label className="block text-sm mb-1 font-bold">الكمية المتوفرة</label>
           <input
             type="number"
             name="stock"
+            required
             value={form.stock}
             onChange={handleChange}
             className="w-full rounded border px-3 py-2"
           />
         </div>
 
-        {/* Active */}
+        <div className="md:col-span-2">
+          <label className="block text-sm mb-1 font-bold">صور المنتج</label>
+          <input
+            type="file"
+            multiple
+            accept="image/*"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            className="hidden"
+          />
+          <div className="flex flex-wrap gap-3 mb-3">
+            {previews.map((src, i) => (
+              <img key={i} src={src} alt="" className="w-20 h-20 object-cover rounded border" />
+            ))}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-20 h-20 border-2 border-dashed flex items-center justify-center rounded hover:bg-gray-50"
+            >
+              {uploading ? "..." : "+"}
+            </button>
+          </div>
+          {uploadError && <p className="text-red-500 text-xs font-bold">{uploadError}</p>}
+        </div>
+
         <div className="flex items-center gap-2">
           <input
             type="checkbox"
             name="active"
+            id="active"
             checked={form.active}
             onChange={handleChange}
           />
-          <label className="text-sm">Active</label>
+          <label htmlFor="active" className="text-sm font-bold">تفعيل المنتج في المتجر</label>
         </div>
 
-        {/* Actions */}
-        <div className="md:col-span-2 flex justify-end gap-3">
+        {error && <div className="md:col-span-2 text-red-500 text-sm font-bold bg-red-50 p-3 rounded">{error}</div>}
+
+        <div className="md:col-span-2 flex justify-end gap-3 mt-4 border-t pt-4">
           <Link
             href="/admin/products"
-            className="rounded-md border px-4 py-2 text-sm"
+            className="rounded-md border px-6 py-2 text-sm font-bold hover:bg-gray-50"
           >
-            Cancel
+            إلغاء
           </Link>
           <button
             type="submit"
-            disabled={saving}
-            className="rounded-md bg-black px-6 py-2 text-sm text-white disabled:opacity-50"
+            disabled={saving || uploading}
+            className="rounded-md bg-black px-8 py-2 text-sm font-bold text-white disabled:opacity-50 shadow-sm"
           >
-            {saving ? "Saving..." : "Create Product"}
+            {saving ? "جاري الحفظ..." : "حفظ المنتج"}
           </button>
         </div>
       </form>

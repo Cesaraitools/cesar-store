@@ -170,10 +170,13 @@ export default function EditProductPage({ params }: Props) {
     setError(null);
 
     // Hard guard: no blob allowed
-    if (form.images.some((img) => img.startsWith("blob:"))) {
-      alert("Invalid images detected. Please re-upload images.");
-      return;
-    }
+    // 🟢 Remove any accidental blob URLs (safety fix)
+     const cleanImages = form.images.filter((img) => !img.startsWith("blob:"));
+
+      if (cleanImages.length === 0) {
+       alert("Please upload at least one valid image.");
+        return;
+       }
 
     setSaving(true);
 
@@ -190,7 +193,7 @@ export default function EditProductPage({ params }: Props) {
       price: Number(form.price),
       stock: Number(form.stock),
       category: form.category,
-      images: form.images,
+      images: cleanImages,
       active: form.active,
     };
 
