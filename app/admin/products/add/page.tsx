@@ -70,7 +70,7 @@ export default function AddProductPage() {
         formData.append("file", files[i]); 
         formData.append("type", "product"); 
 
-        const res = await fetch("/api/admin/upload", {
+        const res = await fetch("/api/upload", {
           method: "POST",
           body: formData,
         });
