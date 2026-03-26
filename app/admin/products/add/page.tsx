@@ -65,27 +65,13 @@ export default function AddProductPage() {
 
     try {
       for (let i = 0; i < files.length; i++) {
-        const formData = new FormData();
-        // التعديل الضروري فقط:
-        formData.append("file", files[i]); 
-        formData.append("type", "product"); 
+        const file = files[i];
 
-        const res = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-        });
+         // 🔥 نفس منطق Bulk Import بالضبط
+        const localPath = `/products/${file.name}`;
 
-        if (!res.ok) {
-          const errorData = await res.json();
-          throw new Error(errorData.details || "فشل رفع إحدى الصور");
-        }
-
-        const data = await res.json();
-        
-        // ضمان المسار الصحيح
-        const cleanUrl = data.url.replace(/\\/g, "/");
-        uploadedUrls.push(cleanUrl);
-      }
+          uploadedUrls.push(localPath);
+         }
       
       setForm((prev) => ({ ...prev, images: [...prev.images, ...uploadedUrls] }));
       setPreviews((prev) => [...prev, ...uploadedUrls]);
