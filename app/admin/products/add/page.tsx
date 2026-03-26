@@ -104,20 +104,24 @@ export default function AddProductPage() {
     try {
       // استعادة منطق "cleanProduct" الأصلي الخاص بك (الدقيق والآمن)
       const cleanProduct: any = {
-        nameAr: form.nameAr,
-        nameEn: form.nameEn,
-        descriptionAr: form.descriptionAr,
-        descriptionEn: form.descriptionEn,
-        price: parseFloat(form.price) || 0,
-        stock: parseInt(form.stock) || 0,
-        category: form.category,
-        images: form.images,
-        active: form.active,
-      };
+       id: form.id?.trim() || crypto.randomUUID(),
 
-      if (form.id.trim()) {
-        cleanProduct.id = form.id.trim();
-      }
+       name: {
+       ar: form.nameAr,
+       en: form.nameEn,
+      },
+
+      description: {
+      ar: form.descriptionAr,
+      en: form.descriptionEn,
+     },
+
+      price: parseFloat(form.price) || 0,
+      stock: parseInt(form.stock) || 0,
+      category: form.category,
+     images: form.images,
+      active: form.active,
+    };
 
       // إرسال الكائن الصافي داخل مصفوفة [ ] كما يطلب السيرفر (منطق البالك)
       const res = await fetch("/api/products", {
