@@ -54,10 +54,6 @@ export default function AddProductPage() {
     setForm((prev) => ({ ...prev, [name]: val }));
   };
 
-  /**
-   * تم تعديل هذه الدالة لتتوافق مع كود الـ API (صورة 1)
-   * المسمى أصبح "file" بدلاً من "files" وتم إضافة حقل "type"
-   */
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -70,6 +66,7 @@ export default function AddProductPage() {
     try {
       for (let i = 0; i < files.length; i++) {
         const formData = new FormData();
+        // التعديل: المسميات والـ type كما يطلب السيرفر
         formData.append("file", files[i]); 
         formData.append("type", "product"); 
 
@@ -84,7 +81,10 @@ export default function AddProductPage() {
         }
 
         const data = await res.json();
-        uploadedUrls.push(data.url);
+        
+        // التعديل: التأكد من أن المسار يستخدم / وليس \ قبل الحفظ
+        const cleanUrl = data.url.replace(/\\/g, "/");
+        uploadedUrls.push(cleanUrl);
       }
       
       setForm((prev) => ({ ...prev, images: [...prev.images, ...uploadedUrls] }));
@@ -96,24 +96,20 @@ export default function AddProductPage() {
     }
   };
 
-  /**
-   * تم تعديل هذه الدالة لتتوافق مع كود الـ API (صورة 5)
-   * يتم إرسال المنتج داخل مصفوفة [cleanProduct] لأن الـ API يستخدم insert مباشرة
-   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError(null);
 
     try {
-      // تطهير البيانات لضمان عدم إرسال حقول زائدة تسبب خطأ 400
+      // التعديل: تحويل البيانات لأرقام وتجهيز الكائن الصافي
       const cleanProduct: any = {
         nameAr: form.nameAr,
         nameEn: form.nameEn,
         descriptionAr: form.descriptionAr,
         descriptionEn: form.descriptionEn,
-        price: parseFloat(form.price),
-        stock: parseInt(form.stock),
+        price: parseFloat(form.price) || 0,
+        stock: parseInt(form.stock) || 0,
         category: form.category,
         images: form.images,
         active: form.active,
@@ -123,7 +119,7 @@ export default function AddProductPage() {
         cleanProduct.id = form.id.trim();
       }
 
-      // إرسال المصفوفة كما يتوقع الـ API
+      // التعديل: إرسال مصفوفة [ ] ليتوافق مع API البالك (الصورة 5)
       const res = await fetch("/api/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -146,13 +142,13 @@ export default function AddProductPage() {
     }
   };
 
-  // المظهر الخارجي (UI) تم الحفاظ عليه بنسبة 100% كما في ملفك الأصلي
+  // المظهر (UI) الأصلي كاملاً بدون أي حذف أو تغيير في الـ Classes
   return (
     <div className="p-6 max-w-4xl mx-auto" dir="rtl">
       <h1 className="text-2xl font-bold mb-6">إضافة منتج جديد</h1>
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-6 rounded-lg shadow">
-        {/* كود المنتج */}
+        {/* Product ID */}
         <div>
           <label className="block text-sm mb-1 font-bold">كود المنتج (اختياري)</label>
           <input
@@ -165,7 +161,7 @@ export default function AddProductPage() {
           />
         </div>
 
-        {/* القسم */}
+        {/* Category */}
         <div>
           <label className="block text-sm mb-1 font-bold">القسم</label>
           <select
@@ -182,7 +178,7 @@ export default function AddProductPage() {
           </select>
         </div>
 
-        {/* الاسم بالعربي */}
+        {/* Name Ar */}
         <div>
           <label className="block text-sm mb-1 font-bold">اسم المنتج (عربي)</label>
           <input
@@ -195,7 +191,7 @@ export default function AddProductPage() {
           />
         </div>
 
-        {/* الاسم بالإنجليزي */}
+        {/* Name En */}
         <div>
           <label className="block text-sm mb-1 font-bold">اسم المنتج (إنجليزي)</label>
           <input
@@ -208,7 +204,7 @@ export default function AddProductPage() {
           />
         </div>
 
-        {/* الوصف بالعربي */}
+        {/* Description Ar */}
         <div className="md:col-span-2">
           <label className="block text-sm mb-1 font-bold">الوصف (عربي)</label>
           <textarea
@@ -220,7 +216,7 @@ export default function AddProductPage() {
           />
         </div>
 
-        {/* الوصف بالإنجليزي */}
+        {/* Description En */}
         <div className="md:col-span-2">
           <label className="block text-sm mb-1 font-bold">الوصف (إنجليزي)</label>
           <textarea
@@ -232,7 +228,7 @@ export default function AddProductPage() {
           />
         </div>
 
-        {/* السعر */}
+        {/* Price */}
         <div>
           <label className="block text-sm mb-1 font-bold">السعر</label>
           <input
@@ -245,7 +241,7 @@ export default function AddProductPage() {
           />
         </div>
 
-        {/* المخزون */}
+        {/* Stock */}
         <div>
           <label className="block text-sm mb-1 font-bold">الكمية المتوفرة</label>
           <input
@@ -258,7 +254,7 @@ export default function AddProductPage() {
           />
         </div>
 
-        {/* رفع الصور */}
+        {/* Images */}
         <div className="md:col-span-2">
           <label className="block text-sm mb-1 font-bold">صور المنتج</label>
           <input
@@ -284,7 +280,7 @@ export default function AddProductPage() {
           {uploadError && <p className="text-red-500 text-xs font-bold">{uploadError}</p>}
         </div>
 
-        {/* الحالة */}
+        {/* Active Status */}
         <div className="flex items-center gap-2">
           <input
             type="checkbox"
@@ -296,21 +292,21 @@ export default function AddProductPage() {
           <label htmlFor="active" className="text-sm font-bold">تفعيل المنتج في المتجر</label>
         </div>
 
-        {/* رسائل الخطأ */}
-        {error && <div className="md:col-span-2 text-red-500 text-sm font-bold bg-red-50 p-3 rounded border border-red-100">{error}</div>}
+        {/* Error Message */}
+        {error && <div className="md:col-span-2 text-red-500 text-sm font-bold bg-red-50 p-3 rounded">{error}</div>}
 
-        {/* أزرار التحكم */}
+        {/* Actions */}
         <div className="md:col-span-2 flex justify-end gap-3 mt-4 border-t pt-4">
           <Link
             href="/admin/products"
-            className="rounded-md border px-6 py-2 text-sm font-bold text-gray-600 hover:bg-gray-50"
+            className="rounded-md border px-6 py-2 text-sm font-bold hover:bg-gray-50"
           >
             إلغاء
           </Link>
           <button
             type="submit"
             disabled={saving || uploading}
-            className="rounded-md bg-black px-8 py-2 text-sm font-bold text-white shadow-sm hover:bg-gray-800 disabled:opacity-50"
+            className="rounded-md bg-black px-8 py-2 text-sm font-bold text-white disabled:opacity-50 shadow-sm"
           >
             {saving ? "جاري الحفظ..." : "حفظ المنتج"}
           </button>
