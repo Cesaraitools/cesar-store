@@ -123,7 +123,7 @@ export default function AddProductPage() {
       const res = await fetch("/api/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify([cleanProduct]), 
+        body: JSON.stringify(cleanProduct), 
       });
 
       const result = await res.json();
