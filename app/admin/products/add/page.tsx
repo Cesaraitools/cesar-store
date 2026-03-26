@@ -66,7 +66,7 @@ export default function AddProductPage() {
     try {
       for (let i = 0; i < files.length; i++) {
         const formData = new FormData();
-        // التعديل الضروري: المسميات والنوع كما يطلبها API الرفع
+        // التعديل الضروري فقط:
         formData.append("file", files[i]); 
         formData.append("type", "product"); 
 
@@ -82,7 +82,7 @@ export default function AddProductPage() {
 
         const data = await res.json();
         
-        // التعديل: تحويل المسارات لـ Web Safe Path
+        // ضمان المسار الصحيح
         const cleanUrl = data.url.replace(/\\/g, "/");
         uploadedUrls.push(cleanUrl);
       }
@@ -102,7 +102,7 @@ export default function AddProductPage() {
     setError(null);
 
     try {
-      // استرجاع منطقك الأصلي في بناء الكائن لضمان عدم فقدان أي بيانات
+      // استعادة منطق "cleanProduct" الأصلي الخاص بك (الدقيق والآمن)
       const cleanProduct: any = {
         nameAr: form.nameAr,
         nameEn: form.nameEn,
@@ -119,7 +119,7 @@ export default function AddProductPage() {
         cleanProduct.id = form.id.trim();
       }
 
-      // التعديل الجوهري لمحاكاة البالك إمبورت: إرسال الكائن داخل مصفوفة [ ]
+      // إرسال الكائن الصافي داخل مصفوفة [ ] كما يطلب السيرفر (منطق البالك)
       const res = await fetch("/api/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -142,7 +142,7 @@ export default function AddProductPage() {
     }
   };
 
-  // المظهر (UI) الخاص بك كاملاً دون أي مساس بالـ Classes أو التقسيم
+  // المظهر الأصلي الخاص بك 100%
   return (
     <div className="p-6 max-w-4xl mx-auto" dir="rtl">
       <h1 className="text-2xl font-bold mb-6">إضافة منتج جديد</h1>
