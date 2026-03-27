@@ -54,6 +54,7 @@ export default function AddProductPage() {
     setForm((prev) => ({ ...prev, [name]: val }));
   };
 
+  // ✅ FIX 1: رجوع Upload الحقيقي
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -67,14 +68,27 @@ export default function AddProductPage() {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
 
-         // 🔥 نفس منطق Bulk Import بالضبط
-        const localPath = `/products/${file.name}`;
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("type", "product");
 
-          uploadedUrls.push(localPath);
-         }
-      
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || "Upload failed");
+        }
+
+        const data = await res.json();
+        uploadedUrls.push(data.url);
+      }
+
       setForm((prev) => ({ ...prev, images: [...prev.images, ...uploadedUrls] }));
       setPreviews((prev) => [...prev, ...uploadedUrls]);
+
     } catch (err: any) {
       setUploadError(err.message);
     } finally {
@@ -88,32 +102,46 @@ export default function AddProductPage() {
     setError(null);
 
     try {
-      // استعادة منطق "cleanProduct" الأصلي الخاص بك (الدقيق والآمن)
+      // ✅ FIX 2: Validation
+      if (!form.category) {
+        setError("Category is required");
+        setSaving(false);
+        return;
+      }
+
+      if (form.images.length === 0) {
+        setError("Please upload at least one image");
+        setSaving(false);
+        return;
+      }
+
       const cleanProduct: any = {
-       id: form.id?.trim() || crypto.randomUUID(),
+        id: form.id?.trim() || crypto.randomUUID(),
 
-       name: {
-       ar: form.nameAr,
-       en: form.nameEn,
-      },
+        name: {
+          ar: form.nameAr,
+          en: form.nameEn,
+        },
 
-      description: {
-      ar: form.descriptionAr,
-      en: form.descriptionEn,
-     },
+        description: {
+          ar: form.descriptionAr,
+          en: form.descriptionEn,
+        },
 
-      price: parseFloat(form.price) || 0,
-      stock: parseInt(form.stock) || 0,
-      category: form.category,
-     images: form.images,
-      active: form.active,
-    };
+        price: parseFloat(form.price) || 0,
+        stock: parseInt(form.stock) || 0,
+        category: form.category,
+        images: form.images,
+        active: form.active,
+      };
 
-      // إرسال الكائن الصافي داخل مصفوفة [ ] كما يطلب السيرفر (منطق البالك)
+      // ✅ FIX 3: Debug
+      console.log("SENDING:", cleanProduct);
+
       const res = await fetch("/api/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(cleanProduct), 
+        body: JSON.stringify(cleanProduct),
       });
 
       const result = await res.json();
@@ -132,7 +160,6 @@ export default function AddProductPage() {
     }
   };
 
-  // المظهر الأصلي الخاص بك 100%
   return (
     <div className="p-6 max-w-4xl mx-auto" dir="rtl">
       <h1 className="text-2xl font-bold mb-6">إضافة منتج جديد</h1>
