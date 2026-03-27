@@ -3,9 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { Product } from "@/types/product";
-
-const PLACEHOLDER_IMAGE = "/placeholder.png";
 
 export default function AddProductPage() {
   const router = useRouter();
@@ -83,6 +80,7 @@ export default function AddProductPage() {
         }
 
         const data = await res.json();
+        console.log("UPLOAD RESPONSE:", data);
         uploadedUrls.push(data.url);
       }
 
