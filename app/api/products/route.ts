@@ -115,13 +115,14 @@ export async function GET() {
             "",
         },
         price: p?.price ?? fallback?.price ?? 0,
-        category:
-          p?.category ||
-          fallback?.category ||
-          "equipment",
+        category: normalizeCategory(
+        p?.category ||
+        fallback?.category ||
+        "equipment"
+       ),
         images,
         stock: p?.stock ?? fallback?.stock ?? 0,
-        active: fallback?.active ?? true,
+        active: p?.is_active ?? fallback?.active ?? true,
         createdAt:
           fallback?.createdAt || new Date().toISOString(),
         updatedAt:
@@ -182,13 +183,22 @@ export async function POST(request: Request) {
     }
 
     const now = new Date().toISOString();
+const normalizedCategory = normalizeCategory(body.category);
 
+const validCategories = getValidCategorySlugs();
+
+if (!validCategories.includes(normalizedCategory)) {
+  return Response.json(
+    { error: "Invalid category" },
+    { status: 400 }
+  );
+}
     const productToSave: Product = {
       id: body.id,
       name: body.name,
       description: body.description,
       price: body.price,
-      category: normalizeCategory(body.category),
+      category: normalizedCategory,
       images,
       stock: body.stock ?? 0,
       active: body.active ?? true,
