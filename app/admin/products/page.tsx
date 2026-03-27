@@ -120,14 +120,22 @@ export default function AdminProductsPage() {
       const r = previewRows[i];
 
       const images = String(r.images)
-        .split(",")
-        .map((s: string) => {
-          const trimmed = s.trim();
-          return trimmed.startsWith("/")
-            ? trimmed
-            : "/" + trimmed;
-        })
-        .filter(Boolean);
+  .split(",")
+  .map((s: string) => {
+    const trimmed = s.trim();
+
+    if (!trimmed) return "";
+
+    // لو URL خارجي
+    if (trimmed.startsWith("http")) return trimmed;
+
+    // لو already فيه products/
+    if (trimmed.startsWith("/products/")) return trimmed;
+
+    // دعم subfolders
+    return `/products/${trimmed.replace(/^\/+/, "")}`;
+  })
+  .filter(Boolean);
 
       const payload: Product = {
         id: crypto.randomUUID(),
