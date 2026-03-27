@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { Product } from "@/types/product";
 import * as XLSX from "xlsx";
+import { normalizeImagesArray } from "@/lib/image-normalizer";
 
 const PLACEHOLDER_IMAGE = "/placeholder.png";
 
@@ -18,16 +19,13 @@ export default function AdminProductsPage() {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Phase 2
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewRows, setPreviewRows] = useState<PreviewRow[]>([]);
   const [previewColumns, setPreviewColumns] = useState<string[]>([]);
   const [fileName, setFileName] = useState("");
 
-  // Phase 4A
   const [rowWarnings, setRowWarnings] = useState<RowWarning[]>([]);
 
-  // Phase 4B
   const [isImporting, setIsImporting] = useState(false);
   const [importReport, setImportReport] = useState<{
     success: number;
@@ -119,23 +117,7 @@ export default function AdminProductsPage() {
 
       const r = previewRows[i];
 
-      const images = String(r.images)
-  .split(",")
-  .map((s: string) => {
-    const trimmed = s.trim();
-
-    if (!trimmed) return "";
-
-    // لو URL خارجي
-    if (trimmed.startsWith("http")) return trimmed;
-
-    // لو already فيه products/
-    if (trimmed.startsWith("/products/")) return trimmed;
-
-    // دعم subfolders
-    return `/products/${trimmed.replace(/^\/+/, "")}`;
-  })
-  .filter(Boolean);
+      const images = normalizeImagesArray(r.images);
 
       const payload: Product = {
         id: crypto.randomUUID(),
