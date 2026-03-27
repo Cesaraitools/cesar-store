@@ -369,7 +369,7 @@ export default function EditProductPage({ params }: Props) {
               <option value="">Select category</option>
               {categories.map((cat) => (
                 <option key={cat} value={cat}>
-                  {cat}
+                 {cat.replace(/-/g, " ")}
                 </option>
               ))}
             </select>
