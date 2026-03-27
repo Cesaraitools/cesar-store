@@ -67,12 +67,11 @@ export default function AddProductPage() {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
 
-         // 🔥 نفس منطق Bulk Import بالضبط
+        // ⚠️ مؤقتًا: نفس منطقك (لن نغيره الآن حسب القواعد)
         const localPath = `/products/${file.name}`;
+        uploadedUrls.push(localPath);
+      }
 
-          uploadedUrls.push(localPath);
-         }
-      
       setForm((prev) => ({ ...prev, images: [...prev.images, ...uploadedUrls] }));
       setPreviews((prev) => [...prev, ...uploadedUrls]);
     } catch (err: any) {
@@ -88,37 +87,41 @@ export default function AddProductPage() {
     setError(null);
 
     try {
-      // استعادة منطق "cleanProduct" الأصلي الخاص بك (الدقيق والآمن)
+      // 🔥 FIX: fallback EN → AR
+      const safeNameEn = form.nameEn?.trim() || form.nameAr;
+      const safeDescEn = form.descriptionEn?.trim() || form.descriptionAr;
+
       const cleanProduct: any = {
-       id: form.id?.trim() || crypto.randomUUID(),
+        id: form.id?.trim() || crypto.randomUUID(),
 
-       name: {
-       ar: form.nameAr,
-       en: form.nameEn,
-      },
+        name: {
+          ar: form.nameAr,
+          en: safeNameEn,
+        },
 
-      description: {
-      ar: form.descriptionAr,
-      en: form.descriptionEn,
-     },
+        description: {
+          ar: form.descriptionAr,
+          en: safeDescEn,
+        },
 
-      price: parseFloat(form.price) || 0,
-      stock: parseInt(form.stock) || 0,
-      category: form.category,
-     images: form.images,
-      active: form.active,
-    };
+        price: parseFloat(form.price) || 0,
+        stock: parseInt(form.stock) || 0,
+        category: form.category,
+        images: form.images,
+        active: form.active,
+      };
 
-      // إرسال الكائن الصافي داخل مصفوفة [ ] كما يطلب السيرفر (منطق البالك)
       const res = await fetch("/api/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(cleanProduct), 
+        body: JSON.stringify(cleanProduct),
       });
 
       const result = await res.json();
 
+      // 🔥 FIX: error handling واضح
       if (!res.ok) {
+        console.error("Add Product Error:", result);
         throw new Error(result.error || "حدث خطأ أثناء حفظ المنتج");
       }
 
@@ -126,13 +129,13 @@ export default function AddProductPage() {
       router.refresh();
 
     } catch (err: any) {
+      console.error("Submit Failed:", err);
       setError(err.message);
     } finally {
       setSaving(false);
     }
   };
 
-  // المظهر الأصلي الخاص بك 100%
   return (
     <div className="p-6 max-w-4xl mx-auto" dir="rtl">
       <h1 className="text-2xl font-bold mb-6">إضافة منتج جديد</h1>
@@ -183,7 +186,6 @@ export default function AddProductPage() {
           <input
             type="text"
             name="nameEn"
-            required
             value={form.nameEn}
             onChange={handleChange}
             className="w-full rounded border px-3 py-2"
