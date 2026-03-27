@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { Product } from "@/types/product";
+import { normalizeCategory } from "@/lib/category-normalizer";
 
 type Category = {
   category: string;
@@ -63,17 +64,17 @@ export default function EditProductPage({ params }: Props) {
         }
 
         setForm({
-          id: product.id,
-          nameAr: product.name.ar,
-          nameEn: product.name.en,
-          descriptionAr: product.description.ar,
-          descriptionEn: product.description.en,
-          price: String(product.price),
-          stock: String(product.stock),
-          category: product.category,
-          images: product.images || [],
-          active: product.active,
-        });
+  id: product.id,
+  nameAr: product.name.ar,
+  nameEn: product.name.en,
+  descriptionAr: product.description.ar,
+  descriptionEn: product.description.en,
+  price: String(product.price),
+  stock: String(product.stock),
+  category: normalizeCategory(product.category), // ✅ FIX
+  images: product.images || [],
+  active: product.active,
+});
 
         const activeCategories = categoriesData
           .filter((c: Category) => c.active)
