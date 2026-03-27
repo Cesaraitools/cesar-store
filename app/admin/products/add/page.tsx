@@ -139,24 +139,34 @@ export default function AddProductPage() {
       console.log("SENDING:", cleanProduct);
 
       const res = await fetch("/api/products", {
-        method: "POST",
-         headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(cleanProduct),
-        });
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(cleanProduct),
+    });
 
-          // 🔥 مهم جدًا: استنى الرد الأول
-          const result = await res.json();
+      // 🔥 تأكد إن الطلب خرج فعلاً
+      if (!res) {
+      throw new Error("Request failed to send");
+    }
 
-          if (!res.ok) {
-          throw new Error(result.error || "حدث خطأ أثناء حفظ المنتج");
-        }
+      // 🔥 استنى الرد
+      const result = await res.json();
 
-          // 🔥 امنع أي race condition
-            await new Promise((resolve) => setTimeout(resolve, 300));
+     // 🔥 لو فشل
+     if (!res.ok) {
+     console.error("API ERROR:", result);
+     throw new Error(result.error || "حدث خطأ أثناء حفظ المنتج");
+    }
 
-            // بعد التأكد فقط
-           router.push("/admin/products");
-           router.refresh();
+     // 🔥 أهم خطوة: تحقق قبل navigation
+    console.log("SUCCESS ADD:", result);
+
+   // 🔥 delay بسيط لضمان الكتابة في DB
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    // بعد كده بس
+   router.push("/admin/products");
+     router.refresh();
     } catch (err: any) {
       setError(err.message);
     } finally {
