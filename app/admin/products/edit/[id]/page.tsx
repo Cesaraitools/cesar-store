@@ -76,9 +76,9 @@ export default function EditProductPage({ params }: Props) {
   active: product.active,
 });
 
-        const activeCategories = categoriesData
-          .filter((c: Category) => c.active)
-          .map((c: Category) => c.category);
+      const activeCategories = categoriesData
+      .filter((c: Category) => c.active)
+       .map((c: Category) => normalizeCategory(c.category));
 
         setCategories(activeCategories);
       })
