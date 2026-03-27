@@ -199,6 +199,7 @@ export async function POST(request: Request) {
         price: productToSave.price,
         image_url: productToSave.images[0] || null,
         stock: productToSave.stock,
+        category: productToSave.category,
       },
     ]);
 
