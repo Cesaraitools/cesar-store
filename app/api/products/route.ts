@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import { createClient } from "@supabase/supabase-js";
 import type { Product } from "@/types/product";
+import { normalizeImagesArray } from "@/lib/image-normalizer";
 
 const PRODUCTS_FILE = join(process.cwd(), "data-store", "products.json");
 const CATEGORIES_FILE = join(process.cwd(), "data-store", "categories.json");
@@ -55,33 +56,18 @@ function getValidCategorySlugs(): string[] {
   }
 }
 
-function isValidLangField(
-  field: any
-): field is { ar: string; en: string } {
-  return (
-    field &&
-    typeof field === "object" &&
-    typeof field.ar === "string" &&
-    field.ar.trim() !== "" &&
-    typeof field.en === "string" &&
-    field.en.trim() !== ""
-  );
-}
-
-/* ---------------- GET (FIXED ONLY) ---------------- */
+/* ---------------- GET ---------------- */
 
 export async function GET() {
   try {
     const { data, error } = await supabase
       .from("products")
       .select("*")
-      .order("created_at", { ascending: false }); // ✅ إضافة ترتيب فقط
+      .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("SUPABASE FETCH ERROR:", error); // ✅
+      console.error("SUPABASE FETCH ERROR:", error);
     }
-
-    console.log("SUPABASE DATA:", data); // ✅ مهم جدًا
 
     const fallbackProducts = readProducts();
 
@@ -89,20 +75,28 @@ export async function GET() {
       (data || []).map((p: any) => [p.id, p])
     );
 
-    const allIds = Array.from(new Set([
-      ...fallbackProducts.map((p) => p.id),
-      ...(data || []).map((p: any) => p.id),
-    ]));
+    const allIds = Array.from(
+      new Set([
+        ...fallbackProducts.map((p) => p.id),
+        ...(data || []).map((p: any) => p.id),
+      ])
+    );
 
     const formatted: Product[] = [];
 
     allIds.forEach((id) => {
       const p = supabaseMap.get(id);
-      const fallback = fallbackProducts.find(fp => fp.id === id);
+      const fallback = fallbackProducts.find((fp) => fp.id === id);
+
+      const rawImages =
+        p?.image_url
+          ? [p.image_url]
+          : fallback?.images || [];
+
+      const images = normalizeImagesArray(rawImages);
 
       formatted.push({
         id,
-
         name: {
           ar: p?.name_ar || fallback?.name?.ar || "",
           en:
@@ -111,7 +105,6 @@ export async function GET() {
             p?.name_ar ||
             "",
         },
-
         description: {
           ar: p?.description_ar || fallback?.description?.ar || "",
           en:
@@ -120,25 +113,16 @@ export async function GET() {
             p?.description_ar ||
             "",
         },
-
         price: p?.price ?? fallback?.price ?? 0,
-
         category:
           p?.category ||
           fallback?.category ||
           "equipment",
-
-        images:
-          p?.image_url
-            ? [p.image_url]
-            : fallback?.images || [],
-
+        images,
         stock: p?.stock ?? fallback?.stock ?? 0,
         active: fallback?.active ?? true,
-
         createdAt:
           fallback?.createdAt || new Date().toISOString(),
-
         updatedAt:
           p?.updated_at || new Date().toISOString(),
       });
@@ -162,34 +146,49 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as Partial<Product>;
 
-    if (typeof body.category === "string") {
-      body.category = body.category.toLowerCase().trim();
-    }
-
-    const validCategories = getValidCategorySlugs();
-
     if (!body.id) {
       return Response.json({ error: "Product id is required" }, { status: 400 });
     }
 
-    const products = readProducts();
+    const images = normalizeImagesArray(body.images || []);
 
-    if (products.find((p) => p.id === body.id)) {
+    if (!images.length) {
       return Response.json(
-        { error: "Product with this ID already exists" },
-        { status: 409 }
+        { error: "At least one valid image is required" },
+        { status: 400 }
+      );
+    }
+
+    if (!body.name?.ar || !body.name?.en) {
+      return Response.json(
+        { error: "Invalid name fields" },
+        { status: 400 }
+      );
+    }
+
+    if (!body.description?.ar || !body.description?.en) {
+      return Response.json(
+        { error: "Invalid description fields" },
+        { status: 400 }
+      );
+    }
+
+    if (typeof body.price !== "number" || isNaN(body.price)) {
+      return Response.json(
+        { error: "Invalid price" },
+        { status: 400 }
       );
     }
 
     const now = new Date().toISOString();
 
     const productToSave: Product = {
-      id: body.id!,
-      name: body.name!,
-      description: body.description!,
-      price: body.price!,
-      category: body.category!,
-      images: body.images!,
+      id: body.id,
+      name: body.name,
+      description: body.description,
+      price: body.price,
+      category: body.category || "equipment",
+      images,
       stock: body.stock ?? 0,
       active: body.active ?? true,
       createdAt: now,
@@ -197,31 +196,29 @@ export async function POST(request: Request) {
     };
 
     const { data, error } = await supabase.from("products").insert([
-  {
-    
-    name_ar: productToSave.name.ar,
-    name_en: productToSave.name.en || productToSave.name.ar,
-    description_ar: productToSave.description.ar,
-    description_en:
-      productToSave.description.en || productToSave.description.ar,
-    price: productToSave.price,
-    image_url: productToSave.images[0] || null,
-    stock: productToSave.stock,
-    category: productToSave.category,
-    is_active: productToSave.active ?? true, // ✅ مهم
-  },
-]);
+      {
+        name_ar: productToSave.name.ar,
+        name_en: productToSave.name.en || productToSave.name.ar,
+        description_ar: productToSave.description.ar,
+        description_en:
+          productToSave.description.en || productToSave.description.ar,
+        price: productToSave.price,
+        image_url: productToSave.images[0],
+        stock: productToSave.stock,
+        category: productToSave.category,
+        is_active: productToSave.active,
+      },
+    ]);
 
-if (error) {
-  console.error("SUPABASE INSERT ERROR:", error);
-  return Response.json(
-    { error: error.message },
-    { status: 500 }
-  );
-}
+    if (error) {
+      console.error("SUPABASE INSERT ERROR:", error);
+      return Response.json(
+        { error: error.message },
+        { status: 500 }
+      );
+    }
 
-console.log("INSERT SUCCESS:", data);
-
+    const products = readProducts();
     products.push(productToSave);
     writeProducts(products);
 
@@ -255,6 +252,8 @@ export async function PUT(request: Request) {
       );
     }
 
+    const images = normalizeImagesArray(updates.images || []);
+
     await supabase
       .from("products")
       .update({
@@ -265,10 +264,7 @@ export async function PUT(request: Request) {
           updates.description?.en || updates.description?.ar,
         price: updates.price,
         stock: updates.stock,
-        image_url:
-          Array.isArray(updates.images) && updates.images.length > 0
-            ? updates.images[0]
-            : null,
+        image_url: images[0] || null,
         category: updates.category,
         updated_at: new Date().toISOString(),
       })
@@ -281,7 +277,7 @@ export async function PUT(request: Request) {
       products[index] = {
         ...products[index],
         ...updates,
-        category: updates.category ?? products[index].category,
+        images,
         updatedAt: new Date().toISOString(),
       } as Product;
 
