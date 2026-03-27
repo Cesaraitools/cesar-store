@@ -89,10 +89,10 @@ export async function GET() {
       const p = supabaseMap.get(id);
       const fallback = fallbackProducts.find((fp) => fp.id === id);
 
-      const rawImages =
-        p?.image_url
-          ? [p.image_url]
-          : fallback?.images || [];
+      const rawImages = [
+      ...(p?.image_url ? [p.image_url] : []),
+      ...(fallback?.images || [])
+    ];
 
       const images = normalizeImagesArray(rawImages);
 
