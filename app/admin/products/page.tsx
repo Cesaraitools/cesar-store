@@ -6,7 +6,7 @@ import type { Product } from "@/types/product";
 import * as XLSX from "xlsx";
 import { normalizeImagesArray } from "@/lib/image-normalizer";
 import { getSafeImage } from "@/lib/image-safe";
-
+import { normalizeCategory } from "@/lib/category-normalizer";
 const PLACEHOLDER_IMAGE = "/placeholder.png";
 
 type PreviewRow = Record<string, any>;
@@ -131,7 +131,7 @@ export default function AdminProductsPage() {
           en: String(r.description_en).trim(),
         },
         price: Number(r.price),
-        category: String(r.category),
+        category: normalizeCategory(r.category),
         images,
         stock: Number(r.stock) || 0,
         active:
