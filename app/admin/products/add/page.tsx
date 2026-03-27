@@ -107,25 +107,28 @@ export default function AddProductPage() {
     setError(null);
 
     try {
-      const cleanProduct: any = {
-        id: form.id?.trim() || crypto.randomUUID(),
+      const safeNameEn = form.nameEn?.trim() || form.nameAr;
+const safeDescEn = form.descriptionEn?.trim() || form.descriptionAr;
 
-        name: {
-          ar: form.nameAr,
-          en: form.nameEn,
-        },
+const cleanProduct: any = {
+  id: form.id?.trim() || crypto.randomUUID(),
 
-        description: {
-          ar: form.descriptionAr,
-          en: form.descriptionEn,
-        },
+  name: {
+    ar: form.nameAr,
+    en: safeNameEn,
+  },
 
-        price: parseFloat(form.price) || 0,
-        stock: parseInt(form.stock) || 0,
-        category: form.category,
-        images: form.images,
-        active: form.active,
-      };
+  description: {
+    ar: form.descriptionAr,
+    en: safeDescEn,
+  },
+
+  price: parseFloat(form.price) || 0,
+  stock: parseInt(form.stock) || 0,
+  category: form.category,
+  images: form.images,
+  active: form.active,
+};
 
       const res = await fetch("/api/products", {
         method: "POST",
