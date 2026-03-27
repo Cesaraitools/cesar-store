@@ -198,7 +198,7 @@ export async function POST(request: Request) {
 
     const { data, error } = await supabase.from("products").insert([
   {
-    id: productToSave.id,
+    
     name_ar: productToSave.name.ar,
     name_en: productToSave.name.en || productToSave.name.ar,
     description_ar: productToSave.description.ar,
