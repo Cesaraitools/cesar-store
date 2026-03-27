@@ -74,7 +74,7 @@
   {
     "type": "category",
     "id": "lit",
-    "category": "Cars lights",
+    "category": "Cars-lights",
     "image": "/uploads/categorys/ac281d80-a74a-4b46-b3bd-ff67a3c3ecad.jpg",
     "order": 5,
     "active": true,
