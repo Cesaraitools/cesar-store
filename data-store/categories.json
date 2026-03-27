@@ -41,7 +41,7 @@
     "image": "/uploads/categorys/715fcbe0-d1a8-40db-b530-5a26a000ce67.png",
     "category": "additives-fluids",
     "en": {
-      "title": "Additives & Fluids",
+      "title": "additives-fluids",
       "subtitle": "Power and protection for your engine"
     },
     "ar": {
@@ -57,7 +57,7 @@
     "type": "category",
     "id": "accessories",
     "image": "/uploads/categorys/90fcd943-2b47-46f5-bce8-42863f637015.jpg",
-    "category": "Cars-accessories",
+    "category": "cars-accessories",
     "en": {
       "title": "Accessories",
       "subtitle": "Smart details that make the difference"
@@ -74,7 +74,7 @@
   {
     "type": "category",
     "id": "lit",
-    "category": "Cars-lights",
+    "category": "cars-lights",
     "image": "/uploads/categorys/ac281d80-a74a-4b46-b3bd-ff67a3c3ecad.jpg",
     "order": 5,
     "active": true,
@@ -92,7 +92,7 @@
   {
     "type": "category",
     "id": "DET",
-    "category": "Detergent",
+    "category": "detergent",
     "image": "/uploads/categorys/06863a94-5471-420b-8ef0-2752d7cae015.jpg",
     "order": 6,
     "active": true,
