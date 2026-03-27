@@ -72,7 +72,16 @@ function isValidLangField(
 
 export async function GET() {
   try {
-    const { data, error } = await supabase.from("products").select("*");
+    const { data, error } = await supabase
+      .from("products")
+      .select("*")
+      .order("created_at", { ascending: false }); // ✅ إضافة ترتيب فقط
+
+    if (error) {
+      console.error("SUPABASE FETCH ERROR:", error); // ✅
+    }
+
+    console.log("SUPABASE DATA:", data); // ✅ مهم جدًا
 
     const fallbackProducts = readProducts();
 
@@ -85,7 +94,6 @@ export async function GET() {
       ...(data || []).map((p: any) => p.id),
     ]));
 
-    // ✅ FIX: كان ناقص
     const formatted: Product[] = [];
 
     allIds.forEach((id) => {
