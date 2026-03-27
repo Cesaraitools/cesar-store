@@ -3,6 +3,7 @@ import { join } from "path";
 import { createClient } from "@supabase/supabase-js";
 import type { Product } from "@/types/product";
 import { normalizeImagesArray } from "@/lib/image-normalizer";
+import { normalizeCategory } from "@/lib/category-normalizer";
 
 const PRODUCTS_FILE = join(process.cwd(), "data-store", "products.json");
 const CATEGORIES_FILE = join(process.cwd(), "data-store", "categories.json");
@@ -187,7 +188,7 @@ export async function POST(request: Request) {
       name: body.name,
       description: body.description,
       price: body.price,
-      category: body.category || "equipment",
+      category: normalizeCategory(body.category),
       images,
       stock: body.stock ?? 0,
       active: body.active ?? true,
@@ -265,7 +266,7 @@ export async function PUT(request: Request) {
         price: updates.price,
         stock: updates.stock,
         image_url: images[0] || null,
-        category: updates.category,
+        category: normalizeCategory(updates.category),
         updated_at: new Date().toISOString(),
       })
       .eq("id", id);
