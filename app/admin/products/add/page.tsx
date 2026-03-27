@@ -30,6 +30,7 @@ export default function AddProductPage() {
   });
 
   const [previews, setPreviews] = useState<string[]>([]);
+  const imagesRef = useRef<string[]>([]);
 
   useEffect(() => {
     fetch("/api/categories")
@@ -84,7 +85,13 @@ export default function AddProductPage() {
         uploadedUrls.push(data.url);
       }
 
-      setForm((prev) => ({ ...prev, images: [...prev.images, ...uploadedUrls] }));
+      setForm((prev) => {
+  const updated = [...prev.images, ...uploadedUrls];
+
+  imagesRef.current = updated; // 🔥 أهم سطر (الحل الحقيقي)
+
+  return { ...prev, images: updated };
+});
       setPreviews((prev) => [...prev, ...uploadedUrls]);
 
     } catch (err: any) {
@@ -138,7 +145,7 @@ export default function AddProductPage() {
         price: parseFloat(form.price) || 0,
         stock: parseInt(form.stock) || 0,
         category: form.category,
-        images: form.images,
+        images: imagesRef.current,
         active: form.active,
       };
 
