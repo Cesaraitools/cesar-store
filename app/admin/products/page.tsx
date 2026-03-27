@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Product } from "@/types/product";
 import * as XLSX from "xlsx";
 import { normalizeImagesArray } from "@/lib/image-normalizer";
+import { getSafeImage } from "@/lib/image-safe";
 
 const PLACEHOLDER_IMAGE = "/placeholder.png";
 
@@ -218,7 +219,7 @@ export default function AdminProductsPage() {
                 <tr key={p.id} className="border-t">
                   <td className="p-3">
                     <img
-                      src={p.images?.[0] || PLACEHOLDER_IMAGE}
+                      src={getSafeImage(p.images?.[0])}
                       className="h-12 w-12 object-contain"
                     />
                   </td>
