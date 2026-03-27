@@ -219,9 +219,12 @@ export default function AdminProductsPage() {
                 <tr key={p.id} className="border-t">
                   <td className="p-3">
                     <img
-                      src={getSafeImage(p.images?.[0])}
-                      className="h-12 w-12 object-contain"
-                    />
+                       src={getSafeImage(p.images?.[0])}
+                       onError={(e) => {
+                         (e.currentTarget as HTMLImageElement).src = "/placeholder.png";
+                       }}
+                       className="h-12 w-12 object-contain"
+                     />
                   </td>
                   <td className="p-3 font-medium">
                     {p.name.ar}

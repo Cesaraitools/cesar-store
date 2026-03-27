@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Product } from "@/types/product";
 import { useCart } from "@/context/CartContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { getSafeImage } from "@/lib/image-safe";
 
 type Props = {
   product: Product;
@@ -43,11 +44,11 @@ export default function ProductCard({ product }: Props) {
       <Link href={`/product/${product.id}`}>
         <div className="h-[240px] bg-gray-100 flex items-center justify-center rounded-t-2xl overflow-hidden">
           <img
-            src={imageSrc}
-            alt={name}
-            onError={() => setImgError(true)}
-            className="max-h-full max-w-full object-contain"
-          />
+            src={getSafeImage(product.images?.[0])}
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src = "/placeholder.png";
+          }}
+       />
         </div>
       </Link>
 

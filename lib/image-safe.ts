@@ -1,5 +1,3 @@
-// lib/image-safe.ts
-
 const PLACEHOLDER = "/placeholder.png";
 
 export function getSafeImage(src?: string): string {
@@ -9,9 +7,12 @@ export function getSafeImage(src?: string): string {
 
   if (!trimmed) return PLACEHOLDER;
 
-  // حماية من paths غلط
+  // منع قيم بايظة
   if (trimmed.includes("undefined")) return PLACEHOLDER;
   if (trimmed.includes("null")) return PLACEHOLDER;
+
+  // لازم يبدأ بـ /
+  if (!trimmed.startsWith("/")) return PLACEHOLDER;
 
   return trimmed;
 }
