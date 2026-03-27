@@ -196,20 +196,31 @@ export async function POST(request: Request) {
       updatedAt: now,
     };
 
-    await supabase.from("products").insert([
-      {
-        id: productToSave.id,
-        name_ar: productToSave.name.ar,
-        name_en: productToSave.name.en || productToSave.name.ar,
-        description_ar: productToSave.description.ar,
-        description_en:
-          productToSave.description.en || productToSave.description.ar,
-        price: productToSave.price,
-        image_url: productToSave.images[0] || null,
-        stock: productToSave.stock,
-        category: productToSave.category,
-      },
-    ]);
+    const { data, error } = await supabase.from("products").insert([
+  {
+    id: productToSave.id,
+    name_ar: productToSave.name.ar,
+    name_en: productToSave.name.en || productToSave.name.ar,
+    description_ar: productToSave.description.ar,
+    description_en:
+      productToSave.description.en || productToSave.description.ar,
+    price: productToSave.price,
+    image_url: productToSave.images[0] || null,
+    stock: productToSave.stock,
+    category: productToSave.category,
+    is_active: productToSave.active ?? true, // ✅ مهم
+  },
+]);
+
+if (error) {
+  console.error("SUPABASE INSERT ERROR:", error);
+  return Response.json(
+    { error: error.message },
+    { status: 500 }
+  );
+}
+
+console.log("INSERT SUCCESS:", data);
 
     products.push(productToSave);
     writeProducts(products);
