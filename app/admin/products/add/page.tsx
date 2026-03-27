@@ -107,10 +107,19 @@ export default function AddProductPage() {
         return;
       }
 
-      if (form.images.length === 0) {
-        setError("Please upload at least one image");
+      // 🛑 تأكد إن مفيش upload شغال
+      if (uploading) {
+        setError("Please wait until image upload is finished");
         setSaving(false);
         return;
+      }
+
+      // 🛑 تأكد إن الصور فعلاً موجودة بعد upload
+      if (!form.images || form.images.length === 0) {
+       console.error("NO IMAGES FOUND AT SUBMIT:", form.images);
+       setError("Please upload at least one image");
+       setSaving(false);
+      return;
       }
 
       const cleanProduct: any = {
