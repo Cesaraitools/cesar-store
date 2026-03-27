@@ -54,7 +54,6 @@ export default function AddProductPage() {
     setForm((prev) => ({ ...prev, [name]: val }));
   };
 
-  // 🔥 FIX الحقيقي هنا فقط
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -108,27 +107,27 @@ export default function AddProductPage() {
 
     try {
       const safeNameEn = form.nameEn?.trim() || form.nameAr;
-const safeDescEn = form.descriptionEn?.trim() || form.descriptionAr;
+      const safeDescEn = form.descriptionEn?.trim() || form.descriptionAr;
 
-const cleanProduct: any = {
-  id: form.id?.trim() || crypto.randomUUID(),
+      const cleanProduct: any = {
+        id: form.id?.trim() || crypto.randomUUID(),
 
-  name: {
-    ar: form.nameAr,
-    en: safeNameEn,
-  },
+        name: {
+          ar: form.nameAr,
+          en: safeNameEn,
+        },
 
-  description: {
-    ar: form.descriptionAr,
-    en: safeDescEn,
-  },
+        description: {
+          ar: form.descriptionAr,
+          en: safeDescEn,
+        },
 
-  price: parseFloat(form.price) || 0,
-  stock: parseInt(form.stock) || 0,
-  category: form.category,
-  images: form.images,
-  active: form.active,
-};
+        price: parseFloat(form.price) || 0,
+        stock: parseInt(form.stock) || 0,
+        category: form.category,
+        images: form.images,
+        active: form.active,
+      };
 
       const res = await fetch("/api/products", {
         method: "POST",
@@ -302,7 +301,7 @@ const cleanProduct: any = {
           </Link>
           <button
             type="submit"
-            disabled={saving || uploading}
+            disabled={saving}
             className="rounded-md bg-black px-8 py-2 text-sm font-bold text-white disabled:opacity-50 shadow-sm"
           >
             {saving ? "جاري الحفظ..." : "حفظ المنتج"}
