@@ -140,19 +140,23 @@ export default function AddProductPage() {
 
       const res = await fetch("/api/products", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(cleanProduct),
-      });
+         headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(cleanProduct),
+        });
 
-      const result = await res.json();
+          // 🔥 مهم جدًا: استنى الرد الأول
+          const result = await res.json();
 
-      if (!res.ok) {
-        throw new Error(result.error || "حدث خطأ أثناء حفظ المنتج");
-      }
+          if (!res.ok) {
+          throw new Error(result.error || "حدث خطأ أثناء حفظ المنتج");
+        }
 
-      router.push("/admin/products");
-      router.refresh();
+          // 🔥 امنع أي race condition
+            await new Promise((resolve) => setTimeout(resolve, 300));
 
+            // بعد التأكد فقط
+           router.push("/admin/products");
+           router.refresh();
     } catch (err: any) {
       setError(err.message);
     } finally {
