@@ -1,3 +1,5 @@
+// lib/image-safe.ts
+
 const PLACEHOLDER = "/placeholder.png";
 
 export function getSafeImage(src?: string): string {
@@ -5,14 +7,13 @@ export function getSafeImage(src?: string): string {
 
   const trimmed = src.trim();
 
-  if (!trimmed) return PLACEHOLDER;
+  // 🔥 FIX: السماح بأي URL http/https
+  if (trimmed.startsWith("http")) return trimmed;
 
-  // منع قيم بايظة
-  if (trimmed.includes("undefined")) return PLACEHOLDER;
-  if (trimmed.includes("null")) return PLACEHOLDER;
-
-  // لازم يبدأ بـ /
-  if (!trimmed.startsWith("/")) return PLACEHOLDER;
+  // 🔥 حماية فقط للحالات الواضحة جدًا
+  if (trimmed === "" || trimmed === "undefined" || trimmed === "null") {
+    return PLACEHOLDER;
+  }
 
   return trimmed;
 }
