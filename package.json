@@ -23,6 +23,7 @@
     "react-dom": "18.2.0",
     "rtl-detect": "^1.1.2",
     "swiper": "^11.0.0",
+    "ts-node": "^10.9.2",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
