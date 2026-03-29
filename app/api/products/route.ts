@@ -226,7 +226,10 @@ export async function POST(request: Request) {
       updatedAt: now,
     };
 
-    const { error } = await supabase.from("products").insert([
+    const { error } = await supabase
+  .from("products")
+  .upsert(
+    [
       {
         name_ar: productToSave.name.ar,
         name_en: productToSave.name.en || productToSave.name.ar,
@@ -240,15 +243,11 @@ export async function POST(request: Request) {
         category: productToSave.category,
         is_active: productToSave.active,
       },
-    ]);
-
-    if (error) {
-      console.error("SUPABASE INSERT ERROR:", error);
-      return Response.json(
-        { error: error.message },
-        { status: 500 }
-      );
+    ],
+    {
+      onConflict: "name_ar,category",
     }
+  );
 
     const products = readProducts();
     products.push(productToSave);
