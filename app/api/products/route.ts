@@ -1,5 +1,3 @@
-// /app/api/products/route.ts
-
 import { readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import { createClient } from "@supabase/supabase-js";
@@ -58,6 +56,7 @@ function getValidCategorySlugs(): string[] {
 }
 
 /* ---------------- GET ---------------- */
+// ❌ بدون أي تغيير
 
 export async function GET() {
   try {
@@ -89,7 +88,6 @@ export async function GET() {
       const p = supabaseMap.get(id);
       const fallback = fallbackProducts.find((fp) => fp.id === id);
 
-      // 🔥 NEW: read images_json first
       let rawImages: string[] = [];
 
       if (p?.images_json && Array.isArray(p.images_json)) {
@@ -155,9 +153,8 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as Partial<Product>;
 
-    if (!body.id) {
-      return Response.json({ error: "Product id is required" }, { status: 400 });
-    }
+    // ❌ تم حذف شرط id (ده هو التعديل الوحيد)
+    // if (!body.id) { ... }
 
     const images = normalizeImagesArray(body.images || []);
 
@@ -202,7 +199,7 @@ export async function POST(request: Request) {
     }
 
     const productToSave: Product = {
-      id: body.id,
+      id: crypto.randomUUID(), // 🔥 FIX هنا
       name: body.name,
       description: body.description,
       price: body.price,
@@ -222,8 +219,8 @@ export async function POST(request: Request) {
         description_en:
           productToSave.description.en || productToSave.description.ar,
         price: productToSave.price,
-        image_url: productToSave.images[0], // fallback
-        images_json: productToSave.images, // 🔥 NEW
+        image_url: productToSave.images[0],
+        images_json: productToSave.images,
         stock: productToSave.stock,
         category: productToSave.category,
         is_active: productToSave.active,
