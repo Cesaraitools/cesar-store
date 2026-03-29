@@ -1,3 +1,5 @@
+// /app/api/products/route.ts
+
 import { readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import { createClient } from "@supabase/supabase-js";
@@ -7,8 +9,6 @@ import { normalizeCategory } from "@/lib/category-normalizer";
 
 const PRODUCTS_FILE = join(process.cwd(), "data-store", "products.json");
 const CATEGORIES_FILE = join(process.cwd(), "data-store", "categories.json");
-
-/* ---------------- Supabase ---------------- */
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -89,10 +89,17 @@ export async function GET() {
       const p = supabaseMap.get(id);
       const fallback = fallbackProducts.find((fp) => fp.id === id);
 
-      const rawImages = [
-      ...(p?.image_url ? [p.image_url] : []),
-      ...(fallback?.images || [])
-    ];
+      // 🔥 NEW: read images_json first
+      let rawImages: string[] = [];
+
+      if (p?.images_json && Array.isArray(p.images_json)) {
+        rawImages = p.images_json;
+      } else {
+        rawImages = [
+          ...(p?.image_url ? [p.image_url] : []),
+          ...(fallback?.images || []),
+        ];
+      }
 
       const images = normalizeImagesArray(rawImages);
 
@@ -116,10 +123,10 @@ export async function GET() {
         },
         price: p?.price ?? fallback?.price ?? 0,
         category: normalizeCategory(
-        p?.category ||
-        fallback?.category ||
-        "equipment"
-       ),
+          p?.category ||
+          fallback?.category ||
+          "equipment"
+        ),
         images,
         stock: p?.stock ?? fallback?.stock ?? 0,
         active: p?.is_active ?? fallback?.active ?? true,
@@ -183,16 +190,17 @@ export async function POST(request: Request) {
     }
 
     const now = new Date().toISOString();
-const normalizedCategory = normalizeCategory(body.category);
+    const normalizedCategory = normalizeCategory(body.category);
 
-const validCategories = getValidCategorySlugs();
+    const validCategories = getValidCategorySlugs();
 
-if (!validCategories.includes(normalizedCategory)) {
-  return Response.json(
-    { error: "Invalid category" },
-    { status: 400 }
-  );
-}
+    if (!validCategories.includes(normalizedCategory)) {
+      return Response.json(
+        { error: "Invalid category" },
+        { status: 400 }
+      );
+    }
+
     const productToSave: Product = {
       id: body.id,
       name: body.name,
@@ -206,7 +214,7 @@ if (!validCategories.includes(normalizedCategory)) {
       updatedAt: now,
     };
 
-    const { data, error } = await supabase.from("products").insert([
+    const { error } = await supabase.from("products").insert([
       {
         name_ar: productToSave.name.ar,
         name_en: productToSave.name.en || productToSave.name.ar,
@@ -214,7 +222,8 @@ if (!validCategories.includes(normalizedCategory)) {
         description_en:
           productToSave.description.en || productToSave.description.ar,
         price: productToSave.price,
-        image_url: productToSave.images[0],
+        image_url: productToSave.images[0], // fallback
+        images_json: productToSave.images, // 🔥 NEW
         stock: productToSave.stock,
         category: productToSave.category,
         is_active: productToSave.active,
@@ -276,6 +285,7 @@ export async function PUT(request: Request) {
         price: updates.price,
         stock: updates.stock,
         image_url: images[0] || null,
+        images_json: images, // 🔥 NEW
         category: normalizeCategory(updates.category),
         updated_at: new Date().toISOString(),
       })
