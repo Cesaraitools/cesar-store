@@ -188,7 +188,11 @@ export async function POST(request: Request) {
     }
 
     const now = new Date().toISOString();
-    const normalizedCategory = normalizeCategory(body.category);
+    const normalizedCategory = normalizeCategory(
+  String(body.category || "")
+    .toLowerCase()
+    .trim()
+);
 
     const validCategories = getValidCategorySlugs();
 
