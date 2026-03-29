@@ -155,12 +155,16 @@ export async function POST(request: Request) {
 
     const images = normalizeImagesArray(body.images || []);
 
-    if (!images.length) {
-      return Response.json(
-        { error: "At least one valid image is required" },
-        { status: 400 }
-      );
-    }
+   // 🔥 detect bulk import (string images or missing images)
+    const isBulkImport =
+      typeof body.images === "string" || !body.images;
+
+     if (!images.length && !isBulkImport) {
+     return Response.json(
+     { error: "At least one valid image is required" },
+     { status: 400 }
+   );
+ }
 
     if (!body.name?.ar || !body.name?.en) {
       return Response.json(
