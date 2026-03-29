@@ -56,7 +56,6 @@ function getValidCategorySlugs(): string[] {
 }
 
 /* ---------------- GET ---------------- */
-// ❌ بدون أي تغيير
 
 export async function GET() {
   try {
@@ -155,16 +154,15 @@ export async function POST(request: Request) {
 
     const images = normalizeImagesArray(body.images || []);
 
-   // 🔥 detect bulk import (string images or missing images)
     const isBulkImport =
       typeof body.images === "string" || !body.images;
 
-     if (!images.length && !isBulkImport) {
-     return Response.json(
-     { error: "At least one valid image is required" },
-     { status: 400 }
-   );
- }
+    if (!images.length && !isBulkImport) {
+      return Response.json(
+        { error: "At least one valid image is required" },
+        { status: 400 }
+      );
+    }
 
     if (!body.name?.ar || !body.name?.en) {
       return Response.json(
@@ -188,11 +186,12 @@ export async function POST(request: Request) {
     }
 
     const now = new Date().toISOString();
+
     const normalizedCategory = normalizeCategory(
-  String(body.category || "")
-    .toLowerCase()
-    .trim()
-);
+      String(body.category || "")
+        .toLowerCase()
+        .trim()
+    );
 
     const validCategories = getValidCategorySlugs();
 
@@ -203,7 +202,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // 🔥🔥🔥 Anti-Duplicate Logic (NEW)
     const { data: existingProducts } = await supabase
       .from("products")
       .select("name_ar, category");
@@ -234,28 +232,26 @@ export async function POST(request: Request) {
       updatedAt: now,
     };
 
-    const { error } = await supabase
-  .from("products")
-  .upsert(
-    [
+    await supabase.from("products").upsert(
+      [
+        {
+          name_ar: productToSave.name.ar,
+          name_en: productToSave.name.en || productToSave.name.ar,
+          description_ar: productToSave.description.ar,
+          description_en:
+            productToSave.description.en || productToSave.description.ar,
+          price: productToSave.price,
+          image_url: productToSave.images[0],
+          images_json: productToSave.images,
+          stock: productToSave.stock,
+          category: productToSave.category,
+          is_active: productToSave.active,
+        },
+      ],
       {
-        name_ar: productToSave.name.ar,
-        name_en: productToSave.name.en || productToSave.name.ar,
-        description_ar: productToSave.description.ar,
-        description_en:
-          productToSave.description.en || productToSave.description.ar,
-        price: productToSave.price,
-        image_url: productToSave.images[0],
-        images_json: productToSave.images,
-        stock: productToSave.stock,
-        category: productToSave.category,
-        is_active: productToSave.active,
-      },
-    ],
-    {
-      onConflict: "name_ar,category",
-    }
-  );
+        onConflict: "name_ar,category",
+      }
+    );
 
     const products = readProducts();
     products.push(productToSave);
@@ -304,7 +300,7 @@ export async function PUT(request: Request) {
         price: updates.price,
         stock: updates.stock,
         image_url: images[0] || null,
-        images_json: images, // 🔥 NEW
+        images_json: images,
         category: normalizeCategory(updates.category),
         updated_at: new Date().toISOString(),
       })
@@ -349,9 +345,30 @@ export async function DELETE(request: Request) {
       );
     }
 
+    // 🔥 1. fetch images first
+    const { data } = await supabase
+      .from("products")
+      .select("images_json")
+      .eq("id", id)
+      .single();
+
+    const images: string[] = data?.images_json || [];
+
+    // 🔥 2. delete images from storage
+    const paths = images
+      .filter((img) => img.includes("/storage/v1/object/public/upload/"))
+      .map((img) =>
+        img.split("/storage/v1/object/public/")[1]
+      );
+
+    if (paths.length > 0) {
+      await supabase.storage.from("upload").remove(paths);
+    }
+
+    // 🔥 3. delete product
     await supabase.from("products").delete().eq("id", id);
 
-    return Response.json({ message: "Product deleted successfully" });
+    return Response.json({ message: "Product + images deleted" });
 
   } catch {
     return Response.json(
