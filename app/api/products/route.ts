@@ -153,9 +153,6 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as Partial<Product>;
 
-    // ❌ تم حذف شرط id (ده هو التعديل الوحيد)
-    // if (!body.id) { ... }
-
     const images = normalizeImagesArray(body.images || []);
 
     if (!images.length) {
@@ -198,8 +195,26 @@ export async function POST(request: Request) {
       );
     }
 
+    // 🔥🔥🔥 Anti-Duplicate Logic (NEW)
+    const { data: existingProducts } = await supabase
+      .from("products")
+      .select("name_ar, category");
+
+    const exists = existingProducts?.some(
+      (p) =>
+        p.name_ar?.trim() === body.name?.ar?.trim() &&
+        p.category === normalizedCategory
+    );
+
+    if (exists) {
+      return Response.json(
+        { message: "Product already exists - skipped" },
+        { status: 200 }
+      );
+    }
+
     const productToSave: Product = {
-      id: crypto.randomUUID(), // 🔥 FIX هنا
+      id: crypto.randomUUID(),
       name: body.name,
       description: body.description,
       price: body.price,
