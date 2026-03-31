@@ -1,377 +1,233 @@
-# CESAR STORE — MASTER PROJECT BIBLE (FINAL STATE)
+CESAR STORE — FULL SYSTEM BIBLE (FINAL VERSION)
+🧱 1. تعريف المشروع
+Project: Cesar Store
+Type: Production-Grade E-Commerce Platform
+Architecture: Headless (Next.js + Supabase)
+Current Status: System Stabilized (Post Hardening Phase)
+🎯 الهدف النهائي
 
----
+بناء متجر احترافي ينافس:
 
-# 🧾 PROJECT IDENTITY
+Amazon
+Shopify
+Noon
 
-**Project Name:** Cesar Store
-**Type:** Production-Grade E-Commerce Platform
-**Goal:** بناء متجر احترافي قابل للتوسع بدون Technical Debt
-**Status:** Phase 1 (System Hardening — Image System FIX COMPLETED ✅)
+من حيث:
 
----
+✔ الاستقرار
+✔ إدارة البيانات
+✔ الأداء
+✔ قابلية التوسع
+✔ الأمان
+🧠 الفلسفة المعمارية
+1. Supabase = Single Source of Truth
+2. No Magic Logic (مفيش إصلاحات مخفية)
+3. Predictable System Behavior
+4. Images = Shared Resources (مش ملك لمنتج)
+5. Safe Delete Only
+6. Minimal Changes = No Breaking
+🧰 2. TECH STACK
+Frontend
+Next.js 14 (App Router)
+TypeScript
+React
+Tailwind CSS
+Backend
+Supabase:
+- PostgreSQL (DB)
+- Storage (Images)
+- Auth (جاهز)
+Deployment
+Vercel
+🗂️ 3. شجرة الملفات (الحالة الفعلية)
+/app
+  /api
+    /products
+      route.ts        ← CRUD + Image Lifecycle
+    /upload
+      route.ts        ← Smart Upload + Deduplication
 
-# 🧱 TECH STACK
+/lib
+  image-normalizer.ts
+  category-normalizer.ts
 
-## Frontend
+/context
+  (Auth / Cart / Order Tracking)
 
-* Next.js 14 (App Router)
-* TypeScript
-* React (Client + Server Components)
-* Tailwind CSS
-
-## Backend
-
-* Supabase
-
-  * PostgreSQL
-  * Auth
-  * Storage (Images)
-
-## Deployment
-
-* Vercel
-
----
-
-# 🧠 CORE ARCHITECTURE PRINCIPLES
-
-1. **Single Source of Truth = Supabase**
-2. **Frontend مسؤول عن Upload الصور**
-3. **API مسؤول عن حفظ البيانات فقط**
-4. **No Mock Data in Production Flow**
-5. **No Temporary Solutions**
-6. **Backward Compatibility دائمًا**
-
----
-
-# 📁 PROJECT STRUCTURE (CRITICAL UNDERSTANDING)
-
-```bash
-app/
-│
-├── admin/
-│   ├── products/
-│   │   ├── page.tsx          # Products List + Bulk Import (🔥 مهم)
-│   │   ├── add/page.tsx      # Add Product (🔥 Reference Implementation)
-│   │   └── edit/
-│
-├── api/
-│   ├── products/route.ts     # CRUD Products
-│   ├── upload/route.ts       # Upload to Supabase Storage
-│   ├── categories/
-│   ├── cart/
-│   ├── orders/
-│
-├── components/
-├── context/
-├── data-store/ (deprecated gradually)
-│
-├── globals.css
-├── layout.tsx
-```
-
----
-
-# 🧩 PRODUCT SYSTEM (FINAL LOGIC)
-
-## 🟢 ADD PRODUCT FLOW (WORKING REFERENCE)
-
-```txt
-User selects image
-↓
-Frontend converts to File
-↓
-POST /api/upload
-↓
-Supabase Storage
-↓
-Return URL
-↓
-Save product with image URL
-```
-
-✔ هذا هو النظام الصحيح
-✔ هذا هو المرجع القياسي
-
----
-
-## 🔴 BULK IMPORT (OLD BROKEN BEHAVIOR)
-
-```txt
-Excel → image path
-↓
-Send to /api/products مباشرة
-↓
-❌ NO upload
-↓
-❌ Supabase empty
-```
-
----
-
-## ✅ BULK IMPORT (FINAL FIXED SYSTEM)
-
-```txt
-Excel → image path
-↓
-Frontend fetch image
-↓
-convert → File
-↓
-POST /api/upload
-↓
-Supabase Storage
-↓
-collect URLs
-↓
-POST /api/products
-```
-
-✔ تم توحيد النظام مع Add Product
-✔ تم القضاء على المشكلة نهائيًا
-
----
-
-# 🖼 IMAGE SYSTEM (CRITICAL DESIGN)
-
-## 🎯 القرار النهائي:
-
-> 💣 Image Upload = Frontend Responsibility ONLY
-
----
-
-## ❌ مرفوض:
-
-* API يقوم بـ fetch الصور
-* API يتعامل مع local paths
-* إرسال URLs غير مرفوعة
-
----
-
-## ✅ المعتمد:
-
-* كل صورة تمر عبر `/api/upload`
-* كل صورة في DB = Supabase URL فقط
-
----
-
-# 🧪 ROOT CAUSE OF ISSUE (وثيقة مرجعية)
-
-المشكلة لم تكن:
-
-❌ في API
-❌ في Supabase
-❌ في normalizeImages
-
-المشكلة كانت:
-
-> 💣 Bulk Import لم يكن يقوم بعملية upload من الأساس
-
----
-
-# 🧠 LESSONS LEARNED
-
-1. نفس النتيجة ≠ نفس الـ flow
-2. لا تفترض أن API مسؤول عن كل شيء
-3. أي نظام Upload يجب أن يكون موحد
-4. Console logs أهم أداة تشخيص
-
----
-
-# 🔐 DATABASE DESIGN (CURRENT STATE)
-
-## products table
-
-```ts
+/data-store (DEPRECATED - سيتم حذفه)
+  products.json
+  categories.json
+🧱 4. قاعدة البيانات (ACTUAL)
+جدول products
 id: uuid
-name: { ar, en }
-description: { ar, en }
+name_ar: string
+name_en: string
+description_ar: string
+description_en: string
 price: number
 category: string
-images: string[]   // Supabase URLs ONLY
+image_url: string
+images_json: string[]
 stock: number
-active: boolean
-created_at
-```
+is_active: boolean
+created_at: timestamp
+updated_at: timestamp
+🧠 5. ERD DIAGRAM
+                ┌────────────────────┐
+                │      products      │
+                ├────────────────────┤
+                │ id                 │
+                │ name_ar            │
+                │ name_en            │
+                │ description_ar     │
+                │ description_en     │
+                │ price              │
+                │ category           │
+                │ image_url          │
+                │ images_json[]      │
+                │ stock              │
+                │ is_active          │
+                │ created_at         │
+                │ updated_at         │
+                └─────────┬──────────┘
+                          │
+                          ▼
+                ┌────────────────────┐
+                │  Supabase Storage  │
+                ├────────────────────┤
+                │ bucket: upload     │
+                │ path: product/...  │
+                │ public_url         │
+                └────────────────────┘
+🔁 6. SYSTEM FLOW (كامل)
+🟢 Add Product
+Admin UI
+→ Normalize Data
+→ Check Duplicate
+   → Yes → Skip
+   → No
+→ Upload Images (Smart)
+   → Exists → reuse
+   → New → upload
+→ Save in DB
+🟢 Bulk Import
+Excel → Parse
+→ Loop rows
+→ Check duplicate
+→ Upload only if valid
+→ Save product
+🟢 Upload System
+File → Convert Base64
+→ Compare with existing images
+→ If match → reuse
+→ Else → upload
+🟢 Update Product
+Get old images
+→ Normalize new images
+→ UPDATE DB FIRST
+→ Fetch all images
+→ Compare (old vs new)
+→ Delete unused safely
+🟢 Delete Product
+Get product images
+→ Get all other products images
+→ Check usage
+→ Delete unused
+→ Delete product
+💣 7. IMAGE LIFECYCLE SYSTEM
+UPLOAD:
+✔ reuse if exists
+✔ upload if new
 
----
+UPDATE:
+✔ delete old if unused
 
-# 🧱 CURRENT SYSTEM STATUS
+DELETE:
+✔ delete only if safe
 
-| Feature            | Status       |
-| ------------------ | ------------ |
-| Auth               | ✅ Done       |
-| Products CRUD      | ✅ Done       |
-| Add Product Upload | ✅ Stable     |
-| Bulk Import        | ✅ FIXED      |
-| Image System       | ✅ Unified    |
-| Supabase Storage   | ✅ Working    |
-| Admin Panel        | ✅ Functional |
-
----
-
-# ⚠️ KNOWN RISKS / DEFERRED TASKS
-
-1. Bulk Import Validation Enhancements
-2. Image Upload Error Handling (retry system)
-3. Rate limiting (Security Level 2)
-4. Audit Logs
-5. created_at ordering issue
-
----
-
-# 🚀 NEXT PHASE (STRICT ORDER)
-
-## 🧱 PHASE 2 — ORDERS SYSTEM
-
-### 1. Database Design (Design Only)
-
-* orders
-* order_items
-* order_tracking
-
----
-
-### 2. Order Tracking Engine
-
-States:
-
-```txt
-pending → confirmed → shipped → delivered
-```
-
----
-
-### 3. Admin Orders Panel
-
----
-
-### 4. Invoice System (PDF)
-
----
-
-### 5. Analytics Dashboard
-
----
-
-# 🧪 TESTING PHASE (NEXT STEP NOW)
-
-## 🎯 Required Tests:
-
-### 1. Product Creation
-
-* Add Product
-* Bulk Import
-* Mixed images
-
-### 2. Image Integrity
-
-* All URLs = Supabase
-* No local paths
-
-### 3. Edge Cases
-
-* empty images
-* broken images
-* large files
-
----
-
-# 🔧 IMPROVEMENTS (TO COMPETE WITH AMAZON / SHOPIFY)
-
-## 🧠 Architecture
-
-* Image CDN optimization
-* Lazy loading + responsive images
-* Queue system for uploads
-
----
-
-## 🛒 UX
-
-* Smart filters
-* Recommendations engine
-* Search optimization
-
----
-
-## ⚡ Performance
-
-* ISR / caching strategy
-* DB indexing
-* API optimization
-
----
-
-## 🔐 Security
-
-* Rate limiting
-* Admin roles (Catalog Admin readonly)
-* Audit logs
-
----
-
-# 📈 SCALABILITY ROADMAP
-
-## Phase 3
-
-* Payment Integration
-* Shipping System
-* Notifications
-
-## Phase 4
-
-* Multi-vendor system
-* AI recommendations
-
----
-
-# ⚙️ DEVELOPMENT RULES (CRITICAL)
-
-1. لا تعديل بدون قراءة الملف كامل
-2. إرسال ملف كامل فقط
-3. عدم كسر UI أو logic
-4. لا افتراضات
+RESULT:
+✔ No duplication
+✔ No storage leak
+✔ No data loss
+🚨 8. المشاكل التي تم حلها
+✔ Duplicate Images
+✔ Storage Leak
+✔ Bulk Import Bug
+✔ Update Image Leak
+✔ Delete Image Leak
+✔ Supabase path bug
+✔ API Upload conflict
+✔ Normalizer conflict
+⚠️ 9. المشاكل الحالية (Minor)
+1. Upload Performance (Base64 compare heavy)
+2. No Image Index Table
+3. No Caching Layer
+4. data-store still partially موجود
+🚀 10. ROADMAP الكامل
+🟢 PHASE 1 (DONE)
+✔ Image System
+✔ Upload System
+✔ Product API
+✔ Bulk Import Fix
+✔ Image Lifecycle
+🔥 CURRENT PHASE
+💣 REMOVE data-store (Single Source of Truth)
+🟡 PHASE 2 (Core Commerce)
+Cart System
+Orders System
+Order Tracking
+Invoice PDF
+🟣 PHASE 3 (Admin Power)
+Orders Dashboard
+Analytics
+Sales Reports
+🔴 PHASE 4 (Scaling)
+Image Service (separate)
+Search Engine (Algolia)
+Caching Layer
+CDN Optimization
+⚫ PHASE 5 (Enterprise Level)
+Microservices
+Recommendation Engine
+AI Search
+Multi-region scaling
+🧪 11. TESTING STRATEGY
+Core Tests
+✔ Add Product
+✔ Edit Product
+✔ Delete Product
+✔ Bulk Import
+✔ Duplicate handling
+✔ Shared images
+Edge Cases
+✔ تعديل بدون تغيير صورة
+✔ حذف صورة مشتركة
+✔ رفع نفس الصورة 10 مرات
+✔ حذف منتج وحيد
+🧠 12. قواعد العمل (CRITICAL)
+1. لا تعديل بدون الكود الكامل
+2. ملف واحد فقط لكل خطوة
+3. لا افتراضات
+4. الحفاظ على UI + Logic
 5. كل تعديل minimal
+6. مراجعة dependency قبل الحذف
+🏁 13. الحالة النهائية الحالية
+✔ System Stable
+✔ No Data Leak
+✔ No Storage Waste
+✔ Predictable Behavior
+✔ Production Ready Core
+🔥 14. الخطوة الحالية (مباشرة)
+💣 Remove data-store — Step 2
+💬 الخلاصة النهائية
+أنت دلوقتي مش شغال على مشروع
+أنت بنيت System فعلي
 
----
+✔ Clean Architecture
+✔ Controlled Resources
+✔ Scalable Base
+🚀 بدء الشات الجديد
 
-# 🧭 CURRENT NEXT ACTION
+انسخ الجملة دي:
 
-## ✅ الخطوة القادمة فورًا:
-
-```txt
-Start Testing Phase (Product + Image System)
-```
-
----
-
-## بعدها مباشرة:
-
-```txt
-Begin Orders System Design
-```
-
----
-
-# 🧾 FINAL STATE SUMMARY
-
-✔ تم حل مشكلة الصور نهائيًا
-✔ تم توحيد نظام الرفع
-✔ تم تثبيت معمارية واضحة
-✔ المشروع جاهز للانتقال للمرحلة التالية
-
----
-
-# 🔥 READY FOR NEW CHAT
-
-Use this document as:
-
-```txt
-"برومبت إنقاذ المشروع"
-```
-
-لبدء أي شات جديد بدون فقدان أي سياق
-
----
+ابدأ من Cesar Store Bible — Remove data-store Step 2
