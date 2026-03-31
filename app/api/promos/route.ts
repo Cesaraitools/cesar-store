@@ -1,7 +1,4 @@
-// app/api/promos/route.ts
-
-import { readFileSync, writeFileSync } from "fs";
-import { join } from "path";
+import { createClient } from "@supabase/supabase-js";
 
 export type PromoPosition = "categories_side";
 
@@ -10,7 +7,6 @@ export type PromoData = {
   position: PromoPosition;
   isActive: boolean;
 
-  // 🔗 NEW: product link (Single Source of Truth)
   productId?: string;
 
   title: {
@@ -26,38 +22,29 @@ export type PromoData = {
     en: string;
     link: string;
   };
+
   createdAt: string;
   updatedAt: string;
 };
 
-const DATA_FILE = join(process.cwd(), "data-store", "promos.json");
-
-/* ---------------- Helpers ---------------- */
-
-function readPromos(): PromoData[] {
-  try {
-    const data = readFileSync(DATA_FILE, "utf-8");
-    return JSON.parse(data);
-  } catch (error) {
-    console.error("Error reading promos:", error);
-    return [];
-  }
-}
-
-function writePromos(promos: PromoData[]): void {
-  try {
-    writeFileSync(DATA_FILE, JSON.stringify(promos, null, 2));
-  } catch (error) {
-    console.error("Error writing promos:", error);
-  }
-}
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 /* ---------------- GET ---------------- */
 export async function GET() {
   try {
-    const promos = readPromos();
-    return Response.json(promos);
-  } catch {
+    const { data, error } = await supabase
+      .from("promos")
+      .select("*");
+
+    if (error) throw error;
+
+    return Response.json(data || []);
+  } catch (err) {
+    console.error("GET PROMOS ERROR:", err);
+
     return Response.json(
       { error: "Failed to fetch promos" },
       { status: 500 }
@@ -68,34 +55,41 @@ export async function GET() {
 /* ---------------- POST ---------------- */
 export async function POST(request: Request) {
   try {
-    const newPromo = (await request.json()) as PromoData;
+    const body = (await request.json()) as PromoData;
 
-    if (!newPromo.id || !newPromo.position) {
+    if (!body.id || !body.position) {
       return Response.json(
         { error: "Missing required fields: id, position" },
         { status: 400 }
       );
     }
 
-    const promos = readPromos();
+    const now = new Date().toISOString();
 
-    if (promos.find((p) => p.id === newPromo.id)) {
-      return Response.json(
-        { error: "Promo with this ID already exists" },
-        { status: 409 }
-      );
-    }
+    const { data, error } = await supabase
+      .from("promos")
+      .insert([
+        {
+          id: body.id,
+          position: body.position,
+          is_active: body.isActive,
+          product_id: body.productId || null,
+          title: body.title,
+          description: body.description,
+          cta: body.cta,
+          created_at: now,
+          updated_at: now,
+        },
+      ])
+      .select()
+      .single();
 
-    promos.push({
-      ...newPromo,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
+    if (error) throw error;
 
-    writePromos(promos);
+    return Response.json(data, { status: 201 });
+  } catch (err) {
+    console.error("CREATE PROMO ERROR:", err);
 
-    return Response.json(newPromo, { status: 201 });
-  } catch {
     return Response.json(
       { error: "Failed to create promo" },
       { status: 500 }
@@ -117,27 +111,27 @@ export async function PUT(request: Request) {
       );
     }
 
-    const promos = readPromos();
-    const index = promos.findIndex((p) => p.id === id);
+    const { data, error } = await supabase
+      .from("promos")
+      .update({
+        position: updates.position,
+        is_active: updates.isActive,
+        product_id: updates.productId || null,
+        title: updates.title,
+        description: updates.description,
+        cta: updates.cta,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select()
+      .single();
 
-    if (index === -1) {
-      return Response.json(
-        { error: "Promo not found" },
-        { status: 404 }
-      );
-    }
+    if (error) throw error;
 
-    promos[index] = {
-      ...promos[index],
-      ...updates,
-      id,
-      updatedAt: new Date().toISOString(),
-    };
+    return Response.json(data);
+  } catch (err) {
+    console.error("UPDATE PROMO ERROR:", err);
 
-    writePromos(promos);
-
-    return Response.json(promos[index]);
-  } catch {
     return Response.json(
       { error: "Failed to update promo" },
       { status: 500 }
@@ -148,7 +142,7 @@ export async function PUT(request: Request) {
 /* ---------------- DELETE ---------------- */
 export async function DELETE(request: Request) {
   try {
-    const { id } = (await request.json()) as { id: string };
+    const { id } = await request.json();
 
     if (!id) {
       return Response.json(
@@ -157,20 +151,17 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const promos = readPromos();
-    const filtered = promos.filter((p) => p.id !== id);
+    const { error } = await supabase
+      .from("promos")
+      .delete()
+      .eq("id", id);
 
-    if (filtered.length === promos.length) {
-      return Response.json(
-        { error: "Promo not found" },
-        { status: 404 }
-      );
-    }
-
-    writePromos(filtered);
+    if (error) throw error;
 
     return Response.json({ message: "Promo deleted successfully" });
-  } catch {
+  } catch (err) {
+    console.error("DELETE PROMO ERROR:", err);
+
     return Response.json(
       { error: "Failed to delete promo" },
       { status: 500 }
