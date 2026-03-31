@@ -118,12 +118,49 @@ export default function AdminProductsPage() {
 
       const r = previewRows[i];
 
-      const images = normalizeImagesArray(r.images).map((img: string) => {
-  if (!img.startsWith("http")) {
-    return `https://www.cesareshop.com/${img.replace(/^\/+/, "")}`;
+      const rawImages = normalizeImagesArray(r.images);
+
+const images: string[] = [];
+
+for (const img of rawImages) {
+  try {
+    let file: File;
+
+    // لو المسار local
+    if (img.startsWith("/")) {
+      const res = await fetch(img);
+      const blob = await res.blob();
+      file = new File([blob], "image.webp", { type: blob.type });
+    } else {
+      const res = await fetch(img);
+      const blob = await res.blob();
+      file = new File([blob], "image.webp", { type: blob.type });
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("type", "product");
+
+    const uploadRes = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!uploadRes.ok) {
+      const err = await uploadRes.json();
+      throw new Error(err.error || "Upload failed");
+    }
+
+    const data = await uploadRes.json();
+
+    console.log("UPLOAD RESPONSE:", data);
+
+    images.push(data.url);
+
+  } catch (err) {
+    console.error("IMAGE UPLOAD FAILED:", img, err);
   }
-  return img;
-});
+}
 
       const payload: Product = {
        id: crypto.randomUUID(),
