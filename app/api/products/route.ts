@@ -74,13 +74,12 @@ async function uploadImagesIfNeeded(images: string[]): Promise<string[]> {
 
       // 🔥 NEW: handle local paths
       if (img.startsWith("/products")) {
-        finalUrl = `https://cesareshop.com${img}`;
+        finalUrl = `https://www.cesareshop.com${img}`;
       }
 
       // ✅ handle URLs
       if (finalUrl.startsWith("http")) {
         const res = await fetch(finalUrl);
-
 if (!res.ok) {
   console.error("FETCH FAILED:", finalUrl, res.status);
   continue;

@@ -120,74 +120,27 @@ export default function AdminProductsPage() {
 
       const images = normalizeImagesArray(r.images);
 
-      // 🔥 1. تجهيز الصور
-      const rawImages = normalizeImagesArray(r.images);
-      const uploadedUrls: string[] = [];
-
-        for (const img of rawImages) {
-         try {
-         let finalUrl = img;
-
-             // دعم paths المحلية
-        if (img.startsWith("/products")) {
-         finalUrl = `https://cesareshop.com${img}`;
-      }
-
-          // fetch الصورة
-          const res = await fetch(finalUrl);
-
-        if (!res.ok) {
-        console.error("❌ FETCH FAILED:", finalUrl);
-       continue;
-     }
-
-      const blob = await res.blob();
-
-         // رفع الصورة
-      const formData = new FormData();
-       formData.append("file", blob, "image.jpg");
-       formData.append("type", "product");
-
-      const uploadRes = await fetch("/api/upload", {
-      method: "POST",
-      body: formData,
-    });
-
-    if (!uploadRes.ok) {
-      console.error("❌ UPLOAD FAILED");
-      continue;
-    }
-
-    const data = await uploadRes.json();
-    uploadedUrls.push(data.url);
-
-  } catch (err) {
-    console.error("❌ IMAGE ERROR:", img, err);
-  }
-}
-
-// 🔥 2. إنشاء المنتج بالصور المرفوعة
-const payload: Product = {
-  id: crypto.randomUUID(),
-  name: {
-    ar: String(r.name_ar).trim(),
-    en: String(r.name_en).trim(),
-  },
-  description: {
-    ar: String(r.description_ar).trim(),
-    en: String(r.description_en).trim(),
-  },
-  price: Number(r.price),
-  category: normalizeCategory(r.category),
-  images: uploadedUrls, // 🔥 الفرق هنا
-  stock: Number(r.stock) || 0,
-  active:
-    r.active === true ||
-    r.active === "TRUE" ||
-    r.active === "true",
-  createdAt: "",
-  updatedAt: "",
-};
+      const payload: Product = {
+       id: crypto.randomUUID(),
+       name: {
+       ar: String(r.name_ar).trim(),
+       en: String(r.name_en).trim(),
+       },
+        description: {
+       ar: String(r.description_ar).trim(),
+       en: String(r.description_en).trim(),
+      },
+       price: Number(r.price),
+      category: normalizeCategory(r.category),
+      images,
+      stock: Number(r.stock) || 0,
+      active:
+       r.active === true ||
+       r.active === "TRUE" ||
+       r.active === "true",
+      createdAt: "",
+      updatedAt: "",
+      };
 
       try {
         const res = await fetch("/api/products", {
