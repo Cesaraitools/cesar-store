@@ -64,15 +64,22 @@ async function uploadImagesIfNeeded(images: string[]): Promise<string[]> {
 
   for (const img of images) {
     try {
-      // لو الصورة already من Supabase → سيبها
+      // ✅ already uploaded
       if (img.includes("/storage/v1/object/public/upload/")) {
         result.push(img);
         continue;
       }
 
-      // لو URL خارجي → نرفعه
-      if (img.startsWith("http")) {
-        const res = await fetch(img);
+      let finalUrl = img;
+
+      // 🔥 NEW: handle local paths
+      if (img.startsWith("/products")) {
+        finalUrl = `https://cesareshop.com${img}`;
+      }
+
+      // ✅ handle URLs
+      if (finalUrl.startsWith("http")) {
+        const res = await fetch(finalUrl);
         const buffer = await res.arrayBuffer();
 
         const fileName = `products/${crypto.randomUUID()}.jpg`;
@@ -98,6 +105,7 @@ async function uploadImagesIfNeeded(images: string[]): Promise<string[]> {
 
       // fallback
       result.push(img);
+
     } catch (err) {
       console.error("UPLOAD FAIL:", err);
     }
