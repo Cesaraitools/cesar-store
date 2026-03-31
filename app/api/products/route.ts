@@ -6,8 +6,6 @@ import { createClient } from "@supabase/supabase-js";
 import type { Product } from "@/types/product";
 import { normalizeImagesArray } from "@/lib/image-normalizer";
 import { normalizeCategory } from "@/lib/category-normalizer";
-import { readFile } from "fs/promises";
-
 
 const PRODUCTS_FILE = join(process.cwd(), "data-store", "products.json");
 const CATEGORIES_FILE = join(process.cwd(), "data-store", "categories.json");
@@ -57,98 +55,6 @@ function getValidCategorySlugs(): string[] {
   } catch {
     return ["accessories", "air-fresheners", "additives-fluids", "equipment"];
   }
-}
-
-/* ---------------- NEW: Upload Layer ---------------- */
-
-async function uploadImagesIfNeeded(images: string[]): Promise<string[]> {
-  const result: string[] = [];
-
-  for (const img of images) {
-    try {
-      // ✅ already uploaded
-      if (img.includes("/storage/v1/object/public/upload/")) {
-        result.push(img);
-        continue;
-      }
-
-      let finalUrl = img;
-
-      // 🔥 NEW: handle local paths
-      if (img.startsWith("/products") || img.startsWith("products")) {
-        finalUrl = `https://www.cesareshop.com${img}`;
-      }
-
-      // ✅ handle URLs
-      if (finalUrl.startsWith("http")) {
-        console.log("FETCHING IMAGE:", finalUrl);
-
-
-
-let buffer: ArrayBuffer;
-
-if (img.startsWith("/products")) {
-  try {
-    const filePath = join(process.cwd(), "public", img);
-    const file = await readFile(filePath);
-
-    buffer = file.buffer;
-    console.log("✅ LOCAL FILE READ:", filePath);
-
-  } catch (err) {
-    console.error("❌ LOCAL READ FAILED:", img, err);
-    continue;
-  }
-
-} else {
-  console.log("FETCHING IMAGE:", finalUrl);
-
-  const res = await fetch(finalUrl, {
-    redirect: "follow",
-  });
-
-  if (!res.ok) {
-    console.error("❌ FETCH FAILED:", finalUrl, res.status);
-    continue;
-  }
-
-  console.log("✅ FETCH SUCCESS:", finalUrl);
-
-  buffer = await res.arrayBuffer();
-}
-
-const fileName = `products/${crypto.randomUUID()}.jpg`;
-
-const { error } = await supabase.storage
-  .from("upload")
-  .upload(fileName, buffer, {
-   contentType: "image/jpeg",
-  });
-
-if (error) {
-  console.error("❌ UPLOAD ERROR:", error);
-  continue;
-}
-
-console.log("✅ UPLOAD SUCCESS:", fileName);
-
-const { data } = supabase.storage
-  .from("upload")
-  .getPublicUrl(fileName);
-
-result.push(data.publicUrl);
-continue;
-      }
-
-      // fallback
-      result.push(img);
-
-    } catch (err) {
-      console.error("UPLOAD FAIL:", err);
-    }
-  }
-
-  return result;
 }
 
 /* ---------------- GET ---------------- */
@@ -250,15 +156,9 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as Partial<Product>;
 
-    let images = normalizeImagesArray(body.images || []);
+    const images = normalizeImagesArray(body.images || []);
 
-    // 🔥 NEW: upload layer
-    images = await uploadImagesIfNeeded(images);
-
-    const isBulkImport =
-      typeof body.images === "string" || !body.images;
-
-    if (!images.length && !isBulkImport) {
+    if (!images.length) {
       return Response.json(
         { error: "At least one valid image is required" },
         { status: 400 }
@@ -388,10 +288,7 @@ export async function PUT(request: Request) {
       );
     }
 
-    let images = normalizeImagesArray(updates.images || []);
-
-    // 🔥 NEW
-    images = await uploadImagesIfNeeded(images);
+    const images = normalizeImagesArray(updates.images || []);
 
     await supabase
       .from("products")
@@ -431,86 +328,6 @@ export async function PUT(request: Request) {
 
     return Response.json(
       { error: "Failed to update product" },
-      { status: 500 }
-    );
-  }
-}
-
-/* ---------------- DELETE ---------------- */
-// (لم يتم التعديل عليه نهائيًا)
-
-/* ---------------- DELETE ---------------- */
-
-export async function DELETE(request: Request) {
-  try {
-    const { id } = (await request.json()) as { id: string };
-
-    if (!id) {
-      return Response.json(
-        { error: "Product ID is required" },
-        { status: 400 }
-      );
-    }
-
-    // 🔥 1. get product images
-    const { data: product } = await supabase
-      .from("products")
-      .select("images_json")
-      .eq("id", id)
-      .single();
-
-    const productImages: string[] = product?.images_json || [];
-
-    // 🔥 2. get ALL images from all products
-    const { data: allProducts } = await supabase
-      .from("products")
-      .select("id, images_json");
-
-    const usedImages = new Set<string>();
-
-    allProducts?.forEach((p) => {
-      if (p.id === id) return; // تجاهل المنتج اللي هيتحذف
-
-      if (Array.isArray(p.images_json)) {
-        p.images_json.forEach((img: string) => {
-          usedImages.add(img);
-        });
-      }
-    });
-
-    // 🔥 3. filter images that are SAFE to delete
-    const imagesToDelete = productImages.filter((img) => {
-      const isSupabase =
-        img.includes("/storage/v1/object/public/upload/");
-
-      const isUsedElsewhere = usedImages.has(img);
-
-      return isSupabase && !isUsedElsewhere;
-    });
-
-    // 🔥 4. extract paths
-    const paths = imagesToDelete.map((img) =>
-      img.split("/storage/v1/object/public/")[1]
-    );
-
-    // 🔥 5. delete from storage
-    if (paths.length > 0) {
-      await supabase.storage.from("upload").remove(paths);
-    }
-
-    // 🔥 6. delete product
-    await supabase.from("products").delete().eq("id", id);
-
-    return Response.json({
-      message: "Product deleted safely",
-      deletedImages: paths.length,
-    });
-
-  } catch (err) {
-    console.error("DELETE ERROR:", err);
-
-    return Response.json(
-      { error: "Failed to delete product" },
       { status: 500 }
     );
   }
