@@ -8,26 +8,21 @@ export function normalizeImagePath(input: string): string | null {
   // remove spaces
   path = path.replace(/\s+/g, "");
 
-  // external URL
+  // block invalid patterns
+  if (path.includes("..")) return null;
+
+  // ✅ 1. external URL (Supabase or any CDN)
   if (path.startsWith("http://") || path.startsWith("https://")) {
     return path;
   }
 
-  // remove leading slashes
-  path = path.replace(/^\/+/, "");
-
-  // block invalid patterns
-  if (path.includes("..")) return null;
-
-  // 🔥 FIX: prevent duplication
-  if (
-    !path.startsWith("products/") &&
-    !path.startsWith("upload/")
-  ) {
-    path = `products/${path}`;
+  // ✅ 2. allow known local paths (fallback only)
+  if (path.startsWith("/products") || path.startsWith("products/")) {
+    return path.startsWith("/") ? path : `/${path}`;
   }
 
-  return `/${path}`;
+  // ❌ 3. أي حاجة غير معروفة → نرفضها
+  return null;
 }
 
 export function normalizeImagesArray(
