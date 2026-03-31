@@ -68,7 +68,10 @@ export async function GET() {
       console.error("SUPABASE FETCH ERROR:", error);
     }
 
-    const fallbackProducts = readProducts();
+    // 🔥 NEW: fallback only if supabase empty
+const fallbackProducts = (!data || data.length === 0)
+  ? readProducts()
+  : [];
 
     const supabaseMap = new Map(
       (data || []).map((p: any) => [p.id, p])
