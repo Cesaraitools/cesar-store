@@ -118,7 +118,12 @@ export default function AdminProductsPage() {
 
       const r = previewRows[i];
 
-      const images = normalizeImagesArray(r.images);
+      const images = normalizeImagesArray(r.images).map((img: string) => {
+  if (!img.startsWith("http")) {
+    return `https://www.cesareshop.com/${img.replace(/^\/+/, "")}`;
+  }
+  return img;
+});
 
       const payload: Product = {
        id: crypto.randomUUID(),
