@@ -332,3 +332,79 @@ export async function PUT(request: Request) {
     );
   }
 }
+/* ---------------- DELETE ---------------- */
+
+export async function DELETE(request: Request) {
+  try {
+    const { id } = (await request.json()) as { id: string };
+
+    if (!id) {
+      return Response.json(
+        { error: "Product ID is required" },
+        { status: 400 }
+      );
+    }
+
+    // 🔥 1. get product images
+    const { data: product } = await supabase
+      .from("products")
+      .select("images_json")
+      .eq("id", id)
+      .single();
+
+    const productImages: string[] = product?.images_json || [];
+
+    // 🔥 2. get ALL images from all products
+    const { data: allProducts } = await supabase
+      .from("products")
+      .select("id, images_json");
+
+    const usedImages = new Set<string>();
+
+    allProducts?.forEach((p) => {
+      if (p.id === id) return; // تجاهل المنتج اللي هيتحذف
+
+      if (Array.isArray(p.images_json)) {
+        p.images_json.forEach((img: string) => {
+          usedImages.add(img);
+        });
+      }
+    });
+
+    // 🔥 3. filter images that are SAFE to delete
+    const imagesToDelete = productImages.filter((img) => {
+      const isSupabase =
+        img.includes("/storage/v1/object/public/upload/");
+
+      const isUsedElsewhere = usedImages.has(img);
+
+      return isSupabase && !isUsedElsewhere;
+    });
+
+    // 🔥 4. extract paths
+    const paths = imagesToDelete.map((img) =>
+      img.split("/storage/v1/object/public/")[1]
+    );
+
+    // 🔥 5. delete from storage
+    if (paths.length > 0) {
+      await supabase.storage.from("upload").remove(paths);
+    }
+
+    // 🔥 6. delete product
+    await supabase.from("products").delete().eq("id", id);
+
+    return Response.json({
+      message: "Product deleted safely",
+      deletedImages: paths.length,
+    });
+
+  } catch (err) {
+    console.error("DELETE ERROR:", err);
+
+    return Response.json(
+      { error: "Failed to delete product" },
+      { status: 500 }
+    );
+  }
+}
