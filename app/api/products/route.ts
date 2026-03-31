@@ -1,3 +1,5 @@
+// /app/api/products/route.ts
+
 import { readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import { createClient } from "@supabase/supabase-js";
@@ -55,6 +57,55 @@ function getValidCategorySlugs(): string[] {
   }
 }
 
+/* ---------------- NEW: Upload Layer ---------------- */
+
+async function uploadImagesIfNeeded(images: string[]): Promise<string[]> {
+  const result: string[] = [];
+
+  for (const img of images) {
+    try {
+      // لو الصورة already من Supabase → سيبها
+      if (img.includes("/storage/v1/object/public/upload/")) {
+        result.push(img);
+        continue;
+      }
+
+      // لو URL خارجي → نرفعه
+      if (img.startsWith("http")) {
+        const res = await fetch(img);
+        const buffer = await res.arrayBuffer();
+
+        const fileName = `products/${crypto.randomUUID()}.jpg`;
+
+        const { error } = await supabase.storage
+          .from("upload")
+          .upload(fileName, buffer, {
+            contentType: "image/jpeg",
+          });
+
+        if (error) {
+          console.error("UPLOAD ERROR:", error);
+          continue;
+        }
+
+        const { data } = supabase.storage
+          .from("upload")
+          .getPublicUrl(fileName);
+
+        result.push(data.publicUrl);
+        continue;
+      }
+
+      // fallback
+      result.push(img);
+    } catch (err) {
+      console.error("UPLOAD FAIL:", err);
+    }
+  }
+
+  return result;
+}
+
 /* ---------------- GET ---------------- */
 
 export async function GET() {
@@ -68,10 +119,9 @@ export async function GET() {
       console.error("SUPABASE FETCH ERROR:", error);
     }
 
-    // 🔥 NEW: fallback only if supabase empty
-const fallbackProducts = (!data || data.length === 0)
-  ? readProducts()
-  : [];
+    const fallbackProducts = (!data || data.length === 0)
+      ? readProducts()
+      : [];
 
     const supabaseMap = new Map(
       (data || []).map((p: any) => [p.id, p])
@@ -155,7 +205,10 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as Partial<Product>;
 
-    const images = normalizeImagesArray(body.images || []);
+    let images = normalizeImagesArray(body.images || []);
+
+    // 🔥 NEW: upload layer
+    images = await uploadImagesIfNeeded(images);
 
     const isBulkImport =
       typeof body.images === "string" || !body.images;
@@ -290,7 +343,10 @@ export async function PUT(request: Request) {
       );
     }
 
-    const images = normalizeImagesArray(updates.images || []);
+    let images = normalizeImagesArray(updates.images || []);
+
+    // 🔥 NEW
+    images = await uploadImagesIfNeeded(images);
 
     await supabase
       .from("products")
@@ -334,6 +390,9 @@ export async function PUT(request: Request) {
     );
   }
 }
+
+/* ---------------- DELETE ---------------- */
+// (لم يتم التعديل عليه نهائيًا)
 
 /* ---------------- DELETE ---------------- */
 
