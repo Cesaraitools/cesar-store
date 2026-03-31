@@ -6,6 +6,8 @@ import { createClient } from "@supabase/supabase-js";
 import type { Product } from "@/types/product";
 import { normalizeImagesArray } from "@/lib/image-normalizer";
 import { normalizeCategory } from "@/lib/category-normalizer";
+import { readFile } from "fs/promises";
+
 
 const PRODUCTS_FILE = join(process.cwd(), "data-store", "products.json");
 const CATEGORIES_FILE = join(process.cwd(), "data-store", "categories.json");
@@ -81,32 +83,46 @@ async function uploadImagesIfNeeded(images: string[]): Promise<string[]> {
       if (finalUrl.startsWith("http")) {
         console.log("FETCHING IMAGE:", finalUrl);
 
-const res = await fetch(finalUrl, {
-  redirect: "follow",
-});
 
-if (!res.ok) {
-  console.error("❌ FETCH FAILED:", finalUrl, res.status);
-  continue;
+
+let buffer: ArrayBuffer;
+
+if (img.startsWith("/products")) {
+  try {
+    const filePath = join(process.cwd(), "public", img);
+    const file = await readFile(filePath);
+
+    buffer = file.buffer;
+    console.log("✅ LOCAL FILE READ:", filePath);
+
+  } catch (err) {
+    console.error("❌ LOCAL READ FAILED:", img, err);
+    continue;
+  }
+
+} else {
+  console.log("FETCHING IMAGE:", finalUrl);
+
+  const res = await fetch(finalUrl, {
+    redirect: "follow",
+  });
+
+  if (!res.ok) {
+    console.error("❌ FETCH FAILED:", finalUrl, res.status);
+    continue;
+  }
+
+  console.log("✅ FETCH SUCCESS:", finalUrl);
+
+  buffer = await res.arrayBuffer();
 }
-
-console.log("✅ FETCH SUCCESS:", finalUrl);
-
-const contentType = res.headers.get("content-type");
-
-if (!contentType || !contentType.startsWith("image")) {
-  console.error("❌ NOT AN IMAGE:", finalUrl, contentType);
-  continue;
-}
-
-const buffer = await res.arrayBuffer();
 
 const fileName = `products/${crypto.randomUUID()}.jpg`;
 
 const { error } = await supabase.storage
   .from("upload")
   .upload(fileName, buffer, {
-    contentType,
+   contentType: "image/jpeg",
   });
 
 if (error) {
