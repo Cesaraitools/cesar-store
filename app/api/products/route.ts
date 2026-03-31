@@ -80,6 +80,18 @@ async function uploadImagesIfNeeded(images: string[]): Promise<string[]> {
       // ✅ handle URLs
       if (finalUrl.startsWith("http")) {
         const res = await fetch(finalUrl);
+
+if (!res.ok) {
+  console.error("FETCH FAILED:", finalUrl, res.status);
+  continue;
+}
+
+const contentType = res.headers.get("content-type");
+
+if (!contentType?.startsWith("image")) {
+  console.error("NOT AN IMAGE:", finalUrl);
+  continue;
+}
         const buffer = await res.arrayBuffer();
 
         const fileName = `products/${crypto.randomUUID()}.jpg`;
