@@ -15,48 +15,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-/* ---------------- Helpers ---------------- */
-
-function readJSON<T>(filePath: string): T {
-  const data = readFileSync(filePath, "utf-8");
-  return JSON.parse(data);
-}
-
-function readProducts(): Product[] {
-  try {
-    const parsed = readJSON<Product[]>(PRODUCTS_FILE);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeProducts(products: Product[]): void {
-  try {
-    writeFileSync(PRODUCTS_FILE, JSON.stringify(products, null, 2));
-  } catch {
-    console.warn("⚠️ write skipped (vercel)");
-  }
-}
-
-function getValidCategorySlugs(): string[] {
-  try {
-    const categories = readJSON<any[]>(CATEGORIES_FILE);
-
-    const valid = categories
-      .filter((c) => c.active === true && typeof c.category === "string")
-      .map((c) => c.category.toLowerCase().trim());
-
-    if (valid.length === 0) {
-      return ["accessories", "air-fresheners", "additives-fluids", "equipment"];
-    }
-
-    return valid;
-  } catch {
-    return ["accessories", "air-fresheners", "additives-fluids", "equipment"];
-  }
-}
-
 /* ---------------- GET ---------------- */
 
 export async function GET() {
@@ -70,18 +28,14 @@ export async function GET() {
       console.error("SUPABASE FETCH ERROR:", error);
     }
 
-    const fallbackProducts = (!data || data.length === 0)
-      ? readProducts()
-      : [];
-
+    
     const supabaseMap = new Map(
       (data || []).map((p: any) => [p.id, p])
     );
 
     const allIds = Array.from(
       new Set([
-        ...fallbackProducts.map((p) => p.id),
-        ...(data || []).map((p: any) => p.id),
+       ...(data || []).map((p: any) => p.id),
       ])
     );
 
@@ -89,17 +43,12 @@ export async function GET() {
 
     allIds.forEach((id) => {
       const p = supabaseMap.get(id);
-      const fallback = fallbackProducts.find((fp) => fp.id === id);
-
-      let rawImages: string[] = [];
+     let rawImages: string[] = [];
 
       if (p?.images_json && Array.isArray(p.images_json)) {
         rawImages = p.images_json;
       } else {
-        rawImages = [
-          ...(p?.image_url ? [p.image_url] : []),
-          ...(fallback?.images || []),
-        ];
+        rawImages = p?.image_url ? [p.image_url] : [];
       }
 
       const images = normalizeImagesArray(rawImages);
@@ -107,32 +56,24 @@ export async function GET() {
       formatted.push({
         id,
         name: {
-          ar: p?.name_ar || fallback?.name?.ar || "",
-          en:
-            p?.name_en ||
-            fallback?.name?.en ||
-            p?.name_ar ||
-            "",
-        },
+      
+  ar: p?.name_ar || "",
+  en: p?.name_en || p?.name_ar || "",
+},
         description: {
-          ar: p?.description_ar || fallback?.description?.ar || "",
-          en:
-            p?.description_en ||
-            fallback?.description?.en ||
-            p?.description_ar ||
-            "",
-        },
-        price: p?.price ?? fallback?.price ?? 0,
+  ar: p?.description_ar || "",
+  en: p?.description_en || p?.description_ar || "",
+},
+
+        price: p?.price ?? 0,
         category: normalizeCategory(
-          p?.category ||
-          fallback?.category ||
-          "equipment"
-        ),
+  p?.category || "equipment"
+),
         images,
-        stock: p?.stock ?? fallback?.stock ?? 0,
-        active: p?.is_active ?? fallback?.active ?? true,
+        stock: p?.stock ?? 0,
+        active: p?.is_active ?? true,
         createdAt:
-          fallback?.createdAt || new Date().toISOString(),
+  p?.created_at || new Date().toISOString(),
         updatedAt:
           p?.updated_at || new Date().toISOString(),
       });
@@ -194,15 +135,6 @@ export async function POST(request: Request) {
         .trim()
     );
 
-    const validCategories = getValidCategorySlugs();
-
-    if (!validCategories.includes(normalizedCategory)) {
-      return Response.json(
-        { error: "Invalid category" },
-        { status: 400 }
-      );
-    }
-
     const { data: existingProducts } = await supabase
       .from("products")
       .select("name_ar, category");
@@ -253,10 +185,6 @@ export async function POST(request: Request) {
         onConflict: "name_ar,category",
       }
     );
-
-    const products = readProducts();
-    products.push(productToSave);
-    writeProducts(products);
 
     return Response.json(productToSave, { status: 201 });
 
@@ -345,33 +273,16 @@ export async function PUT(request: Request) {
       return removed && isSupabase && !isStillUsed;
     });
 
-    const paths = imagesToDelete.map((img) => {
-  const fullPath = img.split("/storage/v1/object/public/")[1];
-
-  // 🔥 remove "upload/" لأن ده اسم الباكت مش جزء من المسار
-  return fullPath.replace(/^upload\//, "");
-});
+    const paths = imagesToDelete.map((img) =>
+      img.split("/storage/v1/object/public/")[1]
+    );
 
     // 🔥 6. delete unused images
     if (paths.length > 0) {
       await supabase.storage.from("upload").remove(paths);
     }
 
-    // 🔥 7. update local fallback
-    const products = readProducts();
-    const index = products.findIndex((p) => p.id === id);
-
-    if (index !== -1) {
-      products[index] = {
-        ...products[index],
-        ...updates,
-        images,
-        updatedAt: new Date().toISOString(),
-      } as Product;
-
-      writeProducts(products);
-    }
-
+    
     return Response.json({
       success: true,
       deletedImages: paths.length,
@@ -436,12 +347,9 @@ export async function DELETE(request: Request) {
     });
 
     // 🔥 4. extract paths
-    const paths = imagesToDelete.map((img) => {
-  const fullPath = img.split("/storage/v1/object/public/")[1];
-
-  // 🔥 remove "upload/" لأن ده اسم الباكت مش جزء من المسار
-  return fullPath.replace(/^upload\//, "");
-});
+    const paths = imagesToDelete.map((img) =>
+      img.split("/storage/v1/object/public/")[1]
+    );
 
     // 🔥 5. delete from storage
     if (paths.length > 0) {
