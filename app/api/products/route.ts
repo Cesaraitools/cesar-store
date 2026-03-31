@@ -345,9 +345,12 @@ export async function PUT(request: Request) {
       return removed && isSupabase && !isStillUsed;
     });
 
-    const paths = imagesToDelete.map((img) =>
-      img.split("/storage/v1/object/public/")[1]
-    );
+    const paths = imagesToDelete.map((img) => {
+  const fullPath = img.split("/storage/v1/object/public/")[1];
+
+  // 🔥 remove "upload/" لأن ده اسم الباكت مش جزء من المسار
+  return fullPath.replace(/^upload\//, "");
+});
 
     // 🔥 6. delete unused images
     if (paths.length > 0) {
@@ -433,9 +436,12 @@ export async function DELETE(request: Request) {
     });
 
     // 🔥 4. extract paths
-    const paths = imagesToDelete.map((img) =>
-      img.split("/storage/v1/object/public/")[1]
-    );
+    const paths = imagesToDelete.map((img) => {
+  const fullPath = img.split("/storage/v1/object/public/")[1];
+
+  // 🔥 remove "upload/" لأن ده اسم الباكت مش جزء من المسار
+  return fullPath.replace(/^upload\//, "");
+});
 
     // 🔥 5. delete from storage
     if (paths.length > 0) {
