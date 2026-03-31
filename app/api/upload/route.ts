@@ -1,5 +1,5 @@
 // =====================================================
-// Upload API (Supabase Storage Version)
+// Upload API (Smart Dedup Version)
 // Cesar Store
 // =====================================================
 
@@ -19,6 +19,33 @@ const supabase = createClient(
 );
 
 /* =========================
+   Helpers
+========================= */
+
+async function getAllExistingImages(): Promise<string[]> {
+  const { data } = await supabase
+    .from("products")
+    .select("images_json");
+
+  const images: string[] = [];
+
+  data?.forEach((p: any) => {
+    if (Array.isArray(p.images_json)) {
+      p.images_json.forEach((img: string) => {
+        images.push(img);
+      });
+    }
+  });
+
+  return images;
+}
+
+async function fileToBase64(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  return Buffer.from(buffer).toString("base64");
+}
+
+/* =========================
    API
 ========================= */
 
@@ -26,20 +53,12 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
 
-    const file = formData.get("file");
+    const file = formData.get("file") as File | null;
     const type = formData.get("type") as string | null;
 
-    // ✅ Validation (محسّن بدون تكرار)
-    if (!file || typeof file === "string" || !type) {
+    if (!file || !type) {
       return NextResponse.json(
-        { error: "Missing or invalid file/type" },
-        { status: 400 }
-      );
-    }
-
-    if (!["category", "product", "promo"].includes(type)) {
-      return NextResponse.json(
-        { error: "Invalid upload type" },
+        { error: "Missing file/type" },
         { status: 400 }
       );
     }
@@ -53,7 +72,34 @@ export async function POST(req: NextRequest) {
     }
 
     /* =========================
-       Prepare File (مرة واحدة فقط)
+       🔥 STEP 1: Check duplicates
+    ========================= */
+
+    const existingImages = await getAllExistingImages();
+
+    const incomingBase64 = await fileToBase64(file);
+
+    for (const url of existingImages) {
+      try {
+        const res = await fetch(url);
+        const buffer = await res.arrayBuffer();
+        const existingBase64 = Buffer.from(buffer).toString("base64");
+
+        if (existingBase64 === incomingBase64) {
+          console.log("♻️ REUSED IMAGE:", url);
+
+          return NextResponse.json({
+            url,
+            reused: true,
+          });
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    /* =========================
+       STEP 2: Upload new image
     ========================= */
 
     const bytes = await file.arrayBuffer();
@@ -61,10 +107,6 @@ export async function POST(req: NextRequest) {
 
     const ext = file.name.split(".").pop() || "jpg";
     const fileName = `${type}/${crypto.randomUUID()}.${ext}`;
-
-    /* =========================
-       Upload to Supabase
-    ========================= */
 
     const { error: uploadError } = await supabase.storage
       .from("upload")
@@ -74,16 +116,11 @@ export async function POST(req: NextRequest) {
       });
 
     if (uploadError) {
-      console.error("SUPABASE UPLOAD ERROR:", uploadError);
       return NextResponse.json(
         { error: "Upload failed", details: uploadError.message },
         { status: 500 }
       );
     }
-
-    /* =========================
-       Get Public URL
-    ========================= */
 
     const { data } = supabase.storage
       .from("upload")
@@ -91,16 +128,14 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       url: data.publicUrl,
+      reused: false,
     });
 
   } catch (err) {
-    console.error("UPLOAD ERROR FULL:", err);
+    console.error("UPLOAD ERROR:", err);
 
     return NextResponse.json(
-      {
-        error: "Upload failed",
-        details: err instanceof Error ? err.message : String(err),
-      },
+      { error: "Upload failed" },
       { status: 500 }
     );
   }
