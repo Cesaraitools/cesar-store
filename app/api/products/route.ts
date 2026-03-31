@@ -300,45 +300,7 @@ export async function PUT(request: Request) {
     // 🔥 2. normalize new images
     const images = normalizeImagesArray(updates.images || []);
 
-    // 🔥 3. get ALL other products images
-    const { data: allProducts } = await supabase
-      .from("products")
-      .select("id, images_json");
-
-    const usedImages = new Set<string>();
-
-    allProducts?.forEach((p) => {
-      if (p.id === id) return;
-
-      if (Array.isArray(p.images_json)) {
-        p.images_json.forEach((img: string) => {
-          usedImages.add(img);
-        });
-      }
-    });
-
-    // 🔥 4. find images to delete
-    const imagesToDelete = oldImages.filter((img) => {
-      const removed = !images.includes(img);
-
-      const isSupabase =
-        img.includes("/storage/v1/object/public/upload/");
-
-      const isUsedElsewhere = usedImages.has(img);
-
-      return removed && isSupabase && !isUsedElsewhere;
-    });
-
-    const paths = imagesToDelete.map((img) =>
-      img.split("/storage/v1/object/public/")[1]
-    );
-
-    // 🔥 5. delete unused images
-    if (paths.length > 0) {
-      await supabase.storage.from("upload").remove(paths);
-    }
-
-    // 🔥 6. update product
+    // 🔥 3. UPDATE FIRST (important fix)
     await supabase
       .from("products")
       .update({
@@ -356,6 +318,43 @@ export async function PUT(request: Request) {
       })
       .eq("id", id);
 
+    // 🔥 4. get ALL products AFTER update
+    const { data: allProducts } = await supabase
+      .from("products")
+      .select("images_json");
+
+    const usedImages = new Set<string>();
+
+    allProducts?.forEach((p) => {
+      if (Array.isArray(p.images_json)) {
+        p.images_json.forEach((img: string) => {
+          usedImages.add(img);
+        });
+      }
+    });
+
+    // 🔥 5. find images to delete
+    const imagesToDelete = oldImages.filter((img) => {
+      const removed = !images.includes(img);
+
+      const isSupabase =
+        img.includes("/storage/v1/object/public/upload/");
+
+      const isStillUsed = usedImages.has(img);
+
+      return removed && isSupabase && !isStillUsed;
+    });
+
+    const paths = imagesToDelete.map((img) =>
+      img.split("/storage/v1/object/public/")[1]
+    );
+
+    // 🔥 6. delete unused images
+    if (paths.length > 0) {
+      await supabase.storage.from("upload").remove(paths);
+    }
+
+    // 🔥 7. update local fallback
     const products = readProducts();
     const index = products.findIndex((p) => p.id === id);
 
