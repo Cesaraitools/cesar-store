@@ -277,9 +277,13 @@ const isStillUsed = Array.from(usedImages).some(
       return removed && isSupabase && !isStillUsed;
     });
 
-    const paths = imagesToDelete.map((img) =>
-      img.split("/storage/v1/object/public/")[1]
-    );
+    const paths = imagesToDelete.map((img) => {
+  const fullPath = img.split("/storage/v1/object/public/")[1];
+
+  if (!fullPath) return "";
+
+  return fullPath.replace(/^upload\//, "");
+}).filter(Boolean);
 
     // 🔥 6. delete unused images
     if (paths.length > 0) {
@@ -356,9 +360,13 @@ const isUsedElsewhere = Array.from(usedImages).some(
     });
 
     // 🔥 4. extract paths
-    const paths = imagesToDelete.map((img) =>
-      img.split("/storage/v1/object/public/")[1]
-    );
+    const paths = imagesToDelete.map((img) => {
+  const fullPath = img.split("/storage/v1/object/public/")[1];
+
+  if (!fullPath) return "";
+
+  return fullPath.replace(/^upload\//, "");
+}).filter(Boolean);
 
     // 🔥 5. delete from storage
     if (paths.length > 0) {
