@@ -79,39 +79,49 @@ async function uploadImagesIfNeeded(images: string[]): Promise<string[]> {
 
       // ✅ handle URLs
       if (finalUrl.startsWith("http")) {
-        const res = await fetch(finalUrl);
+        console.log("FETCHING IMAGE:", finalUrl);
+
+const res = await fetch(finalUrl, {
+  redirect: "follow",
+});
+
 if (!res.ok) {
-  console.error("FETCH FAILED:", finalUrl, res.status);
+  console.error("❌ FETCH FAILED:", finalUrl, res.status);
   continue;
 }
+
+console.log("✅ FETCH SUCCESS:", finalUrl);
 
 const contentType = res.headers.get("content-type");
 
-if (!contentType?.startsWith("image")) {
-  console.error("NOT AN IMAGE:", finalUrl);
+if (!contentType || !contentType.startsWith("image")) {
+  console.error("❌ NOT AN IMAGE:", finalUrl, contentType);
   continue;
 }
-        const buffer = await res.arrayBuffer();
 
-        const fileName = `products/${crypto.randomUUID()}.jpg`;
+const buffer = await res.arrayBuffer();
 
-        const { error } = await supabase.storage
-          .from("upload")
-          .upload(fileName, buffer, {
-            contentType: "image/jpeg",
-          });
+const fileName = `products/${crypto.randomUUID()}.jpg`;
 
-        if (error) {
-          console.error("UPLOAD ERROR:", error);
-          continue;
-        }
+const { error } = await supabase.storage
+  .from("upload")
+  .upload(fileName, buffer, {
+    contentType,
+  });
 
-        const { data } = supabase.storage
-          .from("upload")
-          .getPublicUrl(fileName);
+if (error) {
+  console.error("❌ UPLOAD ERROR:", error);
+  continue;
+}
 
-        result.push(data.publicUrl);
-        continue;
+console.log("✅ UPLOAD SUCCESS:", fileName);
+
+const { data } = supabase.storage
+  .from("upload")
+  .getPublicUrl(fileName);
+
+result.push(data.publicUrl);
+continue;
       }
 
       // fallback
