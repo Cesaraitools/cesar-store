@@ -268,8 +268,12 @@ export async function PUT(request: Request) {
       const isSupabase =
         img.includes("/storage/v1/object/public/upload/");
 
-      const isStillUsed = usedImages.has(img);
+      const normalize = (url: string) =>
+  url.split("/storage/v1/object/public/")[1] || url;
 
+const isStillUsed = Array.from(usedImages).some(
+  (used) => normalize(used) === normalize(img)
+);
       return removed && isSupabase && !isStillUsed;
     });
 
@@ -341,7 +345,12 @@ export async function DELETE(request: Request) {
       const isSupabase =
         img.includes("/storage/v1/object/public/upload/");
 
-      const isUsedElsewhere = usedImages.has(img);
+      const normalize = (url: string) =>
+  url.split("/storage/v1/object/public/")[1] || url;
+
+const isUsedElsewhere = Array.from(usedImages).some(
+  (used) => normalize(used) === normalize(img)
+);
 
       return isSupabase && !isUsedElsewhere;
     });
