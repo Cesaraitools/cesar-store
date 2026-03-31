@@ -118,24 +118,30 @@ export default function AdminProductsPage() {
 
       const r = previewRows[i];
 
-      const rawImages = normalizeImagesArray(r.images);
+      // ✅ STEP 1: check duplicate BEFORE ANY upload
+const checkRes = await fetch("/api/products");
+const existingProducts: Product[] = await checkRes.json();
 
+const exists = existingProducts.some(
+  (p) =>
+    p.name.ar.trim() === String(r.name_ar).trim() &&
+    p.category === normalizeCategory(r.category)
+);
+
+if (exists) {
+  console.warn("SKIPPED (duplicate):", r.name_ar);
+  continue;
+}
+
+// ✅ STEP 2: upload ONLY if product is valid
+const rawImages = normalizeImagesArray(r.images);
 const images: string[] = [];
 
 for (const img of rawImages) {
   try {
-    let file: File;
-
-    // لو المسار local
-    if (img.startsWith("/")) {
-      const res = await fetch(img);
-      const blob = await res.blob();
-      file = new File([blob], "image.webp", { type: blob.type });
-    } else {
-      const res = await fetch(img);
-      const blob = await res.blob();
-      file = new File([blob], "image.webp", { type: blob.type });
-    }
+    const res = await fetch(img);
+    const blob = await res.blob();
+    const file = new File([blob], "image.webp", { type: blob.type });
 
     const formData = new FormData();
     formData.append("file", file);
