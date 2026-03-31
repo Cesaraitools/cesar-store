@@ -75,7 +75,7 @@ async function uploadImagesIfNeeded(images: string[]): Promise<string[]> {
       let finalUrl = img;
 
       // 🔥 NEW: handle local paths
-      if (img.startsWith("/products")) {
+      if (img.startsWith("/products") || img.startsWith("products")) {
         finalUrl = `https://www.cesareshop.com${img}`;
       }
 
