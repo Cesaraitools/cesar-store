@@ -21,7 +21,7 @@ export default function AdminPage() {
         alert("فشل تسجيل خروج الجلسات");
         return;
       }
-      router.push("/admin/login");
+      router.push("/admin-login");
       router.refresh();
     } catch {
       alert("حدث خطأ غير متوقع");
