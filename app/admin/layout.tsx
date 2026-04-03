@@ -34,9 +34,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const [version, payload] = parts;
 
   // ❌ version غلط
-  if (version !== SESSION_VERSION) {
-    redirect("/admin-login");
-  }
+  const CURRENT_VERSION =
+  (globalThis as any).ADMIN_SESSION_VERSION || SESSION_VERSION;
+
+if (version !== CURRENT_VERSION) {
+  redirect("/admin-login");
+}
 
   // ❌ payload فاضي
   if (!payload || payload.length < 10) {
