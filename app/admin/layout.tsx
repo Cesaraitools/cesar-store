@@ -21,26 +21,26 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   // ❌ لا يوجد كوكي
   if (!session || !session.value) {
-    redirect("/admin/login");
+    redirect("/admin-login");
   }
 
   const parts = session.value.split(":");
 
   // ❌ كوكي تالفة
   if (parts.length < 2) {
-    redirect("/admin/login");
+    redirect("/admin-login");
   }
 
   const [version, payload] = parts;
 
   // ❌ version غلط
   if (version !== SESSION_VERSION) {
-    redirect("/admin/login");
+    redirect("/admin-login");
   }
 
   // ❌ payload فاضي
   if (!payload || payload.length < 10) {
-    redirect("/admin/login");
+    redirect("/admin-login");
   }
 // =========================
 // ✅ ADDITIONAL SECURITY LAYER (NO LOGIC REMOVED)
@@ -48,7 +48,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
 // Validate signature using external validator
 if (!validateAdminSession()) {
-  redirect("/admin/login");
+  redirect("/admin-login");
 }
 
 // Validate session existence (stateful layer)
@@ -58,10 +58,10 @@ try {
   const token = payload?.split(".")[0];
 
   if (!token || !isSessionValid(token)) {
-    redirect("/admin/login");
+    redirect("/admin-login");
   }
 } catch {
-  redirect("/admin/login");
+  redirect("/admin-login");
 }
 
 // =========================
@@ -72,7 +72,7 @@ try {
     const [token, signature] = payload.split(".");
 
     if (!token || !signature) {
-      redirect("/admin/login");
+      redirect("/admin-login");
     }
 
     const expectedSignature = crypto
@@ -86,10 +86,10 @@ try {
     );
 
     if (!isValidSignature) {
-      redirect("/admin/login");
+      redirect("/admin-login");
     }
   } catch {
-    redirect("/admin/login");
+    redirect("/admin-login");
   }
   // =========================
 
