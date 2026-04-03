@@ -32,8 +32,7 @@ export default function AdminLoginPage() {
       }
 
       // ✅ الحل هنا
-      router.replace("/admin");
-      router.refresh(); // 🔥 مهم جدًا
+      window.location.href = "/admin";
     } catch {
       setError("Unexpected error");
       setLoading(false);
