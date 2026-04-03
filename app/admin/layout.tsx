@@ -4,6 +4,9 @@ import type { ReactNode } from "react";
 import AdminClientLayout from "./AdminClientLayout";
 import crypto from "crypto"; // ✅ إضافة فقط
 
+import { validateAdminSession } from "@/lib/admin/validateAdminSession";
+import { isSessionValid } from "@/lib/admin/adminSessionStore";
+
 const SESSION_COOKIE_NAME = "cesar_admin_session";
 const SESSION_VERSION = "v1";
 
@@ -39,7 +42,29 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   if (!payload || payload.length < 10) {
     redirect("/admin/login");
   }
+// =========================
+// ✅ ADDITIONAL SECURITY LAYER (NO LOGIC REMOVED)
+// =========================
 
+// Validate signature using external validator
+if (!validateAdminSession()) {
+  redirect("/admin/login");
+}
+
+// Validate session existence (stateful layer)
+try {
+  const session = cookies().get("cesar_admin_session")?.value;
+  const payload = session?.split(":")[1];
+  const token = payload?.split(".")[0];
+
+  if (!token || !isSessionValid(token)) {
+    redirect("/admin/login");
+  }
+} catch {
+  redirect("/admin/login");
+}
+
+// =========================
   // =========================
   // ✅ Security Layer (إضافة فقط)
   // =========================
