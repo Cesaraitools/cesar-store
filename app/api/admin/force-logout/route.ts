@@ -2,17 +2,26 @@ import { NextResponse } from "next/server";
 
 export async function POST() {
   try {
+    const SESSION_VERSION = "v1";
+
+    // ✅ قراءة النسخة الحالية أو fallback
+    const currentVersion =
+      (globalThis as any).ADMIN_SESSION_VERSION || SESSION_VERSION;
+
+    // ✅ إنشاء نسخة جديدة
     const newVersion = `v${Date.now()}`;
 
-    globalThis.ADMIN_SESSION_VERSION = newVersion;
+    // ✅ تحديث النسخة العالمية
+    (globalThis as any).ADMIN_SESSION_VERSION = newVersion;
 
     console.log(
-      `[ADMIN_AUTH] ${new Date().toISOString()} | FORCE_LOGOUT_ALL | newVersion=${newVersion}`
+      `[ADMIN_AUTH] ${new Date().toISOString()} | FORCE_LOGOUT_ALL | oldVersion=${currentVersion} | newVersion=${newVersion}`
     );
 
     return NextResponse.json({
       success: true,
       message: "All admin sessions invalidated",
+      oldVersion: currentVersion,
       newVersion,
     });
   } catch {
