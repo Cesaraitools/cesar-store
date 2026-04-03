@@ -48,11 +48,11 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // ✅ Allow login routes
-  if (pathname.startsWith("/admin/login")) {
+  if (pathname.startsWith("/admin-login")) {
     return NextResponse.next();
   }
 
-  if (pathname.startsWith("/api/admin/login")) {
+  if (pathname.startsWith("/api/admin-login")) {
     return NextResponse.next();
   }
 
