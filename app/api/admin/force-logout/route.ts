@@ -11,31 +11,19 @@ export async function POST() {
     // ✅ إنشاء نسخة جديدة
     const newVersion = `v${Date.now()}`;
 
-    // ✅ تحديث النسخة العالمية (كما هو)
+    // ✅ تحديث النسخة العالمية
     (globalThis as any).ADMIN_SESSION_VERSION = newVersion;
 
     console.log(
       `[ADMIN_AUTH] ${new Date().toISOString()} | FORCE_LOGOUT_ALL | oldVersion=${currentVersion} | newVersion=${newVersion}`
     );
 
-    // =========================
-    // ✅ ADDITION ONLY (cookie version for production)
-    // =========================
-    const response = NextResponse.json({
+    return NextResponse.json({
       success: true,
       message: "All admin sessions invalidated",
       oldVersion: currentVersion,
       newVersion,
     });
-
-    response.cookies.set("cesar_admin_version", newVersion, {
-      httpOnly: true,
-      path: "/",
-      sameSite: "lax",
-    });
-    // =========================
-
-    return response;
   } catch {
     return NextResponse.json(
       { error: "Failed to force logout all sessions" },

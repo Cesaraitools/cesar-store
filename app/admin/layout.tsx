@@ -35,9 +35,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   // ❌ version غلط
   const CURRENT_VERSION =
-  cookies().get("cesar_admin_version")?.value ||
-  (globalThis as any).ADMIN_SESSION_VERSION ||
-  SESSION_VERSION;
+    (globalThis as any).ADMIN_SESSION_VERSION || SESSION_VERSION;
 
   if (version !== CURRENT_VERSION) {
     redirect("/admin-login");
