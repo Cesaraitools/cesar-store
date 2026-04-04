@@ -30,7 +30,7 @@ export default function AdminClientLayout({ children }: { children: ReactNode })
       console.error("Logout failed", error);
     }
   }
-
+  
   const navItems = [
     { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
     { name: "Categories", href: "/admin/categories", icon: Tag },
