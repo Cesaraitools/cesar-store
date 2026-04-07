@@ -1,0 +1,5 @@
+لكن خلينا نشوف السيستم عندك بيقبل إيه
+
+من الكود:
+
+return ["accessories", "air-fresheners", "additives-fluids", "equipment"];

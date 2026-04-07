@@ -1,0 +1,277 @@
+Cesar Store — Ultimate System Architecture Document
+🧠 1. Visual ERD Diagram (احترافي — تمثيل رسومي نصي)
+🧩 Core Database ERD
+┌──────────────────────┐
+│      categories      │
+├──────────────────────┤
+│ id (PK)              │
+│ category (slug)      │◄──────────────┐
+│ image                │               │
+│ active               │               │
+│ order                │               │
+│ created_at           │               │
+│ updated_at           │               │
+└──────────────────────┘               │
+                                       │
+                                       │
+┌──────────────────────┐               │
+│      products        │               │
+├──────────────────────┤               │
+│ id (PK)              │               │
+│ name_ar              │               │
+│ name_en              │               │
+│ description_ar       │               │
+│ description_en       │               │
+│ price                │               │
+│ image_url            │               │
+│ images_json (JSONB)  │               │
+│ stock                │               │
+│ category (FK logical)┘───────────────┘
+│ is_active            │
+│ created_at           │
+│ updated_at           │
+└──────────────────────┘
+          │
+          │
+          ▼
+┌──────────────────────┐
+│       promos         │
+├──────────────────────┤
+│ id (PK)              │
+│ position             │
+│ product_id (FK) ─────┘
+│ is_active            │
+│ title (JSONB)        │
+│ description (JSONB)  │
+│ cta (JSONB)          │
+│ created_at           │
+│ updated_at           │
+└──────────────────────┘
+🧠 ERD Insights
+العلاقات حالياً:
+Logical FK (code-based)
+التوصية:
+تحويلها إلى DB-level FK لاحقًا
+🧩 2. System Design Whiteboard (High-Level)
+🧱 Full Architecture
+                 ┌────────────────────┐
+                 │    Frontend UI     │
+                 │  (Next.js / React)│
+                 └─────────┬──────────┘
+                           │
+                           ▼
+                 ┌────────────────────┐
+                 │    API Layer       │
+                 │ (Route Handlers)   │
+                 └─────────┬──────────┘
+                           │
+        ┌──────────────────┼──────────────────┐
+        ▼                  ▼                  ▼
+┌──────────────┐   ┌──────────────┐   ┌──────────────┐
+│ Product Logic│   │Category Logic│   │ Promo Logic  │
+└──────┬───────┘   └──────┬───────┘   └──────┬───────┘
+       │                  │                  │
+       └────────────┬─────┴──────┬──────────┘
+                    ▼            ▼
+             ┌────────────┐ ┌────────────┐
+             │ Supabase DB│ │ Supabase   │
+             │            │ │ Storage    │
+             └────────────┘ └────────────┘
+🧠 3. Detailed System Flow Diagrams
+🛒 Product Creation Flow
+Admin UI
+   ↓
+POST /api/products
+   ↓
+Validate Input
+   ↓
+Normalize Images
+   ↓
+Check Duplicate
+   ↓
+Insert into DB
+   ↓
+Return Response
+   ↓
+UI Update
+🖼️ Image Lifecycle Flow
+Upload Image
+   ↓
+Normalize URL
+   ↓
+Store in DB
+   ↓
+Link to Product
+   ↓
+[Update/Delete]
+   ↓
+Compare Usage
+   ↓
+Delete Unused Only
+🗑️ Delete Product Flow
+Delete Request
+   ↓
+Get Product Images
+   ↓
+Get All Products
+   ↓
+Build usedImages Set
+   ↓
+Filter Safe Images
+   ↓
+Extract Paths
+   ↓
+Delete from Storage
+   ↓
+Delete Product from DB
+🧩 4. Microservices Breakdown (Future-Ready)
+🟢 Current Logical Services
+Service	Responsibility
+Product Service	CRUD + images
+Category Service	grouping
+Promo Service	marketing
+Image Service	lifecycle
+🔮 Future Microservices (Enterprise)
+Auth Service
+Cart Service
+Order Service
+Payment Service
+Notification Service
+Search Service (Elastic)
+Analytics Service
+⚡ 5. Performance Architecture & Plan
+🧠 Current Performance
+
+✔ Fast reads
+✔ minimal joins
+✔ lightweight APIs
+
+🚀 Scaling Plan
+🥇 Level 1 (0 → 10K users)
+
+✔ Current system كافي
+✔ Add:
+
+pagination
+indexes
+🥈 Level 2 (10K → 100K users)
+Add:
+- Redis caching
+- CDN for images
+- Query optimization
+🥉 Level 3 (100K → 1M users)
+Introduce:
+- Edge caching (Vercel Edge)
+- Read replicas (Supabase)
+- Queue system (BullMQ)
+- Background workers
+🏆 Level 4 (1M+ users)
+Move to:
+- Microservices
+- Kubernetes
+- Dedicated storage (S3 + CloudFront)
+- ElasticSearch
+🧠 6. Scaling Strategy to 1M Users
+🔥 Critical Components
+1. Database Scaling
+Read replicas
+Index optimization
+partitioning
+2. Image Scaling
+CDN (Cloudflare / AWS CloudFront)
+lazy loading
+compression
+3. API Scaling
+rate limiting
+caching
+load balancing
+4. Background Jobs
+image cleanup async
+bulk import queue
+🔐 7. Security Architecture (Required Upgrade)
+❗ Current Risk
+Service Role exposed via API
+🔥 Required
+RLS Example
+ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Public Read"
+ON products FOR SELECT
+USING (true);
+
+CREATE POLICY "Admin Full"
+ON products
+FOR ALL
+USING (auth.role() = 'admin');
+🧪 8. Testing Strategy (Professional Level)
+🟢 Phase 1 — Functional
+CRUD testing
+Image lifecycle
+🟡 Phase 2 — Stress
+1000 products
+5000 images
+🔴 Phase 3 — Failure Simulation
+DB down
+Storage fail
+partial uploads
+🚀 9. Development Roadmap (Enterprise)
+Phase 1 ✅ (Completed)
+Migration
+Image system
+API stability
+Phase 2 🔥 (Next)
+Security Hardening
+RLS
+Role system
+Phase 3
+Cart system
+persistent state
+Phase 4
+Orders
+tracking
+Phase 5
+Payments
+invoices
+Phase 6
+Analytics
+recommendations
+🧠 10. Engineering Rules (Critical)
+💣 Core Principles
+1. DB = Single Source of Truth
+2. No fallback logic
+3. Normalize everything
+4. API-first design
+5. No silent failures
+🏁 11. Final System State
+🟢 المشروع الآن:
+Clean, Scalable, Production Core System
+🟡 يحتاج:
+Security
+Scaling infra
+advanced features
+💬 12. FINAL SUMMARY
+
+💣 أنت بنيت:
+
+System نظيف
+Image system احترافي
+API architecture قوي
+
+🔥 المرحلة القادمة:
+
+تحويله إلى Enterprise System
+🧾 MASTER PROMPT (لأي شات جديد)
+We are continuing Cesar Store project.
+
+System is fully migrated to Supabase.
+No data-store exists.
+Image lifecycle system is implemented and stable.
+APIs are production-ready.
+
+We are now moving to:
+Phase 2 → Security Hardening (RLS + Roles)
+Then → Scaling + Cart + Orders
+
+Do NOT introduce fallback logic.
+Maintain single source of truth.
+Preserve image lifecycle system.

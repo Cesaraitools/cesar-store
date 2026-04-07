@@ -1,0 +1,24 @@
+[
+  {
+    "id": "categories-side-1",
+    "position": "categories_side",
+    "isActive": true,
+    "title": {
+      "ar": "عرض مميز منتج جديد",
+      "en": " Special Offer"
+    },
+    "description": {
+      "ar": "اكتشف أحدث المنتجات المختارة بعناية وتمتع بتجربة تسوق مختلفة. ويلاااااااا بينااااااااااااااا",
+      "en": "Discover our hand-picked products and enjoy a premium shopping experience. , let's Gooooooooooooo"
+    },
+    "cta": {
+      "ar": "تسوق الآن",
+      "en": "Shop Now",
+      "link": "/products/fluids/oil-2.jpg"
+    },
+    "createdAt": "2026-02-17T00:00:00Z",
+    "updatedAt": "2026-02-21T18:53:56.177Z",
+    "productId": "oil-2",
+    "image": "/uploads/promos/2f3b523b-cad5-4d31-96cf-e92fc967730a.jpg"
+  }
+]
