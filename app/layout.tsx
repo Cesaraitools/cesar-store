@@ -1,4 +1,4 @@
-import "./globals.css";
+import "@/app/globals.css";
 import type { ReactNode } from "react";
 import { CartProvider } from "@/context/CartContext";
 import { CheckoutProvider } from "@/context/CheckoutContext";
@@ -17,22 +17,24 @@ export default function RootLayout({
   children: ReactNode;
 }) {
   return (
-    <html lang="ar">
-      <body className="bg-[#FCFDFF] min-h-screen text-gray-900 selection:bg-blue-100 selection:text-blue-700">
+    <html lang="ar" className="scroll-smooth">
+      <body className="bg-[#F8FAFC] min-h-screen text-slate-900 antialiased selection:bg-blue-600 selection:text-white">
         <AuthProvider>
           <LanguageProvider>
             <CartProvider>
               <CheckoutProvider>
-                {/* تم تغليف المحتوى داخل Flexbox لضمان ظهور الـ Navbar والـ Content بشكل متناسق */}
                 <div className="flex flex-col min-h-screen">
+                  {/* Navbar مع تأثير زجاجي شفاف */}
                   <Navbar />
                   
-                  {/* أضفت Padding علوي يتناسب مع ارتفاع الـ Navbar لتجنب تداخل المحتوى */}
-                  <main className="flex-grow pt-20">
+                  <main className="flex-grow pt-16 md:pt-20">
                     {children}
                   </main>
 
-                  {/* مساحة إضافية اختيارية للـ Footer مستقبلاً */}
+                  {/* Footer بسيط وعصري */}
+                  <footer className="bg-white border-t border-slate-100 py-8 text-center text-slate-400 text-sm font-medium">
+                    © {new Date().getFullYear()} متجر سيزر. جميع الحقوق محفوظة.
+                  </footer>
                 </div>
               </CheckoutProvider>
             </CartProvider>
