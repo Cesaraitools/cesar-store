@@ -1,58 +1,49 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
-
-// ✅ NEW
 import { validateAdminSession } from "@/lib/admin/validateAdminSession";
 
-// ✅ Prevent static optimization
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    // 🔒 NEW: UNIFIED ADMIN AUTH
     if (!validateAdminSession()) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // ✅ Safe ENV + Client
     const supabase = createServiceRoleClient();
 
-    /* -------- Params -------- */
+    const body = await req.json();
+    const { orderId, status } = body;
 
-    const { searchParams } = new URL(req.url);
-    const orderId = searchParams.get("orderId");
-
-    if (!orderId) {
+    if (!orderId || !status) {
       return NextResponse.json(
-        { ok: false, error: "orderId is required" },
+        { error: "Missing orderId or status" },
         { status: 400 }
       );
     }
 
-    /* -------- Load Events -------- */
-
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("order_tracking_events")
-      .select("status, created_at, actor")
-      .eq("order_id", orderId)
-      .order("created_at", { ascending: true });
+      .insert({
+        order_id: orderId,
+        status,
+        actor: "admin",
+      });
 
     if (error) {
+      console.error(error);
       return NextResponse.json(
-        { ok: false, error: "Failed to load tracking events" },
+        { error: "Insert failed" },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({
-      ok: true,
-      orderId,
-      events: data || [],
-    });
+    return NextResponse.json({ ok: true });
+
   } catch (err) {
     console.error(err);
     return NextResponse.json(
-      { ok: false, error: "Unexpected server error" },
+      { error: "Server error" },
       { status: 500 }
     );
   }
