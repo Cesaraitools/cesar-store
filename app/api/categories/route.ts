@@ -1,7 +1,4 @@
-import { requireAdminAccess } from "@/lib/auth/requireAdminAccess";
-import { createServiceRoleClient } from "@/lib/supabase/runtime";
-
-export const dynamic = "force-dynamic";
+import { createClient } from "@supabase/supabase-js";
 
 type Category = {
   id: string;
@@ -21,12 +18,15 @@ type Category = {
   updatedAt: string;
 };
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
 /* ---------------- GET ---------------- */
 
 export async function GET() {
   try {
-    const supabase = createServiceRoleClient();
-
     const { data, error } = await supabase
       .from("categories")
       .select("*")
@@ -49,10 +49,6 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const unauthorized = requireAdminAccess();
-    if (unauthorized) return unauthorized;
-    const supabase = createServiceRoleClient();
-
     const body = await request.json();
 
     const newCategory = {
@@ -93,10 +89,6 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const unauthorized = requireAdminAccess();
-    if (unauthorized) return unauthorized;
-    const supabase = createServiceRoleClient();
-
     const { id, ...updates } = await request.json();
 
     if (!id) {
@@ -133,10 +125,6 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const unauthorized = requireAdminAccess();
-    if (unauthorized) return unauthorized;
-    const supabase = createServiceRoleClient();
-
     const { id } = await request.json();
 
     if (!id) {

@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { createSession } from "@/lib/admin/adminSessionStore";
-
-export const dynamic = "force-dynamic";
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
 const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET!;

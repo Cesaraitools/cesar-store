@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 /* ================================
    Types (API Contract)
@@ -148,13 +148,6 @@ export default function AdminAnalyticsPage() {
     };
   }, []);
 
-  const ordersIndex = data?.ordersIndex ?? [];
-  const financial = data?.financials[0];
-  const totalPages = Math.max(1, Math.ceil(ordersIndex.length / pageSize));
-
-  const start = (page - 1) * pageSize;
-  const paginatedOrders = ordersIndex.slice(start, start + pageSize);
-
   if (loading) {
     return (
       <div className="p-6 text-center text-sm text-muted-foreground">
@@ -170,6 +163,17 @@ export default function AdminAnalyticsPage() {
       </div>
     );
   }
+
+  const financial = data.financials[0];
+
+  const totalPages = Math.ceil(
+    data.ordersIndex.length / pageSize
+  );
+
+  const paginatedOrders = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return data.ordersIndex.slice(start, start + pageSize);
+  }, [data.ordersIndex, page]);
 
   return (
     <div className="p-6 space-y-10">

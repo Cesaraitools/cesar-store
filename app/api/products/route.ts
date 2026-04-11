@@ -2,23 +2,23 @@
 
 import { readFileSync, writeFileSync } from "fs";
 import { join } from "path";
+import { createClient } from "@supabase/supabase-js";
 import type { Product } from "@/types/product";
-import { requireAdminAccess } from "@/lib/auth/requireAdminAccess";
 import { normalizeImagesArray } from "@/lib/image-normalizer";
 import { normalizeCategory } from "@/lib/category-normalizer";
-import { createServiceRoleClient } from "@/lib/supabase/runtime";
-
-export const dynamic = "force-dynamic";
 
 const PRODUCTS_FILE = join(process.cwd(), "data-store", "products.json");
 const CATEGORIES_FILE = join(process.cwd(), "data-store", "categories.json");
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 /* ---------------- GET ---------------- */
 
 export async function GET() {
   try {
-    const supabase = createServiceRoleClient();
-
     const { data, error } = await supabase
       .from("products")
       .select("*")
@@ -95,10 +95,6 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const unauthorized = requireAdminAccess();
-    if (unauthorized) return unauthorized;
-    const supabase = createServiceRoleClient();
-
     const body = (await request.json()) as Partial<Product>;
 
     const images = normalizeImagesArray(body.images || []);
@@ -209,10 +205,6 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const unauthorized = requireAdminAccess();
-    if (unauthorized) return unauthorized;
-    const supabase = createServiceRoleClient();
-
     const { id, ...updates } = (await request.json()) as Partial<Product> & {
       id: string;
     };
@@ -317,10 +309,6 @@ const isStillUsed = Array.from(usedImages).some(
 
 export async function DELETE(request: Request) {
   try {
-    const unauthorized = requireAdminAccess();
-    if (unauthorized) return unauthorized;
-    const supabase = createServiceRoleClient();
-
     const { id } = (await request.json()) as { id: string };
 
     if (!id) {

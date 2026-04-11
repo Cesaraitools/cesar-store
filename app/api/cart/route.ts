@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { createAnonServerClient, createServiceRoleClient } from "@/lib/supabase/runtime";
+import { createClient } from "@supabase/supabase-js";
 
-export const dynamic = "force-dynamic";
-
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
+const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 /* -------------------------------------------------
@@ -15,12 +15,29 @@ const DB_ENABLED = Boolean(serviceRoleKey);
    Auth client (JWT verification only)
 -------------------------------------------------- */
 
+const supabaseAuth = createClient(supabaseUrl, anonKey, {
+  auth: { persistSession: false },
+});
+
+/* -------------------------------------------------
+   DB client (only if enabled)
+-------------------------------------------------- */
+
+const supabaseDb = DB_ENABLED
+  ? createClient(supabaseUrl, serviceRoleKey as string, {
+      auth: { persistSession: false },
+    })
+  : null;
+
+/* -------------------------------------------------
+   Helpers
+-------------------------------------------------- */
+
 async function getUserFromRequest(req: Request) {
   const authHeader = req.headers.get("authorization");
   if (!authHeader) return null;
 
   const token = authHeader.replace("Bearer ", "");
-  const supabaseAuth = createAnonServerClient();
 
   const {
     data: { user },
@@ -47,9 +64,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ cart: null }, { status: 200 });
   }
 
-  const supabaseDb = createServiceRoleClient();
-
-  const { data: cart, error } = await supabaseDb
+  const { data: cart, error } = await supabaseDb!
     .from("carts")
     .select("*")
     .eq("user_id", user.id)
@@ -85,9 +100,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const supabaseDb = createServiceRoleClient();
-
-  const { data: existingCart } = await supabaseDb
+  const { data: existingCart } = await supabaseDb!
     .from("carts")
     .select("*")
     .eq("user_id", user.id)
@@ -98,7 +111,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ cart: existingCart }, { status: 200 });
   }
 
-  const { data: newCart, error } = await supabaseDb
+  const { data: newCart, error } = await supabaseDb!
     .from("carts")
     .insert({
       user_id: user.id,

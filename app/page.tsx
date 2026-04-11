@@ -159,7 +159,7 @@ export default function LandingPage() {
           {isAr ? "عن متجر سيزر" : "About CESAR"}
         </div>
         <p className="text-2xl md:text-3xl font-bold text-gray-800 leading-[1.6] tracking-tight italic">
-          &quot;{t.about}&quot;
+          "{t.about}"
         </p>
       </section>
 

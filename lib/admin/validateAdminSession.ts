@@ -10,18 +10,14 @@ import { cookies } from "next/headers";
 const SESSION_COOKIE_NAME = "cesar_admin_session";
 const SESSION_VERSION = "v1";
 
+const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET!;
+
 /**
  * Verify HMAC signature
  */
 function verifySignature(token: string, signature: string): boolean {
-  const adminSessionSecret = process.env.ADMIN_SESSION_SECRET;
-
-  if (!adminSessionSecret) {
-    return false;
-  }
-
   const expected = crypto
-    .createHmac("sha256", adminSessionSecret)
+    .createHmac("sha256", ADMIN_SESSION_SECRET)
     .update(token)
     .digest("hex");
 
