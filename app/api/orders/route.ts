@@ -1,170 +1,112 @@
-// app/api/orders/route.ts - FIXED WITHOUT BREAKING LOGIC
+// app/api/orders/route.ts
 
 import { NextResponse } from "next/server";
-import { resolveRequestUser } from "@/lib/auth/resolveRequestUser";
-import { createServiceRoleClient } from "@/lib/supabase/runtime";
-import { cartService } from "@/lib/services/cartService";
+import { createClient as createServerClient } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
 
-export const dynamic = "force-dynamic";
+/* ================= Service Role Client ================= */
 
-/* ===============================
-   Generate unique order number
-=============================== */
+const serviceSupabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { persistSession: false } }
+);
 
-function generateOrderNumber(): string {
+/* ================= Resolve User ================= */
+
+async function resolveUser(request: Request) {
+  try {
+    const authHeader = request.headers.get("authorization");
+
+    if (authHeader?.startsWith("Bearer ")) {
+      const token = authHeader.replace("Bearer ", "");
+
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          global: {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        }
+      );
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) return user;
+    }
+
+    const supabase = createServerClient();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    return user ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/* ================= Order Number ================= */
+
+function generateOrderNumber() {
   const timestamp = Date.now().toString().slice(-6);
   const random = Math.floor(Math.random() * 900 + 100);
   return `CS-${timestamp}${random}`;
 }
 
-/* ===============================
-   GET - Get user's orders
-=============================== */
+/* ================= GET Orders ================= */
 
 export async function GET(request: Request) {
   try {
-    const user = await resolveRequestUser(request);
+    const user = await resolveUser(request);
 
     if (!user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const serviceSupabase = createServiceRoleClient();
-
-    /* ===== Load Orders (ORIGINAL STRUCTURE) ===== */
-
-    const { data: orders, error } = await serviceSupabase
+    const { data, error } = await serviceSupabase
       .from("orders")
-      .select(
-        `
-        id,
-        order_number,
-        created_at,
-        status,
-        total,
-        currency,
-        subtotal,
-        shipping_fee,
-        discount,
-        customer_snapshot
-      `
-      )
+      .select("id, order_number, created_at, status, total, currency")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("GET orders error:", error);
+      console.error(error);
       return NextResponse.json(
         { error: "Failed to load orders" },
         { status: 500 }
       );
     }
 
-    /* ===== FIX: Sync Status from Events ===== */
-
-    const orderIds = (orders ?? []).map((o) => o.id);
-
-    let statusMap = new Map<string, string>();
-
-    if (orderIds.length > 0) {
-      const { data: events } = await serviceSupabase
-        .from("order_tracking_events")
-        .select("order_id, status, created_at")
-        .in("order_id", orderIds)
-        .order("created_at", { ascending: true });
-
-      for (const event of events ?? []) {
-        statusMap.set(event.order_id, event.status);
-      }
-    }
-
-    /* ===== Merge WITHOUT BREAKING ANY FIELD ===== */
-
-    const result = (orders ?? []).map((order) => ({
-      ...order,
-      status: statusMap.get(order.id) || order.status || "requested",
-    }));
-
-    return NextResponse.json({
-      success: true,
-      count: result.length,
-      orders: result,
-    });
-
-  } catch (err: any) {
-    console.error("GET /api/orders unexpected error:", err);
-    return NextResponse.json(
-      { error: "Server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ orders: data ?? [] });
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
 
-/* ===============================
-   POST - Create new order
-   =============================== */
+/* ================= POST Create Order ================= */
 
 export async function POST(request: Request) {
   try {
-    /* ===== User Authentication ===== */
-
-    const user = await resolveRequestUser(request);
+    const user = await resolveUser(request);
 
     if (!user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    const serviceSupabase = createServiceRoleClient();
-
-    /* ===== Request Validation ===== */
 
     const body = await request.json();
+    const { currency = "EGP", customer, items } = body;
 
-    const {
-      cart_id,
-      currency = "EGP",
-      customer,
-      items,
-      shipping_fee = 0,
-      discount = 0,
-    } = body;
-
-    // التحقق من البيانات المطلوبة
     if (!Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
-        { error: "Invalid order payload: items must be a non-empty array" },
+        { error: "Invalid order payload" },
         { status: 400 }
       );
-    }
-
-    if (!customer || !customer.name || !customer.phone || !customer.address) {
-      return NextResponse.json(
-        { error: "Invalid customer data" },
-        { status: 400 }
-      );
-    }
-
-    // التحقق من صحة عناصر الطلب
-    for (const item of items) {
-      if (!item.product_id || !item.name || !item.price || !item.quantity) {
-        return NextResponse.json(
-          { error: "Invalid item data" },
-          { status: 400 }
-        );
-      }
-
-      if (item.price <= 0 || item.quantity <= 0) {
-        return NextResponse.json(
-          { error: "Price and quantity must be positive" },
-          { status: 400 }
-        );
-      }
     }
 
     /* ================= Duplicate Order Protection ================= */
@@ -173,84 +115,65 @@ export async function POST(request: Request) {
 
     const { data: recentOrder } = await serviceSupabase
       .from("orders")
-      .select("id, order_number, status")
+      .select("id, order_number")
       .eq("user_id", user.id)
       .gte("created_at", tenSecondsAgo)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    // إذا كان هناك طلب مشابه حديثاً، أعد نفس الرد
     if (recentOrder) {
-      console.log(
-        `Duplicate order detected for user ${user.id}, reusing order ${recentOrder.id}`
-      );
-
-      return NextResponse.json(
-        {
-          success: true,
-          reused: true,
-          orderId: recentOrder.id,
-          order_number: recentOrder.order_number,
-          message: "Duplicate order detected. Using recent order.",
-        },
-        { status: 200 }
-      );
+      return NextResponse.json({
+        success: true,
+        reused: true,
+        orderId: recentOrder.id,
+        order_number: recentOrder.order_number,
+      });
     }
 
-    /* ================= Build Order Payload ================= */
+    /* ================= Build Order ================= */
 
-    const orderId = crypto.randomUUID();
+    const id = crypto.randomUUID();
 
-    // بناء items_snapshot مع جميع التفاصيل
-    const items_snapshot = items.map((item: any) => ({
-      product_id: String(item.product_id),
-      name: String(item.name),
-      price: Number(item.price),
-      quantity: Number(item.quantity),
-      image: item.image ?? null,
-    }));
+    const items_snapshot: any[] = [];
 
-    // حساب الإجمالي
+    for (const item of items) {
+      items_snapshot.push({
+        product_id: String(item.product_id),
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        image: item.image ?? null,
+      });
+    }
+
     const subtotal = items_snapshot.reduce(
-      (sum: number, item: any) => sum + item.price * item.quantity,
+      (sum, i) => sum + i.price * i.quantity,
       0
     );
 
-    const total = subtotal + Number(shipping_fee) - Number(discount);
-
-    // بناء customer_snapshot
     const customer_snapshot = {
-      name: String(customer.name),
-      phone: String(customer.phone),
-      address: String(customer.address),
-      city: customer.city ? String(customer.city) : null,
-      notes: customer.notes ? String(customer.notes) : null,
+      name: customer?.name ?? "",
+      phone: customer?.phone ?? "",
+      address: customer?.address ?? "",
     };
 
-    // توليد رقم الطلب
     const order_number = generateOrderNumber();
 
-    console.log(
-      `Creating order for user ${user.id}: ${order_number} with ${items.length} items`
-    );
-
-    /* ===== INSERT ORDER ===== */
+    /* -------- INSERT ORDER -------- */
 
     const { error: orderError } = await serviceSupabase
       .from("orders")
       .insert({
-        id: orderId,
-        user_id: user.id,
+        id,
         order_number,
-        status: "requested", // الحالة الأولية
+        status: "requested", // 🔥 FIX
         subtotal,
-        shipping_fee: Number(shipping_fee),
-        discount: Number(discount),
-        total,
+        total: subtotal,
         currency,
         customer_snapshot,
         items_snapshot,
+        user_id: user.id,
         created_at: new Date().toISOString(),
       });
 
@@ -258,82 +181,31 @@ export async function POST(request: Request) {
       console.error("ORDER INSERT ERROR:", orderError);
 
       return NextResponse.json(
-        {
-          error: "Order creation failed",
-          details: orderError.message,
-        },
+        { error: "Order creation failed", details: orderError.message },
         { status: 500 }
       );
     }
 
-    console.log(`✅ ORDER CREATED: ${orderId} (${order_number})`);
+    console.log("ORDER CREATED:", id);
 
-    /* ===== INSERT TRACKING EVENT ===== */
+    /* -------- TRACKING EVENTS -------- */
 
-    const { error: trackingError } = await serviceSupabase
-      .from("order_tracking_events")
-      .insert([
-        {
-          order_id: orderId,
-          status: "requested",
-          actor: "customer",
-          note: "تم إنشاء الطلب",
-        },
-      ]);
+    await serviceSupabase.from("order_tracking_events").insert([
+      { order_id: id, status: "requested", actor: "system" },
+      // ❌ حذف confirmed من البداية
+    ]);
 
-    if (trackingError) {
-      console.warn("Failed to create tracking event:", trackingError);
-      // لا نرجع error، لأن الطلب نُشئ بنجاح
-    }
+    return NextResponse.json({
+      success: true,
+      orderId: id,
+      order_number,
+    });
 
-    /* ===== CLEAR CART (اختياري) ===== */
-
-    if (cart_id) {
-      try {
-        await cartService.clearCart(cart_id);
-        console.log(`Cart ${cart_id} cleared after order creation`);
-
-        // تحديث حالة السلة
-        await serviceSupabase
-          .from("carts")
-          .update({
-            status: "completed",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", cart_id);
-      } catch (cartError) {
-        console.warn("Failed to clear cart:", cartError);
-        // لا نرجع error، الطلب نجح
-      }
-    }
-
-    /* ===== RESPONSE ===== */
+  } catch (error) {
+    console.error("Unexpected POST error:", error);
 
     return NextResponse.json(
-      {
-        success: true,
-        reused: false,
-        orderId,
-        order_number,
-        message: "Order created successfully",
-        order: {
-          id: orderId,
-          order_number,
-          status: "requested",
-          total,
-          currency,
-        },
-      },
-      { status: 201 }
-    );
-  } catch (error: any) {
-    console.error("POST /api/orders unexpected error:", error);
-
-    return NextResponse.json(
-      {
-        error: "Unexpected server error",
-        details: process.env.NODE_ENV === "development" ? error.message : null,
-      },
+      { error: "Unexpected server error" },
       { status: 500 }
     );
   }
