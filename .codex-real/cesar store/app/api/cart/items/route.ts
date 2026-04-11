@@ -2,7 +2,7 @@
 
 import { NextResponse } from "next/server";
 import { createAnonServerClient } from "@/lib/supabase/runtime";
-
+export const dynamic = "force-dynamic";
 // ===============================
 // Helper: get user from request
 // ===============================

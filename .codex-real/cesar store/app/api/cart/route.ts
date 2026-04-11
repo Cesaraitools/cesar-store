@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAnonServerClient, createServiceRoleClient } from "@/lib/supabase/runtime";
-
+export const dynamic = "force-dynamic";
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 /* -------------------------------------------------

@@ -3,7 +3,7 @@
 import { NextResponse } from "next/server";
 import { resolveRequestUser } from "@/lib/auth/resolveRequestUser";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
-
+export const dynamic = "force-dynamic";
 /* ================= Normalize Status ================= */
 
 function normalizeStatus(status: string | null) {

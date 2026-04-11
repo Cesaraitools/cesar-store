@@ -9,7 +9,7 @@ import { validateAdminSession } from "@/lib/admin/validateAdminSession";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
 
 export const runtime = "nodejs";
-
+export const dynamic = "force-dynamic";
 /* =========================
    Rate Limiting (In-Memory)
 ========================= */

@@ -1,6 +1,6 @@
 import type { Product } from "@/types/product";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
-
+export const dynamic = "force-dynamic";
 // GET /api/products/[id]
 export async function GET(
   _request: Request,

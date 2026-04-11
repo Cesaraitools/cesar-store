@@ -1,6 +1,6 @@
 import { requireAdminAccess } from "@/lib/auth/requireAdminAccess";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
-
+export const dynamic = "force-dynamic";
 type Category = {
   id: string;
   image: string;

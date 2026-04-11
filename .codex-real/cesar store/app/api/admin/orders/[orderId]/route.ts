@@ -7,7 +7,7 @@
 import { NextResponse } from "next/server";
 import { validateAdminSession } from "@/lib/admin/validateAdminSession";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
-
+export const dynamic = "force-dynamic";
 export async function GET(
   req: Request,
   { params }: { params: { orderId: string } }

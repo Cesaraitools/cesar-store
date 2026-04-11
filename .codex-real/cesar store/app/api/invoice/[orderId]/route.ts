@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { validateAdminSession } from "@/lib/admin/validateAdminSession";
 import { resolveRequestUser } from "@/lib/auth/resolveRequestUser";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
-
+export const dynamic = "force-dynamic";
 /* ================= GET ================= */
 
 export async function GET(
