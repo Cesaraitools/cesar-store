@@ -13,12 +13,24 @@ function LoginContent() {
 
   const redirectParam = searchParams.get("redirect");
 
+  const getSafeRedirect = (value: string | null) => {
+    if (!value) return "/";
+
+    try {
+      const url = new URL(value, window.location.origin);
+      if (url.origin !== window.location.origin) return "/";
+      return `${url.pathname}${url.search}${url.hash}`;
+    } catch {
+      return "/";
+    }
+  };
+
+  const target = getSafeRedirect(redirectParam);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const target = redirectParam || "/";
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +64,7 @@ function LoginContent() {
     await supabase.auth.signInWithOAuth({
       provider: "apple",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?redirect=${target}`,
+        redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(target)}`,
       },
     });
   };

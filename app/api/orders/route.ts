@@ -14,6 +14,21 @@ function generateOrderNumber() {
   return `CS-${timestamp}${random}`;
 }
 
+function isValidOrderItem(item: any) {
+  return (
+    item &&
+    typeof item === "object" &&
+    (typeof item.product_id === "string" || typeof item.product_id === "number") &&
+    typeof item.name === "string" &&
+    typeof item.price === "number" &&
+    Number.isFinite(item.price) &&
+    item.price >= 0 &&
+    typeof item.quantity === "number" &&
+    Number.isInteger(item.quantity) &&
+    item.quantity > 0
+  );
+}
+
 /* ================= GET Orders ================= */
 
 export async function GET(request: Request) {
@@ -60,7 +75,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { currency = "EGP", customer, items } = body;
 
-    if (!Array.isArray(items) || items.length === 0) {
+    if (!Array.isArray(items) || items.length === 0 || !items.every(isValidOrderItem)) {
       return NextResponse.json(
         { error: "Invalid order payload" },
         { status: 400 }
@@ -111,9 +126,9 @@ export async function POST(request: Request) {
     );
 
     const customer_snapshot = {
-      name: customer?.name ?? "",
-      phone: customer?.phone ?? "",
-      address: customer?.address ?? "",
+      name: String(customer?.name ?? ""),
+      phone: String(customer?.phone ?? ""),
+      address: String(customer?.address ?? ""),
     };
 
     const order_number = generateOrderNumber();
