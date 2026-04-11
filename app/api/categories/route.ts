@@ -55,29 +55,13 @@ export async function POST(request: Request) {
 
     const body = await request.json();
 
-    const id = String(body.id || body.category || "").toLowerCase().trim();
-    const category = String(body.category || body.id || "").toLowerCase().trim();
-
-    if (!id || !category) {
-      return Response.json(
-        { error: "Missing required fields: id or category" },
-        { status: 400 }
-      );
-    }
-
     const newCategory = {
-      id,
-      category,
-      image: String(body.image ?? ""),
-      en: {
-        title: String(body.en?.title ?? ""),
-        subtitle: String(body.en?.subtitle ?? ""),
-      },
-      ar: {
-        title: String(body.ar?.title ?? ""),
-        subtitle: String(body.ar?.subtitle ?? ""),
-      },
-      active: Boolean(body.active ?? true),
+      id: String(body.id || body.category).toLowerCase().trim(),
+      category: String(body.category || body.id).toLowerCase().trim(),
+      image: body.image || "",
+      en: body.en || { title: "", subtitle: "" },
+      ar: body.ar || { title: "", subtitle: "" },
+      active: body.active ?? true,
       order: Number(body.order ?? 0),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -113,8 +97,7 @@ export async function PUT(request: Request) {
     if (unauthorized) return unauthorized;
     const supabase = createServiceRoleClient();
 
-    const body = await request.json();
-    const id = String(body.id ?? "").trim();
+    const { id, ...updates } = await request.json();
 
     if (!id) {
       return Response.json(
@@ -123,30 +106,12 @@ export async function PUT(request: Request) {
       );
     }
 
-    const updates: any = {
-      updatedAt: new Date().toISOString(),
-    };
-
-    if (body.category !== undefined) updates.category = String(body.category).toLowerCase().trim();
-    if (body.image !== undefined) updates.image = String(body.image);
-    if (body.en !== undefined) {
-      updates.en = {
-        title: String(body.en?.title ?? ""),
-        subtitle: String(body.en?.subtitle ?? ""),
-      };
-    }
-    if (body.ar !== undefined) {
-      updates.ar = {
-        title: String(body.ar?.title ?? ""),
-        subtitle: String(body.ar?.subtitle ?? ""),
-      };
-    }
-    if (body.active !== undefined) updates.active = Boolean(body.active);
-    if (body.order !== undefined) updates.order = Number(body.order);
-
     const { data, error } = await supabase
       .from("categories")
-      .update(updates)
+      .update({
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      })
       .eq("id", id)
       .select()
       .single();

@@ -59,11 +59,9 @@ export async function POST(request: Request) {
     if (unauthorized) return unauthorized;
     const supabase = createServiceRoleClient();
 
-    const body = await request.json();
-  const id = String(body.id ?? "").trim();
-  const position = String(body.position ?? "").trim();
+    const body = (await request.json()) as PromoData;
 
-    if (!id || !position) {
+    if (!body.id || !body.position) {
       return Response.json(
         { error: "Missing required fields: id, position" },
         { status: 400 }
@@ -72,31 +70,21 @@ export async function POST(request: Request) {
 
     const now = new Date().toISOString();
 
-    const promoToInsert = {
-      id,
-      position,
-      is_active: Boolean(body.isActive ?? true),
-      product_id: body.productId ? String(body.productId) : null,
-      title: {
-        ar: String(body.title?.ar ?? ""),
-        en: String(body.title?.en ?? ""),
-      },
-      description: {
-        ar: String(body.description?.ar ?? ""),
-        en: String(body.description?.en ?? ""),
-      },
-      cta: {
-        ar: String(body.cta?.ar ?? ""),
-        en: String(body.cta?.en ?? ""),
-        link: String(body.cta?.link ?? ""),
-      },
-      created_at: now,
-      updated_at: now,
-    };
-
     const { data, error } = await supabase
       .from("promos")
-      .insert([promoToInsert])
+      .insert([
+        {
+          id: body.id,
+          position: body.position,
+          is_active: body.isActive,
+          product_id: body.productId || null,
+          title: body.title,
+          description: body.description,
+          cta: body.cta,
+          created_at: now,
+          updated_at: now,
+        },
+      ])
       .select()
       .single();
 
@@ -120,8 +108,9 @@ export async function PUT(request: Request) {
     if (unauthorized) return unauthorized;
     const supabase = createServiceRoleClient();
 
-    const body = await request.json();
-    const id = String(body.id ?? "").trim();
+    const { id, ...updates } = (await request.json()) as Partial<PromoData> & {
+      id: string;
+    };
 
     if (!id) {
       return Response.json(
@@ -130,36 +119,17 @@ export async function PUT(request: Request) {
       );
     }
 
-    const updates: any = {
-      updated_at: new Date().toISOString(),
-    };
-
-    if (body.position !== undefined) updates.position = String(body.position);
-    if (body.isActive !== undefined) updates.is_active = Boolean(body.isActive);
-    if (body.productId !== undefined) updates.product_id = body.productId ? String(body.productId) : null;
-    if (body.title !== undefined) {
-      updates.title = {
-        ar: String(body.title?.ar ?? ""),
-        en: String(body.title?.en ?? ""),
-      };
-    }
-    if (body.description !== undefined) {
-      updates.description = {
-        ar: String(body.description?.ar ?? ""),
-        en: String(body.description?.en ?? ""),
-      };
-    }
-    if (body.cta !== undefined) {
-      updates.cta = {
-        ar: String(body.cta?.ar ?? ""),
-        en: String(body.cta?.en ?? ""),
-        link: String(body.cta?.link ?? ""),
-      };
-    }
-
     const { data, error } = await supabase
       .from("promos")
-      .update(updates)
+      .update({
+        position: updates.position,
+        is_active: updates.isActive,
+        product_id: updates.productId || null,
+        title: updates.title,
+        description: updates.description,
+        cta: updates.cta,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", id)
       .select()
       .single();

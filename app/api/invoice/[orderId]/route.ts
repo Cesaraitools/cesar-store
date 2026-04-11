@@ -27,8 +27,7 @@ export async function GET(
     }
 
     const { searchParams } = new URL(request.url);
-    const requestedLang = searchParams.get("lang");
-    const lang = requestedLang === "en" ? "en" : "ar";
+    const lang = searchParams.get("lang") ?? "ar";
 
     /* ================= Fetch Order ================= */
 

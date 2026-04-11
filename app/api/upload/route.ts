@@ -19,28 +19,6 @@ export const dynamic = "force-dynamic";
    Helpers
 ========================= */
 
-function getStorageHostname() {
-  try {
-    return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || "").hostname;
-  } catch {
-    return null;
-  }
-}
-
-function isSafeImageUrl(url: string) {
-  try {
-    const parsed = new URL(url);
-    const storageHostname = getStorageHostname();
-    return Boolean(storageHostname && parsed.hostname === storageHostname);
-  } catch {
-    return false;
-  }
-}
-
-function getFileExtension(fileName: string) {
-  return fileName.split(".").pop()?.toLowerCase() || "";
-}
-
 async function getAllExistingImages(): Promise<string[]> {
   const supabase = createServiceRoleClient();
   const { data } = await supabase
@@ -97,16 +75,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const extension = getFileExtension(file.name);
-    const allowedExtensions = ["jpg", "jpeg", "png", "webp"];
-
-    if (!allowedExtensions.includes(extension)) {
-      return NextResponse.json(
-        { error: "Invalid file extension" },
-        { status: 400 }
-      );
-    }
-
     if (!allowedFolders.has(type)) {
       return NextResponse.json(
         { error: "Invalid upload target" },
@@ -123,17 +91,8 @@ export async function POST(req: NextRequest) {
     const incomingBase64 = await fileToBase64(file);
 
     for (const url of existingImages) {
-      if (!isSafeImageUrl(url)) {
-        continue;
-      }
-
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
-
       try {
-        const res = await fetch(url, { signal: controller.signal });
-        if (!res.ok) continue;
-
+        const res = await fetch(url);
         const buffer = await res.arrayBuffer();
         const existingBase64 = Buffer.from(buffer).toString("base64");
 
@@ -147,8 +106,6 @@ export async function POST(req: NextRequest) {
         }
       } catch {
         continue;
-      } finally {
-        clearTimeout(timeout);
       }
     }
 
@@ -159,7 +116,7 @@ export async function POST(req: NextRequest) {
     const bytes = await file.arrayBuffer();
     const fileData = new Uint8Array(bytes);
 
-    const ext = getFileExtension(file.name);
+    const ext = file.name.split(".").pop() || "jpg";
     const fileName = `${type}/${crypto.randomUUID()}.${ext}`;
 
     const { error: uploadError } = await supabase.storage

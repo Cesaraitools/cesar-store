@@ -20,19 +20,8 @@ export async function GET(request: Request) {
     await supabase.auth.exchangeCodeForSession(code);
   }
 
-  const getSafeRedirect = (value: string | null) => {
-    if (!value) return "/";
-
-    try {
-      const url = new URL(value, requestUrl.origin);
-      if (url.origin !== requestUrl.origin) return "/";
-      return `${url.pathname}${url.search}${url.hash}`;
-    } catch {
-      return "/";
-    }
-  };
-
-  const redirectTo = getSafeRedirect(requestUrl.searchParams.get("redirect"));
+  // If there is a redirect param we use it, otherwise go home
+  const redirectTo = requestUrl.searchParams.get("redirect") ?? "/";
 
   return NextResponse.redirect(new URL(redirectTo, requestUrl.origin));
 }

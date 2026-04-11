@@ -6,7 +6,6 @@
 
 import crypto from "crypto";
 import { cookies } from "next/headers";
-import { isSessionValid } from "@/lib/admin/adminSessionStore";
 
 const SESSION_COOKIE_NAME = "cesar_admin_session";
 const SESSION_VERSION = "v1";
@@ -50,7 +49,6 @@ export function validateAdminSession(): boolean {
     const [token, signature] = payload.split(".");
 
     if (!token || !signature) return false;
-    if (!isSessionValid(token)) return false;
 
     return verifySignature(token, signature);
   } catch {

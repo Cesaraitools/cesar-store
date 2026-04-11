@@ -5,7 +5,6 @@
 // =====================================================
 
 import { NextRequest, NextResponse } from "next/server";
-import { isSessionValid } from "@/lib/admin/adminSessionStore";
 
 const SESSION_COOKIE_NAME = "cesar_admin_session";
 const SESSION_VERSION = "v1";
@@ -86,7 +85,7 @@ export async function middleware(request: NextRequest) {
 
     const isValid = await verifySignature(token, signature);
 
-    if (!isValid || !isSessionValid(token)) {
+    if (!isValid) {
       if (pathname.startsWith("/api")) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
