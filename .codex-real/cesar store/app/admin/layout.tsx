@@ -5,13 +5,11 @@ import AdminClientLayout from "./AdminClientLayout";
 import crypto from "crypto"; // ✅ إضافة فقط
 
 import { validateAdminSession } from "@/lib/admin/validateAdminSession";
-import { isSessionValid } from "@/lib/admin/adminSessionStore";
 
 const SESSION_COOKIE_NAME = "cesar_admin_session";
 const SESSION_VERSION = "v1";
 
 // ✅ إضافة فقط
-const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET!;
 
 export const dynamic = "force-dynamic";
 
@@ -77,6 +75,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   // ✅ Security Layer (إضافة فقط)
   // =========================
   try {
+    const adminSessionSecret = process.env.ADMIN_SESSION_SECRET;
+
+    if (!adminSessionSecret) {
+      redirect("/admin-login");
+    }
+
     const [token, signature] = payload.split(".");
 
     if (!token || !signature) {
@@ -84,7 +88,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     }
 
     const expectedSignature = crypto
-      .createHmac("sha256", ADMIN_SESSION_SECRET)
+      .createHmac("sha256", adminSessionSecret)
       .update(token)
       .digest("hex");
 

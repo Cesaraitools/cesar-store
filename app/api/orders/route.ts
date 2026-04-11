@@ -1,54 +1,10 @@
 // app/api/orders/route.ts
 
 import { NextResponse } from "next/server";
-import { createClient as createServerClient } from "@/lib/supabase/server";
-import { createClient } from "@supabase/supabase-js";
+import { resolveRequestUser } from "@/lib/auth/resolveRequestUser";
+import { createServiceRoleClient } from "@/lib/supabase/runtime";
 
-/* ================= Service Role Client ================= */
-
-const serviceSupabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } }
-);
-
-/* ================= Resolve User ================= */
-
-async function resolveUser(request: Request) {
-  try {
-    const authHeader = request.headers.get("authorization");
-
-    if (authHeader?.startsWith("Bearer ")) {
-      const token = authHeader.replace("Bearer ", "");
-
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-          global: {
-            headers: { Authorization: `Bearer ${token}` },
-          },
-        }
-      );
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (user) return user;
-    }
-
-    const supabase = createServerClient();
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    return user ?? null;
-  } catch {
-    return null;
-  }
-}
+export const dynamic = "force-dynamic";
 
 /* ================= Order Number ================= */
 
@@ -62,7 +18,8 @@ function generateOrderNumber() {
 
 export async function GET(request: Request) {
   try {
-    const user = await resolveUser(request);
+    const user = await resolveRequestUser(request);
+    const serviceSupabase = createServiceRoleClient();
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -93,7 +50,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const user = await resolveUser(request);
+    const user = await resolveRequestUser(request);
+    const serviceSupabase = createServiceRoleClient();
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

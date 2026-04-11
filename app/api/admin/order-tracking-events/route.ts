@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createServiceRoleClient } from "@/lib/supabase/runtime";
 
 // ✅ NEW
 import { validateAdminSession } from "@/lib/admin/validateAdminSession";
@@ -15,14 +15,7 @@ export async function GET(req: NextRequest) {
     }
 
     // ✅ Safe ENV + Client
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl || !serviceRoleKey) {
-      throw new Error("Missing Supabase ENV");
-    }
-
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    const supabase = createServiceRoleClient();
 
     /* -------- Params -------- */
 

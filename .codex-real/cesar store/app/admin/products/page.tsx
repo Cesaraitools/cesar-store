@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { Product } from "@/types/product";
-import * as XLSX from "xlsx";
 import { normalizeImagesArray } from "@/lib/image-normalizer";
 import { getSafeImage } from "@/lib/image-safe";
 import { normalizeCategory } from "@/lib/category-normalizer";
@@ -96,6 +95,7 @@ export default function AdminProductsPage() {
     setFileName(file.name);
     setImportReport(null);
 
+    const XLSX = await import("xlsx");
     const buffer = await file.arrayBuffer();
     const wb = XLSX.read(buffer, { type: "array" });
     const ws = wb.Sheets[wb.SheetNames[0]];

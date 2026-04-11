@@ -4,25 +4,23 @@
 // =====================================================
 
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
+import { requireAdminAccess } from "@/lib/auth/requireAdminAccess";
+import { createServiceRoleClient } from "@/lib/supabase/runtime";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 /* =========================
    Supabase Client
 ========================= */
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 /* =========================
    Helpers
 ========================= */
 
 async function getAllExistingImages(): Promise<string[]> {
+  const supabase = createServiceRoleClient();
   const { data } = await supabase
     .from("products")
     .select("images_json");
@@ -51,6 +49,10 @@ async function fileToBase64(file: File): Promise<string> {
 
 export async function POST(req: NextRequest) {
   try {
+    const unauthorized = requireAdminAccess();
+    if (unauthorized) return unauthorized;
+    const supabase = createServiceRoleClient();
+
     const formData = await req.formData();
 
     const file = formData.get("file") as File | null;
@@ -64,9 +66,18 @@ export async function POST(req: NextRequest) {
     }
 
     const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+    const allowedFolders = new Set(["product", "promo", "category"]);
+
     if (!allowedTypes.includes(file.type)) {
       return NextResponse.json(
         { error: "Invalid file type" },
+        { status: 400 }
+      );
+    }
+
+    if (!allowedFolders.has(type)) {
+      return NextResponse.json(
+        { error: "Invalid upload target" },
         { status: 400 }
       );
     }

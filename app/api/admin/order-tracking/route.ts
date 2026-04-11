@@ -4,20 +4,12 @@
 // =====================================================
 
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import { validateAdminSession } from "@/lib/admin/validateAdminSession";
+import { createServiceRoleClient } from "@/lib/supabase/runtime";
 
 export const runtime = "nodejs";
-
-/* =========================
-   Supabase
-========================= */
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+export const dynamic = "force-dynamic";
 
 /* =========================
    Rate Limiting (In-Memory)
@@ -80,6 +72,8 @@ const ALLOWED_TRANSITIONS: Record<TrackingStatus, TrackingStatus[]> = {
 ========================= */
 
 async function getCurrentStatus(orderId: string): Promise<TrackingStatus> {
+  const supabase = createServiceRoleClient();
+
   const { data } = await supabase
     .from("order_tracking_events")
     .select("status")
@@ -98,6 +92,8 @@ async function getCurrentStatus(orderId: string): Promise<TrackingStatus> {
 
 export async function POST(req: NextRequest) {
   try {
+    const supabase = createServiceRoleClient();
+
     /* 🔒 Auth */
     if (!validateAdminSession()) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

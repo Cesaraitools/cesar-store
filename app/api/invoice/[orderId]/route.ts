@@ -1,17 +1,11 @@
 // app/api/invoice/[orderId]/route.ts
 
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { validateAdminSession } from "@/lib/admin/validateAdminSession";
+import { resolveRequestUser } from "@/lib/auth/resolveRequestUser";
+import { createServiceRoleClient } from "@/lib/supabase/runtime";
 
-/* ================= Supabase Service Client ================= */
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: { persistSession: false },
-  }
-);
+export const dynamic = "force-dynamic";
 
 /* ================= GET ================= */
 
@@ -21,13 +15,23 @@ export async function GET(
 ) {
   try {
     const { orderId } = params;
+    const user = await resolveRequestUser(request);
+    const isAdmin = validateAdminSession();
+    const supabase = createServiceRoleClient();
+
+    if (!user && !isAdmin) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
 
     const { searchParams } = new URL(request.url);
     const lang = searchParams.get("lang") ?? "ar";
 
     /* ================= Fetch Order ================= */
 
-    const { data: order, error } = await supabase
+    let query = supabase
       .from("orders")
       .select(
         `
@@ -37,11 +41,17 @@ export async function GET(
         subtotal,
         total,
         customer_snapshot,
-        items_snapshot
+        items_snapshot,
+        user_id
       `
       )
-      .eq("id", orderId)
-      .single();
+      .eq("id", orderId);
+
+    if (!isAdmin && user) {
+      query = query.eq("user_id", user.id);
+    }
+
+    const { data: order, error } = await query.single();
 
     if (error || !order) {
       return NextResponse.json(

@@ -1,16 +1,6 @@
 export const runtime = "nodejs";
 
 import React from "react";
-import {
-  Document,
-  Page,
-  Text,
-  View,
-  StyleSheet,
-  pdf,
-  Image,
-  Font,
-} from "@react-pdf/renderer";
 import path from "path";
 import fs from "fs";
 import arabicReshaper from "arabic-reshaper";
@@ -18,6 +8,10 @@ import { NextResponse } from "next/server";
 import { validateAdminSession } from "@/lib/admin/validateAdminSession";
 import { resolveRequestUser } from "@/lib/auth/resolveRequestUser";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
+
+const Font = {
+  register: (_config: any) => undefined,
+};
 
 /* ================= تسجيل الخطوط ================= */
 Font.register({
@@ -44,7 +38,8 @@ const smartText = (text: string) => {
 };
 
 /* ================= Styles ================= */
-const styles = StyleSheet.create({
+function createPdfStyles(StyleSheet: any) {
+  return StyleSheet.create({
   page: {
     padding: 50,
     fontSize: 10,
@@ -114,12 +109,30 @@ const styles = StyleSheet.create({
     color: "#94A3B8",
     fontSize: 8,
   },
-});
+  });
+}
 
 export async function GET(
   req: Request,
   { params }: { params: { orderId: string } }
 ) {
+  const {
+    Document,
+    Page,
+    Text,
+    View,
+    StyleSheet,
+    pdf,
+    Image,
+    Font,
+  } = await import("@react-pdf/renderer");
+  const styles = createPdfStyles(StyleSheet);
+
+  Font.register({
+    family: "Cairo",
+    src: path.join(process.cwd(), "public", "fonts", "Cairo-VariableFont_slnt,wght.ttf"),
+  });
+
   const orderId = params.orderId;
   const user = await resolveRequestUser(req);
   const isAdmin = validateAdminSession();

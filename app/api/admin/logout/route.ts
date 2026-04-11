@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { deleteSession } from "@/lib/admin/adminSessionStore";
+
+export const dynamic = "force-dynamic";
 const SESSION_COOKIE_NAME = "cesar_admin_session";
 
 export async function POST(request: Request) {

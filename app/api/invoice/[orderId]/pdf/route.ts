@@ -1,20 +1,18 @@
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-import { createClient } from "@supabase/supabase-js";
 import React from "react";
-import {
-  Document,
-  Page,
-  Text,
-  View,
-  StyleSheet,
-  pdf,
-  Image,
-  Font,
-} from "@react-pdf/renderer";
 import path from "path";
 import fs from "fs";
 import arabicReshaper from "arabic-reshaper";
+import { NextResponse } from "next/server";
+import { validateAdminSession } from "@/lib/admin/validateAdminSession";
+import { resolveRequestUser } from "@/lib/auth/resolveRequestUser";
+import { createServiceRoleClient } from "@/lib/supabase/runtime";
+
+const Font = {
+  register: (_config: any) => undefined,
+};
 
 /* ================= تسجيل الخطوط ================= */
 Font.register({
@@ -40,14 +38,9 @@ const smartText = (text: string) => {
   return text;
 };
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } }
-);
-
 /* ================= Styles ================= */
-const styles = StyleSheet.create({
+function createPdfStyles(StyleSheet: any) {
+  return StyleSheet.create({
   page: {
     padding: 50,
     fontSize: 10,
@@ -117,10 +110,38 @@ const styles = StyleSheet.create({
     color: "#94A3B8",
     fontSize: 8,
   },
-});
+  });
+}
 
-export async function GET(_req: Request, { params }: { params: { orderId: string } }) {
+export async function GET(
+  req: Request,
+  { params }: { params: { orderId: string } }
+) {
+  const {
+    Document,
+    Page,
+    Text,
+    View,
+    StyleSheet,
+    pdf,
+    Image,
+    Font,
+  } = await import("@react-pdf/renderer");
+  const styles = createPdfStyles(StyleSheet);
+
+  Font.register({
+    family: "Cairo",
+    src: path.join(process.cwd(), "public", "fonts", "Cairo-VariableFont_slnt,wght.ttf"),
+  });
+
   const orderId = params.orderId;
+  const user = await resolveRequestUser(req);
+  const isAdmin = validateAdminSession();
+  const supabase = createServiceRoleClient();
+
+  if (!user && !isAdmin) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   let logoBuffer;
   try {
@@ -132,11 +153,18 @@ export async function GET(_req: Request, { params }: { params: { orderId: string
     console.error("Logo Error:", err);
   }
 
-  const { data: order, error: orderError } = await supabase
+  let query = supabase
     .from("orders")
-    .select("id, created_at, currency, total, customer_snapshot, items_snapshot")
-    .eq("id", orderId)
-    .single();
+    .select(
+      "id, created_at, currency, total, customer_snapshot, items_snapshot, user_id"
+    )
+    .eq("id", orderId);
+
+  if (!isAdmin && user) {
+    query = query.eq("user_id", user.id);
+  }
+
+  const { data: order, error: orderError } = await query.single();
 
   if (orderError || !order) {
     return Response.json({ error: "Order not found" }, { status: 404 });

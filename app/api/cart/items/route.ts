@@ -1,15 +1,9 @@
 // /app/api/cart/items/route.ts
 
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createAnonServerClient } from "@/lib/supabase/runtime";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
-
-// Server-side Supabase client (stateless)
-const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: { persistSession: false },
-});
+export const dynamic = "force-dynamic";
 
 // ===============================
 // Helper: get user from request
@@ -19,6 +13,7 @@ async function getUserFromRequest(req: Request) {
   if (!authHeader) return null;
 
   const token = authHeader.replace("Bearer ", "");
+  const supabase = createAnonServerClient();
 
   const {
     data: { user },
@@ -32,7 +27,10 @@ async function getUserFromRequest(req: Request) {
 // ===============================
 // Helper: get or create cart
 // ===============================
-async function getOrCreateActiveCart(userId: string) {
+async function getOrCreateActiveCart(
+  userId: string,
+  supabase = createAnonServerClient()
+) {
   const { data: existingCart, error } = await supabase
     .from("carts")
     .select("*")
@@ -80,7 +78,8 @@ export async function POST(req: Request) {
   }
 
   try {
-    const cart = await getOrCreateActiveCart(user.id);
+    const supabase = createAnonServerClient();
+    const cart = await getOrCreateActiveCart(user.id, supabase);
 
     // Check if item already exists
     const { data: existingItem } = await supabase
@@ -149,6 +148,8 @@ export async function PATCH(req: Request) {
   }
 
   try {
+    const supabase = createAnonServerClient();
+
     const { data: cart } = await supabase
       .from("carts")
       .select("*")
@@ -203,6 +204,8 @@ export async function DELETE(req: Request) {
   }
 
   try {
+    const supabase = createAnonServerClient();
+
     const { data: cart } = await supabase
       .from("carts")
       .select("*")
