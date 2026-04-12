@@ -20,7 +20,12 @@ export async function GET(request: Request) {
     await supabase.auth.exchangeCodeForSession(code);
   }
 
- const redirectTo = requestUrl.searchParams.get("redirect") || "/";
+ let redirectTo = requestUrl.searchParams.get("redirect");
+
+// 💣 fallback من localStorage (client side)
+if (!redirectTo) {
+  redirectTo = "/";
+}
 
 // 💣 FIX: إجبار المسار يكون absolute بشكل صحيح
 const finalUrl = redirectTo.startsWith("http")
