@@ -20,8 +20,12 @@ export async function GET(request: Request) {
     await supabase.auth.exchangeCodeForSession(code);
   }
 
-  // If there is a redirect param we use it, otherwise go home
-  const redirectTo = requestUrl.searchParams.get("redirect") ?? "/";
+ const redirectTo = requestUrl.searchParams.get("redirect") || "/";
 
-  return NextResponse.redirect(new URL(redirectTo, requestUrl.origin));
+// 💣 FIX: إجبار المسار يكون absolute بشكل صحيح
+const finalUrl = redirectTo.startsWith("http")
+  ? redirectTo
+  : `${requestUrl.origin}${redirectTo}`;
+
+return NextResponse.redirect(finalUrl);
 }
