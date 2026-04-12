@@ -130,15 +130,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
       );
 
       if (existing) {
-        return {
-          ...prev,
-          items: prev.items.map((item) =>
-            item.id === existing.id
-              ? { ...item, quantity: item.quantity + 1 }
-              : item
-          ),
-        };
-      }
+  return {
+    ...prev,
+    items: prev.items.map((item) =>
+      item.id === existing.id
+        ? { ...item, quantity: item.quantity + 1 }
+        : item
+    ),
+  };
+}
 
       const newItem: CartItem = {
         id: generateUUID(),
