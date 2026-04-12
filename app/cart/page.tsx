@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useCart } from "@/context/CartContext";
 import { Trash2, Plus, Minus, ShoppingBag, ArrowRight, CreditCard } from "lucide-react";
-
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 export default function CartPage() {
   const {
     cartItems,
@@ -11,7 +12,8 @@ export default function CartPage() {
     updateQuantity,
     removeFromCart,
   } = useCart();
-
+const router = useRouter();
+const { user } = useAuth();
   const decreaseQuantity = (item: any) => {
     if (item.quantity === 1) return;
     updateQuantity(item.id, item.quantity - 1);
@@ -146,14 +148,20 @@ export default function CartPage() {
                 <p className="text-[10px] text-gray-400 font-bold text-center mt-2">السعر شامل ضريبة القيمة المضافة</p>
               </div>
 
-              <Link
-                href="/checkout"
-                className="group relative w-full bg-gray-900 text-white py-5 rounded-2xl flex items-center justify-center gap-3 font-black text-lg shadow-xl shadow-gray-200 active:scale-[0.98] transition-all overflow-hidden"
-              >
-                <div className="absolute inset-0 bg-blue-600 translate-y-full group-hover:translate-y-0 transition-transform duration-300 -z-10"></div>
+              <button
+  onClick={() => {
+    if (user) {
+      router.push("/review");
+    } else {
+      router.push("/auth/login?redirect=/review");
+    }
+  }}
+  className="group relative w-full bg-gray-900 text-white py-5 rounded-2xl font-black text-lg shadow-xl shadow-gray-200 active:scale-[0.98] transition-all overflow-hidden"
+>
+
                 إتمام الطلب
                 <ArrowRight size={20} className="rotate-180" />
-              </Link>
+              </button>
             </div>
           </div>
         )}
