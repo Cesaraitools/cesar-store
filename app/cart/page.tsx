@@ -151,9 +151,9 @@ const { user } = useAuth();
               <button
   onClick={() => {
     if (user) {
-      router.push("/review");
+      router.push("/checkout");
     } else {
-      router.push("/auth/login?redirect=/review");
+      router.push("/auth/login?redirect=/checkout");
     }
   }}
   className="group relative w-full bg-gray-900 text-white py-5 rounded-2xl font-black text-lg shadow-xl shadow-gray-200 active:scale-[0.98] transition-all overflow-hidden"
