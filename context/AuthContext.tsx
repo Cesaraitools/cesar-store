@@ -80,14 +80,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const redirectPath = redirect || "/";
 
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${location.origin}/auth/callback?redirect=${encodeURIComponent(
-          redirectPath
-        )}`,
-      },
-    });
+// 💣 FIX: حفظ redirect في localStorage
+if (typeof window !== "undefined") {
+  localStorage.setItem("auth_redirect", redirectPath);
+}
+
+const { error } = await supabase.auth.signInWithOAuth({
+  provider: "google",
+  options: {
+    redirectTo: `${location.origin}/auth/callback`,
+  },
+});
 
     if (error) {
       console.error("Google sign-in error:", error.message);
