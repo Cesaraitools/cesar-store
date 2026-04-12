@@ -1,277 +1,416 @@
-Cesar Store — Ultimate System Architecture Document
-🧠 1. Visual ERD Diagram (احترافي — تمثيل رسومي نصي)
-🧩 Core Database ERD
-┌──────────────────────┐
-│      categories      │
-├──────────────────────┤
-│ id (PK)              │
-│ category (slug)      │◄──────────────┐
-│ image                │               │
-│ active               │               │
-│ order                │               │
-│ created_at           │               │
-│ updated_at           │               │
-└──────────────────────┘               │
-                                       │
-                                       │
-┌──────────────────────┐               │
-│      products        │               │
-├──────────────────────┤               │
-│ id (PK)              │               │
-│ name_ar              │               │
-│ name_en              │               │
-│ description_ar       │               │
-│ description_en       │               │
-│ price                │               │
-│ image_url            │               │
-│ images_json (JSONB)  │               │
-│ stock                │               │
-│ category (FK logical)┘───────────────┘
-│ is_active            │
-│ created_at           │
-│ updated_at           │
-└──────────────────────┘
-          │
-          │
-          ▼
-┌──────────────────────┐
-│       promos         │
-├──────────────────────┤
-│ id (PK)              │
-│ position             │
-│ product_id (FK) ─────┘
-│ is_active            │
-│ title (JSONB)        │
-│ description (JSONB)  │
-│ cta (JSONB)          │
-│ created_at           │
-│ updated_at           │
-└──────────────────────┘
-🧠 ERD Insights
-العلاقات حالياً:
-Logical FK (code-based)
-التوصية:
-تحويلها إلى DB-level FK لاحقًا
-🧩 2. System Design Whiteboard (High-Level)
-🧱 Full Architecture
-                 ┌────────────────────┐
-                 │    Frontend UI     │
-                 │  (Next.js / React)│
-                 └─────────┬──────────┘
-                           │
-                           ▼
-                 ┌────────────────────┐
-                 │    API Layer       │
-                 │ (Route Handlers)   │
-                 └─────────┬──────────┘
-                           │
-        ┌──────────────────┼──────────────────┐
-        ▼                  ▼                  ▼
-┌──────────────┐   ┌──────────────┐   ┌──────────────┐
-│ Product Logic│   │Category Logic│   │ Promo Logic  │
-└──────┬───────┘   └──────┬───────┘   └──────┬───────┘
-       │                  │                  │
-       └────────────┬─────┴──────┬──────────┘
-                    ▼            ▼
-             ┌────────────┐ ┌────────────┐
-             │ Supabase DB│ │ Supabase   │
-             │            │ │ Storage    │
-             └────────────┘ └────────────┘
-🧠 3. Detailed System Flow Diagrams
-🛒 Product Creation Flow
-Admin UI
-   ↓
-POST /api/products
-   ↓
-Validate Input
-   ↓
-Normalize Images
-   ↓
-Check Duplicate
-   ↓
-Insert into DB
-   ↓
-Return Response
-   ↓
-UI Update
-🖼️ Image Lifecycle Flow
-Upload Image
-   ↓
-Normalize URL
-   ↓
-Store in DB
-   ↓
-Link to Product
-   ↓
-[Update/Delete]
-   ↓
-Compare Usage
-   ↓
-Delete Unused Only
-🗑️ Delete Product Flow
-Delete Request
-   ↓
-Get Product Images
-   ↓
-Get All Products
-   ↓
-Build usedImages Set
-   ↓
-Filter Safe Images
-   ↓
-Extract Paths
-   ↓
-Delete from Storage
-   ↓
-Delete Product from DB
-🧩 4. Microservices Breakdown (Future-Ready)
-🟢 Current Logical Services
-Service	Responsibility
-Product Service	CRUD + images
-Category Service	grouping
-Promo Service	marketing
-Image Service	lifecycle
-🔮 Future Microservices (Enterprise)
-Auth Service
-Cart Service
-Order Service
-Payment Service
-Notification Service
-Search Service (Elastic)
-Analytics Service
-⚡ 5. Performance Architecture & Plan
-🧠 Current Performance
+ تقرير تحليل شامل ومتعمق لمشروع cesar-store
+📋 ملخص تنفيذي
+Cesar Store هو متجر إلكتروني عصري متخصص في بيع منتجات العناية بالسيارات والكماليات. المشروع عبارة عن تطبيق ويب حديث مبني بـ Next.js 14 و TypeScript مع تركيز على التجربة الثنائية اللغة (EN/AR) والعمليات الآمنة.
 
-✔ Fast reads
-✔ minimal joins
-✔ lightweight APIs
+🏗️ بنية المشروع التفصيلية
+المعلومات الأساسية:
+Code
+📌 اسم المشروع: cesar-store
+📌 النوع: Full-Stack E-Commerce Application
+📌 الإطار: Next.js 14 (App Router)
+📌 اللغة الأساسية: TypeScript (99.8%)
+📌 الحالة: قيد التطوير النشط (تم آخر تحديث: 11 أبريل 2026)
+📌 العمر: ~28 يوم من الإنشاء
+📌 المضيف: Vercel (https://cesar-store.vercel.app)
+📌 الحالة: 0 مشاكل مفتوحة
+البنية المعمارية:
+Code
+cesar-store/
+├── app/                      # Next.js App Router
+│   ├── page.tsx             # الصفحة الرئيسية (Landing Page)
+│   ├── layout.tsx           # التخطيط الرئيسي
+│   ├── globals.css          # الأنماط العامة
+│   ├── admin/               # لوحة التحكم
+│   │   └── page.tsx         # صفحة إدارة رئيسية
+│   ├── admin-login/         # صفحة تسجيل دخول المسؤول
+│   └── api/                 # API Routes
+├── components/              # مكونات React قابلة لإعادة الاستخدام
+├── context/                 # React Context APIs
+│   ├── CartContext          # إدارة سلة التسوق
+│   ├── CheckoutContext      # عملية الدفع
+│   ├── LanguageContext      # إدارة اللغات
+│   └── AuthContext          # المصادقة
+├── lib/                     # مكتبات ومساعدات
+│   └── admin/
+│       └── adminSessionStore.ts  # نظام جلسات الإدارة
+├── hooks/                   # React Hooks المخصصة
+├── middleware.ts            # Middleware الأمان (Next.js)
+├── data-store/              # قاعدة البيانات والبيانات الثابتة
+├── supabase/                # إعدادات Supabase
+└── public/                  # الملفات الثابتة (الصور، الأيقونات)
+🔧 المكتبات والتقنيات المستخدمة
+Frontend Stack:
+JSON
+{
+  "Frontend Framework": "React 18.2.0 + Next.js 14.2.35",
+  "Language": "TypeScript 5.3.0",
+  "Styling": "Tailwind CSS 3.4.0 + PostCSS",
+  "UI Icons": "lucide-react 0.577.0",
+  "Animations": "@lottiefiles/lottie-player 2.0.12"
+}
+Backend & Database:
+JSON
+{
+  "Database": "Supabase (PostgreSQL)",
+  "Supabase SDK": "@supabase/supabase-js 2.97.0",
+  "SSR Support": "@supabase/ssr 0.9.0"
+}
+Utilities:
+JSON
+{
+  "PDF Generation": "@react-pdf/renderer 4.3.2",
+  "QR Code": "qrcode 1.5.4",
+  "Excel Export": "xlsx 0.18.5",
+  "RTL Support": "rtl-detect 1.1.2 + arabic-reshaper 1.1.0",
+  "Environment": "dotenv 17.3.1"
+}
+Development Tools:
+JSON
+{
+  "ESLint": "8.57.1",
+  "Type Checking": "TypeScript strict mode",
+  "Node Types": "@types/node 20.0.0"
+}
+🎯 المميزات الموجودة حالياً
+✅ المميزات المنفذة:
+1. الواجهة الأمامية (Frontend)
+✅ صفحة هبوط عصرية مع slider ديناميكي للفئات
+✅ نظام عرض المنتجات والفئات
+✅ واجهة سلة التسوق متكاملة
+✅ نموذج الدفع والفاتورة
+✅ دعم كامل للتطبيق الثنائي اللغة (عربي/إنجليزي)
+2. نظام المصادقة
+✅ تسجيل دخول المسؤولين (Admin Login)
+✅ نظام جلسات آمن مع HMAC Signature
+✅ Middleware حماية للصفحات الخاصة
+3. الميزات التجارية
+✅ عرض المنتجات والفئات
+✅ إدارة السلة
+✅ عملية الدفع
+✅ تتبع الطلبات (واجهة موجودة)
+4. الدعم متعدد اللغات
+✅ عربي كامل
+✅ إنجليزي كامل
+✅ RTL/LTR الديناميكي
+5. التكاملات الخارجية
+✅ تكامل Supabase للبيانات
+✅ رفع الصور عبر Supabase Storage
+✅ توليد QR Codes
+✅ تصدير PDF
+✅ تصدير Excel
+🔴 المشاكل والقيود المكتشفة
+1. نظام إدارة الجلسات (Critical Issue)
+المشكلة:
 
-🚀 Scaling Plan
-🥇 Level 1 (0 → 10K users)
+TypeScript
+// lib/admin/adminSessionStore.ts
+const activeSessions = new Set<string>();  // ❌ In-Memory (يُفقد عند Restart)
 
-✔ Current system كافي
-✔ Add:
+export function isSessionValid(token: string) {
+  return activeSessions.has(token);
+}
+التأثير:
 
-pagination
-indexes
-🥈 Level 2 (10K → 100K users)
-Add:
-- Redis caching
-- CDN for images
-- Query optimization
-🥉 Level 3 (100K → 1M users)
-Introduce:
-- Edge caching (Vercel Edge)
-- Read replicas (Supabase)
-- Queue system (BullMQ)
-- Background workers
-🏆 Level 4 (1M+ users)
-Move to:
-- Microservices
-- Kubernetes
-- Dedicated storage (S3 + CloudFront)
-- ElasticSearch
-🧠 6. Scaling Strategy to 1M Users
-🔥 Critical Components
-1. Database Scaling
-Read replicas
-Index optimization
-partitioning
-2. Image Scaling
-CDN (Cloudflare / AWS CloudFront)
-lazy loading
-compression
-3. API Scaling
-rate limiting
-caching
-load balancing
-4. Background Jobs
-image cleanup async
-bulk import queue
-🔐 7. Security Architecture (Required Upgrade)
-❗ Current Risk
-Service Role exposed via API
-🔥 Required
-RLS Example
-ENABLE ROW LEVEL SECURITY;
+❌ الجلسات تُفقد عند إعادة تشغيل الخادم
+❌ غير آمن للإنتاج
+❌ مشاكل تزامن في بيئة Vercel (Serverless)
+الحل المقترح: استخدام JWT مع Supabase بدلاً من In-Memory Storage
 
-CREATE POLICY "Public Read"
-ON products FOR SELECT
-USING (true);
+2. نظام الأمان (Security Issues)
+المشاكل:
 
-CREATE POLICY "Admin Full"
-ON products
-FOR ALL
-USING (auth.role() = 'admin');
-🧪 8. Testing Strategy (Professional Level)
-🟢 Phase 1 — Functional
-CRUD testing
-Image lifecycle
-🟡 Phase 2 — Stress
-1000 products
-5000 images
-🔴 Phase 3 — Failure Simulation
-DB down
-Storage fail
-partial uploads
-🚀 9. Development Roadmap (Enterprise)
-Phase 1 ✅ (Completed)
-Migration
-Image system
-API stability
-Phase 2 🔥 (Next)
-Security Hardening
-RLS
-Role system
-Phase 3
-Cart system
-persistent state
-Phase 4
-Orders
-tracking
-Phase 5
-Payments
-invoices
-Phase 6
-Analytics
-recommendations
-🧠 10. Engineering Rules (Critical)
-💣 Core Principles
-1. DB = Single Source of Truth
-2. No fallback logic
-3. Normalize everything
-4. API-first design
-5. No silent failures
-🏁 11. Final System State
-🟢 المشروع الآن:
-Clean, Scalable, Production Core System
-🟡 يحتاج:
-Security
-Scaling infra
-advanced features
-💬 12. FINAL SUMMARY
+TypeScript
+// middleware.ts
+- ❌ TypeScript strict mode معطل (strict: false)
+- ❌ لا توجد Rate Limiting
+- ❌ لا توجد CSRF Protection
+- ❌ التحقق من التوقيع فقط، بلا معلومات إضافية
+التوصيات:
 
-💣 أنت بنيت:
+تفعيل strict: true في TypeScript
+إضافة Rate Limiting على API Routes
+إضافة CSRF tokens
+تنفيذ نظام logging للعمليات الأمنية
+3. معمارية النظام (Architecture Issues)
+المشاكل:
 
-System نظيف
-Image system احترافي
-API architecture قوي
+❌ لا توجد Error Boundaries
+❌ معالجة الأخطاء غير متسقة
+❌ لا توجد نظام caching واضح
+❌ لا توجد Optimistic Updates
+4. الأداء (Performance)
+المشاكل:
 
-🔥 المرحلة القادمة:
+TypeScript
+// app/page.tsx
+- ❌ بدون SuspenseList
+- ❌ بدون ISR (Incremental Static Regeneration)
+- ❌ بدون Image Optimization الكامل
+- ❌ لا توجد استراتيجية Code Splitting
+5. قاعدة البيانات (Database)
+المشاكل:
 
-تحويله إلى Enterprise System
-🧾 MASTER PROMPT (لأي شات جديد)
-We are continuing Cesar Store project.
+❌ لا توجد Migrations واضحة
+❌ لا توجد نسخ احتياطية موثقة
+❌ لا توجد Data Validation في المستوى الخادم
+❌ لا توجد Indexes على الجداول
+6. اختبار (Testing)
+المشاكل:
 
-System is fully migrated to Supabase.
-No data-store exists.
-Image lifecycle system is implemented and stable.
-APIs are production-ready.
+❌ لا توجد unit tests
+❌ لا توجد integration tests
+❌ لا توجد e2e tests
+📈 خطة التطوير المرحلية الشاملة
+المرحلة الأولى: الأساسيات الحرجة (1-2 أسبوع)
+الأولوية العليا:
+1️⃣ إصلاح نظام الجلسات
 
-We are now moving to:
-Phase 2 → Security Hardening (RLS + Roles)
-Then → Scaling + Cart + Orders
+TypeScript
+// الحل المقترح:
+// - استبدال In-Memory بـ JWT + Supabase
+// - تنفيذ Token Refresh
+// - إضافة Session Expiration
+الملفات المتأثرة:
 
-Do NOT introduce fallback logic.
-Maintain single source of truth.
-Preserve image lifecycle system.
+middleware.ts
+lib/admin/adminSessionStore.ts
+API login routes
+المهام:
+
+ إنشاء نموذج Supabase للجلسات
+ تنفيذ JWT generation
+ تحديث middleware للتحقق من JWT
+ تنفيذ auto-refresh logic
+2️⃣ تفعيل TypeScript Strict Mode
+
+JSON
+{
+  "strict": true,
+  "noImplicitAny": true,
+  "strictNullChecks": true
+}
+الخطوات:
+
+ تحديث tsconfig.json
+ إصلاح جميع الأخطاء المرتبطة
+ إضافة نوع لجميع الدوال
+3️⃣ إضافة Error Handling المركزي
+
+TypeScript
+// ملف جديد: lib/errorHandler.ts
+export class AppError extends Error {
+  constructor(
+    public statusCode: number,
+    public message: string,
+    public isOperational: boolean = true
+  ) {
+    super(message);
+  }
+}
+
+export const handleApiError = (error: unknown) => {
+  // معالجة مركزية للأخطاء
+};
+المرحلة الثانية: الأمان المتقدم (2-3 أسابيع)
+1️⃣ نظام Rate Limiting
+
+TypeScript
+// lib/rateLimit.ts
+import { Ratelimit } from "@upstash/ratelimit";
+
+export const rateLimit = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.slidingWindow(10, "1 m"),
+});
+الخطوات:
+
+ تثبيت @upstash/ratelimit
+ تطبيق على جميع API Routes
+ تطبيق على login endpoints بشكل خاص
+2️⃣ CSRF Protection
+
+TypeScript
+// middleware.ts - إضافة
+const csrfToken = crypto.randomUUID();
+response.headers.set("X-CSRF-Token", csrfToken);
+3️⃣ Logging & Monitoring
+
+TypeScript
+// lib/logger.ts
+export const logger = {
+  info: (msg: string, data?: any) => console.log(`[INFO] ${msg}`, data),
+  error: (msg: string, error: any) => console.error(`[ERROR] ${msg}`, error),
+  security: (msg: string, data?: any) => console.warn(`[SECURITY] ${msg}`, data),
+};
+المرحلة الثالثة: الأداء والـ Optimization (2-3 أسابيع)
+1️⃣ Image Optimization
+
+TypeScript
+// تحديث next.config.js
+images: {
+  remotePatterns: [
+    {
+      protocol: 'https',
+      hostname: '**.supabase.co',
+      pathname: '/storage/v1/object/**',
+    },
+  ],
+  sizes: '(max-width: 768px) 100vw, 50vw',
+}
+2️⃣ Code Splitting & Lazy Loading
+
+TypeScript
+// components/
+import dynamic from 'next/dynamic';
+
+const AdminDashboard = dynamic(() => import('./AdminDashboard'), {
+  loading: () => <div>جاري التحميل...</div>,
+});
+3️⃣ ISR - Incremental Static Regeneration
+
+TypeScript
+// app/products/page.tsx
+export const revalidate = 3600; // إعادة بناء كل ساعة
+4️⃣ Database Query Optimization
+
+TypeScript
+// lib/database.ts
+// - إضافة Connection Pooling
+// - تنفيذ Query Caching
+// - إنشاء Indexes
+// - استخدام Prepared Statements
+المرحلة الرابعة: Testing & CI/CD (2-3 أسابيع)
+1️⃣ Unit Tests
+
+bash
+npm install --save-dev vitest @testing-library/react
+TypeScript
+// __tests__/lib/validators.test.ts
+describe('Email Validator', () => {
+  it('should validate correct emails', () => {
+    expect(validateEmail('test@example.com')).toBe(true);
+  });
+});
+2️⃣ Integration Tests
+
+TypeScript
+// __tests__/api/products.test.ts
+describe('Products API', () => {
+  it('should fetch products', async () => {
+    const res = await fetch('/api/products');
+    expect(res.status).toBe(200);
+  });
+});
+3️⃣ E2E Tests
+
+bash
+npm install --save-dev playwright
+4️⃣ GitHub Actions CI/CD
+
+YAML
+# .github/workflows/test.yml
+name: Tests
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: npm ci
+      - run: npm run test
+      - run: npm run build
+المرحلة الخامسة: المميزات الإضافية (3-4 أسابيع)
+1️⃣ نظام الإشعارات
+
+TypeScript
+// - إشعارات البريد الإلكتروني
+// - إشعارات SMS
+// - In-App Notifications
+2️⃣ نظام التحليلات
+
+TypeScript
+// - Google Analytics
+// - Segment
+// - Custom Analytics Dashboard
+3️⃣ نظام المراجعات والتقييمات
+
+TypeScript
+// - مراجعات المنتجات
+// - نظام التقييمات
+// - الصور المرفقة
+4️⃣ نظام الكوبونات والعروض
+
+TypeScript
+// - إدارة الكوبونات
+// - العروض المحدودة الوقت
+// - الخصومات الموسمية
+🗺️ خريطة الطريق التفصيلية (Timeline)
+Code
+الأسبوع 1-2: ✅ إصلاح حرج
+├─ نظام الجلسات
+├─ TypeScript Strict
+└─ Error Handling
+
+الأسبوع 3-4: 🔒 الأمان
+├─ Rate Limiting
+├─ CSRF Protection
+└─ Logging
+
+الأسبوع 5-7: ⚡ الأداء
+├─ Image Optimization
+├─ Code Splitting
+└─ Database Queries
+
+الأسبوع 8-9: 🧪 الاختبار
+├─ Unit Tests
+├─ Integration Tests
+└─ CI/CD Setup
+
+الأسبوع 10-13: 🎁 المميزات
+├─ الإشعارات
+├─ التحليلات
+├─ المراجعات
+└─ النظام الترويجي
+📋 قائمة المهام الفورية
+الأولويات (من الأهم للأقل):
+Code
+🔴 أولوية حرجة (يجب الآن):
+- [ ] 1. إصلاح نظام جلسات الإدارة
+- [ ] 2. تفعيل TypeScript Strict Mode
+- [ ] 3. إضافة Error Boundaries
+- [ ] 4. توثيق API كاملة
+
+🟠 أولوية عالية (هذا الأسبوع):
+- [ ] 5. نظام Rate Limiting
+- [ ] 6. CSRF Protection
+- [ ] 7. إضافة Unit Tests الأساسية
+- [ ] 8. توثيق قاعدة البيانات
+
+🟡 أولوية متوسطة (هذا الشهر):
+- [ ] 9. تحسين الأداء
+- [ ] 10. Integration Tests
+- [ ] 11. GitHub Actions CI/CD
+- [ ] 12. نظام الإشعارات
+
+🟢 أولوية منخفضة (المستقبل):
+- [ ] 13. نظام التحليلات
+- [ ] 14. نظام المراجعات
+- [ ] 15. نظام الكوبونات
+- [ ] 16. Mobile App
+🚀 الخلاصة والتوصيات
+الحالة الحالية:
+✅ المشروع على المسار الصحيح لكن يحتاج إلى:
+
+إصلاحات حرجة في الأمان
+تحسينات في الأداء
+إضافة اختبارات شاملة
+التوصيات:
+فوري: ركز على إصلاح نظام الجلسات والأمان
+قريباً: أضف tests والـ CI/CD
+المستقبل: وسّع المميزات حسب احتياجات المستخدمين
+المؤشرات الإيجابية:
+✅ كود نظيف وموثق
+✅ استخدام أفضل الممارسات
+✅ دعم كامل للغات المتعددة
+✅ تكاملات حديثة وموثوقة
+
