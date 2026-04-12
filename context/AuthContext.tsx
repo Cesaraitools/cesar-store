@@ -33,19 +33,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const ensuredUserRef = useRef(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    let isMounted = true;
+
+    const init = async () => {
+      const { data } = await supabase.auth.getSession();
+
+      if (!isMounted) return;
+
       const currentSession = data.session;
+
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
       setLoading(false);
 
       /**
-       * NOTE:
-       * user profile rows are created by the database trigger
-       * (handle_new_user) after auth.users insertion.
-       * AuthContext no longer creates or upserts users.
+       * 💣 FIX: بعد Google login
+       * لو فيه redirect محفوظ → نرجع له
        */
-    });
+      if (currentSession?.user) {
+        const redirect = sessionStorage.getItem("oauth_redirect");
+
+        if (redirect) {
+          sessionStorage.removeItem("oauth_redirect");
+
+          // مهم: replace عشان مايرجعش تاني
+          router.replace(redirect);
+        }
+      }
+    };
+
+    init();
 
     const {
       data: { subscription },
@@ -58,12 +75,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ensuredUserRef.current = false;
       }
 
+      /**
+       * 💣 FIX: نفس الفكرة هنا برضو (event-based)
+       */
+      if (event === "SIGNED_IN" && session?.user) {
+        const redirect = sessionStorage.getItem("oauth_redirect");
+
+        if (redirect) {
+          sessionStorage.removeItem("oauth_redirect");
+          router.replace(redirect);
+        }
+      }
+
       if (event === "SIGNED_OUT") {
         router.push("/");
       }
     });
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
     };
   }, [supabase, router]);
@@ -80,17 +110,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const redirectPath = redirect || "/";
 
-// 💣 FIX: حفظ redirect قبل الخروج من الموقع
-if (typeof window !== "undefined") {
-  sessionStorage.setItem("oauth_redirect", redirectPath);
-}
+    /**
+     * 💣 FIX: نحفظ الصفحة قبل ما نخرج لـ Google
+     */
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("oauth_redirect", redirectPath);
+    }
 
-const { error } = await supabase.auth.signInWithOAuth({
-  provider: "google",
-  options: {
-    redirectTo: `${location.origin}/auth/callback`,
-  },
-});
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${location.origin}/auth/callback`,
+      },
+    });
 
     if (error) {
       console.error("Google sign-in error:", error.message);
