@@ -80,9 +80,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const redirectPath = redirect || "/";
 
-// 💣 FIX: حفظ redirect في localStorage
+// 💣 FIX: حفظ redirect قبل الخروج من الموقع
 if (typeof window !== "undefined") {
-  localStorage.setItem("auth_redirect", redirectPath);
+  sessionStorage.setItem("oauth_redirect", redirectPath);
 }
 
 const { error } = await supabase.auth.signInWithOAuth({

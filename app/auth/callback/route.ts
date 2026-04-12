@@ -22,9 +22,9 @@ export async function GET(request: Request) {
 
  let redirectTo = requestUrl.searchParams.get("redirect");
 
-// 💣 fallback من localStorage (client side)
+// 💣 FIX: fallback ذكي
 if (!redirectTo) {
-  redirectTo = "/";
+  redirectTo = "/review"; // أو أي default منطقي
 }
 
 // 💣 FIX: إجبار المسار يكون absolute بشكل صحيح
