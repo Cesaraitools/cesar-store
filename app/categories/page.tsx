@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import CategoryCard from "@/components/category/CategoryCard";
 import SidePromoCard from "@/components/promo/SidePromoCard";
 import { useLanguage } from "@/context/LanguageContext";
-import { LayoutGrid, Sparkles } from "lucide-react";
+import { Shapes, Sparkles } from "lucide-react";
 
 export default function CategoriesPage() {
   const { lang } = useLanguage();
@@ -30,47 +30,72 @@ export default function CategoriesPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center font-black text-blue-600 animate-pulse">جاري التحميل...</div>;
+  if (loading) return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-white">
+      <div className="w-12 h-12 border-4 border-blue-50 border-t-blue-600 rounded-full animate-spin"></div>
+      <p className="mt-4 font-black text-slate-400 animate-pulse">
+        {isAr ? "نجهز الأقسام..." : "Loading Categories..."}
+      </p>
+    </div>
+  );
 
   return (
-    <main className="min-h-screen bg-[#FCFDFF] pb-24" dir={isAr ? "rtl" : "ltr"}>
-      {/* Header القسم العلوي */}
-      <div className="max-w-7xl mx-auto px-6 pt-16 pb-12 text-center">
-         <h1 className="text-4xl md:text-5xl font-black text-gray-900 mb-4">
+    <main className="min-h-screen bg-[#F8FAFC] pb-24 relative overflow-hidden" dir={isAr ? "rtl" : "ltr"}>
+      
+      {/* عناصر خلفية ديكورية */}
+      <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-blue-50/50 to-transparent -z-10"></div>
+      <div className="absolute top-40 left-[-5%] w-[300px] h-[300px] bg-blue-100/30 rounded-full blur-[120px] -z-10"></div>
+      <div className="absolute top-20 right-[-5%] w-[400px] h-[400px] bg-blue-100/20 rounded-full blur-[100px] -z-10"></div>
+
+      {/* Header Section */}
+      <div className="max-w-7xl mx-auto px-6 pt-20 pb-16 text-center">
+         <div className="inline-flex items-center justify-center w-16 h-16 bg-white shadow-xl shadow-blue-900/5 rounded-3xl mb-6 text-blue-600">
+            <Shapes size={32} />
+         </div>
+         <h1 className="text-4xl md:text-6xl font-black text-slate-900 mb-4 tracking-tight">
            {isAr ? "أقسام متجر سيزر" : "CESAR Categories"}
          </h1>
-         <div className="h-1.5 w-24 bg-blue-600 mx-auto rounded-full"></div>
+         <p className="text-slate-500 font-medium max-w-lg mx-auto leading-relaxed text-lg">
+           {isAr 
+             ? "استكشف مجموعتنا المختارة بعناية من أفضل منتجات العناية بالسيارات" 
+             : "Explore our handpicked collection of the best automotive care products"}
+         </p>
       </div>
 
-      {/* Content Section - تعديل التوزيع هنا */}
-      <section className="mx-auto max-w-[1400px] px-6 grid gap-8 lg:grid-cols-[1fr_280px]">
+      {/* Categories Content - تم جعلها تتوسط الصفحة وتأخذ 3 أعمدة */}
+      <section className="mx-auto max-w-[1400px] px-6">
         
-        {/* Categories Grid - حجم أكبر للأقسام */}
-        <div className="grid gap-6 grid-cols-1 md:grid-cols-2 xl:grid-cols-2">
-          {categories.map((cat) => (
-            <div key={cat.id} className="group relative overflow-hidden rounded-[2.5rem] h-[350px] shadow-sm transition-all hover:shadow-xl">
-              {/* قمنا بتكبير ارتفاع الكارت وإضافة تأثير بصري */}
+        {/* Grid Container: 1 column on mobile, 2 on tablet, 3 on desktop */}
+        <div className="grid gap-8 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+          {categories.map((cat, idx) => (
+            <div 
+              key={cat.id} 
+              className="group relative h-[400px] rounded-[3rem] overflow-hidden bg-white shadow-sm hover:shadow-2xl hover:shadow-blue-900/10 transition-all duration-500 hover:-translate-y-2"
+              style={{ animationDelay: `${idx * 100}ms` }}
+            >
               <CategoryCard category={cat} />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
             </div>
           ))}
         </div>
 
-        {/* Side Promo - حجم أقل للبرومو */}
+        {/* Promo Section (اختياري): يظهر تحت الأقسام بشكل عرضي إذا وُجد */}
         {promo && (
-          <aside className="hidden lg:block">
-            <div className="sticky top-28 space-y-4">
-              <div className="flex items-center gap-2 px-2">
-                <Sparkles size={16} className="text-amber-500" />
-                <span className="text-xs font-black text-gray-400 uppercase tracking-widest">
-                  {isAr ? "عرض خاص" : "Hot Deal"}
-                </span>
-              </div>
-              {/* تصغير حجم حاوية البرومو الجانبي */}
-              <div className="scale-95 origin-top transform transition-transform hover:scale-100">
-                <SidePromoCard promo={promo} lang={lang} />
-              </div>
+          <div className="mt-20 max-w-4xl mx-auto">
+            <div className="flex items-center justify-center gap-3 mb-6">
+               <div className="h-px bg-slate-200 flex-grow"></div>
+               <div className="flex items-center gap-2 px-4 py-1.5 bg-amber-50 rounded-full border border-amber-100">
+                  <Sparkles size={16} className="text-amber-600" />
+                  <span className="text-xs font-black text-amber-700 uppercase tracking-widest">
+                    {isAr ? "عروض خاصة" : "Special Offers"}
+                  </span>
+               </div>
+               <div className="h-px bg-slate-200 flex-grow"></div>
             </div>
-          </aside>
+            <div className="bg-white p-2 rounded-[2.5rem] shadow-sm border border-slate-100 transition-transform duration-500 hover:scale-[1.01]">
+                <SidePromoCard promo={promo} lang={lang} />
+            </div>
+          </div>
         )}
       </section>
     </main>
