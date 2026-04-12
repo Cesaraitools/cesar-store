@@ -91,7 +91,7 @@ export default function LandingPage() {
             className={`absolute inset-0 transition-all duration-1000 ease-out ${i === index ? "opacity-100 scale-100 z-10" : "opacity-0 scale-105 z-0"}`}
           >
             {/* Overlay Gradient لضمان وضوح النص */}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black/70 z-10" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/10 to-black/40 z-10" />
             <img 
               src={s.image} 
               alt="Slide" 
