@@ -32,5 +32,7 @@ const finalUrl = redirectTo.startsWith("http")
   ? redirectTo
   : `${requestUrl.origin}${redirectTo}`;
 
-return NextResponse.redirect(finalUrl);
+return NextResponse.redirect(
+  `${requestUrl.origin}/auth/sync?redirect=${encodeURIComponent(finalUrl)}`
+);
 }
