@@ -27,7 +27,7 @@ export default function RootLayout({
                   {/* Navbar مع تأثير زجاجي شفاف */}
                   <Navbar />
                   
-                  <main className="flex-grow pt-16 md:pt-20">
+                  <main className="flex-grow pt-5 md:pt-7">
                     {children}
                   </main>
 
