@@ -18,13 +18,8 @@ export default function CartPage() {
   };
 
   const increaseQuantity = (item: any) => {
-    addToCart({
-      id: item.product_id,
-      name: item.name,
-      price: item.price,
-      image: item.image,
-    });
-  };
+  updateQuantity(item.id, item.quantity + 1);
+};
 
   const total = cartItems.reduce(
     (acc: number, item: any) => acc + item.price * item.quantity,
