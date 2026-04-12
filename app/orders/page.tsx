@@ -5,10 +5,6 @@ import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { ChevronLeft, ChevronRight, ChevronLast, ChevronFirst } from "lucide-react";
 
-/* ================================
-   Types (API Contract)
-================================ */
-
 type OrderListItem = {
   id: string;
   order_number: string;
@@ -21,10 +17,6 @@ type OrderListItem = {
 type OrdersResponse = {
   orders: OrderListItem[];
 };
-
-/* ================================
-   Helpers
-================================ */
 
 function statusLabel(status: string | null) {
   switch (status) {
@@ -50,16 +42,11 @@ function formatDate(value: string) {
   return new Date(value).toLocaleDateString("ar-EG");
 }
 
-/* ================================
-   Page
-================================ */
-
 export default function OrdersPage() {
   const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  /* -------- Pagination State -------- */
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -98,10 +85,8 @@ export default function OrdersPage() {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  /* -------- Pagination Logic -------- */
   const totalPages = Math.ceil(orders.length / itemsPerPage);
-  
-  // تأكدنا هنا من استخدام paginatedOrders للعرض بدلاً من orders
+
   const paginatedOrders = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return orders.slice(start, start + itemsPerPage);
@@ -126,10 +111,10 @@ export default function OrdersPage() {
         <p className="text-xs text-slate-500 mt-1">إدارة ومتابعة جميع طلباتك السابقة</p>
       </header>
 
-      {/* قائمة الطلبات المجزأة */}
       <div className="space-y-4">
         {paginatedOrders.map((order) => (
           <div key={order.id} className="rounded-2xl border border-slate-100 p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white shadow-sm hover:shadow-md transition-shadow">
+            
             <div className="space-y-2">
               <div className="text-sm font-bold text-slate-900 tracking-tight">
                 طلب رقم <span className="text-blue-600">#{order.order_number}</span>
@@ -143,12 +128,33 @@ export default function OrdersPage() {
             </div>
 
             <div className="flex items-center justify-between sm:flex-col sm:items-end gap-3 border-t sm:border-t-0 pt-3 sm:pt-0">
+              
               <div className="text-sm font-black text-slate-900">
                 {order.total.toFixed(2)} <span className="text-[10px] text-slate-400 mr-1">{order.currency}</span>
               </div>
-              <Link href={`/orders/${order.id}`} className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors">
-                عرض التفاصيل
-              </Link>
+
+              {/* ===== ACTION BUTTONS ===== */}
+              <div className="flex items-center gap-2">
+
+                {/* عرض التفاصيل */}
+                <Link
+                  href={`/orders/${order.id}`}
+                  className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors"
+                >
+                  عرض التفاصيل
+                </Link>
+
+                {/* 🔥 زر الفاتورة */}
+                <a
+                  href={`/api/invoice/${order.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-bold text-white bg-green-500 px-3 py-1.5 rounded-lg hover:bg-green-600 transition-colors"
+                >
+                  عرض الفاتورة
+                </a>
+
+              </div>
             </div>
           </div>
         ))}
