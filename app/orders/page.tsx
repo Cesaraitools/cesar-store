@@ -146,7 +146,7 @@ export default function OrdersPage() {
 
                 {/* 🔥 زر الفاتورة */}
                 <a
-                  href={`/api/invoice/${order.id}?download=1`}
+                  href={`/api/invoice/${order.id}?format=pdf`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-xs font-bold text-green-600 bg-green-50 px-3 py-1.5 rounded-lg hover:bg-green-100 transition-colors"
