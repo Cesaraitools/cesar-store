@@ -47,10 +47,10 @@ export default function CategoriesPage() {
       <div className="absolute top-40 left-[-5%] w-[300px] h-[300px] bg-blue-100/30 rounded-full blur-[120px] -z-10"></div>
       <div className="absolute top-20 right-[-5%] w-[400px] h-[400px] bg-blue-100/20 rounded-full blur-[100px] -z-10"></div>
 
-      {/* Header Section */}
-      <div className="max-w-7xl mx-auto px-6 pt-20 pb-16 text-center">
-         <div className="inline-flex items-center justify-center w-16 h-16 bg-white shadow-xl shadow-blue-900/5 rounded-3xl mb-6 text-blue-600">
-            <Shapes size={32} />
+      {/* Header Section - تم تقليل pt-20 إلى pt-6 و pb-16 إلى pb-10 لرفع المحتوى */}
+      <div className="max-w-7xl mx-auto px-6 pt-6 pb-10 text-center">
+         <div className="inline-flex items-center justify-center w-14 h-14 bg-white shadow-xl shadow-blue-900/5 rounded-2xl mb-4 text-blue-600">
+            <Shapes size={28} />
          </div>
          <h1 className="text-4xl md:text-6xl font-black text-slate-900 mb-4 tracking-tight">
            {isAr ? "أقسام متجر سيزر" : "CESAR Categories"}
@@ -62,10 +62,9 @@ export default function CategoriesPage() {
          </p>
       </div>
 
-      {/* Categories Content - تم جعلها تتوسط الصفحة وتأخذ 3 أعمدة */}
+      {/* Categories Content */}
       <section className="mx-auto max-w-[1400px] px-6">
         
-        {/* Grid Container: 1 column on mobile, 2 on tablet, 3 on desktop */}
         <div className="grid gap-8 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
           {categories.map((cat, idx) => (
             <div 
@@ -79,7 +78,6 @@ export default function CategoriesPage() {
           ))}
         </div>
 
-        {/* Promo Section (اختياري): يظهر تحت الأقسام بشكل عرضي إذا وُجد */}
         {promo && (
           <div className="mt-20 max-w-4xl mx-auto">
             <div className="flex items-center justify-center gap-3 mb-6">
