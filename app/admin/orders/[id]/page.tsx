@@ -286,7 +286,7 @@ export default function AdminOrderDetailsPage() {
             </div>
           </div>
 
-{/* Timeline */}
+                {/* Timeline */}
           <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 h-fit">
             <h2 className="font-black text-slate-900 flex items-center gap-2 mb-6 border-b pb-4">
               <History size={18} className="text-blue-500" />
@@ -372,8 +372,6 @@ export default function AdminOrderDetailsPage() {
               </span>
             </div>
           </div>
-          
-          
         </div>
       </div>
     </div>
