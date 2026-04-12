@@ -1,3 +1,5 @@
+// app/(checkout)/review/page.tsx
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -51,8 +53,6 @@ export default function ReviewPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  /* -------- Auth Gate -------- */
-
   useEffect(() => {
     if (!authLoading && !user) {
       router.replace("/auth/login?redirect=/review");
@@ -67,8 +67,6 @@ export default function ReviewPage() {
       </div>
     );
   }
-
-  /* -------- Prevent Empty Orders -------- */
 
   if (!cartItems.length) {
     return (
@@ -85,14 +83,10 @@ export default function ReviewPage() {
     );
   }
 
-  /* -------- Calculations -------- */
-
   const total = cartItems.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0
   );
-
-  /* -------- Confirm Order -------- */
 
   const handleConfirmOrder = async () => {
 
@@ -146,8 +140,6 @@ export default function ReviewPage() {
       const result = await response.json();
       orderId = result.orderId;
 
-      /* -------- Save Local Copy -------- */
-
       saveOrders([
         ...loadOrders(),
         {
@@ -159,25 +151,35 @@ export default function ReviewPage() {
         },
       ]);
 
-      /* -------- Local Tracking -------- */
-
       addEvent(orderId, "created");
       addEvent(orderId, "confirmed");
 
-      /* -------- WhatsApp Notification -------- */
+      /* ================== ✅ FIXED WHATSAPP MESSAGE ================== */
+
+      const productsText = cartItems
+        .map(
+          (item) =>
+            `- ${item.name} × ${item.quantity} = ${item.price * item.quantity} ج`
+        )
+        .join("\n");
 
       const message = `طلب جديد من متجر سيزر 🛒
 
-الاسم: ${checkoutData.name}
-الهاتف: ${checkoutData.phone}
-العنوان: ${checkoutData.address}
+👤 الاسم: ${checkoutData.name}
+📞 الهاتف: ${checkoutData.phone}
+📍 العنوان: ${checkoutData.address}
 
-الإجمالي: ${total} جنيه`;
+🛒 المنتجات:
+${productsText}
+
+💰 الإجمالي: ${total} جنيه`;
 
       window.open(
         `https://wa.me/201211120208?text=${encodeURIComponent(message)}`,
         "_blank"
       );
+
+      /* ============================================================= */
 
       clearCart();
 
