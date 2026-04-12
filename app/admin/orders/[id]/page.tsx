@@ -285,7 +285,42 @@ export default function AdminOrderDetailsPage() {
               </div>
             </div>
           </div>
+            {/* Timeline */}
+          <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 h-fit">
+            <h2 className="font-black text-slate-900 flex items-center gap-2 mb-6 border-b pb-4">
+              <History size={18} className="text-blue-500" />
+              السجل المباشر
+            </h2>
 
+            <div className="space-y-6 relative">
+
+              <div className="absolute right-3.5 top-0 bottom-0 w-px bg-slate-100"></div>
+
+              {tracking.map((e, i) => (
+                <div key={i} className="relative z-10 flex gap-4">
+
+                  <div
+                    className={`w-7 h-7 rounded-full border-4 border-white shadow-sm flex-shrink-0 ${
+                      e.status === "canceled"
+                        ? "bg-red-500"
+                        : i === tracking.length - 1
+                        ? "bg-blue-600"
+                        : "bg-slate-200"
+                    }`}
+                  ></div>
+
+                  <div>
+                    <p className="font-bold text-sm text-slate-800">
+                      {e.status}
+                    </p>
+
+                    <p className="text-[10px] text-slate-400 font-medium">
+                      {new Date(e.created_at).toLocaleString("ar-EG")}
+                    </p>
+                  </div>
+
+                </div>
+              ))}
             {/* Order Items */}
             <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
               <div className="flex items-center gap-2 mb-6 font-black text-slate-800">
@@ -333,43 +368,6 @@ export default function AdminOrderDetailsPage() {
             </div>
           </div>
           
-          {/* Timeline */}
-          <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 h-fit">
-            <h2 className="font-black text-slate-900 flex items-center gap-2 mb-6 border-b pb-4">
-              <History size={18} className="text-blue-500" />
-              السجل المباشر
-            </h2>
-
-            <div className="space-y-6 relative">
-
-              <div className="absolute right-3.5 top-0 bottom-0 w-px bg-slate-100"></div>
-
-              {tracking.map((e, i) => (
-                <div key={i} className="relative z-10 flex gap-4">
-
-                  <div
-                    className={`w-7 h-7 rounded-full border-4 border-white shadow-sm flex-shrink-0 ${
-                      e.status === "canceled"
-                        ? "bg-red-500"
-                        : i === tracking.length - 1
-                        ? "bg-blue-600"
-                        : "bg-slate-200"
-                    }`}
-                  ></div>
-
-                  <div>
-                    <p className="font-bold text-sm text-slate-800">
-                      {e.status}
-                    </p>
-
-                    <p className="text-[10px] text-slate-400 font-medium">
-                      {new Date(e.created_at).toLocaleString("ar-EG")}
-                    </p>
-                  </div>
-
-                </div>
-              ))}
-
             </div>
           </div>
 
