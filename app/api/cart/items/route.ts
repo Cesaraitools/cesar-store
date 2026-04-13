@@ -58,7 +58,47 @@ async function getOrCreateActiveCart(userId: string) {
 
   return newCart;
 }
+// ===============================
+// GET: Get cart items
+// ===============================
+export async function GET(req: Request) {
+  const user = await getUserFromRequest(req);
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
+  try {
+    const { data: cart } = await supabase
+      .from("carts")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .single();
+
+    if (!cart) {
+      return NextResponse.json({ items: [] }, { status: 200 });
+    }
+
+    const { data: items, error } = await supabase
+      .from("cart_items")
+      .select("*")
+      .eq("cart_id", cart.id);
+
+    if (error) {
+      return NextResponse.json(
+        { error: "Failed to fetch items" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ items: items || [] }, { status: 200 });
+  } catch {
+    return NextResponse.json(
+      { error: "Unexpected error" },
+      { status: 500 }
+    );
+  }
+}
 // ===============================
 // POST: Add item to cart
 // Body: { product_id: string, quantity?: number }
