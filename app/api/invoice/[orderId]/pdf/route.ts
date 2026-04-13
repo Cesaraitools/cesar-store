@@ -132,15 +132,24 @@ export async function GET(_req: Request, { params }: { params: { orderId: string
     console.error("Logo Error:", err);
   }
 
-  const { data: order, error: orderError } = await supabase
+  let order;
+
+try {
+  const { data, error } = await supabase
     .from("orders")
     .select("id, created_at, currency, total, customer_snapshot, items_snapshot")
     .eq("id", orderId)
     .single();
 
-  if (orderError || !order) {
+  if (error || !data) {
     return Response.json({ error: "Order not found" }, { status: 404 });
   }
+
+  order = data;
+} catch (err) {
+  console.error("Order Fetch Error:", err);
+  return Response.json({ error: "Failed to load order" }, { status: 500 });
+}
 
   const customer = order.customer_snapshot || {};
   const rawItems = Array.isArray(order.items_snapshot) ? order.items_snapshot : [];
