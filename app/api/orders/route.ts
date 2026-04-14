@@ -152,7 +152,25 @@ export async function POST(request: Request) {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+    /* ================= CLEAR CART ================= */
 
+try {
+  const { data: cart } = await serviceSupabase
+    .from("carts")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .single();
+
+  if (cart) {
+    await serviceSupabase
+      .from("cart_items")
+      .delete()
+      .eq("cart_id", cart.id);
+  }
+} catch (err) {
+  console.error("CLEAR CART ERROR:", err);
+}
     if (recentOrder) {
       return NextResponse.json({
         success: true,
