@@ -124,16 +124,17 @@ export async function POST(request: Request) {
       if (cart) {
         const { data: cartItems } = await serviceSupabase
           .from("cart_items")
-          .select("product_id, quantity")
+          .select("product_id, quantity, name, price, image")
           .eq("cart_id", cart.id);
 
         if (cartItems && cartItems.length > 0) {
           finalItems = cartItems.map((ci) => ({
-            product_id: ci.product_id,
-            quantity: ci.quantity,
-            name: "",
-            price: 0,
-          }));
+          product_id: ci.product_id,
+          quantity: ci.quantity,
+          name: ci.name,
+          price: ci.price,
+          image: ci.image,
+       }));
         }
       }
     } catch {
@@ -152,33 +153,7 @@ export async function POST(request: Request) {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    /* ================= CLEAR CART ================= */
-
-try {
-  const { data: cart } = await serviceSupabase
-    .from("carts")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("status", "active")
-    .single();
-
-  if (cart) {
-    await serviceSupabase
-      .from("cart_items")
-      .delete()
-      .eq("cart_id", cart.id);
-  }
-} catch (err) {
-  console.error("CLEAR CART ERROR:", err);
-}
-    if (recentOrder) {
-      return NextResponse.json({
-        success: true,
-        reused: true,
-        orderId: recentOrder.id,
-        order_number: recentOrder.order_number,
-      });
-    }
+    
 
     /* ================= Build Order ================= */
 
@@ -236,7 +211,33 @@ try {
     }
 
     console.log("ORDER CREATED:", id);
+/* ================= CLEAR CART ================= */
 
+try {
+  const { data: cart } = await serviceSupabase
+    .from("carts")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .single();
+
+  if (cart) {
+    await serviceSupabase
+      .from("cart_items")
+      .delete()
+      .eq("cart_id", cart.id);
+  }
+} catch (err) {
+  console.error("CLEAR CART ERROR:", err);
+}
+    if (recentOrder) {
+      return NextResponse.json({
+        success: true,
+        reused: true,
+        orderId: recentOrder.id,
+        order_number: recentOrder.order_number,
+      });
+    }
     /* -------- TRACKING EVENTS -------- */
 
     await serviceSupabase.from("order_tracking_events").insert([
