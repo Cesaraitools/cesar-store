@@ -111,7 +111,7 @@ export async function POST(request: Request) {
 
     /* ================= SAFE DB SYNC ================= */
 
-    let finalItems = items;
+    let finalItems: any[] = [];
 
     try {
       const { data: cart } = await serviceSupabase
@@ -127,16 +127,21 @@ export async function POST(request: Request) {
           .select("product_id, quantity, name_ar, name_en, price, image")
           .eq("cart_id", cart.id);
 
-        if (cartItems && cartItems.length > 0) {
-          finalItems = cartItems.map((ci) => ({
-          product_id: ci.product_id,
-          quantity: ci.quantity,
-          name_ar: ci.name_ar,
-          name_en: ci.name_en,
-          price: ci.price,
-          image: ci.image ?? null,
-        }));
-        }
+        if (!cartItems || cartItems.length === 0) {
+  return NextResponse.json(
+    { error: "Cart is empty in DB" },
+    { status: 400 }
+  );
+}
+
+finalItems = cartItems.map((ci) => ({
+  product_id: ci.product_id,
+  quantity: ci.quantity,
+  name_ar: ci.name_ar,
+  name_en: ci.name_en,
+  price: ci.price,
+  image: ci.image ?? null,
+}));
       }
     } catch {
       // fallback → frontend items
