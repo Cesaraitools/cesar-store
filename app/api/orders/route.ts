@@ -109,6 +109,37 @@ export async function POST(request: Request) {
       );
     }
 
+    /* ================= SAFE DB SYNC ================= */
+
+    let finalItems = items;
+
+    try {
+      const { data: cart } = await serviceSupabase
+        .from("carts")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .single();
+
+      if (cart) {
+        const { data: cartItems } = await serviceSupabase
+          .from("cart_items")
+          .select("product_id, quantity")
+          .eq("cart_id", cart.id);
+
+        if (cartItems && cartItems.length > 0) {
+          finalItems = cartItems.map((ci) => ({
+            product_id: ci.product_id,
+            quantity: ci.quantity,
+            name: "",
+            price: 0,
+          }));
+        }
+      }
+    } catch {
+      // fallback → frontend items
+    }
+
     /* ================= Duplicate Order Protection ================= */
 
     const tenSecondsAgo = new Date(Date.now() - 10000).toISOString();
@@ -137,7 +168,7 @@ export async function POST(request: Request) {
 
     const items_snapshot: any[] = [];
 
-    for (const item of items) {
+    for (const item of finalItems) {
       items_snapshot.push({
         product_id: String(item.product_id),
         name: item.name,
@@ -167,7 +198,7 @@ export async function POST(request: Request) {
       .insert({
         id,
         order_number,
-        status: "requested", // 🔥 FIX
+        status: "requested",
         subtotal,
         total: subtotal,
         currency,
@@ -192,7 +223,6 @@ export async function POST(request: Request) {
 
     await serviceSupabase.from("order_tracking_events").insert([
       { order_id: id, status: "requested", actor: "system" },
-      // ❌ حذف confirmed من البداية
     ]);
 
     return NextResponse.json({
