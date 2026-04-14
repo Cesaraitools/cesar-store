@@ -170,7 +170,8 @@ export async function POST(req: Request) {
         cart_id: cart.id,
         product_id,
         quantity,
-        name: product?.title ?? product?.name ?? "Product",
+        name_ar: product?.name_ar ?? "",
+        name_en: product?.name_en ?? "",
         price: Number(product?.price ?? 0),
         image: product?.image ?? product?.image_url ?? null,
       });
