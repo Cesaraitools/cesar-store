@@ -222,7 +222,7 @@ try {
           React.createElement(
             View,
             { style: styles.tableRow },
-            React.createElement(Text, { style: styles.colDescription }, smartText(item.name)),
+            React.createElement(Text, { style: styles.colDescription }, smartText(item.name_ar || item.name_en || item.name || "—")),
             React.createElement(Text, { style: styles.colQty }, String(item.quantity)),
             React.createElement(Text, { style: styles.colPrice }, `${item.price}`),
             React.createElement(Text, { style: styles.colAmount }, `${(item.price * item.quantity).toFixed(2)}`)
