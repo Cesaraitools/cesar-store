@@ -124,14 +124,15 @@ export async function POST(request: Request) {
       if (cart) {
         const { data: cartItems } = await serviceSupabase
           .from("cart_items")
-          .select("product_id, quantity, name, price, image")
+          .select("product_id, quantity, name_ar, name_en, price, image")
           .eq("cart_id", cart.id);
 
         if (cartItems && cartItems.length > 0) {
           finalItems = cartItems.map((ci) => ({
           product_id: ci.product_id,
           quantity: ci.quantity,
-          name: ci.name,
+          name_ar: ci.name_ar,
+          name_en: ci.name_en,
           price: ci.price,
           image: ci.image ?? null,
         }));
