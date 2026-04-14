@@ -189,14 +189,20 @@ try {
     const items_snapshot: any[] = [];
 
     for (const item of finalItems) {
-      items_snapshot.push({
-        product_id: String(item.product_id),
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-        image: item.image ?? null,
-      });
-    }
+  items_snapshot.push({
+    product_id: String(item.product_id),
+
+    name_ar: item.name_ar ?? "",
+    name_en: item.name_en ?? "",
+
+    // fallback احتياطي
+    name: item.name_ar || item.name_en || "",
+
+    price: item.price,
+    quantity: item.quantity,
+    image: item.image ?? null,
+  });
+}
 
     const subtotal = items_snapshot.reduce(
       (sum, i) => sum + i.price * i.quantity,
