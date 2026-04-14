@@ -129,11 +129,12 @@ export async function POST(request: Request) {
 
         if (cartItems && cartItems.length > 0) {
           finalItems = cartItems.map((ci) => ({
-            product_id: ci.product_id,
-            quantity: ci.quantity,
-            name: "",
-            price: 0,
-          }));
+          product_id: ci.product_id,
+          quantity: ci.quantity,
+          name: ci.name,
+          price: ci.price,
+          image: ci.image ?? null,
+        }));
         }
       }
     } catch {
