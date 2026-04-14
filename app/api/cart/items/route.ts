@@ -135,7 +135,7 @@ export async function POST(req: Request) {
     // 🔥 GET PRODUCT SNAPSHOT
     const { data: product } = await serviceSupabase
       .from("products")
-      .select("name, price, image")
+      .select("*")
       .eq("id", product_id)
       .single();
 
@@ -170,9 +170,9 @@ export async function POST(req: Request) {
         cart_id: cart.id,
         product_id,
         quantity,
-        name: product?.name || "Product",
-        price: Number(product?.price || 0),
-        image: product?.image || null,
+        name: product?.name ?? product?.title ?? "Product",
+        price: Number(product?.price ?? 0),
+        image: product?.image ?? product?.image_url ?? null,
       });
 
     if (insertError) {
