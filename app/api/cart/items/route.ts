@@ -6,12 +6,14 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
 
-// Server-side Supabase client (stateless)
+// Auth client (JWT verification only)
 const supabaseAuth = createClient(
   supabaseUrl,
   supabaseAnonKey,
   { auth: { persistSession: false } }
 );
+
+// DB client (service role)
 const serviceSupabase = createClient(
   supabaseUrl,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -30,7 +32,7 @@ async function getUserFromRequest(req: Request) {
   const {
     data: { user },
     error,
-  } = await supabaseAuth.auth.getUser(token)
+  } = await supabaseAuth.auth.getUser(token);
 
   if (error || !user) return null;
   return user;
@@ -65,6 +67,7 @@ async function getOrCreateActiveCart(userId: string) {
 
   return newCart;
 }
+
 // ===============================
 // GET: Get cart items
 // ===============================
@@ -106,9 +109,9 @@ export async function GET(req: Request) {
     );
   }
 }
+
 // ===============================
 // POST: Add item to cart
-// Body: { product_id: string, quantity?: number }
 // ===============================
 export async function POST(req: Request) {
   const user = await getUserFromRequest(req);
@@ -128,6 +131,13 @@ export async function POST(req: Request) {
 
   try {
     const cart = await getOrCreateActiveCart(user.id);
+
+    // 🔥 GET PRODUCT SNAPSHOT
+    const { data: product } = await serviceSupabase
+      .from("products")
+      .select("name, price, image")
+      .eq("id", product_id)
+      .single();
 
     // Check if item already exists
     const { data: existingItem } = await serviceSupabase
@@ -153,11 +163,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true });
     }
 
-    const { error: insertError } = await serviceSupabase.from("cart_items").insert({
-      cart_id: cart.id,
-      product_id,
-      quantity,
-    });
+    // 🔥 INSERT WITH SNAPSHOT
+    const { error: insertError } = await serviceSupabase
+      .from("cart_items")
+      .insert({
+        cart_id: cart.id,
+        product_id,
+        quantity,
+        name: product?.name || "Product",
+        price: Number(product?.price || 0),
+        image: product?.image || null,
+      });
 
     if (insertError) {
       return NextResponse.json(
@@ -167,6 +183,7 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ success: true }, { status: 201 });
+
   } catch (err: any) {
     return NextResponse.json(
       { error: err.message || "Unexpected error" },
@@ -176,8 +193,7 @@ export async function POST(req: Request) {
 }
 
 // ===============================
-// PATCH: Update item quantity
-// Body: { product_id: string, quantity: number }
+// PATCH: Update quantity
 // ===============================
 export async function PATCH(req: Request) {
   const user = await getUserFromRequest(req);
@@ -230,8 +246,7 @@ export async function PATCH(req: Request) {
 }
 
 // ===============================
-// DELETE: Remove item from cart
-// Body: { product_id: string }
+// DELETE: Remove item
 // ===============================
 export async function DELETE(req: Request) {
   const user = await getUserFromRequest(req);
