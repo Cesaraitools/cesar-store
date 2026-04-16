@@ -1,416 +1,340 @@
- تقرير تحليل شامل ومتعمق لمشروع cesar-store
-📋 ملخص تنفيذي
-Cesar Store هو متجر إلكتروني عصري متخصص في بيع منتجات العناية بالسيارات والكماليات. المشروع عبارة عن تطبيق ويب حديث مبني بـ Next.js 14 و TypeScript مع تركيز على التجربة الثنائية اللغة (EN/AR) والعمليات الآمنة.
+# 🧠 CESAR STORE — MASTER RECOVERY PROMPT (FINAL VERSION)
 
-🏗️ بنية المشروع التفصيلية
-المعلومات الأساسية:
-Code
-📌 اسم المشروع: cesar-store
-📌 النوع: Full-Stack E-Commerce Application
-📌 الإطار: Next.js 14 (App Router)
-📌 اللغة الأساسية: TypeScript (99.8%)
-📌 الحالة: قيد التطوير النشط (تم آخر تحديث: 11 أبريل 2026)
-📌 العمر: ~28 يوم من الإنشاء
-📌 المضيف: Vercel (https://cesar-store.vercel.app)
-📌 الحالة: 0 مشاكل مفتوحة
-البنية المعمارية:
-Code
-cesar-store/
-├── app/                      # Next.js App Router
-│   ├── page.tsx             # الصفحة الرئيسية (Landing Page)
-│   ├── layout.tsx           # التخطيط الرئيسي
-│   ├── globals.css          # الأنماط العامة
-│   ├── admin/               # لوحة التحكم
-│   │   └── page.tsx         # صفحة إدارة رئيسية
-│   ├── admin-login/         # صفحة تسجيل دخول المسؤول
-│   └── api/                 # API Routes
-├── components/              # مكونات React قابلة لإعادة الاستخدام
-├── context/                 # React Context APIs
-│   ├── CartContext          # إدارة سلة التسوق
-│   ├── CheckoutContext      # عملية الدفع
-│   ├── LanguageContext      # إدارة اللغات
-│   └── AuthContext          # المصادقة
-├── lib/                     # مكتبات ومساعدات
-│   └── admin/
-│       └── adminSessionStore.ts  # نظام جلسات الإدارة
-├── hooks/                   # React Hooks المخصصة
-├── middleware.ts            # Middleware الأمان (Next.js)
-├── data-store/              # قاعدة البيانات والبيانات الثابتة
-├── supabase/                # إعدادات Supabase
-└── public/                  # الملفات الثابتة (الصور، الأيقونات)
-🔧 المكتبات والتقنيات المستخدمة
-Frontend Stack:
-JSON
+---
+
+# 📌 PROJECT IDENTITY
+
+* **Project:** Cesar Store (متجر سيزر)
+* **Type:** E-Commerce (Car Care & Accessories)
+* **Stack:**
+
+  * Next.js 14 (App Router)
+  * TypeScript
+  * Supabase (PostgreSQL + Auth + Storage)
+  * Tailwind CSS
+
+---
+
+# 🚦 CURRENT STATUS
+
+✅ Core Systems Stable
+✅ Production-ready Order Flow
+⚠️ Enhancements pending (NOT redesign)
+
+---
+
+# 🧠 CORE ARCHITECTURE (DO NOT CHANGE)
+
+## 1. 🔒 Source of Truth
+
+* ✅ Database = **ONLY source of truth**
+* ❌ Frontend NEVER trusted for:
+
+  * cart
+  * order items
+
+---
+
+## 2. 📦 Snapshot Architecture
+
+* Orders store:
+
+  * product name
+  * price
+  * image
+
+❌ No dependency on products table after order creation
+
+---
+
+## 3. 🛒 Hybrid Cart System
+
+### Guest:
+
+```js
+localStorage → cesar_store_cart_v2
+```
+
+### Logged-in:
+
+* DB cart becomes source of truth
+* Local cart = temporary buffer only
+
+---
+
+## 4. 🔁 Merge Strategy (CRITICAL)
+
+### Endpoint:
+
+```
+POST /api/cart/merge
+```
+
+### Behavior:
+
+1. Read localStorage + DB cart
+2. Merge:
+
+   * existing → increase quantity
+   * new → insert
+3. Save ONLY in DB
+4. Clear localStorage
+
+---
+
+# 🗄️ DATABASE DESIGN (FINAL)
+
+## Tables
+
+### users
+
+* id
+
+---
+
+### carts
+
+* id
+* user_id
+* status = active
+
+---
+
+### cart_items
+
+* id
+* cart_id
+* product_id
+* quantity
+* name_ar
+* name_en
+* price
+* image
+
+---
+
+### orders
+
+* id
+* order_number
+* status
+* subtotal
+* total
+* currency
+* items_snapshot
+* customer_snapshot
+* user_id
+
+---
+
+### order_tracking_events
+
+* id
+* order_id
+* status
+* actor
+* created_at
+
+---
+
+# 🔗 ERD (RELATIONSHIPS)
+
+```
+users
+  ↓
+carts (user_id)
+  ↓
+cart_items (cart_id)
+
+users
+  ↓
+orders (user_id)
+  ↓
+order_tracking_events (order_id)
+```
+
+---
+
+# 📡 API CONTRACTS (STRICT — DO NOT CHANGE)
+
+---
+
+## 🛒 GET /api/cart
+
+### Response:
+
+```json
 {
-  "Frontend Framework": "React 18.2.0 + Next.js 14.2.35",
-  "Language": "TypeScript 5.3.0",
-  "Styling": "Tailwind CSS 3.4.0 + PostCSS",
-  "UI Icons": "lucide-react 0.577.0",
-  "Animations": "@lottiefiles/lottie-player 2.0.12"
-}
-Backend & Database:
-JSON
-{
-  "Database": "Supabase (PostgreSQL)",
-  "Supabase SDK": "@supabase/supabase-js 2.97.0",
-  "SSR Support": "@supabase/ssr 0.9.0"
-}
-Utilities:
-JSON
-{
-  "PDF Generation": "@react-pdf/renderer 4.3.2",
-  "QR Code": "qrcode 1.5.4",
-  "Excel Export": "xlsx 0.18.5",
-  "RTL Support": "rtl-detect 1.1.2 + arabic-reshaper 1.1.0",
-  "Environment": "dotenv 17.3.1"
-}
-Development Tools:
-JSON
-{
-  "ESLint": "8.57.1",
-  "Type Checking": "TypeScript strict mode",
-  "Node Types": "@types/node 20.0.0"
-}
-🎯 المميزات الموجودة حالياً
-✅ المميزات المنفذة:
-1. الواجهة الأمامية (Frontend)
-✅ صفحة هبوط عصرية مع slider ديناميكي للفئات
-✅ نظام عرض المنتجات والفئات
-✅ واجهة سلة التسوق متكاملة
-✅ نموذج الدفع والفاتورة
-✅ دعم كامل للتطبيق الثنائي اللغة (عربي/إنجليزي)
-2. نظام المصادقة
-✅ تسجيل دخول المسؤولين (Admin Login)
-✅ نظام جلسات آمن مع HMAC Signature
-✅ Middleware حماية للصفحات الخاصة
-3. الميزات التجارية
-✅ عرض المنتجات والفئات
-✅ إدارة السلة
-✅ عملية الدفع
-✅ تتبع الطلبات (واجهة موجودة)
-4. الدعم متعدد اللغات
-✅ عربي كامل
-✅ إنجليزي كامل
-✅ RTL/LTR الديناميكي
-5. التكاملات الخارجية
-✅ تكامل Supabase للبيانات
-✅ رفع الصور عبر Supabase Storage
-✅ توليد QR Codes
-✅ تصدير PDF
-✅ تصدير Excel
-🔴 المشاكل والقيود المكتشفة
-1. نظام إدارة الجلسات (Critical Issue)
-المشكلة:
-
-TypeScript
-// lib/admin/adminSessionStore.ts
-const activeSessions = new Set<string>();  // ❌ In-Memory (يُفقد عند Restart)
-
-export function isSessionValid(token: string) {
-  return activeSessions.has(token);
-}
-التأثير:
-
-❌ الجلسات تُفقد عند إعادة تشغيل الخادم
-❌ غير آمن للإنتاج
-❌ مشاكل تزامن في بيئة Vercel (Serverless)
-الحل المقترح: استخدام JWT مع Supabase بدلاً من In-Memory Storage
-
-2. نظام الأمان (Security Issues)
-المشاكل:
-
-TypeScript
-// middleware.ts
-- ❌ TypeScript strict mode معطل (strict: false)
-- ❌ لا توجد Rate Limiting
-- ❌ لا توجد CSRF Protection
-- ❌ التحقق من التوقيع فقط، بلا معلومات إضافية
-التوصيات:
-
-تفعيل strict: true في TypeScript
-إضافة Rate Limiting على API Routes
-إضافة CSRF tokens
-تنفيذ نظام logging للعمليات الأمنية
-3. معمارية النظام (Architecture Issues)
-المشاكل:
-
-❌ لا توجد Error Boundaries
-❌ معالجة الأخطاء غير متسقة
-❌ لا توجد نظام caching واضح
-❌ لا توجد Optimistic Updates
-4. الأداء (Performance)
-المشاكل:
-
-TypeScript
-// app/page.tsx
-- ❌ بدون SuspenseList
-- ❌ بدون ISR (Incremental Static Regeneration)
-- ❌ بدون Image Optimization الكامل
-- ❌ لا توجد استراتيجية Code Splitting
-5. قاعدة البيانات (Database)
-المشاكل:
-
-❌ لا توجد Migrations واضحة
-❌ لا توجد نسخ احتياطية موثقة
-❌ لا توجد Data Validation في المستوى الخادم
-❌ لا توجد Indexes على الجداول
-6. اختبار (Testing)
-المشاكل:
-
-❌ لا توجد unit tests
-❌ لا توجد integration tests
-❌ لا توجد e2e tests
-📈 خطة التطوير المرحلية الشاملة
-المرحلة الأولى: الأساسيات الحرجة (1-2 أسبوع)
-الأولوية العليا:
-1️⃣ إصلاح نظام الجلسات
-
-TypeScript
-// الحل المقترح:
-// - استبدال In-Memory بـ JWT + Supabase
-// - تنفيذ Token Refresh
-// - إضافة Session Expiration
-الملفات المتأثرة:
-
-middleware.ts
-lib/admin/adminSessionStore.ts
-API login routes
-المهام:
-
- إنشاء نموذج Supabase للجلسات
- تنفيذ JWT generation
- تحديث middleware للتحقق من JWT
- تنفيذ auto-refresh logic
-2️⃣ تفعيل TypeScript Strict Mode
-
-JSON
-{
-  "strict": true,
-  "noImplicitAny": true,
-  "strictNullChecks": true
-}
-الخطوات:
-
- تحديث tsconfig.json
- إصلاح جميع الأخطاء المرتبطة
- إضافة نوع لجميع الدوال
-3️⃣ إضافة Error Handling المركزي
-
-TypeScript
-// ملف جديد: lib/errorHandler.ts
-export class AppError extends Error {
-  constructor(
-    public statusCode: number,
-    public message: string,
-    public isOperational: boolean = true
-  ) {
-    super(message);
+  "cart": {
+    "id": "...",
+    "items": [
+      {
+        "product_id": "...",
+        "quantity": 2,
+        "price": 100
+      }
+    ]
   }
 }
+```
 
-export const handleApiError = (error: unknown) => {
-  // معالجة مركزية للأخطاء
-};
-المرحلة الثانية: الأمان المتقدم (2-3 أسابيع)
-1️⃣ نظام Rate Limiting
+---
 
-TypeScript
-// lib/rateLimit.ts
-import { Ratelimit } from "@upstash/ratelimit";
+## 🔁 POST /api/cart/merge
 
-export const rateLimit = new Ratelimit({
-  redis: Redis.fromEnv(),
-  limiter: Ratelimit.slidingWindow(10, "1 m"),
-});
-الخطوات:
+### Behavior:
 
- تثبيت @upstash/ratelimit
- تطبيق على جميع API Routes
- تطبيق على login endpoints بشكل خاص
-2️⃣ CSRF Protection
+* No request body required
+* Reads from localStorage (frontend)
+* Merges into DB
 
-TypeScript
-// middleware.ts - إضافة
-const csrfToken = crypto.randomUUID();
-response.headers.set("X-CSRF-Token", csrfToken);
-3️⃣ Logging & Monitoring
+### Response:
 
-TypeScript
-// lib/logger.ts
-export const logger = {
-  info: (msg: string, data?: any) => console.log(`[INFO] ${msg}`, data),
-  error: (msg: string, error: any) => console.error(`[ERROR] ${msg}`, error),
-  security: (msg: string, data?: any) => console.warn(`[SECURITY] ${msg}`, data),
-};
-المرحلة الثالثة: الأداء والـ Optimization (2-3 أسابيع)
-1️⃣ Image Optimization
-
-TypeScript
-// تحديث next.config.js
-images: {
-  remotePatterns: [
-    {
-      protocol: 'https',
-      hostname: '**.supabase.co',
-      pathname: '/storage/v1/object/**',
-    },
-  ],
-  sizes: '(max-width: 768px) 100vw, 50vw',
+```json
+{
+  "success": true
 }
-2️⃣ Code Splitting & Lazy Loading
+```
 
-TypeScript
-// components/
-import dynamic from 'next/dynamic';
+---
 
-const AdminDashboard = dynamic(() => import('./AdminDashboard'), {
-  loading: () => <div>جاري التحميل...</div>,
-});
-3️⃣ ISR - Incremental Static Regeneration
+## 📦 POST /api/orders
 
-TypeScript
-// app/products/page.tsx
-export const revalidate = 3600; // إعادة بناء كل ساعة
-4️⃣ Database Query Optimization
+### ⚠️ IMPORTANT
 
-TypeScript
-// lib/database.ts
-// - إضافة Connection Pooling
-// - تنفيذ Query Caching
-// - إنشاء Indexes
-// - استخدام Prepared Statements
-المرحلة الرابعة: Testing & CI/CD (2-3 أسابيع)
-1️⃣ Unit Tests
+* Does NOT accept items from frontend
 
-bash
-npm install --save-dev vitest @testing-library/react
-TypeScript
-// __tests__/lib/validators.test.ts
-describe('Email Validator', () => {
-  it('should validate correct emails', () => {
-    expect(validateEmail('test@example.com')).toBe(true);
-  });
-});
-2️⃣ Integration Tests
+### Request:
 
-TypeScript
-// __tests__/api/products.test.ts
-describe('Products API', () => {
-  it('should fetch products', async () => {
-    const res = await fetch('/api/products');
-    expect(res.status).toBe(200);
-  });
-});
-3️⃣ E2E Tests
+```json
+{}
+```
 
-bash
-npm install --save-dev playwright
-4️⃣ GitHub Actions CI/CD
+---
 
-YAML
-# .github/workflows/test.yml
-name: Tests
-on: [push, pull_request]
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - run: npm ci
-      - run: npm run test
-      - run: npm run build
-المرحلة الخامسة: المميزات الإضافية (3-4 أسابيع)
-1️⃣ نظام الإشعارات
+### Server Logic:
 
-TypeScript
-// - إشعارات البريد الإلكتروني
-// - إشعارات SMS
-// - In-App Notifications
-2️⃣ نظام التحليلات
+1. Resolve user
+2. Fetch cart from DB
+3. Validate products
+4. Build snapshot
+5. Create order
+6. Insert tracking event
+7. Clear cart AFTER success
 
-TypeScript
-// - Google Analytics
-// - Segment
-// - Custom Analytics Dashboard
-3️⃣ نظام المراجعات والتقييمات
+---
 
-TypeScript
-// - مراجعات المنتجات
-// - نظام التقييمات
-// - الصور المرفقة
-4️⃣ نظام الكوبونات والعروض
+### Response:
 
-TypeScript
-// - إدارة الكوبونات
-// - العروض المحدودة الوقت
-// - الخصومات الموسمية
-🗺️ خريطة الطريق التفصيلية (Timeline)
-Code
-الأسبوع 1-2: ✅ إصلاح حرج
-├─ نظام الجلسات
-├─ TypeScript Strict
-└─ Error Handling
+```json
+{
+  "order_id": "...",
+  "order_number": "...",
+  "status": "requested"
+}
+```
 
-الأسبوع 3-4: 🔒 الأمان
-├─ Rate Limiting
-├─ CSRF Protection
-└─ Logging
+---
 
-الأسبوع 5-7: ⚡ الأداء
-├─ Image Optimization
-├─ Code Splitting
-└─ Database Queries
+# 📊 ORDER FLOW
 
-الأسبوع 8-9: 🧪 الاختبار
-├─ Unit Tests
-├─ Integration Tests
-└─ CI/CD Setup
+```
+requested → confirmed → preparing → shipped → delivered
+                ↘ canceled
+```
 
-الأسبوع 10-13: 🎁 المميزات
-├─ الإشعارات
-├─ التحليلات
-├─ المراجعات
-└─ النظام الترويجي
-📋 قائمة المهام الفورية
-الأولويات (من الأهم للأقل):
-Code
-🔴 أولوية حرجة (يجب الآن):
-- [ ] 1. إصلاح نظام جلسات الإدارة
-- [ ] 2. تفعيل TypeScript Strict Mode
-- [ ] 3. إضافة Error Boundaries
-- [ ] 4. توثيق API كاملة
+---
 
-🟠 أولوية عالية (هذا الأسبوع):
-- [ ] 5. نظام Rate Limiting
-- [ ] 6. CSRF Protection
-- [ ] 7. إضافة Unit Tests الأساسية
-- [ ] 8. توثيق قاعدة البيانات
+# 📡 TRACKING SYSTEM
 
-🟡 أولوية متوسطة (هذا الشهر):
-- [ ] 9. تحسين الأداء
-- [ ] 10. Integration Tests
-- [ ] 11. GitHub Actions CI/CD
-- [ ] 12. نظام الإشعارات
+* Event-based system
+* Immutable log
+* No updates — only inserts
 
-🟢 أولوية منخفضة (المستقبل):
-- [ ] 13. نظام التحليلات
-- [ ] 14. نظام المراجعات
-- [ ] 15. نظام الكوبونات
-- [ ] 16. Mobile App
-🚀 الخلاصة والتوصيات
-الحالة الحالية:
-✅ المشروع على المسار الصحيح لكن يحتاج إلى:
+---
 
-إصلاحات حرجة في الأمان
-تحسينات في الأداء
-إضافة اختبارات شاملة
-التوصيات:
-فوري: ركز على إصلاح نظام الجلسات والأمان
-قريباً: أضف tests والـ CI/CD
-المستقبل: وسّع المميزات حسب احتياجات المستخدمين
-المؤشرات الإيجابية:
-✅ كود نظيف وموثق
-✅ استخدام أفضل الممارسات
-✅ دعم كامل للغات المتعددة
-✅ تكاملات حديثة وموثوقة
+# 🧾 INVOICE SYSTEM
 
+* Generated as PDF
+* Snapshot-based
+* مستقل عن order lifecycle
+
+---
+
+# 🛡️ DUPLICATE ORDER PROTECTION
+
+```ts
+gte(created_at, now - 10 seconds)
+```
+
+---
+
+# 🧠 CRITICAL RULES (MANDATORY)
+
+❌ Do NOT redesign system
+❌ Do NOT add guest checkout
+❌ Do NOT use frontend cart in orders
+❌ Do NOT change architecture
+
+✅ DB is always the source
+✅ Merge happens ONLY on login
+✅ Cart cleared ONLY after success
+
+---
+
+# 📁 PROJECT STRUCTURE (IMPORTANT)
+
+```
+app/
+  api/
+    cart/
+      route.ts
+      merge/
+        route.ts
+    orders/
+      route.ts
+
+components/
+context/
+lib/
+  supabase/
+  utils/
+
+types/
+```
+
+---
+
+# ⚠️ KNOWN ISSUES (DO NOT FIX NOW)
+
+* TypeScript strict = false
+* No payment integration
+* No rate limiting
+* No automated tests
+* Admin auth not fully hardened
+
+---
+
+# 🚀 NEXT PHASE (EXECUTE — DO NOT THINK)
+
+1. Improve Order Tracking UI
+2. Payment Integration (Stripe / Paymob)
+3. Add Rate Limiting
+4. Enable TypeScript strict mode
+5. Notifications (Email / SMS)
+
+---
+
+# 🏁 FINAL DIRECTIVE
+
+ابدأ التنفيذ مباشرة بدون:
+
+* إعادة تحليل
+* إعادة تصميم
+* اقتراح بدائل
+
+النظام الحالي **مستقر وصحيح** — المطلوب فقط تطويره.
+
+---
+
+# END OF PROMPT
