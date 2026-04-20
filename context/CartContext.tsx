@@ -164,6 +164,12 @@ const mergeCart = async () => {
     const itemsData = await itemsRes.json();
     const dbItems = itemsData?.items || [];
 
+    // ✅ FIX: لو DB رجّع فاضي وعندنا items محلية → لا تعمل overwrite
+    if (dbItems.length === 0 && cart.items.length > 0) {
+      isMerging.current = false;
+      return;
+    }
+
     // 🔥 STEP 3: replace local cart with DB
     setCart((prev) => ({
       ...prev,
