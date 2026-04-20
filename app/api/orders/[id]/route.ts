@@ -80,20 +80,20 @@ export async function GET(
       .single();
 
     if (orderError) {
-      console.error("Order query error:", orderError);
+  console.error("Order query error:", orderError);
 
-      return NextResponse.json(
-        { error: "Database error" },
-        { status: 500 }
-      );
-    }
+  return NextResponse.json(
+    { error: "Database error" },
+    { status: 500 }
+  );
+}
 
-    if (!order) {
-      return NextResponse.json(
-        { error: "Order not found or not owned by user" },
-        { status: 404 }
-      );
-    }
+if (!order) {
+  return NextResponse.json(
+    { error: "Order not found or not owned by user" },
+    { status: 404 }
+  );
+}
 
     /* ===== Load Tracking Events ===== */
 
@@ -136,14 +136,7 @@ export async function GET(
         created_at: order.created_at,
         currency: order.currency,
         status: currentStatus,
-        items: (order.items_snapshot ?? []).map((item: any) => ({
-          name_ar: item.name_ar ?? "",
-          name_en: item.name_en ?? "",
-          name: item.name ?? "",
-          price: item.price ?? 0,
-          quantity: item.quantity ?? 0,
-          image: item.image ?? null,
-        })),
+        items: order.items_snapshot ?? [],
         subtotal: order.subtotal ?? 0,
         shipping_fee: 0,
         discount: 0,

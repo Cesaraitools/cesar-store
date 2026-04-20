@@ -13,19 +13,12 @@ import { useAuth } from "@/context/AuthContext";
 /* ---------------- Types ---------------- */
 
 export type CartItem = {
-id: string;
+id: string; // UUID
 cart_id: string;
 product_id: string;
-
-// ✅ الجديد
-name_ar?: string;
-name_en?: string;
-
-// ✅ القديم (لعدم كسر UI)
-name?: string;
-
-price: number;
-image: string | null;
+name: string; // snapshot
+price: number; // snapshot
+image: string | null; // snapshot
 quantity: number;
 created_at: string;
 };
@@ -109,7 +102,7 @@ if (!cart.id) return;
 saveCartToStorage(cart);
 }, [cart]);
 
-/* ---------- DB Cart ---------- */
+/* ---------- DB Cart (Deferred / Fail-safe) ---------- */
 const ensureCartExistsInDb = async () => {
 if (!user) return;
 if (!session) return;
@@ -128,33 +121,25 @@ try {
 
 };
 
-/* ---------- Merge Logic ---------- */
+/* ---------- NEW: Fetch + Merge DB Cart ---------- */
 useEffect(() => {
 if (!user || !session) return;
 if (isMerging.current) return;
 
-const mergeCart = async () => {
+const fetchAndMerge = async () => {
   try {
-    isMerging.current = true;
+    const res = await fetch("/api/cart", {
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    });
 
-    // 🔥 STEP 1: merge local → DB
-    if (cart.items.length > 0) {
-      await fetch("/api/cart/merge", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          items: cart.items.map((item) => ({
-            product_id: item.product_id,
-            quantity: item.quantity,
-          })),
-        }),
-      });
-    }
+    const data = await res.json();
+    const dbCart = data?.cart;
 
-    // 🔥 STEP 2: fetch updated DB items
+    if (!dbCart) return;
+
+    // fetch items
     const itemsRes = await fetch("/api/cart/items", {
       headers: {
         Authorization: `Bearer ${session.access_token}`,
@@ -164,34 +149,41 @@ const mergeCart = async () => {
     const itemsData = await itemsRes.json();
     const dbItems = itemsData?.items || [];
 
-    // 🔥 STEP 3: replace local cart with DB
-    setCart((prev) => ({
-      ...prev,
-      items: dbItems.map((item: any) => ({
-        id: item.id,
-        cart_id: item.cart_id,
-        product_id: item.product_id,
+    isMerging.current = true;
 
-        // ✅ الجديد
-        name_ar: item.name_ar || item.name || "",
-        name_en: item.name_en || item.name || "",
+    setCart((prev) => {
+      const mergedMap = new Map<string, CartItem>();
 
-        // ✅ fallback قديم
-        name: item.name || item.name_en || item.name_ar || "Product",
+      // local first
+      prev.items.forEach((item) => {
+        mergedMap.set(item.product_id, item);
+      });
 
-        price: Number(item.price || 0),
-        image: item.image || null,
-        quantity: item.quantity,
-        created_at: item.created_at,
-      })),
-    }));
+      // db override or add
+      dbItems.forEach((item: any) => {
+        mergedMap.set(item.product_id, {
+          id: item.id,
+          cart_id: item.cart_id,
+          product_id: item.product_id,
+          name: item.name || "Product",
+          price: Number(item.price || 0),
+          image: item.image || null,
+          quantity: item.quantity,
+          created_at: item.created_at,
+        });
+      });
 
+      return {
+        ...prev,
+        items: Array.from(mergedMap.values()),
+      };
+    });
   } catch {
     // silent fail
   }
 };
 
-mergeCart();
+fetchAndMerge();
 
 }, [user, session]);
 
@@ -213,20 +205,14 @@ setCart((prev) => {
     id: generateUUID(),
     cart_id: prev.id,
     product_id: product.id,
-
-    // ✅ دعم الجديد
-    name_ar: product.name_ar || product.name || "",
-    name_en: product.name_en || product.name || "",
-
-    // ✅ القديم fallback
-    name: product.name || product.name_en || product.name_ar || "Product",
-
+    name: product.name,
     price: Number(product.price),
     image: sanitizeImage(product.image),
     quantity: 1,
     created_at: new Date().toISOString(),
   };
 
+  // 🔥 background sync
   if (user && session) {
     fetch("/api/cart/items", {
       method: "POST",

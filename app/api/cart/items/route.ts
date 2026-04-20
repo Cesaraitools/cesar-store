@@ -6,19 +6,10 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
 
-// Auth client (JWT verification only)
-const supabaseAuth = createClient(
-  supabaseUrl,
-  supabaseAnonKey,
-  { auth: { persistSession: false } }
-);
-
-// DB client (service role)
-const serviceSupabase = createClient(
-  supabaseUrl,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } }
-);
+// Server-side Supabase client (stateless)
+const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: { persistSession: false },
+});
 
 // ===============================
 // Helper: get user from request
@@ -32,7 +23,7 @@ async function getUserFromRequest(req: Request) {
   const {
     data: { user },
     error,
-  } = await supabaseAuth.auth.getUser(token);
+  } = await supabase.auth.getUser(token);
 
   if (error || !user) return null;
   return user;
@@ -42,7 +33,7 @@ async function getUserFromRequest(req: Request) {
 // Helper: get or create cart
 // ===============================
 async function getOrCreateActiveCart(userId: string) {
-  const { data: existingCart, error } = await serviceSupabase
+  const { data: existingCart, error } = await supabase
     .from("carts")
     .select("*")
     .eq("user_id", userId)
@@ -55,7 +46,7 @@ async function getOrCreateActiveCart(userId: string) {
     throw new Error("Failed to fetch cart");
   }
 
-  const { data: newCart, error: createError } = await serviceSupabase
+  const { data: newCart, error: createError } = await supabase
     .from("carts")
     .insert({ user_id: userId })
     .select()
@@ -69,49 +60,8 @@ async function getOrCreateActiveCart(userId: string) {
 }
 
 // ===============================
-// GET: Get cart items
-// ===============================
-export async function GET(req: Request) {
-  const user = await getUserFromRequest(req);
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  try {
-    const { data: cart } = await serviceSupabase
-      .from("carts")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("status", "active")
-      .single();
-
-    if (!cart) {
-      return NextResponse.json({ items: [] }, { status: 200 });
-    }
-
-    const { data: items, error } = await serviceSupabase
-      .from("cart_items")
-      .select("*")
-      .eq("cart_id", cart.id);
-
-    if (error) {
-      return NextResponse.json(
-        { error: "Failed to fetch items" },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ items: items || [] }, { status: 200 });
-  } catch {
-    return NextResponse.json(
-      { error: "Unexpected error" },
-      { status: 500 }
-    );
-  }
-}
-
-// ===============================
 // POST: Add item to cart
+// Body: { product_id: string, quantity?: number }
 // ===============================
 export async function POST(req: Request) {
   const user = await getUserFromRequest(req);
@@ -132,15 +82,8 @@ export async function POST(req: Request) {
   try {
     const cart = await getOrCreateActiveCart(user.id);
 
-    // 🔥 GET PRODUCT SNAPSHOT
-    const { data: product } = await serviceSupabase
-      .from("products")
-      .select("*")
-      .eq("id", product_id)
-      .single();
-
     // Check if item already exists
-    const { data: existingItem } = await serviceSupabase
+    const { data: existingItem } = await supabase
       .from("cart_items")
       .select("*")
       .eq("cart_id", cart.id)
@@ -148,7 +91,7 @@ export async function POST(req: Request) {
       .single();
 
     if (existingItem) {
-      const { error: updateError } = await serviceSupabase
+      const { error: updateError } = await supabase
         .from("cart_items")
         .update({ quantity: existingItem.quantity + quantity })
         .eq("id", existingItem.id);
@@ -163,18 +106,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true });
     }
 
-    // 🔥 INSERT WITH SNAPSHOT
-    const { error: insertError } = await serviceSupabase
-      .from("cart_items")
-      .insert({
-        cart_id: cart.id,
-        product_id,
-        quantity,
-        name_ar: product?.name_ar ?? "",
-        name_en: product?.name_en ?? "",
-        price: Number(product?.price ?? 0),
-        image: product?.image ?? product?.image_url ?? null,
-      });
+    const { error: insertError } = await supabase.from("cart_items").insert({
+      cart_id: cart.id,
+      product_id,
+      quantity,
+    });
 
     if (insertError) {
       return NextResponse.json(
@@ -184,7 +120,6 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ success: true }, { status: 201 });
-
   } catch (err: any) {
     return NextResponse.json(
       { error: err.message || "Unexpected error" },
@@ -194,7 +129,8 @@ export async function POST(req: Request) {
 }
 
 // ===============================
-// PATCH: Update quantity
+// PATCH: Update item quantity
+// Body: { product_id: string, quantity: number }
 // ===============================
 export async function PATCH(req: Request) {
   const user = await getUserFromRequest(req);
@@ -213,7 +149,7 @@ export async function PATCH(req: Request) {
   }
 
   try {
-    const { data: cart } = await serviceSupabase
+    const { data: cart } = await supabase
       .from("carts")
       .select("*")
       .eq("user_id", user.id)
@@ -224,7 +160,7 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "Cart not found" }, { status: 404 });
     }
 
-    const { error } = await serviceSupabase
+    const { error } = await supabase
       .from("cart_items")
       .update({ quantity })
       .eq("cart_id", cart.id)
@@ -247,7 +183,8 @@ export async function PATCH(req: Request) {
 }
 
 // ===============================
-// DELETE: Remove item
+// DELETE: Remove item from cart
+// Body: { product_id: string }
 // ===============================
 export async function DELETE(req: Request) {
   const user = await getUserFromRequest(req);
@@ -266,7 +203,7 @@ export async function DELETE(req: Request) {
   }
 
   try {
-    const { data: cart } = await serviceSupabase
+    const { data: cart } = await supabase
       .from("carts")
       .select("*")
       .eq("user_id", user.id)
@@ -277,7 +214,7 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Cart not found" }, { status: 404 });
     }
 
-    const { error } = await serviceSupabase
+    const { error } = await supabase
       .from("cart_items")
       .delete()
       .eq("cart_id", cart.id)
