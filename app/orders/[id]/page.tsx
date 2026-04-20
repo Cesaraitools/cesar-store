@@ -9,8 +9,9 @@ import { CheckCircle2, Circle, Clock, Package, Truck, Check, AlertCircle } from 
 Types
 ================================ */
 
-type OrderItem = {
-  name: string;
+type OrderItemDTO = {
+  name_ar: string;
+  name_en: string;
   quantity: number;
   price: number;
 };
@@ -21,7 +22,7 @@ type OrderDetails = {
   created_at: string;
   currency: string;
   status: string | null;
-  items: OrderItem[];
+  items: OrderItemDTO[];
   subtotal: number;
   shipping_fee: number;
   discount: number;
@@ -327,9 +328,9 @@ export default function OrderDetailsPage() {
           <div className="bg-white rounded-2xl border shadow-sm overflow-hidden transition-all hover:shadow-md">
             <div className="divide-y divide-gray-50">
               {order.items.map((item) => (
-                <div key={`${item.name}-${item.price}`} className="p-5 flex justify-between items-center group">
+                <div key={`${item.name_ar || item.name_en || "—"}-${item.price}`} className="p-5 flex justify-between items-center group">
                   <div className="space-y-1">
-                    <p className="text-sm font-bold group-hover:text-blue-600 transition-colors">{item.name}</p>
+                    <p className="text-sm font-bold group-hover:text-blue-600 transition-colors">{item.name_ar || item.name_en || "—"}</p>
                     <p className="text-xs text-muted-foreground italic">الكمية: {item.quantity}</p>
                   </div>
                   <div className="text-sm font-semibold text-gray-900">

@@ -109,6 +109,44 @@ export async function POST(request: Request) {
       );
     }
 
+    /* ================= SAFE DB SYNC ================= */
+
+    let finalItems: any[] = [];
+
+    try {
+      const { data: cart } = await serviceSupabase
+        .from("carts")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .single();
+
+      if (cart) {
+        const { data: cartItems } = await serviceSupabase
+          .from("cart_items")
+          .select("product_id, quantity, name_ar, name_en, price, image")
+          .eq("cart_id", cart.id);
+
+        if (!cartItems || cartItems.length === 0) {
+  return NextResponse.json(
+    { error: "Cart is empty in DB" },
+    { status: 400 }
+  );
+}
+
+finalItems = cartItems.map((ci) => ({
+  product_id: ci.product_id,
+  quantity: ci.quantity,
+  name_ar: ci.name_ar,
+  name_en: ci.name_en,
+  price: ci.price,
+  image: ci.image ?? null,
+}));
+      }
+    } catch {
+      // fallback → frontend items
+    }
+
     /* ================= Duplicate Order Protection ================= */
 
     const tenSecondsAgo = new Date(Date.now() - 10000).toISOString();
@@ -121,7 +159,25 @@ export async function POST(request: Request) {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+    /* ================= CLEAR CART ================= */
 
+try {
+  const { data: cart } = await serviceSupabase
+    .from("carts")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .single();
+
+  if (cart) {
+    await serviceSupabase
+      .from("cart_items")
+      .delete()
+      .eq("cart_id", cart.id);
+  }
+} catch (err) {
+  console.error("CLEAR CART ERROR:", err);
+}
     if (recentOrder) {
       return NextResponse.json({
         success: true,
@@ -137,15 +193,21 @@ export async function POST(request: Request) {
 
     const items_snapshot: any[] = [];
 
-    for (const item of items) {
-      items_snapshot.push({
-        product_id: String(item.product_id),
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-        image: item.image ?? null,
-      });
-    }
+    for (const item of finalItems) {
+  items_snapshot.push({
+    product_id: String(item.product_id),
+
+    name_ar: item.name_ar ?? "",
+    name_en: item.name_en ?? "",
+
+    // fallback احتياطي
+    name: item.name_ar || item.name_en || "",
+
+    price: item.price,
+    quantity: item.quantity,
+    image: item.image ?? null,
+  });
+}
 
     const subtotal = items_snapshot.reduce(
       (sum, i) => sum + i.price * i.quantity,
@@ -167,7 +229,7 @@ export async function POST(request: Request) {
       .insert({
         id,
         order_number,
-        status: "requested", // 🔥 FIX
+        status: "requested",
         subtotal,
         total: subtotal,
         currency,
@@ -192,7 +254,6 @@ export async function POST(request: Request) {
 
     await serviceSupabase.from("order_tracking_events").insert([
       { order_id: id, status: "requested", actor: "system" },
-      // ❌ حذف confirmed من البداية
     ]);
 
     return NextResponse.json({
