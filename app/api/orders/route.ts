@@ -109,45 +109,8 @@ export async function POST(request: Request) {
       );
     }
 
-    /* ================= SAFE DB SYNC ================= */
-
-    let finalItems: any[] = [];
-
-    try {
-      const { data: cart } = await serviceSupabase
-        .from("carts")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("status", "active")
-        .single();
-
-      if (cart) {
-        const { data: cartItems } = await serviceSupabase
-          .from("cart_items")
-          .select("product_id, quantity, name_ar, name_en, price, image")
-          .eq("cart_id", cart.id);
-
-        if (!cartItems || cartItems.length === 0) {
-  return NextResponse.json(
-    { error: "Cart is empty in DB" },
-    { status: 400 }
-  );
-}
-
-finalItems = cartItems.map((ci) => ({
-  product_id: ci.product_id,
-  quantity: ci.quantity,
-  name_ar: ci.name_ar,
-  name_en: ci.name_en,
-  price: ci.price,
-  image: ci.image ?? null,
-}));
-      }
-    } catch {
-      // fallback → frontend items
-    }
-
-    /* ================= Duplicate Order Protection ================= */
+    /* ================= DUPLICATE ORDER PROTECTION (أولاً) ================= */
+    // ✅ التحقق من الطلب المكرر قبل أي عملية على الكارت
 
     const tenSecondsAgo = new Date(Date.now() - 10000).toISOString();
 
@@ -159,32 +122,56 @@ finalItems = cartItems.map((ci) => ({
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    /* ================= CLEAR CART ================= */
 
-try {
-  const { data: cart } = await serviceSupabase
-    .from("carts")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("status", "active")
-    .single();
-
-  if (cart) {
-    await serviceSupabase
-      .from("cart_items")
-      .delete()
-      .eq("cart_id", cart.id);
-  }
-} catch (err) {
-  console.error("CLEAR CART ERROR:", err);
-}
     if (recentOrder) {
+      // ✅ نرجع فوراً بدون مسح الكارت
       return NextResponse.json({
         success: true,
         reused: true,
         orderId: recentOrder.id,
         order_number: recentOrder.order_number,
       });
+    }
+
+    /* ================= SAFE DB SYNC ================= */
+
+    let finalItems: any[] = [];
+    let cartId: string | null = null;
+
+    try {
+      const { data: cart } = await serviceSupabase
+        .from("carts")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .single();
+
+      if (cart) {
+        cartId = cart.id;
+
+        const { data: cartItems } = await serviceSupabase
+          .from("cart_items")
+          .select("product_id, quantity, name_ar, name_en, price, image")
+          .eq("cart_id", cart.id);
+
+        if (!cartItems || cartItems.length === 0) {
+          return NextResponse.json(
+            { error: "Cart is empty in DB" },
+            { status: 400 }
+          );
+        }
+
+        finalItems = cartItems.map((ci) => ({
+          product_id: ci.product_id,
+          quantity: ci.quantity,
+          name_ar: ci.name_ar,
+          name_en: ci.name_en,
+          price: ci.price,
+          image: ci.image ?? null,
+        }));
+      }
+    } catch {
+      // fallback → frontend items
     }
 
     /* ================= Build Order ================= */
@@ -194,20 +181,17 @@ try {
     const items_snapshot: any[] = [];
 
     for (const item of finalItems) {
-  items_snapshot.push({
-    product_id: String(item.product_id),
-
-    name_ar: item.name_ar ?? "",
-    name_en: item.name_en ?? "",
-
-    // fallback احتياطي
-    name: item.name_ar || item.name_en || "",
-
-    price: item.price,
-    quantity: item.quantity,
-    image: item.image ?? null,
-  });
-}
+      items_snapshot.push({
+        product_id: String(item.product_id),
+        name_ar: item.name_ar ?? "",
+        name_en: item.name_en ?? "",
+        // fallback احتياطي
+        name: item.name_ar || item.name_en || "",
+        price: item.price,
+        quantity: item.quantity,
+        image: item.image ?? null,
+      });
+    }
 
     const subtotal = items_snapshot.reduce(
       (sum, i) => sum + i.price * i.quantity,
@@ -256,12 +240,26 @@ try {
       { order_id: id, status: "requested", actor: "system" },
     ]);
 
+    /* ================= CLEAR CART (بعد نجاح الأوردر فقط) ================= */
+    // ✅ نمسح الكارت فقط بعد ما الأوردر يتحفظ بنجاح
+
+    try {
+      if (cartId) {
+        await serviceSupabase
+          .from("cart_items")
+          .delete()
+          .eq("cart_id", cartId);
+      }
+    } catch (err) {
+      console.error("CLEAR CART ERROR:", err);
+      // لا نوقف العملية — الأوردر اتحفظ بالفعل
+    }
+
     return NextResponse.json({
       success: true,
       orderId: id,
       order_number,
     });
-
   } catch (error) {
     console.error("Unexpected POST error:", error);
 
