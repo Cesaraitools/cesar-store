@@ -100,98 +100,54 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { currency = "EGP", customer } = body;
+    const { currency = "EGP", customer, items } = body;
 
-    /* ================= GET CART FROM DB ================= */
-
-    const { data: cart } = await serviceSupabase
-      .from("carts")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("status", "active")
-      .single();
-
-    if (!cart) {
+    if (!Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
-        { error: "No active cart found" },
+        { error: "Invalid order payload" },
         { status: 400 }
       );
     }
 
-    const { data: cartItems } = await serviceSupabase
-      .from("cart_items")
-      .select("product_id, quantity")
-      .eq("cart_id", cart.id);
+    /* ================= SAFE DB SYNC ================= */
 
-    if (!cartItems || cartItems.length === 0) {
-      return NextResponse.json(
-        { error: "Cart is empty" },
-        { status: 400 }
-      );
+    let finalItems: any[] = [];
+
+    try {
+      const { data: cart } = await serviceSupabase
+        .from("carts")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .single();
+
+      if (cart) {
+        const { data: cartItems } = await serviceSupabase
+          .from("cart_items")
+          .select("product_id, quantity, name_ar, name_en, price, image")
+          .eq("cart_id", cart.id);
+
+        if (!cartItems || cartItems.length === 0) {
+  return NextResponse.json(
+    { error: "Cart is empty in DB" },
+    { status: 400 }
+  );
+}
+
+finalItems = cartItems.map((ci) => ({
+  product_id: ci.product_id,
+  quantity: ci.quantity,
+  name_ar: ci.name_ar,
+  name_en: ci.name_en,
+  price: ci.price,
+  image: ci.image ?? null,
+}));
+      }
+    } catch {
+      // fallback → frontend items
     }
 
-    /* ================= FETCH PRODUCTS ================= */
-
-    const productIds = cartItems.map((ci) => ci.product_id);
-
-    const { data: products } = await serviceSupabase
-      .from("products")
-      .select("id, price, name_ar, name_en, image_url, active, stock")
-      .in("id", productIds);
-
-    if (!products || products.length !== cartItems.length) {
-      return NextResponse.json(
-        { error: "Some products not found" },
-        { status: 400 }
-      );
-    }
-
-    /* ================= VALIDATION ================= */
-
-    const finalItems: any[] = [];
-
-    for (const ci of cartItems) {
-      const product = products.find((p) => p.id === ci.product_id);
-
-      if (!product) {
-        return NextResponse.json(
-          { error: "Product not found" },
-          { status: 400 }
-        );
-      }
-
-      if (product.active === false) {
-        return NextResponse.json(
-          { error: "Product is not active" },
-          { status: 400 }
-        );
-      }
-
-      if (product.stock <= 0) {
-        return NextResponse.json(
-          { error: "Product out of stock" },
-          { status: 400 }
-        );
-      }
-
-      if (ci.quantity > product.stock) {
-        return NextResponse.json(
-          { error: "Insufficient stock" },
-          { status: 400 }
-        );
-      }
-
-      finalItems.push({
-        product_id: ci.product_id,
-        quantity: ci.quantity,
-        name_ar: product.name_ar,
-        name_en: product.name_en,
-        price: product.price,
-        image: product.image_url ?? null,
-      });
-    }
-
-    /* ================= DUPLICATE ORDER PROTECTION ================= */
+    /* ================= Duplicate Order Protection ================= */
 
     const tenSecondsAgo = new Date(Date.now() - 10000).toISOString();
 
@@ -200,8 +156,28 @@ export async function POST(request: Request) {
       .select("id, order_number")
       .eq("user_id", user.id)
       .gte("created_at", tenSecondsAgo)
+      .order("created_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
+    /* ================= CLEAR CART ================= */
 
+try {
+  const { data: cart } = await serviceSupabase
+    .from("carts")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .single();
+
+  if (cart) {
+    await serviceSupabase
+      .from("cart_items")
+      .delete()
+      .eq("cart_id", cart.id);
+  }
+} catch (err) {
+  console.error("CLEAR CART ERROR:", err);
+}
     if (recentOrder) {
       return NextResponse.json({
         success: true,
@@ -211,19 +187,27 @@ export async function POST(request: Request) {
       });
     }
 
-    /* ================= BUILD ORDER ================= */
+    /* ================= Build Order ================= */
 
     const id = crypto.randomUUID();
 
-    const items_snapshot = finalItems.map((item) => ({
-      product_id: String(item.product_id),
-      name_ar: item.name_ar ?? "",
-      name_en: item.name_en ?? "",
-      name: item.name_ar || item.name_en || "",
-      price: item.price,
-      quantity: item.quantity,
-      image: item.image,
-    }));
+    const items_snapshot: any[] = [];
+
+    for (const item of finalItems) {
+  items_snapshot.push({
+    product_id: String(item.product_id),
+
+    name_ar: item.name_ar ?? "",
+    name_en: item.name_en ?? "",
+
+    // fallback احتياطي
+    name: item.name_ar || item.name_en || "",
+
+    price: item.price,
+    quantity: item.quantity,
+    image: item.image ?? null,
+  });
+}
 
     const subtotal = items_snapshot.reduce(
       (sum, i) => sum + i.price * i.quantity,
@@ -238,7 +222,7 @@ export async function POST(request: Request) {
 
     const order_number = generateOrderNumber();
 
-    /* ================= INSERT ORDER ================= */
+    /* -------- INSERT ORDER -------- */
 
     const { error: orderError } = await serviceSupabase
       .from("orders")
@@ -252,32 +236,25 @@ export async function POST(request: Request) {
         customer_snapshot,
         items_snapshot,
         user_id: user.id,
+        created_at: new Date().toISOString(),
       });
 
     if (orderError) {
       console.error("ORDER INSERT ERROR:", orderError);
+
       return NextResponse.json(
-        { error: "Order creation failed" },
+        { error: "Order creation failed", details: orderError.message },
         { status: 500 }
       );
     }
 
-    /* ================= TRACKING ================= */
+    console.log("ORDER CREATED:", id);
+
+    /* -------- TRACKING EVENTS -------- */
 
     await serviceSupabase.from("order_tracking_events").insert([
-      {
-        order_id: id,
-        status: "requested",
-        actor: "system",
-      },
+      { order_id: id, status: "requested", actor: "system" },
     ]);
-
-    /* ================= CLEAR CART (AFTER SUCCESS ONLY) ================= */
-
-    await serviceSupabase
-      .from("cart_items")
-      .delete()
-      .eq("cart_id", cart.id);
 
     return NextResponse.json({
       success: true,
@@ -285,8 +262,12 @@ export async function POST(request: Request) {
       order_number,
     });
 
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  } catch (error) {
+    console.error("Unexpected POST error:", error);
+
+    return NextResponse.json(
+      { error: "Unexpected server error" },
+      { status: 500 }
+    );
   }
 }

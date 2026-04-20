@@ -30,8 +30,10 @@ export default function ProductCard({ product }: Props) {
       : product.description.en;
 
   const handleAddToCart = () => {
-    addToCart({
-  id: product.id,
+    console.log("PRODUCT ID:", product.id);
+    
+   addToCart({
+  id: String(product.id),
   name: lang === "ar" ? product.name.ar : product.name.en,
   price: product.price,
   image: product.images?.[0] || "/placeholder.png",
