@@ -96,6 +96,8 @@ items: [],
 
 const hasSyncedWithApi = useRef(false);
 const isMerging = useRef(false);
+// ✅ FIX: يتذكر آخر userId اتعمله merge — يمنع إعادة الـ merge عند تجديد الـ session
+const mergedForUserId = useRef<string | null>(null);
 
 /* ---------- Load cart once ---------- */
 useEffect(() => {
@@ -133,9 +135,14 @@ useEffect(() => {
 if (!user || !session) return;
 if (isMerging.current) return;
 
+// ✅ FIX: لو عملنا merge لنفس المستخدم قبل كده → لا تعيد الـ merge
+// هذا يمنع تكرار الـ merge عند تجديد الـ session تلقائياً
+if (mergedForUserId.current === user.id) return;
+
 const mergeCart = async () => {
   try {
     isMerging.current = true;
+    mergedForUserId.current = user.id;
 
     // 🔥 STEP 1: merge local → DB
     if (cart.items.length > 0) {
@@ -194,6 +201,7 @@ const mergeCart = async () => {
 
   } catch {
     // silent fail
+    isMerging.current = false;
   }
 };
 

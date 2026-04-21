@@ -75,10 +75,11 @@ export async function POST(req: Request) {
       );
 
       if (existing) {
+        // ✅ FIX: استبدل الكمية بدل ما تجمعها — الـ local cart هو المصدر الصح
         await serviceSupabase
           .from("cart_items")
           .update({
-            quantity: existing.quantity + item.quantity,
+            quantity: item.quantity,
           })
           .eq("id", existing.id);
       } else {

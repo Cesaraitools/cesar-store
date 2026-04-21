@@ -148,9 +148,10 @@ export async function POST(req: Request) {
       .single();
 
     if (existingItem) {
+      // ✅ FIX: استبدل الكمية بدل ما تجمعها — الـ context هو المصدر الصح للكمية
       const { error: updateError } = await serviceSupabase
         .from("cart_items")
-        .update({ quantity: existingItem.quantity + quantity })
+        .update({ quantity })
         .eq("id", existingItem.id);
 
       if (updateError) {
