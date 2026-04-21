@@ -5,6 +5,7 @@ import { CheckoutProvider } from "@/context/CheckoutContext";
 import { LanguageProvider } from "@/context/LanguageContext";
 import { AuthProvider } from "@/context/AuthContext";
 import Navbar from "@/components/Navbar";
+import { Toaster } from "react-hot-toast";
 
 export const metadata = {
   title: "متجر سيزر | Cesar Store",
@@ -30,7 +31,7 @@ export default function RootLayout({
                   <main className="flex-grow pt-5 md:pt-7">
                     {children}
                   </main>
-
+                    <Toaster position="top-center" />
                   {/* Footer بسيط وعصري */}
                   <footer className="bg-white border-t border-slate-100 py-8 text-center text-slate-400 text-sm font-medium">
                     © {new Date().getFullYear()} متجر سيزر. جميع الحقوق محفوظة.

@@ -173,8 +173,38 @@ export async function POST(request: Request) {
     } catch {
       // fallback → frontend items
     }
-
+// 🔥 fallback لو DB فشل
+if (finalItems.length === 0 && Array.isArray(items)) {
+  finalItems = items;
+}
     /* ================= Build Order ================= */
+if (!finalItems || finalItems.length === 0) {
+  return NextResponse.json(
+    { error: "Order has no valid items" },
+    { status: 400 }
+  );
+}
+
+for (const item of finalItems) {
+  if (!item.product_id || item.quantity <= 0 || item.price <= 0) {
+    return NextResponse.json(
+      { error: "Invalid item data" },
+      { status: 400 }
+    );
+  }
+}
+const uniqueMap = new Map();
+
+for (const item of finalItems) {
+  if (!uniqueMap.has(item.product_id)) {
+    uniqueMap.set(item.product_id, item);
+  } else {
+    const existing = uniqueMap.get(item.product_id);
+    existing.quantity += item.quantity;
+  }
+}
+
+finalItems = Array.from(uniqueMap.values());
 
     const id = crypto.randomUUID();
 

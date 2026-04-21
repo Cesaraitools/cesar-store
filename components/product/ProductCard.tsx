@@ -14,7 +14,9 @@ type Props = {
 export default function ProductCard({ product }: Props) {
   const { addToCart } = useCart();
   const { lang } = useLanguage();
+
   const [imgError, setImgError] = useState(false);
+  const [isAdding, setIsAdding] = useState(false); // ✅ NEW
 
   const imageSrc =
     !imgError && product.images && product.images.length > 0
@@ -30,14 +32,24 @@ export default function ProductCard({ product }: Props) {
       : product.description.en;
 
   const handleAddToCart = () => {
+
+    if (isAdding) return; // ✅ lock
+
+    setIsAdding(true);
+
     console.log("PRODUCT ID:", product.id);
-    
-   addToCart({
-  id: String(product.id),
-  name: lang === "ar" ? product.name.ar : product.name.en,
-  price: product.price,
-  image: product.images?.[0] || "/placeholder.png",
-});
+
+    addToCart({
+      id: String(product.id),
+      name: lang === "ar" ? product.name.ar : product.name.en,
+      price: product.price,
+      image: product.images?.[0] || "/placeholder.png",
+    });
+
+    // unlock سريع (مفيش API هنا)
+    setTimeout(() => {
+      setIsAdding(false);
+    }, 300);
   };
 
   return (
@@ -49,8 +61,8 @@ export default function ProductCard({ product }: Props) {
             src={getSafeImage(product.images?.[0])}
             onError={(e) => {
               (e.currentTarget as HTMLImageElement).src = "/placeholder.png";
-          }}
-       />
+            }}
+          />
         </div>
       </Link>
 
@@ -73,9 +85,12 @@ export default function ProductCard({ product }: Props) {
 
           <button
             onClick={handleAddToCart}
-            className="w-full bg-black text-white py-2 text-sm rounded-lg hover:opacity-90 transition"
+            disabled={isAdding} // ✅ prevent spam
+            className="w-full bg-black text-white py-2 text-sm rounded-lg hover:opacity-90 transition disabled:opacity-50"
           >
-            {lang === "ar" ? "أضف إلى السلة" : "Add to Cart"}
+            {isAdding
+              ? (lang === "ar" ? "جاري الإضافة..." : "Adding...")
+              : (lang === "ar" ? "أضف إلى السلة" : "Add to Cart")}
           </button>
         </div>
       </div>

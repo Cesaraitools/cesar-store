@@ -126,7 +126,10 @@ try {
   });
 
   hasSyncedWithApi.current = true;
-} catch {}
+} catch (err) {
+  console.warn("Cart init failed");
+  hasSyncedWithApi.current = false;
+}
 
 };
 
@@ -220,8 +223,8 @@ setCart((prev) => {
   );
 
   if (existing) {
-    return prev;
-  }
+  return prev;
+}
 
   const newItem: CartItem = {
     id: generateUUID(),
@@ -242,18 +245,26 @@ setCart((prev) => {
   };
 
   if (user && session) {
-    fetch("/api/cart/items", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({
-        product_id: product.id,
-        quantity: 1,
-      }),
-    }).catch(() => {});
-  }
+  const syncWithDb = async () => {
+    try {
+      await fetch("/api/cart/items", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          product_id: product.id,
+          quantity: 1,
+        }),
+      });
+    } catch (err) {
+      console.warn("Cart sync failed (POST)");
+    }
+  };
+
+  syncWithDb();
+}
 
   return {
     ...prev,
@@ -268,18 +279,26 @@ setCart((prev) => {
 const item = prev.items.find((i) => i.id === cartItemId);
 
   if (item && user && session) {
-    fetch("/api/cart/items", {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({
-        product_id: item.product_id,
-        quantity,
-      }),
-    }).catch(() => {});
-  }
+  const syncWithDb = async () => {
+    try {
+      await fetch("/api/cart/items", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          product_id: item.product_id,
+          quantity,
+        }),
+      });
+    } catch (err) {
+      console.warn("Cart sync failed (PATCH)");
+    }
+  };
+
+  syncWithDb();
+}
 
   return {
     ...prev,
@@ -296,17 +315,25 @@ setCart((prev) => {
 const item = prev.items.find((i) => i.id === cartItemId);
 
   if (item && user && session) {
-    fetch("/api/cart/items", {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({
-        product_id: item.product_id,
-      }),
-    }).catch(() => {});
-  }
+  const syncWithDb = async () => {
+    try {
+      await fetch("/api/cart/items", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          product_id: item.product_id,
+        }),
+      });
+    } catch (err) {
+      console.warn("Cart sync failed (DELETE)");
+    }
+  };
+
+  syncWithDb();
+}
 
   return {
     ...prev,

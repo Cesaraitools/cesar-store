@@ -8,6 +8,7 @@ import { useCart } from "@/context/CartContext";
 import { useCheckout } from "@/context/CheckoutContext";
 import { useOrderTracking } from "@/context/OrderTrackingContext";
 import { useAuth } from "@/context/AuthContext";
+import toast from "react-hot-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { 
   ShoppingBag, 
@@ -55,11 +56,13 @@ export default function ReviewPage() {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      router.replace("/auth/login?redirect=/review");
-    }
+  router.replace("/auth/login?redirect=/review");
+  return; // 🔥 مهم جدًا
+}
   }, [authLoading, user, router]);
 
-  if (authLoading || !user) {
+  if (authLoading) {
+    if (!user) return null;
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-white" dir="rtl">
         <Loader2 className="animate-spin text-blue-600" size={32} />
@@ -101,10 +104,11 @@ export default function ReviewPage() {
       const { data: { session } } = await supabase.auth.getSession();
 
       if (!session) {
-        alert("انتهت جلسة تسجيل الدخول، يرجى تسجيل الدخول مرة أخرى.");
-        router.push("/auth/login?redirect=/review");
-        return;
-      }
+  toast.error("انتهت الجلسة، يرجى تسجيل الدخول مرة أخرى");
+  setIsSubmitting(false);
+  router.push("/auth/login?redirect=/review");
+  return;
+}
 
       const customerSnapshot = {
         name: checkoutData.name,
@@ -174,13 +178,19 @@ ${productsText}
 
 💰 الإجمالي: ${total} جنيه`;
 
-      window.open(
-        `https://wa.me/201211120208?text=${encodeURIComponent(message)}`,
-        "_blank"
-      );
+      const whatsappWindow = window.open(
+  `https://wa.me/201211120208?text=${encodeURIComponent(message)}`,
+  "_blank"
+);
+
+if (!whatsappWindow) {
+  toast("تعذر فتح واتساب ⚠️", {
+  icon: "⚠️",
+});
+}
 
       /* ============================================================= */
-
+        toast.success("تم إنشاء الطلب بنجاح 🎉");
       clearCart();
 
       router.push(`/confirm?orderId=${orderId}`);
@@ -188,7 +198,7 @@ ${productsText}
     } catch (err) {
 
       console.error(err);
-      alert("حدث خطأ، يرجى المحاولة مرة أخرى.");
+      toast.error("حدث خطأ، حاول مرة أخرى");
 
     } finally {
 
@@ -353,8 +363,11 @@ ${productsText}
               >
 
                 {isSubmitting ? (
-                  <Loader2 className="animate-spin" />
-                ) : (
+  <>
+    <Loader2 className="animate-spin" />
+    جاري إرسال الطلب...
+  </>
+) : (
                   <>
                     <MessageCircle size={22} fill="currentColor" />
                     تأكيد وإرسال لواتساب
