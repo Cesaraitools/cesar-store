@@ -44,7 +44,12 @@ async function getUserFromRequest(req: Request) {
 async function getOrCreateActiveCart(userId: string) {
   const { data: existingCart, error } = await serviceSupabase
     .from("carts")
-    .select("*")
+    .select(`
+  *,
+  products (
+    stock
+  )
+`)
     .eq("user_id", userId)
     .eq("status", "active")
     .single();
@@ -91,7 +96,12 @@ export async function GET(req: Request) {
 
     const { data: items, error } = await serviceSupabase
       .from("cart_items")
-      .select("*")
+      .select(`
+  *,
+  products (
+    stock
+  )
+`)
       .eq("cart_id", cart.id);
 
     if (error) {
@@ -100,8 +110,11 @@ export async function GET(req: Request) {
         { status: 500 }
       );
     }
-
-    return NextResponse.json({ items: items || [] }, { status: 200 });
+const formattedItems = (items || []).map((item: any) => ({
+  ...item,
+  stock: item.products?.stock ?? 0,
+}));
+    return NextResponse.json({ items: formattedItems }, { status: 200 });
   } catch {
     return NextResponse.json(
       { error: "Unexpected error" },
