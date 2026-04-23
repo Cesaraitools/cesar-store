@@ -115,8 +115,9 @@ export default function ReviewPage() {
         phone: checkoutData.phone,
         address: checkoutData.address,
       };
-
+      const orderToken = crypto.randomUUID();
       const itemsSnapshot = cartItems.map((item) => ({
+        
         id: generateUUID(),
         product_id: item.product_id,
         name: item.name,
@@ -136,6 +137,7 @@ export default function ReviewPage() {
           currency: "EGP",
           customer: customerSnapshot,
           items: itemsSnapshot,
+          order_token: orderToken,
         }),
       });
 

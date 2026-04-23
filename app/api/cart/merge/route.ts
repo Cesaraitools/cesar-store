@@ -42,12 +42,15 @@ export async function POST(req: Request) {
 
     /* ================= Get or Create Cart ================= */
 
-    let { data: cart } = await serviceSupabase
-      .from("carts")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("status", "active")
-      .single();
+    const { data: carts } = await serviceSupabase
+  .from("carts")
+  .select("*")
+  .eq("user_id", user.id)
+  .eq("status", "active")
+  .order("created_at", { ascending: true })
+  .limit(1);
+
+let cart = carts?.[0] ?? null;
 
     if (!cart) {
       const { data: newCart } = await serviceSupabase

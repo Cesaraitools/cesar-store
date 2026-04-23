@@ -9,7 +9,7 @@ useEffect,
 useRef,
 } from "react";
 import { useAuth } from "@/context/AuthContext";
-
+import toast from "react-hot-toast";
 /* ---------------- Types ---------------- */
 
 export type CartItem = {
@@ -223,6 +223,7 @@ setCart((prev) => {
   );
 
   if (existing) {
+    toast.error("المنتج موجود بالفعل في السلة");
   return prev;
 }
 

@@ -100,6 +100,14 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
+    const { order_token } = body;
+
+if (!order_token) {
+  return NextResponse.json(
+    { error: "Missing order token" },
+    { status: 400 }
+  );
+}
     const { currency = "EGP", customer, items } = body;
 
     if (!Array.isArray(items) || items.length === 0) {
@@ -112,26 +120,21 @@ export async function POST(request: Request) {
     /* ================= DUPLICATE ORDER PROTECTION (أولاً) ================= */
     // ✅ التحقق من الطلب المكرر قبل أي عملية على الكارت
 
-    const tenSecondsAgo = new Date(Date.now() - 10000).toISOString();
+    // 🔒 Idempotency: منع تكرار الطلب بنفس token
+const { data: existingOrder } = await serviceSupabase
+  .from("orders")
+  .select("id, order_number")
+  .eq("order_token", order_token)
+  .maybeSingle();
 
-    const { data: recentOrder } = await serviceSupabase
-      .from("orders")
-      .select("id, order_number")
-      .eq("user_id", user.id)
-      .gte("created_at", tenSecondsAgo)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (recentOrder) {
-      // ✅ نرجع فوراً بدون مسح الكارت
-      return NextResponse.json({
-        success: true,
-        reused: true,
-        orderId: recentOrder.id,
-        order_number: recentOrder.order_number,
-      });
-    }
+if (existingOrder) {
+  return NextResponse.json({
+    success: true,
+    reused: true,
+    orderId: existingOrder.id,
+    order_number: existingOrder.order_number,
+  });
+}
 
     /* ================= SAFE DB SYNC ================= */
 
@@ -205,6 +208,35 @@ for (const item of finalItems) {
 }
 
 finalItems = Array.from(uniqueMap.values());
+// 🔒 STOCK CHECK (Inventory Protection)
+const productIds = finalItems.map((item) => item.product_id);
+
+const { data: products } = await serviceSupabase
+  .from("products")
+  .select("id, stock, is_active")
+  .in("id", productIds);
+
+for (const item of finalItems) {
+  const product = products?.find((p) => p.id === item.product_id);
+
+  if (!product || !product.is_active) {
+    return NextResponse.json(
+      { error: "Product not available" },
+      { status: 400 }
+    );
+  }
+
+  if (product.stock < item.quantity) {
+    return NextResponse.json(
+      {
+        error: `Insufficient stock for product`,
+        product_id: item.product_id,
+        available: product.stock,
+      },
+      { status: 400 }
+    );
+  }
+}
 
     const id = crypto.randomUUID();
 
@@ -250,6 +282,7 @@ finalItems = Array.from(uniqueMap.values());
         customer_snapshot,
         items_snapshot,
         user_id: user.id,
+        order_token,
         created_at: new Date().toISOString(),
       });
 

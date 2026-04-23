@@ -22,15 +22,46 @@ export default function RegisterPage() {
 
     try {
       setLoading(true);
+      // 🔍 محاولة تسجيل دخول لمعرفة إذا كان الحساب موجود (Google أو Email)
+const { error: checkError } = await supabase.auth.signInWithPassword({
+  email,
+  password: "fake_password_check_123",
+});
 
-      const { data, error: signUpError } =
-        await supabase.auth.signUp({
-          email,
-          password,
-        });
+if (checkError && !checkError.message.includes("Invalid login credentials")) {
+  setError("هذا البريد مرتبط بحساب Google، قم بتسجيل الدخول باستخدام Google");
+  setLoading(false);
+  return;
+}
 
-      if (signUpError) throw signUpError;
-      if (!data.user) throw new Error("فشل إنشاء المستخدم");
+// 🔍 CHECK: هل الإيميل موجود قبل التسجيل
+const { data: existingUsers } = await supabase.auth.admin.listUsers();
+
+const exists = existingUsers?.users?.some(
+  (u: any) => u.email?.toLowerCase() === email.toLowerCase()
+);
+
+if (exists) {
+  throw new Error("هذا البريد الإلكتروني مسجل بالفعل، قم بتسجيل الدخول");
+}
+
+// ✅ إنشاء المستخدم
+const { data, error: signUpError } =
+  await supabase.auth.signUp({
+    email,
+    password,
+  });
+
+if (signUpError) {
+  if (signUpError.message.includes("already registered")) {
+    setError("هذا البريد مسجل بالفعل، قم بتسجيل الدخول");
+  } else {
+    setError("حدث خطأ أثناء إنشاء الحساب");
+  }
+  setLoading(false);
+  return;
+}
+if (!data.user) throw new Error("فشل إنشاء المستخدم");
 
       /**
        * NOTE:
@@ -42,8 +73,20 @@ export default function RegisterPage() {
 
       setSuccess(true);
 
+setTimeout(() => {
+  window.location.href = "/auth/login";
+}, 1500);
+
     } catch (err: any) {
-      setError(err.message || "حدث خطأ");
+      if (err.message.includes("already registered")) {
+  setError("هذا البريد مسجل بالفعل، قم بتسجيل الدخول");
+} else if (err.message.includes("invalid email")) {
+  setError("البريد الإلكتروني غير صحيح");
+} else if (err.message.includes("Password should be")) {
+  setError("كلمة المرور ضعيفة (على الأقل 6 أحرف)");
+} else {
+  setError("حدث خطأ، حاول مرة أخرى");
+}
 
     } finally {
       setLoading(false);
