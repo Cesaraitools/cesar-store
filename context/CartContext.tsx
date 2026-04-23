@@ -16,7 +16,7 @@ export type CartItem = {
 id: string;
 cart_id: string;
 product_id: string;
-
+stock?: number;
 // ✅ الجديد
 name_ar?: string;
 name_en?: string;
@@ -242,6 +242,7 @@ setCart((prev) => {
     price: Number(product.price),
     image: sanitizeImage(product.image),
     quantity: 1,
+    stock: product.stock,
     created_at: new Date().toISOString(),
   };
 
@@ -277,8 +278,15 @@ setCart((prev) => {
 
 const updateQuantity = (cartItemId: string, quantity: number) => {
 setCart((prev) => {
-const item = prev.items.find((i) => i.id === cartItemId);
+  const item = prev.items.find((i) => i.id === cartItemId);
+  if (!item) return prev;
 
+  const maxStock = item.stock || 0;
+
+  if (quantity > maxStock) {
+    toast.error("الكمية المطلوبة غير متاحة في المخزون");
+    return prev;
+  }
   if (item && user && session) {
   const syncWithDb = async () => {
     try {
