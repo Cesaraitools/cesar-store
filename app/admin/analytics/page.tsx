@@ -1,6 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import {
+  AlertTriangle,
+  Download,
+  LineChart,
+  RotateCcw,
+  Trash2,
+} from "lucide-react";
 
 type OrdersPerDay = {
   day: string;
@@ -85,6 +93,24 @@ type FiltersState = {
   productId: string;
 };
 
+const EMPTY_FILTERS: FiltersState = {
+  from: "",
+  to: "",
+  status: "",
+  category: "",
+  productId: "",
+};
+
+const STATUS_OPTIONS = [
+  { value: "", label: "كل الحالات" },
+  { value: "requested", label: "requested" },
+  { value: "confirmed", label: "confirmed" },
+  { value: "preparing", label: "preparing" },
+  { value: "shipped", label: "shipped" },
+  { value: "delivered", label: "delivered" },
+  { value: "canceled", label: "canceled" },
+];
+
 function formatDate(value: string | null) {
   if (!value) return "—";
   return new Date(value).toLocaleDateString("ar-EG");
@@ -93,6 +119,23 @@ function formatDate(value: string | null) {
 function formatDateTime(value: string | null) {
   if (!value) return "—";
   return new Date(value).toLocaleString("ar-EG");
+}
+
+function formatMoney(value: number, currency: string) {
+  return `${Number(value || 0).toFixed(2)} ${currency}`;
+}
+
+function buildAnalyticsQuery(filters: FiltersState) {
+  const params = new URLSearchParams();
+
+  if (filters.from) params.set("from", filters.from);
+  if (filters.to) params.set("to", filters.to);
+  if (filters.status) params.set("status", filters.status);
+  if (filters.category) params.set("category", filters.category);
+  if (filters.productId) params.set("productId", filters.productId);
+
+  const query = params.toString();
+  return query ? `?${query}` : "";
 }
 
 function downloadCSV(rows: OrdersIndexRow[]) {
@@ -141,67 +184,41 @@ function formatFinancialList(
     .join(" | ");
 }
 
-const STATUS_OPTIONS = [
-  { value: "", label: "كل الحالات" },
-  { value: "requested", label: "requested" },
-  { value: "confirmed", label: "confirmed" },
-  { value: "preparing", label: "preparing" },
-  { value: "shipped", label: "shipped" },
-  { value: "delivered", label: "delivered" },
-  { value: "canceled", label: "canceled" },
-];
-
 export default function AdminAnalyticsPage() {
   const [data, setData] = useState<AnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [resettingData, setResettingData] = useState(false);
   const [page, setPage] = useState(1);
-  const [filters, setFilters] = useState<FiltersState>({
-    from: "",
-    to: "",
-    status: "",
-    category: "",
-    productId: "",
-  });
+  const [filters, setFilters] = useState<FiltersState>(EMPTY_FILTERS);
 
   const pageSize = 10;
 
-  useEffect(() => {
-    let mounted = true;
+  async function loadAnalytics(activeFilters: FiltersState) {
+    try {
+      setLoading(true);
+      setError(null);
 
-    async function load() {
-      try {
-        setLoading(true);
-        setError(null);
+      const res = await fetch(
+        `/api/admin/analytics${buildAnalyticsQuery(activeFilters)}`,
+        { cache: "no-store" }
+      );
 
-        const params = new URLSearchParams();
-
-        if (filters.from) params.set("from", filters.from);
-        if (filters.to) params.set("to", filters.to);
-        if (filters.status) params.set("status", filters.status);
-        if (filters.category) params.set("category", filters.category);
-        if (filters.productId) params.set("productId", filters.productId);
-
-        const query = params.toString();
-        const res = await fetch(
-          `/api/admin/analytics${query ? `?${query}` : ""}`
-        );
-
-        if (!res.ok) throw new Error("Failed to load analytics");
-
-        const json = (await res.json()) as AnalyticsResponse;
-        if (mounted) setData(json);
-      } catch (err: any) {
-        if (mounted) setError(err.message ?? "Unknown error");
-      } finally {
-        if (mounted) setLoading(false);
+      if (!res.ok) {
+        throw new Error("Failed to load analytics");
       }
-    }
 
-    load();
-    return () => {
-      mounted = false;
-    };
+      const json = (await res.json()) as AnalyticsResponse;
+      setData(json);
+    } catch (err: any) {
+      setError(err.message ?? "Unknown error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadAnalytics(filters);
   }, [filters]);
 
   useEffect(() => {
@@ -224,6 +241,49 @@ export default function AdminAnalyticsPage() {
     (row) => row.time_to_confirm
   )?.time_to_confirm;
 
+  async function handleResetTestData() {
+    const firstConfirmation = window.confirm(
+      "سيتم حذف كل الطلبات التجريبية وسجل تتبعها مع إعادة المخزون كما كان قبل الاختبار. هل تريد المتابعة؟"
+    );
+
+    if (!firstConfirmation) {
+      return;
+    }
+
+    const secondConfirmation = window.confirm(
+      "تأكيد أخير: هذا الإجراء مخصص قبل بدء العمل الفعلي فقط ولا يمكن التراجع عنه من الواجهة. هل نكمل؟"
+    );
+
+    if (!secondConfirmation) {
+      return;
+    }
+
+    try {
+      setResettingData(true);
+
+      const res = await fetch("/api/admin/analytics/reset", {
+        method: "POST",
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        throw new Error(json.error || "تعذر تصفير البيانات التجريبية");
+      }
+
+      setFilters(EMPTY_FILTERS);
+      await loadAnalytics(EMPTY_FILTERS);
+
+      alert(
+        `تم تصفير البيانات التجريبية بنجاح.\nعدد الطلبات المحذوفة: ${json.deletedOrders}\nعدد المنتجات التي عاد مخزونها: ${json.restoredProducts}`
+      );
+    } catch (err: any) {
+      alert(err.message || "تعذر تصفير البيانات التجريبية");
+    } finally {
+      setResettingData(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="p-6 text-center text-sm text-muted-foreground">
@@ -241,40 +301,78 @@ export default function AdminAnalyticsPage() {
   }
 
   return (
-    <div className="p-6 space-y-8" dir="rtl">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold">لوحة التحليلات</h1>
-        <p className="text-sm text-muted-foreground">
-          متابعة أداء الطلبات والمبيعات حسب الصنف والقسم
-        </p>
-      </header>
+    <div className="space-y-8 p-6" dir="rtl">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold">لوحة التحليلات</h1>
+          <p className="text-sm text-muted-foreground">
+            متابعة أداء الطلبات والمبيعات حسب الصنف والقسم.
+          </p>
+        </div>
 
-      <section className="rounded-2xl border bg-white p-4 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-medium">فلاتر التحليل</h2>
-          <button
-            onClick={() =>
-              setFilters({
-                from: "",
-                to: "",
-                status: "",
-                category: "",
-                productId: "",
-              })
-            }
-            className="text-sm border rounded-md px-3 py-1 hover:bg-muted"
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/admin/charts"
+            className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-100"
           >
+            <LineChart className="h-4 w-4" />
+            الرسومات البيانية
+          </Link>
+
+          <button
+            onClick={() => setFilters(EMPTY_FILTERS)}
+            className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition hover:bg-muted"
+          >
+            <RotateCcw className="h-4 w-4" />
             تصفير الفلاتر
           </button>
         </div>
+      </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+      <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-700" />
+            <div className="space-y-1">
+              <h2 className="text-sm font-semibold text-amber-900">
+                تصفير البيانات التجريبية
+              </h2>
+              <p className="text-sm leading-6 text-amber-800">
+                هذا الزر يحذف الطلبات التجريبية وسجل تتبعها ويعيد كميات المخزون
+                التي خُصمت أثناء الاختبار. لا يمس المنتجات أو الأقسام.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={handleResetTestData}
+            disabled={resettingData || data.volume.total_orders === 0}
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Trash2 className="h-4 w-4" />
+            {resettingData ? "جارٍ تصفير البيانات..." : "تصفير البيانات التجريبية"}
+          </button>
+        </div>
+      </section>
+
+      <section className="space-y-4 rounded-2xl border bg-white p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-medium">فلاتر التحليل</h2>
+          <button
+            onClick={() => setFilters(EMPTY_FILTERS)}
+            className="text-sm transition hover:text-slate-900"
+          >
+            إعادة الفلاتر للوضع الافتراضي
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
           <FilterField label="من تاريخ">
             <input
               type="date"
               value={filters.from}
-              onChange={(e) =>
-                setFilters((prev) => ({ ...prev, from: e.target.value }))
+              onChange={(event) =>
+                setFilters((prev) => ({ ...prev, from: event.target.value }))
               }
               className="w-full rounded-lg border px-3 py-2 text-sm"
             />
@@ -284,8 +382,8 @@ export default function AdminAnalyticsPage() {
             <input
               type="date"
               value={filters.to}
-              onChange={(e) =>
-                setFilters((prev) => ({ ...prev, to: e.target.value }))
+              onChange={(event) =>
+                setFilters((prev) => ({ ...prev, to: event.target.value }))
               }
               className="w-full rounded-lg border px-3 py-2 text-sm"
             />
@@ -294,8 +392,8 @@ export default function AdminAnalyticsPage() {
           <FilterField label="الحالة">
             <select
               value={filters.status}
-              onChange={(e) =>
-                setFilters((prev) => ({ ...prev, status: e.target.value }))
+              onChange={(event) =>
+                setFilters((prev) => ({ ...prev, status: event.target.value }))
               }
               className="w-full rounded-lg border px-3 py-2 text-sm"
             >
@@ -310,10 +408,10 @@ export default function AdminAnalyticsPage() {
           <FilterField label="القسم">
             <select
               value={filters.category}
-              onChange={(e) =>
+              onChange={(event) =>
                 setFilters((prev) => ({
                   ...prev,
-                  category: e.target.value,
+                  category: event.target.value,
                   productId: "",
                 }))
               }
@@ -331,17 +429,15 @@ export default function AdminAnalyticsPage() {
           <FilterField label="الصنف">
             <select
               value={filters.productId}
-              onChange={(e) =>
-                setFilters((prev) => ({ ...prev, productId: e.target.value }))
+              onChange={(event) =>
+                setFilters((prev) => ({ ...prev, productId: event.target.value }))
               }
               className="w-full rounded-lg border px-3 py-2 text-sm"
             >
               <option value="">كل الأصناف</option>
               {data.productOptions
                 .filter((product) =>
-                  filters.category
-                    ? product.category === filters.category
-                    : true
+                  filters.category ? product.category === filters.category : true
                 )
                 .map((product) => (
                   <option key={product.id} value={product.id}>
@@ -353,7 +449,7 @@ export default function AdminAnalyticsPage() {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <KpiCard label="إجمالي الطلبات" value={data.volume.total_orders} />
         <KpiCard
           label="إجمالي المبيعات"
@@ -372,22 +468,24 @@ export default function AdminAnalyticsPage() {
           value={topProduct ? topProduct.product_name : "—"}
           hint={
             topProduct
-              ? `${topProduct.units_sold} قطعة | ${topProduct.gross_sales.toFixed(
-                  2
-                )} ${topProduct.currency}`
+              ? `${topProduct.units_sold} قطعة | ${formatMoney(
+                  topProduct.gross_sales,
+                  topProduct.currency
+                )}`
               : undefined
           }
         />
       </section>
 
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <SummaryCard
           title="ملخص الأقسام"
           subtitle={
             topCategory
-              ? `الأعلى: ${topCategory.category} | ${topCategory.gross_sales.toFixed(
-                  2
-                )} ${topCategory.currency}`
+              ? `الأعلى: ${topCategory.category} | ${formatMoney(
+                  topCategory.gross_sales,
+                  topCategory.currency
+                )}`
               : "لا توجد بيانات مبيعات أقسام بعد"
           }
         >
@@ -397,7 +495,7 @@ export default function AdminAnalyticsPage() {
               row.category,
               String(row.orders_count),
               String(row.units_sold),
-              `${row.gross_sales.toFixed(2)} ${row.currency}`,
+              formatMoney(row.gross_sales, row.currency),
             ])}
             emptyMessage="لا توجد مبيعات أقسام ضمن الفلاتر الحالية"
           />
@@ -407,7 +505,7 @@ export default function AdminAnalyticsPage() {
           title="ملخص الأصناف"
           subtitle={
             avgConfirmTime
-              ? `متوسط أول مدة تأكيد مرصودة: ${avgConfirmTime}`
+              ? `أول مدة تأكيد مرصودة: ${avgConfirmTime}`
               : "لا توجد مدد دورة كافية بعد"
           }
         >
@@ -418,7 +516,7 @@ export default function AdminAnalyticsPage() {
               row.category,
               String(row.orders_count),
               String(row.units_sold),
-              `${row.gross_sales.toFixed(2)} ${row.currency}`,
+              formatMoney(row.gross_sales, row.currency),
             ])}
             emptyMessage="لا توجد مبيعات أصناف ضمن الفلاتر الحالية"
           />
@@ -426,12 +524,13 @@ export default function AdminAnalyticsPage() {
       </section>
 
       <section className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-medium">الطلبات</h2>
           <button
             onClick={() => downloadCSV(data.ordersIndex)}
-            className="text-sm border rounded-md px-3 py-1 hover:bg-muted"
+            className="inline-flex items-center gap-2 rounded-md border px-3 py-1 text-sm transition hover:bg-muted"
           >
+            <Download className="h-4 w-4" />
             تصدير CSV
           </button>
         </div>
@@ -483,14 +582,14 @@ export default function AdminAnalyticsPage() {
             <button
               disabled={page <= 1}
               onClick={() => setPage((prev) => prev - 1)}
-              className="border rounded px-2 py-1 disabled:opacity-50"
+              className="rounded border px-2 py-1 disabled:opacity-50"
             >
               السابق
             </button>
             <button
               disabled={page >= totalPages}
               onClick={() => setPage((prev) => prev + 1)}
-              className="border rounded px-2 py-1 disabled:opacity-50"
+              className="rounded border px-2 py-1 disabled:opacity-50"
             >
               التالي
             </button>
@@ -526,9 +625,9 @@ function KpiCard({
   hint?: string;
 }) {
   return (
-    <div className="rounded-xl border bg-white p-4 space-y-1">
+    <div className="space-y-1 rounded-xl border bg-white p-4">
       <div className="text-sm text-muted-foreground">{label}</div>
-      <div className="text-xl font-semibold break-words">{value}</div>
+      <div className="break-words text-xl font-semibold">{value}</div>
       {hint ? <div className="text-xs text-slate-500">{hint}</div> : null}
     </div>
   );
@@ -544,10 +643,10 @@ function SummaryCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border bg-white p-4 space-y-4">
+    <section className="space-y-4 rounded-2xl border bg-white p-4">
       <div>
         <h2 className="text-lg font-medium">{title}</h2>
-        <p className="text-sm text-slate-500 mt-1">{subtitle}</p>
+        <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
       </div>
       {children}
     </section>
@@ -603,7 +702,9 @@ function DataTable({
 }
 
 function StatusBadge({ status }: { status: string | null }) {
-  if (!status) return <span className="text-muted-foreground">—</span>;
+  if (!status) {
+    return <span className="text-muted-foreground">—</span>;
+  }
 
   const color =
     status === "delivered"

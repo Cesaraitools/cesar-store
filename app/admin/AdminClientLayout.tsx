@@ -8,6 +8,7 @@ import {
   Tag,
   Package,
   BarChart3,
+  LineChart,
   TicketPercent,
   LogOut,
   UserCircle,
@@ -35,6 +36,7 @@ export default function AdminClientLayout({ children }: { children: ReactNode })
   const navItems = [
     { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
     { name: "Analytics", href: "/admin/analytics", icon: BarChart3 },
+    { name: "Charts", href: "/admin/charts", icon: LineChart },
     { name: "Categories", href: "/admin/categories", icon: Tag },
     { name: "Products", href: "/admin/products", icon: Package },
     { name: "Promos", href: "/admin/promos", icon: TicketPercent },
