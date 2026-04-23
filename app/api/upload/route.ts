@@ -75,28 +75,28 @@ export async function POST(req: NextRequest) {
        🔥 STEP 1: Check duplicates
     ========================= */
 
-    const existingImages = await getAllExistingImages();
+   // const existingImages = await getAllExistingImages();
 
-    const incomingBase64 = await fileToBase64(file);
+   // const incomingBase64 = await fileToBase64(file);
 
-    for (const url of existingImages) {
-      try {
-        const res = await fetch(url);
-        const buffer = await res.arrayBuffer();
-        const existingBase64 = Buffer.from(buffer).toString("base64");
+   // for (const url of existingImages) {
+   //   try {
+    //    const res = await fetch(url);
+     //   const buffer = await res.arrayBuffer();
+    //    const existingBase64 = Buffer.from(buffer).toString("base64");
 
-        if (existingBase64 === incomingBase64) {
-          console.log("♻️ REUSED IMAGE:", url);
+    //    if (existingBase64 === incomingBase64) {
+      //    console.log("♻️ REUSED IMAGE:", url);
 
-          return NextResponse.json({
-            url,
-            reused: true,
-          });
-        }
-      } catch {
-        continue;
-      }
-    }
+        //  return NextResponse.json({
+        //    url,
+       //     reused: true,
+      //    });
+     //   }
+//} catch {
+     //   continue;
+    //  }
+   // }
 
     /* =========================
        STEP 2: Upload new image
