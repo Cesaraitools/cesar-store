@@ -103,6 +103,19 @@ export default function EditProductPage({ params }: Props) {
         ...prev,
         [name]: (e.target as HTMLInputElement).checked,
       }));
+    } else if (name === "stock") {
+      const numericStock = Number(value);
+
+      setForm((prev) => ({
+        ...prev,
+        stock: value,
+        active:
+          value === ""
+            ? prev.active
+            : Number.isNaN(numericStock)
+            ? prev.active
+            : numericStock > 0,
+      }));
     } else {
       setForm((prev) => ({
         ...prev,

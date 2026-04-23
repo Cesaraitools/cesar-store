@@ -217,6 +217,20 @@ export async function PUT(request: Request) {
     }
 
     // 🔥 1. get OLD images
+    const normalizedStock =
+      typeof updates.stock === "number" && !Number.isNaN(updates.stock)
+        ? updates.stock
+        : undefined;
+
+    const nextIsActive =
+      normalizedStock !== undefined && normalizedStock <= 0
+        ? false
+        : typeof updates.active === "boolean"
+        ? updates.active
+        : normalizedStock !== undefined && normalizedStock > 0
+        ? true
+        : undefined;
+
     const { data: oldProduct } = await supabase
       .from("products")
       .select("images_json")
@@ -238,7 +252,8 @@ export async function PUT(request: Request) {
         description_en:
           updates.description?.en || updates.description?.ar,
         price: updates.price,
-        stock: updates.stock,
+        stock: normalizedStock,
+        is_active: nextIsActive,
         image_url: images[0] || null,
         images_json: images,
         category: normalizeCategory(updates.category),
