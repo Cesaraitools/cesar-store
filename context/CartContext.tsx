@@ -198,6 +198,7 @@ const mergeCart = async () => {
         price: Number(item.price || 0),
         image: item.image || null,
         quantity: item.quantity,
+        stock: item.stock || 0,
         created_at: item.created_at,
       })),
     }));
