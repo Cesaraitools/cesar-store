@@ -55,8 +55,15 @@ export async function POST(req: NextRequest) {
 
     const file = formData.get("file") as File | null;
     const type = formData.get("type") as string | null;
-
-    if (!file || !type) {
+const imageUrl = formData.get("image_url") as string | null;
+    if ((!file && !imageUrl) || !type)
+      // 🟢 Handle image URL (Bulk Import)
+if (imageUrl) {
+  return NextResponse.json({
+    url: imageUrl,
+    reused: true,
+  });
+}
       return NextResponse.json(
         { error: "Missing file/type" },
         { status: 400 }
@@ -101,13 +108,32 @@ export async function POST(req: NextRequest) {
     /* =========================
        STEP 2: Upload new image
     ========================= */
-
-    const bytes = await file.arrayBuffer();
-    const fileData = new Uint8Array(bytes);
+// 🔐 Generate image hash
+   const buffer = Buffer.from(await file.arrayBuffer());
+   const hash = crypto.createHash("md5").update(buffer).digest("hex");
+    const fileData = new Uint8Array(buffer);
 
     const ext = file.name.split(".").pop() || "jpg";
-    const fileName = `${type}/${crypto.randomUUID()}.${ext}`;
+    const fileName = `${type}/${hash}.${ext}`;
 
+// 🔍 Check if image already exists (by hash)
+const { data: existingProducts } = await supabase
+  .from("products")
+  .select("images_json")
+  .not("images_json", "is", null);
+
+for (const product of existingProducts || []) {
+  if (Array.isArray(product.images_json)) {
+    for (const img of product.images_json) {
+      if (img.includes(hash)) {
+        return NextResponse.json({
+          url: img,
+          reused: true,
+        });
+      }
+    }
+  }
+}
     const { error: uploadError } = await supabase.storage
       .from("upload")
       .upload(fileName, fileData, {
