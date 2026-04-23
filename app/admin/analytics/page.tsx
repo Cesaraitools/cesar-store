@@ -2,10 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-/* ================================
-   Types (API Contract)
-================================ */
-
 type OrdersPerDay = {
   day: string;
   orders_count: number;
@@ -24,11 +20,6 @@ type LifecycleDurations = {
   time_to_deliver: string | null;
 };
 
-type MultipleVersions = {
-  order_id: string;
-  versions_count: number;
-};
-
 type OrdersIndexRow = {
   order_id: string;
   order_number: string;
@@ -36,6 +27,30 @@ type OrdersIndexRow = {
   created_at: string;
   current_status: string | null;
   status_at: string | null;
+};
+
+type ProductSalesRow = {
+  product_id: string;
+  product_name: string;
+  category: string;
+  currency: string;
+  units_sold: number;
+  orders_count: number;
+  gross_sales: number;
+};
+
+type CategorySalesRow = {
+  category: string;
+  currency: string;
+  units_sold: number;
+  orders_count: number;
+  gross_sales: number;
+};
+
+type ProductOption = {
+  id: string;
+  name: string;
+  category: string;
 };
 
 type AnalyticsResponse = {
@@ -54,22 +69,30 @@ type AnalyticsResponse = {
   ordersPerDay: OrdersPerDay[];
   revenuePerDay: RevenuePerDay[];
   lifecycle: LifecycleDurations[];
-  multipleVersions: MultipleVersions[];
+  multipleVersions: Array<unknown>;
   ordersIndex: OrdersIndexRow[];
+  productSales: ProductSalesRow[];
+  categorySales: CategorySalesRow[];
+  productOptions: ProductOption[];
+  categoryOptions: string[];
 };
 
-/* ================================
-   Helpers (UI ONLY)
-================================ */
+type FiltersState = {
+  from: string;
+  to: string;
+  status: string;
+  category: string;
+  productId: string;
+};
 
 function formatDate(value: string | null) {
   if (!value) return "—";
-  return new Date(value).toLocaleDateString();
+  return new Date(value).toLocaleDateString("ar-EG");
 }
 
 function formatDateTime(value: string | null) {
   if (!value) return "—";
-  return new Date(value).toLocaleString();
+  return new Date(value).toLocaleString("ar-EG");
 }
 
 function downloadCSV(rows: OrdersIndexRow[]) {
@@ -84,42 +107,63 @@ function downloadCSV(rows: OrdersIndexRow[]) {
 
   const csv = [
     headers.join(","),
-    ...rows.map((r) =>
+    ...rows.map((row) =>
       [
-        r.order_id,
-        r.order_number,
-        r.user_id ?? "",
-        r.created_at,
-        r.current_status ?? "",
-        r.status_at ?? "",
+        row.order_id,
+        row.order_number,
+        row.user_id ?? "",
+        row.created_at,
+        row.current_status ?? "",
+        row.status_at ?? "",
       ]
-        .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+        .map((value) => `"${String(value).replace(/"/g, '""')}"`)
         .join(",")
     ),
   ].join("\n");
 
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
-
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "orders_analytics.csv";
-  a.click();
-
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "orders_analytics.csv";
+  link.click();
   URL.revokeObjectURL(url);
 }
 
-/* ================================
-   Page
-================================ */
+function formatFinancialList(
+  rows: Array<{ currency: string; revenue_sum?: number; avg_order_value?: number }>,
+  key: "revenue_sum" | "avg_order_value"
+) {
+  if (!rows.length) return "—";
+
+  return rows
+    .map((row) => `${Number(row[key] || 0).toFixed(2)} ${row.currency}`)
+    .join(" | ");
+}
+
+const STATUS_OPTIONS = [
+  { value: "", label: "كل الحالات" },
+  { value: "requested", label: "requested" },
+  { value: "confirmed", label: "confirmed" },
+  { value: "preparing", label: "preparing" },
+  { value: "shipped", label: "shipped" },
+  { value: "delivered", label: "delivered" },
+  { value: "canceled", label: "canceled" },
+];
 
 export default function AdminAnalyticsPage() {
   const [data, setData] = useState<AnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Table state (UI only)
   const [page, setPage] = useState(1);
+  const [filters, setFilters] = useState<FiltersState>({
+    from: "",
+    to: "",
+    status: "",
+    category: "",
+    productId: "",
+  });
+
   const pageSize = 10;
 
   useEffect(() => {
@@ -130,7 +174,19 @@ export default function AdminAnalyticsPage() {
         setLoading(true);
         setError(null);
 
-        const res = await fetch("/api/admin/analytics");
+        const params = new URLSearchParams();
+
+        if (filters.from) params.set("from", filters.from);
+        if (filters.to) params.set("to", filters.to);
+        if (filters.status) params.set("status", filters.status);
+        if (filters.category) params.set("category", filters.category);
+        if (filters.productId) params.set("productId", filters.productId);
+
+        const query = params.toString();
+        const res = await fetch(
+          `/api/admin/analytics${query ? `?${query}` : ""}`
+        );
+
         if (!res.ok) throw new Error("Failed to load analytics");
 
         const json = (await res.json()) as AnalyticsResponse;
@@ -146,12 +202,32 @@ export default function AdminAnalyticsPage() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [filters]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filters]);
+
+  const paginatedOrders = useMemo(() => {
+    if (!data) return [];
+    const start = (page - 1) * pageSize;
+    return data.ordersIndex.slice(start, start + pageSize);
+  }, [data, page]);
+
+  const totalPages = data
+    ? Math.max(1, Math.ceil(data.ordersIndex.length / pageSize))
+    : 1;
+
+  const topProduct = data?.productSales[0];
+  const topCategory = data?.categorySales[0];
+  const avgConfirmTime = data?.lifecycle.find(
+    (row) => row.time_to_confirm
+  )?.time_to_confirm;
 
   if (loading) {
     return (
       <div className="p-6 text-center text-sm text-muted-foreground">
-        Loading analytics…
+        جاري تحميل التحليلات...
       </div>
     );
   }
@@ -159,100 +235,228 @@ export default function AdminAnalyticsPage() {
   if (error || !data) {
     return (
       <div className="p-6 text-center text-sm text-red-600">
-        Failed to load analytics data
+        تعذر تحميل بيانات التحليلات
       </div>
     );
   }
 
-  const financial = data.financials[0];
-
-  const totalPages = Math.ceil(
-    data.ordersIndex.length / pageSize
-  );
-
-  const paginatedOrders = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    return data.ordersIndex.slice(start, start + pageSize);
-  }, [data.ordersIndex, page]);
-
   return (
-    <div className="p-6 space-y-10">
-      {/* Header */}
+    <div className="p-6 space-y-8" dir="rtl">
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold">Analytics Dashboard</h1>
+        <h1 className="text-2xl font-semibold">لوحة التحليلات</h1>
         <p className="text-sm text-muted-foreground">
-          High-level overview of store performance
+          متابعة أداء الطلبات والمبيعات حسب الصنف والقسم
         </p>
       </header>
 
-      {/* KPI Cards */}
-      <section className="space-y-3">
-        <h2 className="text-lg font-medium">Key Metrics</h2>
+      <section className="rounded-2xl border bg-white p-4 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-medium">فلاتر التحليل</h2>
+          <button
+            onClick={() =>
+              setFilters({
+                from: "",
+                to: "",
+                status: "",
+                category: "",
+                productId: "",
+              })
+            }
+            className="text-sm border rounded-md px-3 py-1 hover:bg-muted"
+          >
+            تصفير الفلاتر
+          </button>
+        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <KpiCard label="Total Orders" value={data.volume.total_orders} />
-          <KpiCard
-            label="Confirmed Revenue"
-            value={
-              financial
-                ? `${financial.revenue_sum.toFixed(2)} ${financial.currency}`
-                : "—"
-            }
-          />
-          <KpiCard
-            label="Avg Order Value"
-            value={
-              financial
-                ? `${financial.avg_order_value.toFixed(2)} ${financial.currency}`
-                : "—"
-            }
-          />
-          <KpiCard
-            label="Cancel Rate"
-            value={`${(data.reliability.cancel_rate * 100).toFixed(1)}%`}
-          />
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+          <FilterField label="من تاريخ">
+            <input
+              type="date"
+              value={filters.from}
+              onChange={(e) =>
+                setFilters((prev) => ({ ...prev, from: e.target.value }))
+              }
+              className="w-full rounded-lg border px-3 py-2 text-sm"
+            />
+          </FilterField>
+
+          <FilterField label="إلى تاريخ">
+            <input
+              type="date"
+              value={filters.to}
+              onChange={(e) =>
+                setFilters((prev) => ({ ...prev, to: e.target.value }))
+              }
+              className="w-full rounded-lg border px-3 py-2 text-sm"
+            />
+          </FilterField>
+
+          <FilterField label="الحالة">
+            <select
+              value={filters.status}
+              onChange={(e) =>
+                setFilters((prev) => ({ ...prev, status: e.target.value }))
+              }
+              className="w-full rounded-lg border px-3 py-2 text-sm"
+            >
+              {STATUS_OPTIONS.map((option) => (
+                <option key={option.value || "all-statuses"} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </FilterField>
+
+          <FilterField label="القسم">
+            <select
+              value={filters.category}
+              onChange={(e) =>
+                setFilters((prev) => ({
+                  ...prev,
+                  category: e.target.value,
+                  productId: "",
+                }))
+              }
+              className="w-full rounded-lg border px-3 py-2 text-sm"
+            >
+              <option value="">كل الأقسام</option>
+              {data.categoryOptions.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+          </FilterField>
+
+          <FilterField label="الصنف">
+            <select
+              value={filters.productId}
+              onChange={(e) =>
+                setFilters((prev) => ({ ...prev, productId: e.target.value }))
+              }
+              className="w-full rounded-lg border px-3 py-2 text-sm"
+            >
+              <option value="">كل الأصناف</option>
+              {data.productOptions
+                .filter((product) =>
+                  filters.category
+                    ? product.category === filters.category
+                    : true
+                )
+                .map((product) => (
+                  <option key={product.id} value={product.id}>
+                    {product.name} ({product.category})
+                  </option>
+                ))}
+            </select>
+          </FilterField>
         </div>
       </section>
 
-      {/* Orders Table */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+        <KpiCard label="إجمالي الطلبات" value={data.volume.total_orders} />
+        <KpiCard
+          label="إجمالي المبيعات"
+          value={formatFinancialList(data.financials, "revenue_sum")}
+        />
+        <KpiCard
+          label="متوسط الطلب"
+          value={formatFinancialList(data.financials, "avg_order_value")}
+        />
+        <KpiCard
+          label="نسبة الإلغاء"
+          value={`${(data.reliability.cancel_rate * 100).toFixed(1)}%`}
+        />
+        <KpiCard
+          label="أفضل صنف"
+          value={topProduct ? topProduct.product_name : "—"}
+          hint={
+            topProduct
+              ? `${topProduct.units_sold} قطعة | ${topProduct.gross_sales.toFixed(
+                  2
+                )} ${topProduct.currency}`
+              : undefined
+          }
+        />
+      </section>
+
+      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <SummaryCard
+          title="ملخص الأقسام"
+          subtitle={
+            topCategory
+              ? `الأعلى: ${topCategory.category} | ${topCategory.gross_sales.toFixed(
+                  2
+                )} ${topCategory.currency}`
+              : "لا توجد بيانات مبيعات أقسام بعد"
+          }
+        >
+          <DataTable
+            headers={["القسم", "الطلبات", "الكمية", "المبيعات"]}
+            rows={data.categorySales.map((row) => [
+              row.category,
+              String(row.orders_count),
+              String(row.units_sold),
+              `${row.gross_sales.toFixed(2)} ${row.currency}`,
+            ])}
+            emptyMessage="لا توجد مبيعات أقسام ضمن الفلاتر الحالية"
+          />
+        </SummaryCard>
+
+        <SummaryCard
+          title="ملخص الأصناف"
+          subtitle={
+            avgConfirmTime
+              ? `متوسط أول مدة تأكيد مرصودة: ${avgConfirmTime}`
+              : "لا توجد مدد دورة كافية بعد"
+          }
+        >
+          <DataTable
+            headers={["الصنف", "القسم", "الطلبات", "الكمية", "المبيعات"]}
+            rows={data.productSales.map((row) => [
+              row.product_name,
+              row.category,
+              String(row.orders_count),
+              String(row.units_sold),
+              `${row.gross_sales.toFixed(2)} ${row.currency}`,
+            ])}
+            emptyMessage="لا توجد مبيعات أصناف ضمن الفلاتر الحالية"
+          />
+        </SummaryCard>
+      </section>
+
       <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-medium">Orders</h2>
+          <h2 className="text-lg font-medium">الطلبات</h2>
           <button
             onClick={() => downloadCSV(data.ordersIndex)}
             className="text-sm border rounded-md px-3 py-1 hover:bg-muted"
           >
-            Export CSV
+            تصدير CSV
           </button>
         </div>
 
-        <div className="overflow-x-auto rounded-xl border">
+        <div className="overflow-x-auto rounded-xl border bg-white">
           <table className="min-w-full text-sm">
-            <thead className="bg-muted">
+            <thead className="bg-muted/50">
               <tr>
-                <th className="px-3 py-2 text-left">Order #</th>
-                <th className="px-3 py-2 text-left">Customer</th>
-                <th className="px-3 py-2 text-left">Created</th>
-                <th className="px-3 py-2 text-left">Status</th>
-                <th className="px-3 py-2 text-left">Updated</th>
+                <th className="px-3 py-2 text-right">رقم الطلب</th>
+                <th className="px-3 py-2 text-right">المستخدم</th>
+                <th className="px-3 py-2 text-right">تاريخ الإنشاء</th>
+                <th className="px-3 py-2 text-right">الحالة</th>
+                <th className="px-3 py-2 text-right">آخر تحديث</th>
               </tr>
             </thead>
             <tbody>
               {paginatedOrders.map((row) => (
                 <tr key={row.order_id} className="border-t">
                   <td className="px-3 py-2">{row.order_number}</td>
-                  <td className="px-3 py-2">
-                    {row.user_id ?? "—"}
-                  </td>
-                  <td className="px-3 py-2">
-                    {formatDate(row.created_at)}
-                  </td>
+                  <td className="px-3 py-2">{row.user_id ?? "—"}</td>
+                  <td className="px-3 py-2">{formatDate(row.created_at)}</td>
                   <td className="px-3 py-2">
                     <StatusBadge status={row.current_status} />
                   </td>
-                  <td className="px-3 py-2">
-                    {formatDateTime(row.status_at)}
-                  </td>
+                  <td className="px-3 py-2">{formatDateTime(row.status_at)}</td>
                 </tr>
               ))}
 
@@ -262,7 +466,7 @@ export default function AdminAnalyticsPage() {
                     colSpan={5}
                     className="px-3 py-6 text-center text-muted-foreground"
                   >
-                    No orders found
+                    لا توجد طلبات مطابقة
                   </td>
                 </tr>
               )}
@@ -270,26 +474,25 @@ export default function AdminAnalyticsPage() {
           </table>
         </div>
 
-        {/* Pagination */}
         <div className="flex items-center justify-between text-sm">
           <span>
-            Page {page} of {totalPages || 1}
+            صفحة {page} من {totalPages}
           </span>
 
           <div className="flex gap-2">
             <button
               disabled={page <= 1}
-              onClick={() => setPage((p) => p - 1)}
+              onClick={() => setPage((prev) => prev - 1)}
               className="border rounded px-2 py-1 disabled:opacity-50"
             >
-              Prev
+              السابق
             </button>
             <button
               disabled={page >= totalPages}
-              onClick={() => setPage((p) => p + 1)}
+              onClick={() => setPage((prev) => prev + 1)}
               className="border rounded px-2 py-1 disabled:opacity-50"
             >
-              Next
+              التالي
             </button>
           </div>
         </div>
@@ -298,21 +501,103 @@ export default function AdminAnalyticsPage() {
   );
 }
 
-/* ================================
-   Components
-================================ */
+function FilterField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="space-y-1">
+      <span className="text-sm font-medium text-slate-700">{label}</span>
+      {children}
+    </label>
+  );
+}
 
 function KpiCard({
   label,
   value,
+  hint,
 }: {
   label: string;
   value: string | number;
+  hint?: string;
 }) {
   return (
-    <div className="rounded-xl border p-4 space-y-1">
+    <div className="rounded-xl border bg-white p-4 space-y-1">
       <div className="text-sm text-muted-foreground">{label}</div>
-      <div className="text-2xl font-semibold">{value}</div>
+      <div className="text-xl font-semibold break-words">{value}</div>
+      {hint ? <div className="text-xs text-slate-500">{hint}</div> : null}
+    </div>
+  );
+}
+
+function SummaryCard({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl border bg-white p-4 space-y-4">
+      <div>
+        <h2 className="text-lg font-medium">{title}</h2>
+        <p className="text-sm text-slate-500 mt-1">{subtitle}</p>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function DataTable({
+  headers,
+  rows,
+  emptyMessage,
+}: {
+  headers: string[];
+  rows: string[][];
+  emptyMessage: string;
+}) {
+  return (
+    <div className="overflow-x-auto rounded-xl border">
+      <table className="min-w-full text-sm">
+        <thead className="bg-muted/50">
+          <tr>
+            {headers.map((header) => (
+              <th key={header} className="px-3 py-2 text-right">
+                {header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length ? (
+            rows.map((row, index) => (
+              <tr key={`${row[0]}-${index}`} className="border-t">
+                {row.map((cell, cellIndex) => (
+                  <td key={`${cell}-${cellIndex}`} className="px-3 py-2">
+                    {cell}
+                  </td>
+                ))}
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td
+                colSpan={headers.length}
+                className="px-3 py-6 text-center text-muted-foreground"
+              >
+                {emptyMessage}
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
     </div>
   );
 }
