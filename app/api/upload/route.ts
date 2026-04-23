@@ -54,21 +54,31 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
 
     const file = formData.get("file") as File | null;
-    const type = formData.get("type") as string | null;
+const type = formData.get("type") as string | null;
 const imageUrl = formData.get("image_url") as string | null;
-    if ((!file && !imageUrl) || !type)
-      // 🟢 Handle image URL (Bulk Import)
+
+// 🟢 Handle image URL (Bulk Import)
 if (imageUrl) {
   return NextResponse.json({
     url: imageUrl,
     reused: true,
   });
 }
-      return NextResponse.json(
-        { error: "Missing file/type" },
-        { status: 400 }
-      );
-    }
+
+// ❌ Validation
+if (!type) {
+  return NextResponse.json(
+    { error: "Missing type" },
+    { status: 400 }
+  );
+}
+
+if (!file) {
+  return NextResponse.json(
+    { error: "Missing file" },
+    { status: 400 }
+  );
+}
 
     const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
     if (!allowedTypes.includes(file.type)) {
