@@ -141,9 +141,17 @@ export default function ReviewPage() {
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to create order");
+      const result = await response.json().catch(() => null);
 
-      const result = await response.json();
+      if (!response.ok) {
+        if (typeof result?.available === "number") {
+          toast.error(`الكمية المتاحة حاليًا هي ${result.available} فقط`);
+          return;
+        }
+
+        toast.error(result?.error || "Failed to create order");
+        return;
+      }
       orderId = result.orderId;
 
       saveOrders([

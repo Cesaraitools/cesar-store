@@ -19,17 +19,6 @@ export default function SyncContent() {
 
 if (user?.email) {
 
-  const { data: existingUsers } = await supabase.auth.admin.listUsers();
-
-  const match = existingUsers?.users?.find(
-    (u: any) =>
-      u.email?.toLowerCase() === user.email?.toLowerCase()
-  );
-
-  // لو فيه حساب بنفس الإيميل ومش نفس الـ id
-  if (match && match.id !== user.id) {
-    console.log("⚠️ Duplicate account detected - needs linking");
-  }
 }
 
       router.replace(redirect);

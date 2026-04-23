@@ -40,17 +40,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    /* ================= Get or Create Cart ================= */
-
     const { data: carts } = await serviceSupabase
-  .from("carts")
-  .select("*")
-  .eq("user_id", user.id)
-  .eq("status", "active")
-  .order("created_at", { ascending: true })
-  .limit(1);
+      .from("carts")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .order("created_at", { ascending: true })
+      .limit(1);
 
-let cart = carts?.[0] ?? null;
+    let cart = carts?.[0] ?? null;
 
     if (!cart) {
       const { data: newCart } = await serviceSupabase
@@ -65,43 +63,51 @@ let cart = carts?.[0] ?? null;
       cart = newCart;
     }
 
-    /* ================= Existing Items ================= */
-
     const { data: existingItems } = await serviceSupabase
       .from("cart_items")
       .select("id, product_id, quantity")
       .eq("cart_id", cart.id);
 
     for (const item of items) {
-      const existing = existingItems?.find(
-        (ei) => ei.product_id === item.product_id
+      const productId = item?.product_id;
+      const requestedQuantity = Math.max(
+        0,
+        Math.floor(Number(item?.quantity) || 0)
       );
 
+      if (!productId || requestedQuantity <= 0) {
+        continue;
+      }
+
+      const { data: product } = await serviceSupabase
+        .from("products")
+        .select("name_ar, name_en, price, image_url, stock, is_active")
+        .eq("id", productId)
+        .single();
+
+      if (!product || !product.is_active || product.stock <= 0) {
+        continue;
+      }
+
+      const allowedQuantity = Math.min(requestedQuantity, product.stock);
+      const existing = existingItems?.find((ei) => ei.product_id === productId);
+
       if (existing) {
-        // ✅ FIX: استبدل الكمية بدل ما تجمعها — الـ local cart هو المصدر الصح
         await serviceSupabase
           .from("cart_items")
           .update({
-            quantity: item.quantity,
+            quantity: allowedQuantity,
           })
           .eq("id", existing.id);
       } else {
-        /* لازم نجيب بيانات المنتج */
-
-        const { data: product } = await serviceSupabase
-          .from("products")
-          .select("name_ar, name_en, price, image_url")
-          .eq("id", item.product_id)
-          .single();
-
         await serviceSupabase.from("cart_items").insert({
           cart_id: cart.id,
-          product_id: item.product_id,
-          quantity: item.quantity,
-          name_ar: product?.name_ar ?? "",
-          name_en: product?.name_en ?? "",
-          price: product?.price ?? 0,
-          image: product?.image_url ?? null,
+          product_id: productId,
+          quantity: allowedQuantity,
+          name_ar: product.name_ar ?? "",
+          name_en: product.name_en ?? "",
+          price: product.price ?? 0,
+          image: product.image_url ?? null,
         });
       }
     }

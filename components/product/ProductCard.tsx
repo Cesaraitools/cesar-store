@@ -15,38 +15,26 @@ export default function ProductCard({ product }: Props) {
   const { addToCart } = useCart();
   const { lang } = useLanguage();
 
-  const [imgError, setImgError] = useState(false);
-  const [isAdding, setIsAdding] = useState(false); // ✅ NEW
+  const [isAdding, setIsAdding] = useState(false);
+  const isOutOfStock = product.stock <= 0;
 
-  const imageSrc =
-    !imgError && product.images && product.images.length > 0
-      ? product.images[0]
-      : "/placeholder.png";
-
-  const name =
-    lang === "ar" ? product.name.ar : product.name.en;
-
+  const name = lang === "ar" ? product.name.ar : product.name.en;
   const description =
-    lang === "ar"
-      ? product.description.ar
-      : product.description.en;
+    lang === "ar" ? product.description.ar : product.description.en;
 
   const handleAddToCart = () => {
-
-    if (isAdding) return; // ✅ lock
+    if (isAdding || isOutOfStock) return;
 
     setIsAdding(true);
 
-    console.log("PRODUCT ID:", product.id);
-
     addToCart({
       id: String(product.id),
-      name: lang === "ar" ? product.name.ar : product.name.en,
+      name: name,
       price: product.price,
       image: product.images?.[0] || "/placeholder.png",
+      stock: product.stock,
     });
 
-    // unlock سريع (مفيش API هنا)
     setTimeout(() => {
       setIsAdding(false);
     }, 300);
@@ -54,11 +42,11 @@ export default function ProductCard({ product }: Props) {
 
   return (
     <div className="border rounded-2xl bg-white shadow-sm hover:shadow-lg transition flex flex-col h-[420px]">
-      {/* Image */}
       <Link href={`/product/${product.id}`}>
         <div className="h-[240px] bg-gray-100 flex items-center justify-center rounded-t-2xl overflow-hidden">
           <img
             src={getSafeImage(product.images?.[0])}
+            alt={name}
             onError={(e) => {
               (e.currentTarget as HTMLImageElement).src = "/placeholder.png";
             }}
@@ -66,7 +54,6 @@ export default function ProductCard({ product }: Props) {
         </div>
       </Link>
 
-      {/* Content */}
       <div className="flex flex-col flex-1 p-4 gap-2">
         <Link href={`/product/${product.id}`}>
           <h3 className="font-semibold text-sm text-gray-900 line-clamp-2">
@@ -74,23 +61,35 @@ export default function ProductCard({ product }: Props) {
           </h3>
         </Link>
 
-        <p className="text-xs text-gray-500 line-clamp-2">
-          {description}
-        </p>
+        <p className="text-xs text-gray-500 line-clamp-2">{description}</p>
 
         <div className="mt-auto">
           <p className="text-green-600 font-bold text-base mb-2">
             {product.price} جنيه
           </p>
 
+          <p className="text-xs font-semibold text-slate-500 mb-3">
+            {lang === "ar"
+              ? `المتاح: ${product.stock}`
+              : `Available: ${product.stock}`}
+          </p>
+
           <button
             onClick={handleAddToCart}
-            disabled={isAdding} // ✅ prevent spam
+            disabled={isAdding || isOutOfStock}
             className="w-full bg-black text-white py-2 text-sm rounded-lg hover:opacity-90 transition disabled:opacity-50"
           >
-            {isAdding
-              ? (lang === "ar" ? "جاري الإضافة..." : "Adding...")
-              : (lang === "ar" ? "أضف إلى السلة" : "Add to Cart")}
+            {isOutOfStock
+              ? lang === "ar"
+                ? "نفد المخزون"
+                : "Out of stock"
+              : isAdding
+              ? lang === "ar"
+                ? "جاري الإضافة..."
+                : "Adding..."
+              : lang === "ar"
+              ? "أضف إلى السلة"
+              : "Add to Cart"}
           </button>
         </div>
       </div>
