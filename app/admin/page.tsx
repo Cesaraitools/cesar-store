@@ -4,7 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 // إضافة الاستيراد المفقود الذي تسبب في الخطأ
-import { ShoppingBag, ArrowRight, ShieldAlert, Sparkles, Package } from "lucide-react";
+import {
+  ShoppingBag,
+  ArrowRight,
+  ShieldAlert,
+  Sparkles,
+  Package,
+  BarChart3,
+} from "lucide-react";
 
 export default function AdminPage() {
   const router = useRouter();
@@ -53,7 +60,7 @@ export default function AdminPage() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
         <div className="group relative overflow-hidden rounded-3xl bg-white p-8 border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300">
           <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full -mr-16 -mt-16 group-hover:bg-blue-600 transition-colors duration-500 opacity-20 group-hover:opacity-10" />
           
@@ -74,6 +81,31 @@ export default function AdminPage() {
               className="inline-flex items-center gap-2 text-blue-600 font-bold text-sm group-hover:translate-x-1 transition-transform"
             >
               انتقل إلى لوحة الطلبات
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+
+        <div className="group relative overflow-hidden rounded-3xl bg-white p-8 border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full -mr-16 -mt-16 group-hover:bg-emerald-600 transition-colors duration-500 opacity-20 group-hover:opacity-10" />
+
+          <div className="relative space-y-4">
+            <div className="w-14 h-14 bg-emerald-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-100">
+              <BarChart3 className="w-7 h-7" />
+            </div>
+
+            <div className="space-y-1">
+              <h2 className="text-xl font-bold text-gray-900">لوحة التحليلات</h2>
+              <p className="text-sm text-gray-500 leading-relaxed">
+                راجع مبيعات الأصناف والأقسام واستخدم الفلاتر للوصول السريع إلى أهم المؤشرات داخل المتجر.
+              </p>
+            </div>
+
+            <Link
+              href="/admin/analytics"
+              className="inline-flex items-center gap-2 text-emerald-600 font-bold text-sm group-hover:translate-x-1 transition-transform"
+            >
+              انتقل إلى التحليلات
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
