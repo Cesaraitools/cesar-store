@@ -44,12 +44,7 @@ async function getUserFromRequest(req: Request) {
 async function getOrCreateActiveCart(userId: string) {
   const { data: existingCart, error } = await serviceSupabase
     .from("carts")
-    .select(`
-  *,
-  products (
-    stock
-  )
-`)
+    .select("*")
     .eq("user_id", userId)
     .eq("status", "active")
     .single();
@@ -97,11 +92,11 @@ export async function GET(req: Request) {
     const { data: items, error } = await serviceSupabase
       .from("cart_items")
       .select(`
-  *,
-  products (
-    stock
-  )
-`)
+        *,
+        products (
+          stock
+        )
+      `)
       .eq("cart_id", cart.id);
 
     if (error) {
@@ -110,10 +105,12 @@ export async function GET(req: Request) {
         { status: 500 }
       );
     }
-const formattedItems = (items || []).map((item: any) => ({
-  ...item,
-  stock: item.products?.stock ?? 0,
-}));
+
+    const formattedItems = (items || []).map((item: any) => ({
+      ...item,
+      stock: item.products?.stock ?? 0,
+    }));
+
     return NextResponse.json({ items: formattedItems }, { status: 200 });
   } catch {
     return NextResponse.json(
@@ -145,12 +142,27 @@ export async function POST(req: Request) {
   try {
     const cart = await getOrCreateActiveCart(user.id);
 
-    // 🔥 GET PRODUCT SNAPSHOT
+    // GET PRODUCT SNAPSHOT + STOCK
     const { data: product } = await serviceSupabase
       .from("products")
       .select("*")
       .eq("id", product_id)
       .single();
+
+    // ✅ Stock check عند الإضافة
+    if (!product || !product.is_active) {
+      return NextResponse.json(
+        { error: "Product not available" },
+        { status: 400 }
+      );
+    }
+
+    if (product.stock < quantity) {
+      return NextResponse.json(
+        { error: "Insufficient stock", available: product.stock },
+        { status: 400 }
+      );
+    }
 
     // Check if item already exists
     const { data: existingItem } = await serviceSupabase
@@ -161,7 +173,7 @@ export async function POST(req: Request) {
       .single();
 
     if (existingItem) {
-      // ✅ FIX: استبدل الكمية بدل ما تجمعها — الـ context هو المصدر الصح للكمية
+      // استبدل الكمية بدل ما تجمعها
       const { error: updateError } = await serviceSupabase
         .from("cart_items")
         .update({ quantity })
@@ -177,7 +189,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true });
     }
 
-    // 🔥 INSERT WITH SNAPSHOT
+    // INSERT WITH SNAPSHOT
     const { error: insertError } = await serviceSupabase
       .from("cart_items")
       .insert({
@@ -227,6 +239,27 @@ export async function PATCH(req: Request) {
   }
 
   try {
+    // ✅ Stock check عند تغيير الكمية من الكارت
+    const { data: product } = await serviceSupabase
+      .from("products")
+      .select("stock, is_active")
+      .eq("id", product_id)
+      .single();
+
+    if (!product || !product.is_active) {
+      return NextResponse.json(
+        { error: "Product not available" },
+        { status: 400 }
+      );
+    }
+
+    if (product.stock < quantity) {
+      return NextResponse.json(
+        { error: "Insufficient stock", available: product.stock },
+        { status: 400 }
+      );
+    }
+
     const { data: cart } = await serviceSupabase
       .from("carts")
       .select("*")
