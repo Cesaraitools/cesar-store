@@ -282,7 +282,7 @@ setCart((prev) => {
   const item = prev.items.find((i) => i.id === cartItemId);
   if (!item) return prev;
 
-  const maxStock = item.stock || 0;
+  const maxStock = item.stock && item.stock > 0 ? item.stock : 999;
 
   if (quantity > maxStock) {
     toast.error("الكمية المطلوبة غير متاحة في المخزون");
