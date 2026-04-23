@@ -145,7 +145,7 @@ export default function AddProductPage() {
         price: parseFloat(form.price) || 0,
         stock: parseInt(form.stock) || 0,
         category: form.category,
-        images: imagesRef.current,
+        images: form.images,
         active: form.active,
       };
 
