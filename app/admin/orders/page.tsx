@@ -91,6 +91,8 @@ export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [deleting, setDeleting] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [idsToDelete, setIdsToDelete] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -156,7 +158,9 @@ function toggleSelectAll() {
     async function deleteOrders(ids: string[]) {
   if (!ids.length) return;
 
-  if (!window.confirm("هل أنت متأكد من حذف الطلب/الطلبات؟")) return;
+  setIdsToDelete(ids);
+setShowDeleteModal(true);
+
 
   try {
     setDeleting(true);
@@ -181,7 +185,30 @@ function toggleSelectAll() {
     setDeleting(false);
   }
 }
+async function confirmDelete() {
+  try {
+    setDeleting(true);
 
+    const res = await fetch("/api/admin/orders/delete", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ ids: idsToDelete }),
+    });
+
+    if (!res.ok) throw new Error("فشل الحذف");
+
+    setOrders(prev => prev.filter(o => !idsToDelete.includes(o.id)));
+    setSelectedOrders([]);
+    setShowDeleteModal(false);
+
+  } catch (err: any) {
+    alert(err.message);
+  } finally {
+    setDeleting(false);
+  }
+}
     const filteredOrders = useMemo(() => {
     const filtered = orders.filter((o) => {
       if (statusFilter !== "all" && o.status !== statusFilter) return false;
@@ -215,7 +242,39 @@ function toggleSelectAll() {
 
   const delivered = orders.filter(o => o.status === "delivered");
   const revenue = delivered.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+{showDeleteModal && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+    <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl text-center">
+      
+      <h2 className="text-lg font-black text-gray-900 mb-2">
+        تأكيد الحذف
+      </h2>
 
+      <p className="text-sm text-gray-500 mb-6">
+        هل أنت متأكد من حذف {idsToDelete.length} طلب؟
+      </p>
+
+      <div className="flex gap-3 justify-center">
+        
+        <button
+          onClick={() => setShowDeleteModal(false)}
+          className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200"
+        >
+          إلغاء
+        </button>
+
+        <button
+          onClick={confirmDelete}
+          disabled={deleting}
+          className="px-4 py-2 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 disabled:opacity-50"
+        >
+          {deleting ? "جاري الحذف..." : "تأكيد الحذف"}
+        </button>
+
+      </div>
+    </div>
+  </div>
+)}
   return (
     <div className="space-y-8 text-right" dir="rtl">
       {/* Header Section */}
