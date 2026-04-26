@@ -248,11 +248,12 @@ function toggleSelectAll() {
       {selectedOrders.length > 0 && (
   <div className="flex justify-end">
     <button
-      onClick={() => deleteOrders(selectedOrders)}
-      className="bg-red-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-red-700"
-    >
-      حذف المحدد ({selectedOrders.length})
-    </button>
+  onClick={() => deleteOrders(selectedOrders)}
+  disabled={deleting}
+  className="bg-red-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-red-700 disabled:opacity-50"
+>
+  {deleting ? "جاري الحذف..." : `حذف المحدد (${selectedOrders.length})`}
+</button>
   </div>
 )}
       <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-wrap gap-4 items-center">
@@ -345,11 +346,12 @@ function toggleSelectAll() {
 
   {/* زر الحذف */}
   <button
-    onClick={() => deleteOrders([o.id])}
-    className="text-xs font-bold text-red-600 bg-red-50 px-3 py-1.5 rounded-lg hover:bg-red-100 transition-colors"
-  >
-    حذف
-  </button>
+  onClick={() => deleteOrders([o.id])}
+  disabled={deleting}
+  className="text-xs font-bold text-red-600 bg-red-50 px-3 py-1.5 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50"
+>
+  {deleting ? "..." : "حذف"}
+</button>
 </td>
                 </tr>
               ))}
