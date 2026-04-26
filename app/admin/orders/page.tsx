@@ -335,20 +335,22 @@ function toggleSelectAll() {
                   </td>
                   <td className="px-6 py-5"><StatusBadge status={o.status} /></td>
                   <td className="px-6 py-5 flex gap-3 justify-end">
-                    <button
-                   onClick={() => deleteOrders([o.id])}
-                    className="text-xs font-bold text-red-600 hover:text-red-800"
-                    >
-                     حذف
-                   </button>
+  {/* زر التفاصيل */}
+  <Link
+    href={`/admin/orders/${o.id}`}
+    className="px-3 py-1 rounded-md bg-blue-500 text-white text-xs font-bold hover:bg-blue-600 transition"
+  >
+    التفاصيل
+  </Link>
 
-                  <Link
-  href={`/admin/orders/${o.id}`}
-  className="text-xs font-bold text-blue-600 hover:text-blue-800"
->
-  التفاصيل
-                  </Link>
-                  </td>
+  {/* زر الحذف */}
+  <button
+    onClick={() => deleteOrders([o.id])}
+    className="px-3 py-1 rounded-md bg-red-500 text-white text-xs font-bold hover:bg-red-600 transition"
+  >
+    حذف
+  </button>
+</td>
                 </tr>
               ))}
             </tbody>
