@@ -7,6 +7,8 @@ import * as XLSX from "xlsx";
 import { normalizeImagesArray } from "@/lib/image-normalizer";
 import { getSafeImage } from "@/lib/image-safe";
 import { normalizeCategory } from "@/lib/category-normalizer";
+import { supabase } from "@/lib/supabaseClient";
+
 const PLACEHOLDER_IMAGE = "/placeholder.png";
 
 type PreviewRow = Record<string, any>;
@@ -48,8 +50,30 @@ export default function AdminProductsPage() {
   }
 
   useEffect(() => {
-    fetchProducts();
-  }, []);
+  fetchProducts();
+
+  const channel = supabase
+    .channel("products-realtime")
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "products",
+      },
+      (payload) => {
+        console.log("Realtime update:", payload);
+
+        // أسهل وأضمن حل
+        fetchProducts();
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, []);
 
   async function handleDelete(id: string) {
     if (!confirm("Are you sure you want to delete this product?")) return;
@@ -269,7 +293,7 @@ for (const img of rawImages) {
                     <img
                        src={getSafeImage(p.images?.[0])}
                        onError={(e) => {
-                         (e.currentTarget as HTMLImageElement).src = "/placeholder.png";
+                         (e.currentTarget as HTMLImageElement).src = PLACEHOLDER_IMAGE;
                        }}
                        className="h-12 w-12 object-contain"
                      />
@@ -313,11 +337,12 @@ for (const img of rawImages) {
                       Edit
                     </Link>
                     <button
-                      onClick={() => handleDelete(p.id)}
-                      className="text-xs bg-red-100 px-3 py-1 rounded"
-                    >
-                      Delete
-                    </button>
+  disabled={deletingId === p.id}
+  onClick={() => handleDelete(p.id)}
+  className="text-xs bg-red-100 px-3 py-1 rounded"
+>
+  {deletingId === p.id ? "Deleting..." : "Delete"}
+</button>
                   </td>
                 </tr>
               );
