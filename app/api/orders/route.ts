@@ -335,6 +335,38 @@ export async function POST(request: Request) {
 
       appliedInventoryUpdates.push(update);
     }
+    const customer_snapshot = {
+  name: customer?.name ?? "",
+  phone: customer?.phone ?? "",
+  address: customer?.address ?? "",
+};
+    // ===== RPC MODE (SAFE TEST) =====
+const USE_RPC = process.env.USE_RPC === "true";
+
+if (USE_RPC) {
+  try {
+    const { data, error } = await serviceSupabase.rpc(
+      "create_order_atomic",
+      {
+        p_user_id: user.id,
+        p_items: finalItems,
+        p_customer: customer_snapshot,
+        p_currency: currency,
+        p_order_token: order_token,
+      }
+    );
+
+    if (error) throw error;
+
+    return NextResponse.json({
+      success: true,
+      orderId: data.order_id,
+      order_number: data.order_number,
+    });
+  } catch (err) {
+    console.error("RPC FAILED → fallback to current logic", err);
+  }
+}
 
     const id = crypto.randomUUID();
     const items_snapshot = finalItems.map((item) => ({
@@ -351,12 +383,7 @@ export async function POST(request: Request) {
       (sum, item) => sum + item.price * item.quantity,
       0
     );
-
-    const customer_snapshot = {
-      name: customer?.name ?? "",
-      phone: customer?.phone ?? "",
-      address: customer?.address ?? "",
-    };
+    
 
     const order_number = generateOrderNumber();
 
