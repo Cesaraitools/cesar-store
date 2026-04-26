@@ -23,14 +23,6 @@ type ProductStockRow = {
   is_active: boolean;
 };
 
-type InventoryUpdate = {
-  id: string;
-  previousStock: number;
-  previousActive: boolean;
-  nextStock: number;
-  nextActive: boolean;
-};
-
 async function resolveUser(request: Request) {
   try {
     const authHeader = request.headers.get("authorization");
@@ -89,18 +81,6 @@ function mergeDuplicateItems(items: FinalOrderItem[]) {
   return Array.from(uniqueMap.values());
 }
 
-async function rollbackInventory(updates: InventoryUpdate[]) {
-  for (const update of [...updates].reverse()) {
-    await serviceSupabase
-      .from("products")
-      .update({
-        stock: update.previousStock,
-        is_active: update.previousActive,
-      })
-      .eq("id", update.id);
-  }
-}
-
 export async function GET(request: Request) {
   try {
     const user = await resolveUser(request);
@@ -149,7 +129,7 @@ export async function POST(request: Request) {
     }
 
     const { currency = "EGP", customer, items } = body;
-
+  
     if (!Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
         { error: "Invalid order payload" },
@@ -265,8 +245,6 @@ export async function POST(request: Request) {
       ])
     );
 
-    const inventoryUpdates: InventoryUpdate[] = [];
-
     for (const item of finalItems) {
       const product = productMap.get(item.product_id);
 
@@ -287,53 +265,6 @@ export async function POST(request: Request) {
           { status: 400 }
         );
       }
-
-      const nextStock = product.stock - item.quantity;
-
-      inventoryUpdates.push({
-        id: product.id,
-        previousStock: product.stock,
-        previousActive: product.is_active,
-        nextStock,
-        nextActive: nextStock > 0,
-      });
-    }
-
-    const appliedInventoryUpdates: InventoryUpdate[] = [];
-
-    for (const update of inventoryUpdates) {
-      const { data: updatedProduct, error: updateError } = await serviceSupabase
-        .from("products")
-        .update({
-          stock: update.nextStock,
-          is_active: update.nextActive,
-        })
-        .eq("id", update.id)
-        .eq("stock", update.previousStock)
-        .eq("is_active", update.previousActive)
-        .select("id")
-        .maybeSingle();
-
-      if (updateError || !updatedProduct) {
-        await rollbackInventory(appliedInventoryUpdates);
-
-        const { data: latestProduct } = await serviceSupabase
-          .from("products")
-          .select("stock")
-          .eq("id", update.id)
-          .maybeSingle();
-
-        return NextResponse.json(
-          {
-            error: "Insufficient stock for product",
-            product_id: update.id,
-            available: Number(latestProduct?.stock ?? 0),
-          },
-          { status: 409 }
-        );
-      }
-
-      appliedInventoryUpdates.push(update);
     }
     const customer_snapshot = {
   name: customer?.name ?? "",
@@ -341,9 +272,6 @@ export async function POST(request: Request) {
   address: customer?.address ?? "",
 };
     // ===== RPC MODE (SAFE TEST) =====
-const USE_RPC = process.env.USE_RPC === "true";
-
-if (USE_RPC) {
   try {
     const { data, error } = await serviceSupabase.rpc(
       "create_order_atomic",
@@ -363,77 +291,22 @@ if (USE_RPC) {
       orderId: data.order_id,
       order_number: data.order_number,
     });
+
   } catch (err) {
-    console.error("RPC FAILED → fallback to current logic", err);
-  }
-}
+  console.error("RPC FAILED", err);
 
-    const id = crypto.randomUUID();
-    const items_snapshot = finalItems.map((item) => ({
-      product_id: String(item.product_id),
-      name_ar: item.name_ar ?? "",
-      name_en: item.name_en ?? "",
-      name: item.name_ar || item.name_en || "",
-      price: item.price,
-      quantity: item.quantity,
-      image: item.image ?? null,
-    }));
-
-    const subtotal = items_snapshot.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0
+  return NextResponse.json(
+    { error: "Order creation failed" },
+    { status: 500 }
     );
-    
+   }
+   } catch (error) {
+  console.error("Unexpected POST error:", error);
 
-    const order_number = generateOrderNumber();
-
-    const { error: orderError } = await serviceSupabase.from("orders").insert({
-      id,
-      order_number,
-      status: "requested",
-      subtotal,
-      total: subtotal,
-      currency,
-      customer_snapshot,
-      items_snapshot,
-      user_id: user.id,
-      order_token,
-      created_at: new Date().toISOString(),
-    });
-
-    if (orderError) {
-      console.error("ORDER INSERT ERROR:", orderError);
-      await rollbackInventory(appliedInventoryUpdates);
-
-      return NextResponse.json(
-        { error: "Order creation failed", details: orderError.message },
-        { status: 500 }
-      );
-    }
-
-    await serviceSupabase.from("order_tracking_events").insert([
-      { order_id: id, status: "requested", actor: "system" },
-    ]);
-
-    try {
-      if (cartId) {
-        await serviceSupabase.from("cart_items").delete().eq("cart_id", cartId);
-      }
-    } catch (err) {
-      console.error("CLEAR CART ERROR:", err);
-    }
-
-    return NextResponse.json({
-      success: true,
-      orderId: id,
-      order_number,
-    });
-  } catch (error) {
-    console.error("Unexpected POST error:", error);
-
-    return NextResponse.json(
-      { error: "Unexpected server error" },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json(
+    { error: "Unexpected server error" },
+    { status: 500 }
+  );
+ }
 }
+  
