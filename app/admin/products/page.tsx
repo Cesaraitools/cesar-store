@@ -308,12 +308,12 @@ for (const img of rawImages) {
   >
     Bulk Import (Excel)
   </button>
-
-  <Link href="/admin/products/add">
-            className="bg-black text-white px-4 py-2 rounded"
-          
-            Add Product
-          </Link>
+  <Link
+  href="/admin/products/add"
+  className="bg-black text-white px-4 py-2 rounded"
+>
+  Add Product
+</Link>
         </div>
       </div>
 
@@ -329,6 +329,13 @@ for (const img of rawImages) {
         <table className="w-full text-sm">
           <thead className="bg-gray-100">
             <tr>
+              <th className="p-3 w-12 text-center bg-yellow-100">
+  <input
+    type="checkbox"
+    checked={selectedIds.length === products.length && products.length > 0}
+    onChange={toggleSelectAll}
+  />
+</th>
               <th className="p-3">Image</th>
               <th className="p-3">Name</th>
               <th className="p-3">Category</th>
@@ -342,7 +349,19 @@ for (const img of rawImages) {
             {products.map((p) => {
               const hasEN = p.name.en?.trim();
               return (
-                <tr key={p.id} className="border-t">
+                <tr
+  key={p.id}
+  className={`border-t ${
+    selectedIds.includes(p.id) ? "bg-red-50" : ""
+  }`}
+>
+                  <td className="p-3 w-12 text-center bg-yellow-50">
+  <input
+    type="checkbox"
+    checked={selectedIds.includes(p.id)}
+    onChange={() => toggleSelect(p.id)}
+  />
+</td>
                   <td className="p-3">
                     <img
                        src={getSafeImage(p.images?.[0])}
