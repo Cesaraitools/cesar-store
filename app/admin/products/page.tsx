@@ -19,6 +19,7 @@ export default function AdminProductsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -30,6 +31,50 @@ export default function AdminProductsPage() {
   const [rowWarnings, setRowWarnings] = useState<RowWarning[]>([]);
 
   const [isImporting, setIsImporting] = useState(false);
+
+  function toggleSelect(id: string) {
+setSelectedIds((prev) =>
+prev.includes(id)
+? prev.filter((i) => i !== id)
+: [...prev, id]
+);
+}
+
+function toggleSelectAll() {
+if (selectedIds.length === products.length) {
+setSelectedIds([]);
+} else {
+setSelectedIds(products.map((p) => p.id));
+}
+}
+
+async function handleBulkDelete() {
+if (!selectedIds.length) return;
+
+if (!confirm("Delete selected products?")) return;
+
+try {
+for (const id of selectedIds) {
+await fetch("/api/products", {
+method: "DELETE",
+headers: { "Content-Type": "application/json" },
+body: JSON.stringify({ id }),
+});
+}
+
+
+setProducts((prev) =>
+  prev.filter((p) => !selectedIds.includes(p.id))
+);
+
+setSelectedIds([]);
+
+
+} catch (err) {
+console.error("Bulk delete failed", err);
+}
+}
+
   const [importReport, setImportReport] = useState<{
     success: number;
     failed: { index: number; reason: string }[];
@@ -248,16 +293,25 @@ for (const img of rawImages) {
       <div className="flex justify-between mb-6">
         <h1 className="text-2xl font-bold">Admin – Products</h1>
         <div className="flex gap-3">
-          <button
-            onClick={handleBulkImportClick}
-            className="bg-gray-100 px-4 py-2 rounded"
-          >
-            Bulk Import (Excel)
-          </button>
-          <Link
-            href="/admin/products/add"
+
+  <button
+    onClick={handleBulkDelete}
+    disabled={!selectedIds.length}
+    className="bg-red-500 text-white px-4 py-2 rounded disabled:opacity-50"
+  >
+    Delete Selected ({selectedIds.length})
+  </button>
+
+  <button
+    onClick={handleBulkImportClick}
+    className="bg-gray-100 px-4 py-2 rounded"
+  >
+    Bulk Import (Excel)
+  </button>
+
+  <Link href="/admin/products/add">
             className="bg-black text-white px-4 py-2 rounded"
-          >
+          
             Add Product
           </Link>
         </div>
