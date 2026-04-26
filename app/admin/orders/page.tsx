@@ -338,7 +338,7 @@ function toggleSelectAll() {
   {/* زر التفاصيل */}
   <Link
     href={`/admin/orders/${o.id}`}
-    className="px-3 py-1 rounded-md bg-blue-500 text-white text-xs font-bold hover:bg-blue-600 transition"
+    className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors"
   >
     التفاصيل
   </Link>
@@ -346,7 +346,7 @@ function toggleSelectAll() {
   {/* زر الحذف */}
   <button
     onClick={() => deleteOrders([o.id])}
-    className="px-3 py-1 rounded-md bg-red-500 text-white text-xs font-bold hover:bg-red-600 transition"
+    className="text-xs font-bold text-red-600 bg-red-50 px-3 py-1.5 rounded-lg hover:bg-red-100 transition-colors"
   >
     حذف
   </button>
