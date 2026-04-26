@@ -89,6 +89,8 @@ function exportOrdersToCSV(rows: OrderRow[]) {
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
+  const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
+  const [deleting, setDeleting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -135,8 +137,52 @@ export default function AdminOrdersPage() {
       channelsRef.current = [];
     };
   }, [orders.length]);
+  
+    function toggleSelect(id: string) {
+  setSelectedOrders(prev =>
+    prev.includes(id)
+      ? prev.filter(i => i !== id)
+      : [...prev, id]
+  );
+}
 
-  const filteredOrders = useMemo(() => {
+function toggleSelectAll() {
+  if (selectedOrders.length === paginatedOrders.length) {
+    setSelectedOrders([]);
+  } else {
+    setSelectedOrders(paginatedOrders.map(o => o.id));
+  }
+}
+    async function deleteOrders(ids: string[]) {
+  if (!ids.length) return;
+
+  if (!window.confirm("هل أنت متأكد من حذف الطلب/الطلبات؟")) return;
+
+  try {
+    setDeleting(true);
+
+    const res = await fetch("/api/admin/orders/delete", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ ids }),
+    });
+
+    if (!res.ok) throw new Error("فشل الحذف");
+
+    // تحديث UI
+    setOrders(prev => prev.filter(o => !ids.includes(o.id)));
+    setSelectedOrders([]);
+
+  } catch (err: any) {
+    alert(err.message);
+  } finally {
+    setDeleting(false);
+  }
+}
+
+    const filteredOrders = useMemo(() => {
     const filtered = orders.filter((o) => {
       if (statusFilter !== "all" && o.status !== statusFilter) return false;
       if (fromDate && new Date(o.created_at) < new Date(fromDate)) return false;
@@ -199,6 +245,16 @@ export default function AdminOrdersPage() {
       </div>
 
       {/* Filters Bar */}
+      {selectedOrders.length > 0 && (
+  <div className="flex justify-end">
+    <button
+      onClick={() => deleteOrders(selectedOrders)}
+      className="bg-red-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-red-700"
+    >
+      حذف المحدد ({selectedOrders.length})
+    </button>
+  </div>
+)}
       <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-wrap gap-4 items-center">
         <div className="relative flex-1 min-w-[240px]">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -237,17 +293,35 @@ export default function AdminOrdersPage() {
           <table className="w-full text-right border-collapse">
             <thead>
               <tr className="bg-gray-50/50 border-b border-gray-100">
-                <th className="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-wider">رقم الطلب</th>
-                <th className="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-wider">العميل</th>
-                <th className="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-wider">التاريخ</th>
-                <th className="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-wider">القيمة</th>
-                <th className="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-wider">الحالة</th>
-                <th className="px-6 py-4"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {paginatedOrders.map((o) => (
-                <tr key={o.id} className="hover:bg-blue-50/30 transition-colors group">
+  <th className="px-3">
+    <input
+      type="checkbox"
+      onChange={toggleSelectAll}
+      checked={
+        paginatedOrders.length > 0 &&
+        selectedOrders.length === paginatedOrders.length
+      }
+    />
+  </th>
+
+  <th className="px-6 py-4 text-xs font-black text-gray-400">رقم الطلب</th>
+  <th className="px-6 py-4 text-xs font-black text-gray-400">العميل</th>
+  <th className="px-6 py-4 text-xs font-black text-gray-400">التاريخ</th>
+  <th className="px-6 py-4 text-xs font-black text-gray-400">القيمة</th>
+  <th className="px-6 py-4 text-xs font-black text-gray-400">الحالة</th>
+  <th className="px-6 py-4 text-xs font-black text-gray-400">إجراءات</th>
+</tr>
+  </thead>
+   <tbody className="divide-y divide-gray-50">
+    {paginatedOrders.map((o) => (
+      <tr key={o.id} className="hover:bg-blue-50/30 transition-colors group">
+      <td className="px-3">
+        <input
+    type="checkbox"
+    checked={selectedOrders.includes(o.id)}
+    onChange={() => toggleSelect(o.id)}
+     />
+      </td>
                   <td className="px-6 py-5 font-mono text-xs text-blue-600 font-bold">#{o.id.slice(0, 8)}</td>
                   <td className="px-6 py-5">
                     <div className="text-sm font-bold text-gray-900">{o.customer_snapshot?.name || "—"}</div>
@@ -260,10 +334,20 @@ export default function AdminOrdersPage() {
                     {Number(o.total).toLocaleString()} <span className="text-[10px] text-gray-400 mr-0.5">{o.currency}</span>
                   </td>
                   <td className="px-6 py-5"><StatusBadge status={o.status} /></td>
-                  <td className="px-6 py-5 text-left">
-                    <Link href={`/admin/orders/${o.id}`} className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors">
-                      التفاصيل <ChevronLeft className="w-3 h-3" />
-                    </Link>
+                  <td className="px-6 py-5 flex gap-3 justify-end">
+                    <button
+                   onClick={() => deleteOrders([o.id])}
+                    className="text-xs font-bold text-red-600 hover:text-red-800"
+                    >
+                     حذف
+                   </button>
+
+                  <Link
+  href={`/admin/orders/${o.id}`}
+  className="text-xs font-bold text-blue-600 hover:text-blue-800"
+>
+  التفاصيل
+                  </Link>
                   </td>
                 </tr>
               ))}
