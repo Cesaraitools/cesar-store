@@ -353,7 +353,7 @@ refreshCartFromDb();
 
       void syncWithDb();
       setTimeout(() => {
-  refreshCartFromDb();
+refreshCartFromDb();
 }, 300);
       return;
     }

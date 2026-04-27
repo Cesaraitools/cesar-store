@@ -165,7 +165,7 @@ export default function LandingPage() {
       {/* About Section - Minimalist approach */}
       <section className="py-24 px-6 relative overflow-hidden">
         <div className="max-w-4xl mx-auto text-center relative z-10">
-          <span className="text-blue-600 font-black text-[10px] uppercase tracking-[0.3em] mb-4 block">
+          <span className="text-blue-600 font-black text-[20px] uppercase tracking-[0.3em] mb-4 block">
             {isAr ? "قصتنا" : "OUR STORY"}
           </span>
           <p className="text-2xl md:text-4xl font-bold text-slate-800 leading-tight tracking-tight">
