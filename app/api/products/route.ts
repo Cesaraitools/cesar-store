@@ -3,9 +3,52 @@
 import { readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import { createClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
 import type { Product } from "@/types/product";
 import { normalizeImagesArray } from "@/lib/image-normalizer";
 import { normalizeCategory } from "@/lib/category-normalizer";
+async function verifyAdmin() {
+try {
+const cookieStore = cookies();
+const session = cookieStore.get("cesar_admin_session");
+
+
+if (!session) return false;
+
+const raw = decodeURIComponent(session.value);
+
+const [version, payload] = raw.split(":");
+if (version !== "v1" || !payload) return false;
+
+const [token, signature] = payload.split(".");
+if (!token || !signature) return false;
+
+const secret = process.env.ADMIN_SESSION_SECRET!;
+const enc = new TextEncoder();
+
+const key = await crypto.subtle.importKey(
+  "raw",
+  enc.encode(secret),
+  { name: "HMAC", hash: "SHA-256" },
+  false,
+  ["sign"]
+);
+
+const signed = await crypto.subtle.sign(
+  "HMAC",
+  key,
+  enc.encode(token)
+);
+
+const expected = Buffer.from(signed).toString("hex");
+
+return expected === signature;
+
+
+} catch {
+return false;
+}
+}
 
 const PRODUCTS_FILE = join(process.cwd(), "data-store", "products.json");
 const CATEGORIES_FILE = join(process.cwd(), "data-store", "categories.json");
@@ -94,6 +137,11 @@ export async function GET() {
 /* ---------------- POST ---------------- */
 
 export async function POST(request: Request) {
+  const isAdmin = await verifyAdmin();
+if (!isAdmin) {
+return Response.json({ error: "Unauthorized" }, { status: 401 });
+}
+
   try {
     const body = (await request.json()) as Partial<Product>;
 
@@ -204,6 +252,11 @@ export async function POST(request: Request) {
 /* ---------------- PUT ---------------- */
 
 export async function PUT(request: Request) {
+  const isAdmin = await verifyAdmin();
+if (!isAdmin) {
+return Response.json({ error: "Unauthorized" }, { status: 401 });
+}
+
   try {
     const { id, ...updates } = (await request.json()) as Partial<Product> & {
       id: string;
@@ -323,6 +376,11 @@ const isStillUsed = Array.from(usedImages).some(
 /* ---------------- DELETE ---------------- */
 
 export async function DELETE(request: Request) {
+  const isAdmin = await verifyAdmin();
+if (!isAdmin) {
+return Response.json({ error: "Unauthorized" }, { status: 401 });
+}
+
   try {
     const { id } = (await request.json()) as { id: string };
 
