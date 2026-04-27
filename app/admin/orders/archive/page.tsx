@@ -16,6 +16,9 @@ export default function ArchivedOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // 🧠 tracking لكل زر لوحده
+  const [processingId, setProcessingId] = useState<string | null>(null);
+
   useEffect(() => {
     async function load() {
       try {
@@ -31,6 +34,68 @@ export default function ArchivedOrdersPage() {
 
     load();
   }, []);
+
+  // 🔁 Restore
+  async function handleRestore(id: string) {
+    if (!confirm("Restore this order?")) return;
+
+    setProcessingId(id);
+
+    try {
+      const res = await fetch("/api/admin/orders/restore", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ id }),
+      });
+
+      if (!res.ok) {
+        console.error("Restore failed");
+        return;
+      }
+
+      // ✅ update UI بدون reload
+      setOrders((prev) => prev.filter((o) => o.id !== id));
+
+      alert("تم استرجاع الطلب بنجاح");
+    } catch (err) {
+      console.error("Restore error:", err);
+    } finally {
+      setProcessingId(null);
+    }
+  }
+
+  // ❌ Delete
+  async function handleDelete(id: string) {
+    if (!confirm("Delete permanently?")) return;
+
+    setProcessingId(id);
+
+    try {
+      const res = await fetch("/api/admin/orders/hard-delete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ id }),
+      });
+
+      if (!res.ok) {
+        console.error("Delete failed");
+        return;
+      }
+
+      // ✅ update UI بدون reload
+      setOrders((prev) => prev.filter((o) => o.id !== id));
+
+      alert("تم حذف الطلب نهائياً");
+    } catch (err) {
+      console.error("Delete error:", err);
+    } finally {
+      setProcessingId(null);
+    }
+  }
 
   if (loading)
     return (
@@ -64,58 +129,20 @@ export default function ArchivedOrdersPage() {
 
                 {/* 🔁 Restore */}
                 <button
-                  onClick={async () => {
-                    try {
-                      const res = await fetch("/api/admin/orders/restore", {
-                        method: "POST",
-                        headers: {
-                          "Content-Type": "application/json",
-                        },
-                        body: JSON.stringify({ id: o.id }),
-                      });
-
-                      if (!res.ok) {
-                        console.error("Restore failed");
-                        return;
-                      }
-
-                      location.reload();
-                    } catch (err) {
-                      console.error("Restore error:", err);
-                    }
-                  }}
-                  className="text-xs bg-green-500 text-white px-3 py-1 rounded"
+                  onClick={() => handleRestore(o.id)}
+                  disabled={processingId === o.id}
+                  className="text-xs font-bold text-green-600 bg-green-50 px-3 py-1.5 rounded-lg hover:bg-green-100 transition-colors disabled:opacity-50"
                 >
-                  Restore
+                  {processingId === o.id ? "..." : "Restore"}
                 </button>
 
                 {/* ❌ Hard Delete */}
                 <button
-                  onClick={async () => {
-                    if (!confirm("Delete permanently?")) return;
-
-                    try {
-                      const res = await fetch("/api/admin/orders/hard-delete", {
-                        method: "POST",
-                        headers: {
-                          "Content-Type": "application/json",
-                        },
-                        body: JSON.stringify({ id: o.id }),
-                      });
-
-                      if (!res.ok) {
-                        console.error("Delete failed");
-                        return;
-                      }
-
-                      location.reload();
-                    } catch (err) {
-                      console.error("Delete error:", err);
-                    }
-                  }}
-                  className="text-xs bg-red-600 text-white px-3 py-1 rounded"
+                  onClick={() => handleDelete(o.id)}
+                  disabled={processingId === o.id}
+                  className="text-xs font-bold text-red-600 bg-red-50 px-3 py-1.5 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50"
                 >
-                  Delete
+                  {processingId === o.id ? "..." : "Delete"}
                 </button>
               </div>
             </div>
