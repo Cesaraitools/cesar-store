@@ -16,10 +16,7 @@ export default function ArchivedOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 🧠 tracking لكل زر لوحده
   const [processingId, setProcessingId] = useState<string | null>(null);
-
-  // 🧠 selected orders
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   useEffect(() => {
@@ -46,7 +43,14 @@ export default function ArchivedOrdersPage() {
     );
   }
 
-  // 🔁 Restore
+  function toggleSelectAll() {
+    if (selectedIds.length === orders.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(orders.map((o) => o.id));
+    }
+  }
+
   async function handleRestore(id: string) {
     if (!confirm("Restore this order?")) return;
 
@@ -61,23 +65,17 @@ export default function ArchivedOrdersPage() {
         body: JSON.stringify({ id }),
       });
 
-      if (!res.ok) {
-        console.error("Restore failed");
-        return;
-      }
+      if (!res.ok) return;
 
       setOrders((prev) => prev.filter((o) => o.id !== id));
       setSelectedIds((prev) => prev.filter((i) => i !== id));
 
-      alert("تم استرجاع الطلب بنجاح");
-    } catch (err) {
-      console.error("Restore error:", err);
+      alert("تم الاسترجاع");
     } finally {
       setProcessingId(null);
     }
   }
 
-  // ❌ Delete
   async function handleDelete(id: string) {
     if (!confirm("Delete permanently?")) return;
 
@@ -92,120 +90,122 @@ export default function ArchivedOrdersPage() {
         body: JSON.stringify({ id }),
       });
 
-      if (!res.ok) {
-        console.error("Delete failed");
-        return;
-      }
+      if (!res.ok) return;
 
       setOrders((prev) => prev.filter((o) => o.id !== id));
       setSelectedIds((prev) => prev.filter((i) => i !== id));
 
-      alert("تم حذف الطلب نهائياً");
-    } catch (err) {
-      console.error("Delete error:", err);
+      alert("تم الحذف");
     } finally {
       setProcessingId(null);
     }
   }
 
-  // 🔥 Bulk Restore
   async function handleBulkRestore() {
     if (!selectedIds.length) return;
     if (!confirm("Restore selected orders?")) return;
 
-    try {
-      await Promise.all(
-        selectedIds.map((id) =>
-          fetch("/api/admin/orders/restore", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ id }),
-          })
-        )
-      );
+    await Promise.all(
+      selectedIds.map((id) =>
+        fetch("/api/admin/orders/restore", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ id }),
+        })
+      )
+    );
 
-      setOrders((prev) =>
-        prev.filter((o) => !selectedIds.includes(o.id))
-      );
+    setOrders((prev) =>
+      prev.filter((o) => !selectedIds.includes(o.id))
+    );
 
-      setSelectedIds([]);
-
-      alert("تم استرجاع المحدد");
-    } catch (err) {
-      console.error(err);
-    }
+    setSelectedIds([]);
+    alert("تم الاسترجاع الجماعي");
   }
 
-  // 🔥 Bulk Delete
   async function handleBulkDelete() {
     if (!selectedIds.length) return;
     if (!confirm("Delete selected permanently?")) return;
 
-    try {
-      await Promise.all(
-        selectedIds.map((id) =>
-          fetch("/api/admin/orders/hard-delete", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ id }),
-          })
-        )
-      );
+    await Promise.all(
+      selectedIds.map((id) =>
+        fetch("/api/admin/orders/hard-delete", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ id }),
+        })
+      )
+    );
 
-      setOrders((prev) =>
-        prev.filter((o) => !selectedIds.includes(o.id))
-      );
+    setOrders((prev) =>
+      prev.filter((o) => !selectedIds.includes(o.id))
+    );
 
-      setSelectedIds([]);
-
-      alert("تم حذف المحدد");
-    } catch (err) {
-      console.error(err);
-    }
+    setSelectedIds([]);
+    alert("تم الحذف الجماعي");
   }
 
   if (loading)
-    return (
-      <div className="p-10 text-center">جاري تحميل الأرشيف...</div>
-    );
+    return <div className="p-10 text-center">جاري التحميل...</div>;
 
   return (
     <div className="p-6 space-y-6">
       <h1 className="text-2xl font-black">📦 الطلبات المؤرشفة</h1>
 
-      {/* 🔥 Bulk Actions */}
-      <div className="flex gap-2">
-        <button
-          onClick={handleBulkRestore}
-          disabled={!selectedIds.length}
-          className="text-xs font-bold text-green-600 bg-green-50 px-3 py-1.5 rounded-lg disabled:opacity-50"
-        >
-          Restore Selected ({selectedIds.length})
-        </button>
+      {/* ✅ Sticky Bulk Bar */}
+      {selectedIds.length > 0 && (
+        <div className="sticky top-20 z-20 bg-white border rounded-xl p-3 flex gap-3 shadow">
+          <span className="text-sm font-bold">
+            {selectedIds.length} محدد
+          </span>
 
-        <button
-          onClick={handleBulkDelete}
-          disabled={!selectedIds.length}
-          className="text-xs font-bold text-red-600 bg-red-50 px-3 py-1.5 rounded-lg disabled:opacity-50"
-        >
-          Delete Selected ({selectedIds.length})
-        </button>
-      </div>
+          <button
+            onClick={handleBulkRestore}
+            className="text-xs font-bold text-green-600 bg-green-50 px-3 py-1.5 rounded-lg"
+          >
+            Restore
+          </button>
+
+          <button
+            onClick={handleBulkDelete}
+            className="text-xs font-bold text-red-600 bg-red-50 px-3 py-1.5 rounded-lg"
+          >
+            Delete
+          </button>
+        </div>
+      )}
 
       {orders.length === 0 ? (
-        <p className="text-gray-500">لا يوجد طلبات مؤرشفة</p>
+        <p className="text-gray-500">لا يوجد طلبات</p>
       ) : (
         <div className="space-y-3">
+
+          {/* ✅ Select All */}
+          <div className="flex items-center gap-2 px-2">
+            <input
+              type="checkbox"
+              checked={
+                orders.length > 0 &&
+                selectedIds.length === orders.length
+              }
+              onChange={toggleSelectAll}
+            />
+            <span className="text-sm text-gray-600">Select All</span>
+          </div>
+
           {orders.map((o) => (
             <div
               key={o.id}
-              className="p-4 border rounded-xl flex justify-between items-center"
+              className={`p-4 border rounded-xl flex justify-between items-center ${
+                selectedIds.includes(o.id)
+                  ? "bg-blue-50 border-blue-300"
+                  : ""
+              }`}
             >
-              {/* ✅ Checkbox */}
               <input
                 type="checkbox"
                 checked={selectedIds.includes(o.id)}
@@ -227,7 +227,7 @@ export default function ArchivedOrdersPage() {
                 <button
                   onClick={() => handleRestore(o.id)}
                   disabled={processingId === o.id}
-                  className="text-xs font-bold text-green-600 bg-green-50 px-3 py-1.5 rounded-lg hover:bg-green-100 transition-colors disabled:opacity-50"
+                  className="text-xs font-bold text-green-600 bg-green-50 px-3 py-1.5 rounded-lg"
                 >
                   {processingId === o.id ? "..." : "Restore"}
                 </button>
@@ -235,7 +235,7 @@ export default function ArchivedOrdersPage() {
                 <button
                   onClick={() => handleDelete(o.id)}
                   disabled={processingId === o.id}
-                  className="text-xs font-bold text-red-600 bg-red-50 px-3 py-1.5 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50"
+                  className="text-xs font-bold text-red-600 bg-red-50 px-3 py-1.5 rounded-lg"
                 >
                   {processingId === o.id ? "..." : "Delete"}
                 </button>
