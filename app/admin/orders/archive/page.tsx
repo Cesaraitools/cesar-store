@@ -123,7 +123,7 @@ export default function ArchivedOrdersPage() {
     );
 
     setSelectedIds([]);
-    toast.success("تم الاسترجاع الجماعي"); // ✅
+    toast.success("تم الاسترجاع بنجاح"); // ✅
   }
 
   async function handleBulkDelete() {
@@ -147,7 +147,7 @@ export default function ArchivedOrdersPage() {
     );
 
     setSelectedIds([]);
-    toast.success("تم الحذف الجماعي"); // ✅
+    toast.success("تم حذف الطلب/الطلبات بنجاح"); // ✅
   }
 
   if (loading)
