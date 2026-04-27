@@ -19,6 +19,9 @@ export default function ArchivedOrdersPage() {
   // 🧠 tracking لكل زر لوحده
   const [processingId, setProcessingId] = useState<string | null>(null);
 
+  // 🧠 selected orders
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
   useEffect(() => {
     async function load() {
       try {
@@ -34,6 +37,14 @@ export default function ArchivedOrdersPage() {
 
     load();
   }, []);
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) =>
+      prev.includes(id)
+        ? prev.filter((i) => i !== id)
+        : [...prev, id]
+    );
+  }
 
   // 🔁 Restore
   async function handleRestore(id: string) {
@@ -55,8 +66,8 @@ export default function ArchivedOrdersPage() {
         return;
       }
 
-      // ✅ update UI بدون reload
       setOrders((prev) => prev.filter((o) => o.id !== id));
+      setSelectedIds((prev) => prev.filter((i) => i !== id));
 
       alert("تم استرجاع الطلب بنجاح");
     } catch (err) {
@@ -86,14 +97,74 @@ export default function ArchivedOrdersPage() {
         return;
       }
 
-      // ✅ update UI بدون reload
       setOrders((prev) => prev.filter((o) => o.id !== id));
+      setSelectedIds((prev) => prev.filter((i) => i !== id));
 
       alert("تم حذف الطلب نهائياً");
     } catch (err) {
       console.error("Delete error:", err);
     } finally {
       setProcessingId(null);
+    }
+  }
+
+  // 🔥 Bulk Restore
+  async function handleBulkRestore() {
+    if (!selectedIds.length) return;
+    if (!confirm("Restore selected orders?")) return;
+
+    try {
+      await Promise.all(
+        selectedIds.map((id) =>
+          fetch("/api/admin/orders/restore", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ id }),
+          })
+        )
+      );
+
+      setOrders((prev) =>
+        prev.filter((o) => !selectedIds.includes(o.id))
+      );
+
+      setSelectedIds([]);
+
+      alert("تم استرجاع المحدد");
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  // 🔥 Bulk Delete
+  async function handleBulkDelete() {
+    if (!selectedIds.length) return;
+    if (!confirm("Delete selected permanently?")) return;
+
+    try {
+      await Promise.all(
+        selectedIds.map((id) =>
+          fetch("/api/admin/orders/hard-delete", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ id }),
+          })
+        )
+      );
+
+      setOrders((prev) =>
+        prev.filter((o) => !selectedIds.includes(o.id))
+      );
+
+      setSelectedIds([]);
+
+      alert("تم حذف المحدد");
+    } catch (err) {
+      console.error(err);
     }
   }
 
@@ -106,6 +177,25 @@ export default function ArchivedOrdersPage() {
     <div className="p-6 space-y-6">
       <h1 className="text-2xl font-black">📦 الطلبات المؤرشفة</h1>
 
+      {/* 🔥 Bulk Actions */}
+      <div className="flex gap-2">
+        <button
+          onClick={handleBulkRestore}
+          disabled={!selectedIds.length}
+          className="text-xs font-bold text-green-600 bg-green-50 px-3 py-1.5 rounded-lg disabled:opacity-50"
+        >
+          Restore Selected ({selectedIds.length})
+        </button>
+
+        <button
+          onClick={handleBulkDelete}
+          disabled={!selectedIds.length}
+          className="text-xs font-bold text-red-600 bg-red-50 px-3 py-1.5 rounded-lg disabled:opacity-50"
+        >
+          Delete Selected ({selectedIds.length})
+        </button>
+      </div>
+
       {orders.length === 0 ? (
         <p className="text-gray-500">لا يوجد طلبات مؤرشفة</p>
       ) : (
@@ -115,6 +205,13 @@ export default function ArchivedOrdersPage() {
               key={o.id}
               className="p-4 border rounded-xl flex justify-between items-center"
             >
+              {/* ✅ Checkbox */}
+              <input
+                type="checkbox"
+                checked={selectedIds.includes(o.id)}
+                onChange={() => toggleSelect(o.id)}
+              />
+
               <div>
                 <p className="font-bold">#{o.id.slice(0, 8)}</p>
                 <p className="text-sm text-gray-500">
@@ -127,7 +224,6 @@ export default function ArchivedOrdersPage() {
                   {o.total} {o.currency}
                 </span>
 
-                {/* 🔁 Restore */}
                 <button
                   onClick={() => handleRestore(o.id)}
                   disabled={processingId === o.id}
@@ -136,7 +232,6 @@ export default function ArchivedOrdersPage() {
                   {processingId === o.id ? "..." : "Restore"}
                 </button>
 
-                {/* ❌ Hard Delete */}
                 <button
                   onClick={() => handleDelete(o.id)}
                   disabled={processingId === o.id}
