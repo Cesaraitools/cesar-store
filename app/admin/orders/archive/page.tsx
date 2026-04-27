@@ -65,14 +65,24 @@ export default function ArchivedOrdersPage() {
                 {/* 🔁 Restore */}
                 <button
                   onClick={async () => {
-                    await fetch("/api/admin/orders/restore", {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                      },
-                      body: JSON.stringify({ id: o.id }),
-                    });
-                    location.reload();
+                    try {
+                      const res = await fetch("/api/admin/orders/restore", {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({ id: o.id }),
+                      });
+
+                      if (!res.ok) {
+                        console.error("Restore failed");
+                        return;
+                      }
+
+                      location.reload();
+                    } catch (err) {
+                      console.error("Restore error:", err);
+                    }
                   }}
                   className="text-xs bg-green-500 text-white px-3 py-1 rounded"
                 >
@@ -84,15 +94,24 @@ export default function ArchivedOrdersPage() {
                   onClick={async () => {
                     if (!confirm("Delete permanently?")) return;
 
-                    await fetch("/api/admin/orders/hard-delete", {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                      },
-                      body: JSON.stringify({ id: o.id }),
-                    });
+                    try {
+                      const res = await fetch("/api/admin/orders/hard-delete", {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({ id: o.id }),
+                      });
 
-                    location.reload();
+                      if (!res.ok) {
+                        console.error("Delete failed");
+                        return;
+                      }
+
+                      location.reload();
+                    } catch (err) {
+                      console.error("Delete error:", err);
+                    }
                   }}
                   className="text-xs bg-red-600 text-white px-3 py-1 rounded"
                 >
