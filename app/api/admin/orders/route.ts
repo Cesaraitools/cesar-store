@@ -24,10 +24,11 @@ export async function GET(req: NextRequest) {
 
     /* -------- Params -------- */
     const { searchParams } = new URL(req.url);
+    const archived = searchParams.get("archived");
     const limit = Number(searchParams.get("limit") || 100);
 
-    /* -------- Orders -------- */
-    const { data: orders, error } = await supabase
+    /* -------- Orders Query -------- */
+    const query = supabase
       .from("orders")
       .select(`
         id,
@@ -35,7 +36,15 @@ export async function GET(req: NextRequest) {
         currency,
         created_at,
         customer_snapshot
-      `)
+      `);
+
+    if (archived === "true") {
+      query.not("archived_at", "is", null);
+    } else {
+      query.is("archived_at", null);
+    }
+
+    const { data: orders, error } = await query
       .order("created_at", { ascending: false })
       .limit(limit);
 
@@ -64,10 +73,13 @@ export async function GET(req: NextRequest) {
       if (!existing) {
         latestStatusMap[t.order_id] = t.status;
       } else {
-        // compare timestamps
         const current = tracking
           .filter(x => x.order_id === t.order_id)
-          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+          .sort(
+            (a, b) =>
+              new Date(b.created_at).getTime() -
+              new Date(a.created_at).getTime()
+          )[0];
 
         latestStatusMap[t.order_id] = current.status;
       }

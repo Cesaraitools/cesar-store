@@ -259,6 +259,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       };
 
       void syncWithDb();
+      setTimeout(() => {
+refreshCartFromDb();
+}, 300);
+
     }
   };
 
@@ -348,6 +352,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       };
 
       void syncWithDb();
+      setTimeout(() => {
+  refreshCartFromDb();
+}, 300);
       return;
     }
 
@@ -377,6 +384,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
         };
 
         void syncWithDb();
+        setTimeout(() => {
+refreshCartFromDb();
+}, 300);
       }
 
       return {
@@ -385,13 +395,62 @@ export function CartProvider({ children }: { children: ReactNode }) {
       };
     });
   };
+  const refreshCartFromDb = async () => {
+if (!user || !session) return;
 
-  const clearCart = () => {
-    setCart({
-      id: cart.id,
-      items: [],
-    });
-  };
+try {
+const res = await fetch("/api/cart/items", {
+headers: {
+Authorization: `Bearer ${session.access_token}`,
+},
+});
+
+
+const data = await res.json();
+
+setCart((prev) => ({
+  ...prev,
+  items: (data.items || []).map((item: any) => ({
+    id: item.id,
+    cart_id: item.cart_id,
+    product_id: item.product_id,
+    name_ar: item.name_ar || item.name || "",
+    name_en: item.name_en || item.name || "",
+    name: item.name || item.name_en || item.name_ar || "Product",
+    price: Number(item.price || 0),
+    image: item.image || null,
+    quantity: item.quantity,
+    stock: normalizeStockValue(item.stock) ?? 0,
+    created_at: item.created_at,
+  })),
+}));
+
+
+} catch {
+console.warn("Failed to refresh cart");
+}
+};
+
+  const clearCart = async () => {
+setCart({
+id: cart.id,
+items: [],
+});
+
+if (user && session) {
+try {
+await fetch("/api/cart/items/clear", {
+method: "POST",
+headers: {
+Authorization: `Bearer ${session.access_token}`,
+},
+});
+} catch {
+console.warn("Failed to clear cart from DB");
+}
+}
+};
+
 
   return (
     <CartContext.Provider
