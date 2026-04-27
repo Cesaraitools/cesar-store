@@ -253,15 +253,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
               ),
             }));
           }
+          await refreshCartFromDb();
         } catch {
           console.warn("Cart sync failed (POST)");
         }
       };
 
       void syncWithDb();
-      setTimeout(() => {
-refreshCartFromDb();
-}, 300);
+      
 
     }
   };
@@ -330,7 +329,7 @@ refreshCartFromDb();
                 ),
               }));
             }
-
+             
             toast.error(
               getStockExceededMessage(
                 typeof payload?.available === "number"
@@ -346,19 +345,19 @@ refreshCartFromDb();
               ? payload.available
               : knownStock ?? undefined
           );
+          await refreshCartFromDb();
         } catch {
           console.warn("Cart sync failed (PATCH)");
         }
       };
 
       void syncWithDb();
-      setTimeout(() => {
-refreshCartFromDb();
-}, 300);
+      
       return;
     }
 
     applyLocalUpdate(knownStock ?? undefined);
+    
   };
 
   const removeFromCart = (cartItemId: string) => {
@@ -378,15 +377,14 @@ refreshCartFromDb();
                 product_id: item.product_id,
               }),
             });
+            await refreshCartFromDb();
           } catch {
             console.warn("Cart sync failed (DELETE)");
           }
         };
 
         void syncWithDb();
-        setTimeout(() => {
-refreshCartFromDb();
-}, 300);
+        
       }
 
       return {
