@@ -408,7 +408,9 @@ const data = await res.json();
 
 setCart((prev) => ({
   ...prev,
-  items: (data.items || []).map((item: any) => ({
+ items: (data.items || [])
+  .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+  .map((item: any) => ({
     id: item.id,
     cart_id: item.cart_id,
     product_id: item.product_id,
