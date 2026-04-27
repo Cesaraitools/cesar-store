@@ -38,6 +38,8 @@ export default function AdminClientLayout({ children }: { children: ReactNode })
     { name: "Analytics", href: "/admin/analytics", icon: BarChart3 },
     { name: "Charts", href: "/admin/charts", icon: LineChart },
     { name: "Categories", href: "/admin/categories", icon: Tag },
+    { name: "Orders", href: "/admin/orders", icon: Package },
+    { name: "Archive", href: "/admin/orders/archive", icon: Package },
     { name: "Products", href: "/admin/products", icon: Package },
     { name: "Promos", href: "/admin/promos", icon: TicketPercent },
   ];
