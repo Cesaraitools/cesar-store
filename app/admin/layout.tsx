@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import AdminClientLayout from "./AdminClientLayout";
 import crypto from "crypto"; // ✅ إضافة فقط
-
+import { Toaster } from "react-hot-toast";
 import { validateAdminSession } from "@/lib/admin/validateAdminSession";
 import { isSessionValid } from "@/lib/admin/adminSessionStore";
 

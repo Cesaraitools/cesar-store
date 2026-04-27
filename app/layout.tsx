@@ -41,8 +41,7 @@ export default function RootLayout({
             </CartProvider>
           </LanguageProvider>
         </AuthProvider>
-        <Toaster position="top-center" />
-      </body>
+        </body>
     </html>
   );
 }

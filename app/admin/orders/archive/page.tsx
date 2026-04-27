@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import toast from "react-hot-toast"; // ✅ إضافة
 
 type Order = {
   id: string;
@@ -70,7 +71,7 @@ export default function ArchivedOrdersPage() {
       setOrders((prev) => prev.filter((o) => o.id !== id));
       setSelectedIds((prev) => prev.filter((i) => i !== id));
 
-      alert("تم الاسترجاع");
+      toast.success("تم الاسترجاع"); // ✅ بدل alert
     } finally {
       setProcessingId(null);
     }
@@ -95,7 +96,7 @@ export default function ArchivedOrdersPage() {
       setOrders((prev) => prev.filter((o) => o.id !== id));
       setSelectedIds((prev) => prev.filter((i) => i !== id));
 
-      alert("تم الحذف");
+      toast.success("تم الحذف"); // ✅ بدل alert
     } finally {
       setProcessingId(null);
     }
@@ -122,7 +123,7 @@ export default function ArchivedOrdersPage() {
     );
 
     setSelectedIds([]);
-    alert("تم الاسترجاع الجماعي");
+    toast.success("تم الاسترجاع الجماعي"); // ✅
   }
 
   async function handleBulkDelete() {
@@ -146,7 +147,7 @@ export default function ArchivedOrdersPage() {
     );
 
     setSelectedIds([]);
-    alert("تم الحذف الجماعي");
+    toast.success("تم الحذف الجماعي"); // ✅
   }
 
   if (loading)
@@ -156,7 +157,6 @@ export default function ArchivedOrdersPage() {
     <div className="p-6 space-y-6">
       <h1 className="text-2xl font-black">📦 الطلبات المؤرشفة</h1>
 
-      {/* ✅ Sticky Bulk Bar */}
       {selectedIds.length > 0 && (
         <div className="sticky top-20 z-20 bg-white border rounded-xl p-3 flex gap-3 shadow">
           <span className="text-sm font-bold">
@@ -184,7 +184,6 @@ export default function ArchivedOrdersPage() {
       ) : (
         <div className="space-y-3">
 
-          {/* ✅ Select All */}
           <div className="flex items-center gap-2 px-2">
             <input
               type="checkbox"
