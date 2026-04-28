@@ -14,7 +14,7 @@ import {
 } from "@react-pdf/renderer";
 import arabicReshaper from "arabic-reshaper";
 
-/* ================= تسجيل الخطوط ================= */
+/* ================= تحميل الخط مرة واحدة (Cache) ================= */
 const FONT_URL =
   "https://bdmumdbykzbozgkxtsmk.supabase.co/storage/v1/object/public/upload/fonts/Cairo.ttf";
 
@@ -22,6 +22,7 @@ Font.register({
   family: "Cairo",
   src: FONT_URL,
 });
+
 /* ================= معالجة النص ================= */
 const smartText = (text: string) => {
   if (!text) return "";
@@ -122,11 +123,12 @@ const styles = StyleSheet.create({
 export async function GET(_req: Request, { params }: { params: { orderId: string } }) {
   const orderId = params.orderId;
 
+
  let logoBuffer: Buffer | null = null;
 
 try {
   const logoRes = await fetch(
-    "https://YOUR_SUPABASE_URL/storage/v1/object/public/upload/logo.png"
+    "https://bdmumdbykzbozgkxtsmk.supabase.co/storage/v1/object/public/upload/logo.png"
   );
 
   if (logoRes.ok) {
