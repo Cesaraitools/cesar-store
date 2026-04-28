@@ -1,340 +1,345 @@
-# 🧠 CESAR STORE — MASTER RECOVERY PROMPT (FINAL VERSION)
+# 🧾 Cesar Store — برومبت الإنجاز النهائي (حالة النظام الحالية)
+
+## 🎯 الهدف
+
+تثبيت الحالة الفعلية الدقيقة لمشروع **Cesar Store** بعد تنفيذ مجموعة كبيرة من التحسينات، مع توضيح ما تم إنجازه فعليًا وما هو مؤجل، لضمان عدم كسر أي منطق أو إعادة شغل تم بالفعل.
 
 ---
 
-# 📌 PROJECT IDENTITY
+# 🧠 الحالة المعمارية العامة
 
-* **Project:** Cesar Store (متجر سيزر)
-* **Type:** E-Commerce (Car Care & Accessories)
-* **Stack:**
+## ✔️ النظام يعمل Production-ready في الأجزاء التالية:
 
-  * Next.js 14 (App Router)
-  * TypeScript
-  * Supabase (PostgreSQL + Auth + Storage)
-  * Tailwind CSS
-
----
-
-# 🚦 CURRENT STATUS
-
-✅ Core Systems Stable
-✅ Production-ready Order Flow
-⚠️ Enhancements pending (NOT redesign)
+* Auth (Google فقط حاليًا)
+* Cart System (محلي + DB Sync)
+* Orders + Order Tracking (UI + Admin)
+* Admin Dashboard (Orders / Analytics / Archive)
+* Realtime-like behavior (تحديث لحظي عبر إعادة fetch)
 
 ---
 
-# 🧠 CORE ARCHITECTURE (DO NOT CHANGE)
+# 🔥 أهم إنجاز تم (Critical Fix)
 
-## 1. 🔒 Source of Truth
+## 🛒 Cart Sync System (تم إصلاحه)
 
-* ✅ Database = **ONLY source of truth**
-* ❌ Frontend NEVER trusted for:
+### ❌ قبل:
 
-  * cart
-  * order items
+* استخدام `setTimeout` لعمل sync
+* race conditions
+* inconsistent state
+* ترتيب العناصر كان غير ثابت
 
----
+### ✅ بعد:
 
-## 2. 📦 Snapshot Architecture
-
-* Orders store:
-
-  * product name
-  * price
-  * image
-
-❌ No dependency on products table after order creation
-
----
-
-## 3. 🛒 Hybrid Cart System
-
-### Guest:
-
-```js
-localStorage → cesar_store_cart_v2
-```
-
-### Logged-in:
-
-* DB cart becomes source of truth
-* Local cart = temporary buffer only
-
----
-
-## 4. 🔁 Merge Strategy (CRITICAL)
-
-### Endpoint:
-
-```
-POST /api/cart/merge
-```
-
-### Behavior:
-
-1. Read localStorage + DB cart
-2. Merge:
-
-   * existing → increase quantity
-   * new → insert
-3. Save ONLY in DB
-4. Clear localStorage
-
----
-
-# 🗄️ DATABASE DESIGN (FINAL)
-
-## Tables
-
-### users
-
-* id
-
----
-
-### carts
-
-* id
-* user_id
-* status = active
-
----
-
-### cart_items
-
-* id
-* cart_id
-* product_id
-* quantity
-* name_ar
-* name_en
-* price
-* image
-
----
-
-### orders
-
-* id
-* order_number
-* status
-* subtotal
-* total
-* currency
-* items_snapshot
-* customer_snapshot
-* user_id
-
----
-
-### order_tracking_events
-
-* id
-* order_id
-* status
-* actor
-* created_at
-
----
-
-# 🔗 ERD (RELATIONSHIPS)
-
-```
-users
-  ↓
-carts (user_id)
-  ↓
-cart_items (cart_id)
-
-users
-  ↓
-orders (user_id)
-  ↓
-order_tracking_events (order_id)
-```
-
----
-
-# 📡 API CONTRACTS (STRICT — DO NOT CHANGE)
-
----
-
-## 🛒 GET /api/cart
-
-### Response:
-
-```json
-{
-  "cart": {
-    "id": "...",
-    "items": [
-      {
-        "product_id": "...",
-        "quantity": 2,
-        "price": 100
-      }
-    ]
-  }
-}
-```
-
----
-
-## 🔁 POST /api/cart/merge
-
-### Behavior:
-
-* No request body required
-* Reads from localStorage (frontend)
-* Merges into DB
-
-### Response:
-
-```json
-{
-  "success": true
-}
-```
-
----
-
-## 📦 POST /api/orders
-
-### ⚠️ IMPORTANT
-
-* Does NOT accept items from frontend
-
-### Request:
-
-```json
-{}
-```
-
----
-
-### Server Logic:
-
-1. Resolve user
-2. Fetch cart from DB
-3. Validate products
-4. Build snapshot
-5. Create order
-6. Insert tracking event
-7. Clear cart AFTER success
-
----
-
-### Response:
-
-```json
-{
-  "order_id": "...",
-  "order_number": "...",
-  "status": "requested"
-}
-```
-
----
-
-# 📊 ORDER FLOW
-
-```
-requested → confirmed → preparing → shipped → delivered
-                ↘ canceled
-```
-
----
-
-# 📡 TRACKING SYSTEM
-
-* Event-based system
-* Immutable log
-* No updates — only inserts
-
----
-
-# 🧾 INVOICE SYSTEM
-
-* Generated as PDF
-* Snapshot-based
-* مستقل عن order lifecycle
-
----
-
-# 🛡️ DUPLICATE ORDER PROTECTION
+* إزالة `setTimeout` بالكامل
+* اعتماد:
 
 ```ts
-gte(created_at, now - 10 seconds)
+await refreshCartFromDb()
+```
+
+* sync أصبح deterministic
+* لا يوجد race conditions
+
+---
+
+## ⚠️ Bug تم اكتشافه بعد الإصلاح
+
+### المشكلة:
+
+* العناصر كانت تغير ترتيبها عند تعديل الكمية (+ / -)
+
+### السبب:
+
+* API يرجع العناصر بدون ترتيب ثابت
+* `refreshCartFromDb` كان يعيد ترتيب العناصر عشوائيًا
+
+### ✅ الحل المطبق:
+
+```ts
+(data.items || [])
+  .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+  .map(...)
+```
+
+### النتيجة:
+
+* ترتيب ثابت
+* UX طبيعي
+* لا يوجد flipping
+
+---
+
+# 🧾 Cart Behavior النهائي
+
+## ✔️ addToCart
+
+* optimistic UI
+* sync مع DB
+* rollback عند الفشل
+* ثم refresh من DB
+
+## ✔️ updateQuantity
+
+* validation على stock
+* update local
+* ثم refresh من DB
+
+## ✔️ removeFromCart
+
+* حذف محلي
+* حذف من DB
+* ثم refresh
+
+## ✔️ clearCart
+
+* reset local
+* clear من DB
+
+---
+
+# ⚠️ ملاحظات مهمة جدًا
+
+## 1. لا يوجد أي setTimeout في النظام
+
+❌ ممنوع رجوعه نهائيًا
+
+---
+
+## 2. refreshCartFromDb هو المصدر الوحيد للحقيقة
+
+✔ DB = Single Source of Truth
+
+---
+
+## 3. ترتيب العناصر يعتمد على:
+
+```ts
+created_at ASC
 ```
 
 ---
 
-# 🧠 CRITICAL RULES (MANDATORY)
+# 🧠 تحسينات Admin (تم تنفيذها)
 
-❌ Do NOT redesign system
-❌ Do NOT add guest checkout
-❌ Do NOT use frontend cart in orders
-❌ Do NOT change architecture
+## ✔️ Archive System
 
-✅ DB is always the source
-✅ Merge happens ONLY on login
-✅ Cart cleared ONLY after success
+* soft delete باستخدام `archived_at`
+* restore
+* hard delete
+* Audit log
+
+## ✔️ Archive Page
+
+* عرض الطلبات المؤرشفة
+* أزرار:
+
+  * Restore
+  * Delete (hard)
+* Bulk selection
+* Select All
+* Sticky bulk bar
 
 ---
 
-# 📁 PROJECT STRUCTURE (IMPORTANT)
+## ✔️ تحسين UX في Admin Archive
 
+* Loading states
+* Disable أثناء التنفيذ
+* Toast notifications
+* Confirmation dialogs
+
+---
+
+# 🔥 مشكلة تم حلها في UI
+
+## ❗ Toaster duplication
+
+### السبب:
+
+وجود:
+
+```tsx
+<Toaster /> مرتين
 ```
-app/
-  api/
-    cart/
-      route.ts
-      merge/
-        route.ts
-    orders/
-      route.ts
 
-components/
-context/
-lib/
-  supabase/
-  utils/
+### الحل:
 
-types/
+* الإبقاء على واحد فقط في RootLayout
+
+---
+
+# 📊 Analytics System
+
+✔ يعمل ويعرض:
+
+* إجمالي الطلبات
+* إجمالي المبيعات
+* أفضل المنتجات
+* أفضل الأقسام
+* Filters (date / category / status)
+
+---
+
+# 🔁 Realtime Behavior
+
+✔ أي تغيير في Admin:
+
+* يظهر فورًا في User UI
+
+(عن طريق إعادة fetch وليس websocket)
+
+---
+
+# 🔐 Security
+
+✔ Admin APIs محمية بـ:
+
+```ts
+validateAdminSession()
+```
+
+✔ استخدام Service Role في backend فقط
+
+---
+
+# ⚠️ مهام مؤجلة (Critical)
+
+## 🔴 1. Cart Hardening (مهم جدًا)
+
+### المطلوب:
+
+* منع duplicate requests
+* منع double click
+* request locking
+
+---
+
+## 🔴 2. تحسين Cart Sync بالكامل
+
+### الحالي:
+
+✔ await-based sync
+
+### المتبقي:
+
+* queue system
+* optimistic rollback كامل
+* debounce / throttle
+
+---
+
+## 🔴 3. Orders.created_at issue
+
+* مراجعة default value
+* منع manual override
+* ترتيب ثانوي
+
+---
+
+## 🔴 4. Bulk Import Bugs
+
+* أخطاء 500 في:
+
+  * /api/products
+  * /api/upload
+
+---
+
+## 🔴 5. Image System Refactor
+
+* الانتقال من:
+
+```ts
+image_url
+```
+
+إلى:
+
+```ts
+images[]
 ```
 
 ---
 
-# ⚠️ KNOWN ISSUES (DO NOT FIX NOW)
+# ⚙️ قرارات معمارية مهمة (لا يتم تغييرها)
 
-* TypeScript strict = false
-* No payment integration
-* No rate limiting
-* No automated tests
-* Admin auth not fully hardened
+## ✔️ Cart Hybrid System
 
----
-
-# 🚀 NEXT PHASE (EXECUTE — DO NOT THINK)
-
-1. Improve Order Tracking UI
-2. Payment Integration (Stripe / Paymob)
-3. Add Rate Limiting
-4. Enable TypeScript strict mode
-5. Notifications (Email / SMS)
+* Local + DB
+* لا يتم إنشاء cart عند login
+* يتم عند أول interaction فقط
 
 ---
 
-# 🏁 FINAL DIRECTIVE
+## ✔️ Invoice vs Tracking
 
-ابدأ التنفيذ مباشرة بدون:
-
-* إعادة تحليل
-* إعادة تصميم
-* اقتراح بدائل
-
-النظام الحالي **مستقر وصحيح** — المطلوب فقط تطويره.
+* Invoice ثابت
+* Tracking ديناميكي
 
 ---
 
-# END OF PROMPT
+## ✔️ Admin Roles (مستقبلي)
+
+* Catalog Admin (read-only)
+
+---
+
+# 🚫 قواعد صارمة (يجب الالتزام بها)
+
+1. ❌ لا تعديل بدون قراءة الملف كامل
+2. ❌ لا حذف logic سليم
+3. ❌ لا refactor عشوائي
+4. ✔ إرسال الملف كامل دائمًا
+5. ✔ الحفاظ على UI 100%
+6. ✔ كل تعديل minimal
+
+---
+
+# 🧠 الحالة النهائية
+
+## 🟢 Cart System:
+
+Production-ready (بعد fix كبير)
+
+## 🟢 Orders System:
+
+مستقر
+
+## 🟢 Admin:
+
+Functional + Advanced
+
+## 🟡 Performance:
+
+جيد — يحتاج تحسين لاحق
+
+## 🔴 Missing:
+
+Anti-duplicate protection
+
+---
+
+# 🚀 الخطوة التالية المقترحة
+
+## 🔥 Cart Hardening Phase
+
+* request locking
+* prevent spam clicks
+* ensure atomic updates
+
+---
+
+# 🧾 ملاحظة ختامية
+
+> تم تحويل Cart System من:
+> Fragile / timing-based
+
+إلى:
+Deterministic / production-grade
+
+---
+
+## 🎯 هذا البرومبت يمثل الحالة الفعلية الدقيقة للنظام
+
+ولا يجب إعادة تحليل ما تم حله أو تغييره

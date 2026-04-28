@@ -2,11 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import type { Product } from "@/types/product";
 import * as XLSX from "xlsx";
-import { normalizeImagesArray } from "@/lib/image-normalizer";
+import type { Product } from "@/types/product";
+import type { ProductImportJobSnapshot } from "@/types/product-import";
 import { getSafeImage } from "@/lib/image-safe";
-import { normalizeCategory } from "@/lib/category-normalizer";
 import { supabase } from "@/lib/supabaseClient";
 
 const PLACEHOLDER_IMAGE = "/placeholder.png";
@@ -14,78 +13,112 @@ const PLACEHOLDER_IMAGE = "/placeholder.png";
 type PreviewRow = Record<string, any>;
 type RowWarning = string[];
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function createImportJob(fileName: string, rows: PreviewRow[]) {
+  const response = await fetch("/api/admin/products/import", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fileName, rows }),
+  });
+
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(
+      payload?.details ||
+        payload?.error ||
+        `Failed to create import job (${response.status})`
+    );
+  }
+
+  return payload.job as ProductImportJobSnapshot;
+}
+
+async function processImportJob(jobId: string) {
+  const response = await fetch(`/api/admin/products/import/${jobId}`, {
+    method: "POST",
+  });
+
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(
+      payload?.details ||
+        payload?.error ||
+        `Failed to process import job (${response.status})`
+    );
+  }
+
+  return payload.job as ProductImportJobSnapshot;
+}
+
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewRows, setPreviewRows] = useState<PreviewRow[]>([]);
   const [previewColumns, setPreviewColumns] = useState<string[]>([]);
   const [fileName, setFileName] = useState("");
-
   const [rowWarnings, setRowWarnings] = useState<RowWarning[]>([]);
-
   const [isImporting, setIsImporting] = useState(false);
-
-  function toggleSelect(id: string) {
-setSelectedIds((prev) =>
-prev.includes(id)
-? prev.filter((i) => i !== id)
-: [...prev, id]
-);
-}
-
-function toggleSelectAll() {
-if (selectedIds.length === products.length) {
-setSelectedIds([]);
-} else {
-setSelectedIds(products.map((p) => p.id));
-}
-}
-
-async function handleBulkDelete() {
-if (!selectedIds.length) return;
-
-if (!confirm("Delete selected products?")) return;
-
-try {
-for (const id of selectedIds) {
-await fetch("/api/products", {
-method: "DELETE",
-headers: { "Content-Type": "application/json" },
-body: JSON.stringify({ id }),
-});
-}
-
-
-setProducts((prev) =>
-  prev.filter((p) => !selectedIds.includes(p.id))
-);
-
-setSelectedIds([]);
-
-
-} catch (err) {
-console.error("Bulk delete failed", err);
-}
-}
-
+  const [importJob, setImportJob] = useState<ProductImportJobSnapshot | null>(null);
   const [importReport, setImportReport] = useState<{
     success: number;
+    skipped: number;
     failed: { index: number; reason: string }[];
   } | null>(null);
 
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.length === products.length) {
+      setSelectedIds([]);
+      return;
+    }
+
+    setSelectedIds(products.map((product) => product.id));
+  }
+
+  async function handleBulkDelete() {
+    if (!selectedIds.length) return;
+    if (!confirm("Delete selected products?")) return;
+
+    try {
+      for (const id of selectedIds) {
+        await fetch("/api/products", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id }),
+        });
+      }
+
+      setProducts((prev) => prev.filter((product) => !selectedIds.includes(product.id)));
+      setSelectedIds([]);
+    } catch (deleteError) {
+      console.error("Bulk delete failed", deleteError);
+    }
+  }
+
   async function fetchProducts() {
     setLoading(true);
+
     try {
-      const res = await fetch("/api/products");
-      if (!res.ok) throw new Error();
-      const data: Product[] = await res.json();
+      const response = await fetch("/api/products");
+      if (!response.ok) throw new Error();
+
+      const data: Product[] = await response.json();
       setProducts(data);
     } catch {
       setError("Failed to load products");
@@ -95,43 +128,42 @@ console.error("Bulk delete failed", err);
   }
 
   useEffect(() => {
-  fetchProducts();
+    fetchProducts();
 
-  const channel = supabase
-    .channel("products-realtime")
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "products",
-      },
-      (payload) => {
-        console.log("Realtime update:", payload);
+    const channel = supabase
+      .channel("products-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "products",
+        },
+        () => {
+          fetchProducts();
+        }
+      )
+      .subscribe();
 
-        // أسهل وأضمن حل
-        fetchProducts();
-      }
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, []);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   async function handleDelete(id: string) {
     if (!confirm("Are you sure you want to delete this product?")) return;
 
     try {
       setDeletingId(id);
-      const res = await fetch("/api/products", {
+
+      const response = await fetch("/api/products", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
       });
-      if (!res.ok) throw new Error();
-      setProducts((prev) => prev.filter((p) => p.id !== id));
+
+      if (!response.ok) throw new Error();
+      setProducts((prev) => prev.filter((product) => product.id !== id));
     } finally {
       setDeletingId(null);
     }
@@ -142,147 +174,103 @@ console.error("Bulk delete failed", err);
   }
 
   function validateRow(row: PreviewRow): string[] {
-    const w: string[] = [];
-    if (!row.name_ar) w.push("Missing name_ar");
-    if (!row.name_en) w.push("Missing name_en");
-    if (!row.description_ar) w.push("Missing description_ar");
-    if (!row.description_en) w.push("Missing description_en");
-    if (!row.category) w.push("Missing category");
-    if (isNaN(Number(row.price)) || Number(row.price) <= 0)
-      w.push("Invalid price");
-    if (isNaN(Number(row.stock)) || Number(row.stock) < 0)
-      w.push("Invalid stock");
-    if (!row.images) w.push("Missing images");
-    return w;
+    const warnings: string[] = [];
+
+    if (!row.name_ar) warnings.push("Missing name_ar");
+    if (!row.name_en) warnings.push("Missing name_en");
+    if (!row.description_ar) warnings.push("Missing description_ar");
+    if (!row.description_en) warnings.push("Missing description_en");
+    if (!row.category) warnings.push("Missing category");
+    if (Number.isNaN(Number(row.price)) || Number(row.price) <= 0) {
+      warnings.push("Invalid price");
+    }
+    if (Number.isNaN(Number(row.stock)) || Number(row.stock) < 0) {
+      warnings.push("Invalid stock");
+    }
+    if (!row.images) warnings.push("Missing images");
+
+    return warnings;
   }
 
   async function handleFileSelected(
-    e: React.ChangeEvent<HTMLInputElement>
+    event: React.ChangeEvent<HTMLInputElement>
   ) {
-    const file = e.target.files?.[0];
+    const file = event.target.files?.[0];
     if (!file) return;
 
     setFileName(file.name);
     setImportReport(null);
+    setImportJob(null);
 
     const buffer = await file.arrayBuffer();
-    const wb = XLSX.read(buffer, { type: "array" });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const json: PreviewRow[] = XLSX.utils.sheet_to_json(ws, { defval: "" });
+    const workbook = XLSX.read(buffer, { type: "array" });
+    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+    const json: PreviewRow[] = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
 
     setPreviewRows(json);
     setPreviewColumns(json.length ? Object.keys(json[0]) : []);
     setRowWarnings(json.map(validateRow));
     setIsPreviewOpen(true);
 
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   }
 
   async function handleConfirmImport() {
     setIsImporting(true);
-    const report = { success: 0, failed: [] as any[] };
+    setImportReport(null);
+    setImportJob(null);
 
-    for (let i = 0; i < previewRows.length; i++) {
-      if (rowWarnings[i].length) continue;
+    try {
+      let currentJob = await createImportJob(fileName, previewRows);
+      setImportJob(currentJob);
 
-      const r = previewRows[i];
+      while (
+        currentJob.status === "pending" ||
+        currentJob.status === "processing"
+      ) {
+        currentJob = await processImportJob(currentJob.id);
+        setImportJob(currentJob);
 
-      // ✅ STEP 1: check duplicate BEFORE ANY upload
-const checkRes = await fetch("/api/products");
-const existingProducts: Product[] = await checkRes.json();
-
-const exists = existingProducts.some(
-  (p) =>
-    p.name.ar.trim() === String(r.name_ar).trim() &&
-    p.category === normalizeCategory(r.category)
-);
-
-if (exists) {
-  console.warn("SKIPPED (duplicate):", r.name_ar);
-  continue;
-}
-
-// ✅ STEP 2: upload ONLY if product is valid
-const rawImages = normalizeImagesArray(r.images);
-const images: string[] = [];
-
-for (const img of rawImages) {
-  try {
-    const res = await fetch(img);
-    const blob = await res.blob();
-    const file = new File([blob], "image.webp", { type: blob.type });
-
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("type", "product");
-
-    const uploadRes = await fetch("/api/upload", {
-      method: "POST",
-      body: formData,
-    });
-
-    if (!uploadRes.ok) {
-      const err = await uploadRes.json();
-      throw new Error(err.error || "Upload failed");
-    }
-
-    const data = await uploadRes.json();
-
-    console.log("UPLOAD RESPONSE:", data);
-
-    images.push(data.url);
-
-  } catch (err) {
-    console.error("IMAGE UPLOAD FAILED:", img, err);
-  }
-}
-
-      const payload: Product = {
-       id: crypto.randomUUID(),
-       name: {
-       ar: String(r.name_ar).trim(),
-       en: String(r.name_en).trim(),
-       },
-        description: {
-       ar: String(r.description_ar).trim(),
-       en: String(r.description_en).trim(),
-      },
-       price: Number(r.price),
-      category: normalizeCategory(r.category),
-      images,
-      stock: Number(r.stock) || 0,
-      active:
-       r.active === true ||
-       r.active === "TRUE" ||
-       r.active === "true",
-      createdAt: "",
-      updatedAt: "",
-      };
-
-      try {
-        const res = await fetch("/api/products", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error || "API error");
+        if (
+          currentJob.status === "completed" ||
+          currentJob.status === "failed"
+        ) {
+          break;
         }
 
-        report.success++;
-      } catch (e: any) {
-        report.failed.push({
-          index: i + 1,
-          reason: e.message,
-        });
+        await sleep(150);
       }
-    }
 
-    setImportReport(report);
-    setIsImporting(false);
-    fetchProducts();
+      setImportReport({
+        success: currentJob.rowsSuccess,
+        skipped: currentJob.rowsSkipped,
+        failed: currentJob.failures.map((failure) => ({
+          index: failure.index,
+          reason: failure.reason,
+        })),
+      });
+    } catch (importError) {
+      console.error("IMPORT JOB FAILED:", importError);
+
+      setImportReport({
+        success: 0,
+        skipped: 0,
+        failed: [
+          {
+            index: 0,
+            reason:
+              importError instanceof Error
+                ? importError.message
+                : "Unknown import error",
+          },
+        ],
+      });
+    } finally {
+      setIsImporting(false);
+      fetchProducts();
+    }
   }
 
   if (loading) return <div className="p-6">Loading…</div>;
@@ -293,27 +281,27 @@ for (const img of rawImages) {
       <div className="flex justify-between mb-6">
         <h1 className="text-2xl font-bold">Admin – Products</h1>
         <div className="flex gap-3">
+          <button
+            onClick={handleBulkDelete}
+            disabled={!selectedIds.length}
+            className="bg-red-500 text-white px-4 py-2 rounded disabled:opacity-50"
+          >
+            Delete Selected ({selectedIds.length})
+          </button>
 
-  <button
-    onClick={handleBulkDelete}
-    disabled={!selectedIds.length}
-    className="bg-red-500 text-white px-4 py-2 rounded disabled:opacity-50"
-  >
-    Delete Selected ({selectedIds.length})
-  </button>
+          <button
+            onClick={handleBulkImportClick}
+            className="bg-gray-100 px-4 py-2 rounded"
+          >
+            Bulk Import (Excel)
+          </button>
 
-  <button
-    onClick={handleBulkImportClick}
-    className="bg-gray-100 px-4 py-2 rounded"
-  >
-    Bulk Import (Excel)
-  </button>
-  <Link
-  href="/admin/products/add"
-  className="bg-black text-white px-4 py-2 rounded"
->
-  Add Product
-</Link>
+          <Link
+            href="/admin/products/add"
+            className="bg-black text-white px-4 py-2 rounded"
+          >
+            Add Product
+          </Link>
         </div>
       </div>
 
@@ -330,12 +318,12 @@ for (const img of rawImages) {
           <thead className="bg-gray-100">
             <tr>
               <th className="p-3 w-12 text-center bg-yellow-100">
-  <input
-    type="checkbox"
-    checked={selectedIds.length === products.length && products.length > 0}
-    onChange={toggleSelectAll}
-  />
-</th>
+                <input
+                  type="checkbox"
+                  checked={selectedIds.length === products.length && products.length > 0}
+                  onChange={toggleSelectAll}
+                />
+              </th>
               <th className="p-3">Image</th>
               <th className="p-3">Name</th>
               <th className="p-3">Category</th>
@@ -346,76 +334,77 @@ for (const img of rawImages) {
             </tr>
           </thead>
           <tbody>
-            {products.map((p) => {
-              const hasEN = p.name.en?.trim();
+            {products.map((product) => {
+              const hasEN = product.name.en?.trim();
+
               return (
                 <tr
-  key={p.id}
-  className={`border-t ${
-    selectedIds.includes(p.id) ? "bg-red-50" : ""
-  }`}
->
+                  key={product.id}
+                  className={`border-t ${
+                    selectedIds.includes(product.id) ? "bg-red-50" : ""
+                  }`}
+                >
                   <td className="p-3 w-12 text-center bg-yellow-50">
-  <input
-    type="checkbox"
-    checked={selectedIds.includes(p.id)}
-    onChange={() => toggleSelect(p.id)}
-  />
-</td>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(product.id)}
+                      onChange={() => toggleSelect(product.id)}
+                    />
+                  </td>
                   <td className="p-3">
                     <img
-                       src={getSafeImage(p.images?.[0])}
-                       onError={(e) => {
-                         (e.currentTarget as HTMLImageElement).src = PLACEHOLDER_IMAGE;
-                       }}
-                       className="h-12 w-12 object-contain"
-                     />
+                      src={getSafeImage(product.images?.[0])}
+                      onError={(event) => {
+                        (event.currentTarget as HTMLImageElement).src = PLACEHOLDER_IMAGE;
+                      }}
+                      className="h-12 w-12 object-contain"
+                    />
                   </td>
                   <td className="p-3 font-medium">
-                    {p.name.ar}
+                    {product.name.ar}
                     {!hasEN && (
                       <span className="ml-2 text-xs bg-yellow-100 px-2 rounded">
                         Missing EN
                       </span>
                     )}
                   </td>
-                  <td className="p-3">{p.category}</td>
+                  <td className="p-3">{product.category}</td>
                   <td className="p-3">
-                    {p.price} جنيه
-                    {p.price === 0 && (
+                    {product.price} جنيه
+                    {product.price === 0 && (
                       <span className="ml-2 text-xs bg-yellow-100 px-2 rounded">
                         Price = 0
                       </span>
                     )}
                   </td>
                   <td className="p-3">
-                    {p.stock > 0 ? (
+                    {product.stock > 0 ? (
                       <span className="bg-green-100 text-green-800 px-2 rounded text-xs">
-                        In Stock ({p.stock})
+                        In Stock ({product.stock})
                       </span>
                     ) : (
                       <span className="bg-red-100 text-red-800 px-2 rounded text-xs">
-                        Out ({p.stock})
+                        Out ({product.stock})
                       </span>
                     )}
                   </td>
                   <td className="p-3">
-                    {p.active ? "Active" : "Inactive"}
+                    {product.active ? "Active" : "Inactive"}
                   </td>
                   <td className="p-3 flex gap-2">
                     <Link
-                      href={`/admin/products/edit/${p.id}`}
+                      href={`/admin/products/edit/${product.id}`}
                       className="text-xs bg-sky-100 px-3 py-1 rounded"
                     >
                       Edit
                     </Link>
                     <button
-  disabled={deletingId === p.id}
-  onClick={() => handleDelete(p.id)}
-  className="text-xs bg-red-100 px-3 py-1 rounded"
->
-  {deletingId === p.id ? "Deleting..." : "Delete"}
-</button>
+                      disabled={deletingId === product.id}
+                      onClick={() => handleDelete(product.id)}
+                      className="text-xs bg-red-100 px-3 py-1 rounded"
+                    >
+                      {deletingId === product.id ? "Deleting..." : "Delete"}
+                    </button>
                   </td>
                 </tr>
               );
@@ -432,9 +421,7 @@ for (const img of rawImages) {
                 <h2 className="font-semibold">Bulk Import Preview</h2>
                 <p className="text-sm text-gray-600">{fileName}</p>
               </div>
-              <button onClick={() => setIsPreviewOpen(false)}>
-                Close
-              </button>
+              <button onClick={() => setIsPreviewOpen(false)}>Close</button>
             </div>
 
             <div className="max-h-[60vh] overflow-auto p-4">
@@ -442,27 +429,27 @@ for (const img of rawImages) {
                 <thead className="bg-gray-100">
                   <tr>
                     <th className="border p-1">Warnings</th>
-                    {previewColumns.map((c) => (
-                      <th key={c} className="border p-1">
-                        {c}
+                    {previewColumns.map((column) => (
+                      <th key={column} className="border p-1">
+                        {column}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {previewRows.map((r, i) => (
+                  {previewRows.map((row, index) => (
                     <tr
-                      key={i}
-                      className={rowWarnings[i].length ? "bg-yellow-50" : ""}
+                      key={index}
+                      className={rowWarnings[index].length ? "bg-yellow-50" : ""}
                     >
                       <td className="border p-1">
-                        {rowWarnings[i].length
-                          ? rowWarnings[i].join(", ")
+                        {rowWarnings[index].length
+                          ? rowWarnings[index].join(", ")
                           : "OK"}
                       </td>
-                      {previewColumns.map((c) => (
-                        <td key={c} className="border p-1">
-                          {String(r[c] ?? "")}
+                      {previewColumns.map((column) => (
+                        <td key={column} className="border p-1">
+                          {String(row[column] ?? "")}
                         </td>
                       ))}
                     </tr>
@@ -473,20 +460,26 @@ for (const img of rawImages) {
 
             <div className="p-4 border-t flex justify-between">
               <span className="text-sm text-gray-600">
-                Invalid rows will be skipped
+                {importJob
+                  ? `Progress: ${importJob.rowsProcessed}/${importJob.rowsTotal}`
+                  : "Invalid rows will be skipped"}
               </span>
               <button
                 onClick={handleConfirmImport}
                 disabled={isImporting}
                 className="bg-black text-white px-4 py-2 rounded"
               >
-                {isImporting ? "Importing..." : "Confirm Import"}
+                {isImporting
+                  ? `Importing... ${importJob?.rowsProcessed ?? 0}/${
+                      importJob?.rowsTotal ?? previewRows.length
+                    }`
+                  : "Confirm Import"}
               </button>
             </div>
 
             {importReport && (
               <div className="p-4 text-sm">
-                Imported: {importReport.success} success /{" "}
+                Imported: {importReport.success} success / {importReport.skipped} skipped /{" "}
                 {importReport.failed.length} failed
               </div>
             )}

@@ -1,64 +1,43 @@
-// /app/api/products/route.ts
-
-import { readFileSync, writeFileSync } from "fs";
-import { join } from "path";
-import { createClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
-import type { Product } from "@/types/product";
-import { normalizeImagesArray } from "@/lib/image-normalizer";
+import { validateAdminSession } from "@/lib/admin/validateAdminSession";
 import { normalizeCategory } from "@/lib/category-normalizer";
-async function verifyAdmin() {
-try {
-const cookieStore = cookies();
-const session = cookieStore.get("cesar_admin_session");
+import { normalizeImagesArray } from "@/lib/image-normalizer";
+import { cleanupUnusedManagedImages } from "@/lib/server/media-assets";
+import { createServiceRoleClient } from "@/lib/supabase/runtime";
+import type { Product } from "@/types/product";
 
+const supabase = createServiceRoleClient();
 
-if (!session) return false;
-
-const raw = decodeURIComponent(session.value);
-
-const [version, payload] = raw.split(":");
-if (version !== "v1" || !payload) return false;
-
-const [token, signature] = payload.split(".");
-if (!token || !signature) return false;
-
-const secret = process.env.ADMIN_SESSION_SECRET!;
-const enc = new TextEncoder();
-
-const key = await crypto.subtle.importKey(
-  "raw",
-  enc.encode(secret),
-  { name: "HMAC", hash: "SHA-256" },
-  false,
-  ["sign"]
-);
-
-const signed = await crypto.subtle.sign(
-  "HMAC",
-  key,
-  enc.encode(token)
-);
-
-const expected = Buffer.from(signed).toString("hex");
-
-return expected === signature;
-
-
-} catch {
-return false;
-}
+function buildProductKey(nameAr: string, category: string) {
+  return `${nameAr.trim().toLowerCase()}::${normalizeCategory(category)}`;
 }
 
-const PRODUCTS_FILE = join(process.cwd(), "data-store", "products.json");
-const CATEGORIES_FILE = join(process.cwd(), "data-store", "categories.json");
+function toProductResponse(product: any): Product {
+  const rawImages =
+    Array.isArray(product?.images_json) && product.images_json.length
+      ? product.images_json
+      : product?.image_url
+      ? [product.image_url]
+      : [];
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-/* ---------------- GET ---------------- */
+  return {
+    id: String(product.id),
+    name: {
+      ar: product?.name_ar || "",
+      en: product?.name_en || product?.name_ar || "",
+    },
+    description: {
+      ar: product?.description_ar || "",
+      en: product?.description_en || product?.description_ar || "",
+    },
+    price: Number(product?.price ?? 0),
+    category: normalizeCategory(product?.category || "equipment"),
+    images: normalizeImagesArray(rawImages),
+    stock: Number(product?.stock ?? 0),
+    active: Boolean(product?.is_active ?? true),
+    createdAt: product?.created_at || new Date().toISOString(),
+    updatedAt: product?.updated_at || new Date().toISOString(),
+  };
+}
 
 export async function GET() {
   try {
@@ -68,64 +47,12 @@ export async function GET() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("SUPABASE FETCH ERROR:", error);
+      throw error;
     }
 
-    
-    const supabaseMap = new Map(
-      (data || []).map((p: any) => [p.id, p])
-    );
-
-    const allIds = Array.from(
-      new Set([
-       ...(data || []).map((p: any) => p.id),
-      ])
-    );
-
-    const formatted: Product[] = [];
-
-    allIds.forEach((id) => {
-      const p = supabaseMap.get(id);
-     let rawImages: string[] = [];
-
-      if (p?.images_json && Array.isArray(p.images_json)) {
-        rawImages = p.images_json;
-      } else {
-        rawImages = p?.image_url ? [p.image_url] : [];
-      }
-
-      const images = normalizeImagesArray(rawImages);
-
-      formatted.push({
-        id,
-        name: {
-      
-  ar: p?.name_ar || "",
-  en: p?.name_en || p?.name_ar || "",
-},
-        description: {
-  ar: p?.description_ar || "",
-  en: p?.description_en || p?.description_ar || "",
-},
-
-        price: p?.price ?? 0,
-        category: normalizeCategory(
-  p?.category || "equipment"
-),
-        images,
-        stock: p?.stock ?? 0,
-        active: p?.is_active ?? true,
-        createdAt:
-  p?.created_at || new Date().toISOString(),
-        updatedAt:
-          p?.updated_at || new Date().toISOString(),
-      });
-    });
-
-    return Response.json(formatted);
-
-  } catch (err) {
-    console.error("GET PRODUCTS ERROR:", err);
+    return Response.json((data || []).map(toProductResponse));
+  } catch (error) {
+    console.error("GET PRODUCTS ERROR:", error);
 
     return Response.json(
       { error: "Failed to fetch products" },
@@ -134,18 +61,15 @@ export async function GET() {
   }
 }
 
-/* ---------------- POST ---------------- */
-
 export async function POST(request: Request) {
-  const isAdmin = await verifyAdmin();
-if (!isAdmin) {
-return Response.json({ error: "Unauthorized" }, { status: 401 });
-}
+  if (!validateAdminSession()) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   try {
     const body = (await request.json()) as Partial<Product>;
-
     const images = normalizeImagesArray(body.images || []);
+    const normalizedCategory = normalizeCategory(String(body.category || "").trim());
 
     if (!images.length) {
       return Response.json(
@@ -168,29 +92,23 @@ return Response.json({ error: "Unauthorized" }, { status: 401 });
       );
     }
 
-    if (typeof body.price !== "number" || isNaN(body.price)) {
-      return Response.json(
-        { error: "Invalid price" },
-        { status: 400 }
-      );
+    if (typeof body.price !== "number" || Number.isNaN(body.price)) {
+      return Response.json({ error: "Invalid price" }, { status: 400 });
     }
 
-    const now = new Date().toISOString();
-
-    const normalizedCategory = normalizeCategory(
-      String(body.category || "")
-        .toLowerCase()
-        .trim()
-    );
-
-    const { data: existingProducts } = await supabase
+    const { data: existingProducts, error: existingProductsError } = await supabase
       .from("products")
       .select("name_ar, category");
 
-    const exists = existingProducts?.some(
-      (p) =>
-        p.name_ar?.trim() === body.name?.ar?.trim() &&
-        p.category === normalizedCategory
+    if (existingProductsError) {
+      throw existingProductsError;
+    }
+
+    const requestedKey = buildProductKey(body.name.ar, normalizedCategory);
+    const exists = (existingProducts || []).some(
+      (product) =>
+        buildProductKey(String(product.name_ar || ""), String(product.category || "")) ===
+        requestedKey
     );
 
     if (exists) {
@@ -200,6 +118,7 @@ return Response.json({ error: "Unauthorized" }, { status: 401 });
       );
     }
 
+    const now = new Date().toISOString();
     const productToSave: Product = {
       id: crypto.randomUUID(),
       name: body.name,
@@ -213,49 +132,47 @@ return Response.json({ error: "Unauthorized" }, { status: 401 });
       updatedAt: now,
     };
 
-    await supabase.from("products").upsert(
-      [
-        {
-          name_ar: productToSave.name.ar,
-          name_en: productToSave.name.en || productToSave.name.ar,
-          description_ar: productToSave.description.ar,
-          description_en:
-            productToSave.description.en || productToSave.description.ar,
-          price: productToSave.price,
-          image_url: productToSave.images[0],
-          images_json: productToSave.images,
-          stock: productToSave.stock,
-          category: productToSave.category,
-          is_active: productToSave.active,
-        },
-      ],
+    const { error: insertError } = await supabase.from("products").insert([
       {
-        onConflict: "name_ar,category",
-      }
-    );
+        id: productToSave.id,
+        name_ar: productToSave.name.ar,
+        name_en: productToSave.name.en || productToSave.name.ar,
+        description_ar: productToSave.description.ar,
+        description_en:
+          productToSave.description.en || productToSave.description.ar,
+        price: productToSave.price,
+        image_url: productToSave.images[0],
+        images_json: productToSave.images,
+        stock: productToSave.stock,
+        category: productToSave.category,
+        is_active: productToSave.active,
+        created_at: now,
+        updated_at: now,
+      },
+    ]);
+
+    if (insertError) {
+      throw insertError;
+    }
 
     return Response.json(productToSave, { status: 201 });
-
-  } catch (err) {
-    console.error("PRODUCT CREATE ERROR:", err);
+  } catch (error) {
+    console.error("PRODUCT CREATE ERROR:", error);
 
     return Response.json(
       {
         error: "Failed to create product",
-        details: err instanceof Error ? err.message : "unknown",
+        details: error instanceof Error ? error.message : "unknown",
       },
       { status: 500 }
     );
   }
 }
 
-/* ---------------- PUT ---------------- */
-
 export async function PUT(request: Request) {
-  const isAdmin = await verifyAdmin();
-if (!isAdmin) {
-return Response.json({ error: "Unauthorized" }, { status: 401 });
-}
+  if (!validateAdminSession()) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   try {
     const { id, ...updates } = (await request.json()) as Partial<Product> & {
@@ -269,7 +186,6 @@ return Response.json({ error: "Unauthorized" }, { status: 401 });
       );
     }
 
-    // 🔥 1. get OLD images
     const normalizedStock =
       typeof updates.stock === "number" && !Number.isNaN(updates.stock)
         ? updates.stock
@@ -284,26 +200,28 @@ return Response.json({ error: "Unauthorized" }, { status: 401 });
         ? true
         : undefined;
 
-    const { data: oldProduct } = await supabase
+    const { data: oldProduct, error: oldProductError } = await supabase
       .from("products")
       .select("images_json")
       .eq("id", id)
       .single();
 
-    const oldImages: string[] = oldProduct?.images_json || [];
+    if (oldProductError) {
+      throw oldProductError;
+    }
 
-    // 🔥 2. normalize new images
+    const oldImages: string[] = Array.isArray(oldProduct?.images_json)
+      ? oldProduct.images_json
+      : [];
     const images = normalizeImagesArray(updates.images || []);
 
-    // 🔥 3. UPDATE FIRST (important fix)
-    await supabase
+    const { error: updateError } = await supabase
       .from("products")
       .update({
         name_ar: updates.name?.ar,
         name_en: updates.name?.en || updates.name?.ar,
         description_ar: updates.description?.ar,
-        description_en:
-          updates.description?.en || updates.description?.ar,
+        description_en: updates.description?.en || updates.description?.ar,
         price: updates.price,
         stock: normalizedStock,
         is_active: nextIsActive,
@@ -314,58 +232,19 @@ return Response.json({ error: "Unauthorized" }, { status: 401 });
       })
       .eq("id", id);
 
-    // 🔥 4. get ALL products AFTER update
-    const { data: allProducts } = await supabase
-      .from("products")
-      .select("images_json");
-
-    const usedImages = new Set<string>();
-
-    allProducts?.forEach((p) => {
-      if (Array.isArray(p.images_json)) {
-        p.images_json.forEach((img: string) => {
-          usedImages.add(img);
-        });
-      }
-    });
-
-    // 🔥 5. find images to delete
-    const imagesToDelete = oldImages.filter((img) => {
-      const removed = !images.includes(img);
-
-      const isSupabase =
-        img.includes("/storage/v1/object/public/upload/");
-
-      const normalize = (url: string) =>
-  url.split("/storage/v1/object/public/")[1] || url;
-
-const isStillUsed = Array.from(usedImages).some(
-  (used) => normalize(used) === normalize(img)
-);
-      return removed && isSupabase && !isStillUsed;
-    });
-
-    const paths = imagesToDelete.map((img) => {
-  const fullPath = img.split("/storage/v1/object/public/")[1];
-
-  if (!fullPath) return "";
-
-  return fullPath.replace(/^upload\//, "");
-}).filter(Boolean);
-
-    // 🔥 6. delete unused images
-    if (paths.length > 0) {
-      await supabase.storage.from("upload").remove(paths);
+    if (updateError) {
+      throw updateError;
     }
 
-    
+    const removedImages = oldImages.filter((image) => !images.includes(image));
+    const cleanup = await cleanupUnusedManagedImages(removedImages);
+
     return Response.json({
       success: true,
-      deletedImages: paths.length,
+      deletedImages: cleanup.deletedPaths.length,
     });
-
-  } catch (err) {
-    console.error("UPDATE ERROR:", err);
+  } catch (error) {
+    console.error("UPDATE ERROR:", error);
 
     return Response.json(
       { error: "Failed to update product" },
@@ -373,13 +252,11 @@ const isStillUsed = Array.from(usedImages).some(
     );
   }
 }
-/* ---------------- DELETE ---------------- */
 
 export async function DELETE(request: Request) {
-  const isAdmin = await verifyAdmin();
-if (!isAdmin) {
-return Response.json({ error: "Unauthorized" }, { status: 401 });
-}
+  if (!validateAdminSession()) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   try {
     const { id } = (await request.json()) as { id: string };
@@ -391,71 +268,37 @@ return Response.json({ error: "Unauthorized" }, { status: 401 });
       );
     }
 
-    // 🔥 1. get product images
-    const { data: product } = await supabase
+    const { data: product, error: productError } = await supabase
       .from("products")
       .select("images_json")
       .eq("id", id)
       .single();
 
-    const productImages: string[] = product?.images_json || [];
-
-    // 🔥 2. get ALL images from all products
-    const { data: allProducts } = await supabase
-      .from("products")
-      .select("id, images_json");
-
-    const usedImages = new Set<string>();
-
-    allProducts?.forEach((p) => {
-      if (p.id === id) return; // تجاهل المنتج اللي هيتحذف
-
-      if (Array.isArray(p.images_json)) {
-        p.images_json.forEach((img: string) => {
-          usedImages.add(img);
-        });
-      }
-    });
-
-    // 🔥 3. filter images that are SAFE to delete
-    const imagesToDelete = productImages.filter((img) => {
-      const isSupabase =
-        img.includes("/storage/v1/object/public/upload/");
-
-      const normalize = (url: string) =>
-  url.split("/storage/v1/object/public/")[1] || url;
-
-const isUsedElsewhere = Array.from(usedImages).some(
-  (used) => normalize(used) === normalize(img)
-);
-
-      return isSupabase && !isUsedElsewhere;
-    });
-
-    // 🔥 4. extract paths
-    const paths = imagesToDelete.map((img) => {
-  const fullPath = img.split("/storage/v1/object/public/")[1];
-
-  if (!fullPath) return "";
-
-  return fullPath.replace(/^upload\//, "");
-}).filter(Boolean);
-
-    // 🔥 5. delete from storage
-    if (paths.length > 0) {
-      await supabase.storage.from("upload").remove(paths);
+    if (productError) {
+      throw productError;
     }
 
-    // 🔥 6. delete product
-    await supabase.from("products").delete().eq("id", id);
+    const productImages: string[] = Array.isArray(product?.images_json)
+      ? product.images_json
+      : [];
+
+    const { error: deleteError } = await supabase
+      .from("products")
+      .delete()
+      .eq("id", id);
+
+    if (deleteError) {
+      throw deleteError;
+    }
+
+    const cleanup = await cleanupUnusedManagedImages(productImages);
 
     return Response.json({
       message: "Product deleted safely",
-      deletedImages: paths.length,
+      deletedImages: cleanup.deletedPaths.length,
     });
-
-  } catch (err) {
-    console.error("DELETE ERROR:", err);
+  } catch (error) {
+    console.error("DELETE ERROR:", error);
 
     return Response.json(
       { error: "Failed to delete product" },
