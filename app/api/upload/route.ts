@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
           uploadType: type,
         })
       : await ensureMediaAssetForSource({
+          appOrigin: req.nextUrl.origin,
           imageUrl: String(imageUrl),
           uploadType: type,
         });

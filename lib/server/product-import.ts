@@ -169,7 +169,8 @@ async function mapWithConcurrency<T, R>(
 
 async function resolveRowImages(
   imageSources: string[],
-  imageCache: Map<string, string>
+  imageCache: Map<string, string>,
+  appOrigin: string
 ) {
   const urls = await mapWithConcurrency(
     imageSources,
@@ -181,6 +182,7 @@ async function resolveRowImages(
       }
 
       const asset = await ensureMediaAssetForSource({
+        appOrigin,
         imageUrl: source,
         uploadType: "product",
       });
@@ -274,7 +276,7 @@ export async function getProductImportJob(jobId: string) {
   return toJobSnapshot(job as ImportJobRow);
 }
 
-export async function processProductImportJob(jobId: string) {
+export async function processProductImportJob(jobId: string, appOrigin: string) {
   const supabase = createServiceRoleClient();
   const { data: jobData, error: jobError } = await supabase
     .from("import_jobs")
@@ -338,7 +340,7 @@ export async function processProductImportJob(jobId: string) {
       }
 
       try {
-        const images = await resolveRowImages(row.images, imageCache);
+        const images = await resolveRowImages(row.images, imageCache, appOrigin);
 
         if (!images.length) {
           throw new Error("No valid images resolved for this product");

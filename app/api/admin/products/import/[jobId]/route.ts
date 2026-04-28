@@ -31,7 +31,7 @@ export async function GET(
 }
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { jobId: string } }
 ) {
   try {
@@ -39,7 +39,7 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const job = await processProductImportJob(params.jobId);
+    const job = await processProductImportJob(params.jobId, req.nextUrl.origin);
     return NextResponse.json({ job });
   } catch (error) {
     return NextResponse.json(

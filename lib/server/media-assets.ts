@@ -1,5 +1,4 @@
 import crypto from "crypto";
-import fs from "fs/promises";
 import path from "path";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
 
@@ -35,17 +34,20 @@ type ResolvedUploadSource = {
   sourceLabel: string;
 };
 
+type EnsureMediaAssetBaseInput = {
+  appOrigin?: string;
+  uploadType: string;
+};
+
 type EnsureMediaAssetInput =
-  | {
-      uploadType: string;
+  | (EnsureMediaAssetBaseInput & {
       file: File;
       imageUrl?: never;
-    }
-  | {
-      uploadType: string;
+    })
+  | (EnsureMediaAssetBaseInput & {
       imageUrl: string;
       file?: never;
-    };
+    });
 
 type EnsureMediaAssetResult = {
   hash: string;
@@ -126,51 +128,57 @@ function isExternalUrl(input: string): boolean {
   return /^https?:\/\//i.test(input);
 }
 
-async function pathExists(targetPath: string): Promise<boolean> {
-  try {
-    await fs.access(targetPath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function resolveLocalPublicPath(imagePath: string): Promise<string> {
-  const publicRoot = path.resolve(process.cwd(), "public");
-  const normalizedPath = stripQueryAndHash(imagePath).replace(/\\/g, "/").trim();
+function toNormalizedLocalPath(input: string): string {
+  const normalizedPath = stripQueryAndHash(input).replace(/\\/g, "/").trim();
   const relativePath = normalizedPath.replace(/^\/+/, "");
 
   if (!relativePath || relativePath.includes("..")) {
     throw new Error("Invalid local image path");
   }
 
-  const directCandidate = path.resolve(publicRoot, relativePath);
-  if (!directCandidate.startsWith(publicRoot)) {
-    throw new Error("Local image path escapes public directory");
-  }
+  return `/${relativePath}`;
+}
 
-  if (await pathExists(directCandidate)) {
-    return directCandidate;
-  }
-
-  const parsed = path.parse(directCandidate);
-  const preferredExtension = normalizeExtension(parsed.ext);
+function buildLocalSourceCandidates(imagePath: string) {
+  const normalizedPath = toNormalizedLocalPath(imagePath);
+  const parsedPath = path.posix.parse(normalizedPath);
+  const preferredExtension = normalizeExtension(parsedPath.ext);
   const extensionsToTry = preferredExtension
-    ? [preferredExtension, ...Object.keys(EXTENSION_TO_MIME).filter((ext) => ext !== preferredExtension)]
+    ? [
+        preferredExtension,
+        ...Object.keys(EXTENSION_TO_MIME).filter(
+          (extension) => extension !== preferredExtension
+        ),
+      ]
     : Object.keys(EXTENSION_TO_MIME);
+  const seen = new Set<string>();
+  const candidates: string[] = [];
+
+  if (!preferredExtension) {
+    for (const extension of extensionsToTry) {
+      const candidate = `${normalizedPath}.${extension}`;
+      if (seen.has(candidate)) continue;
+
+      seen.add(candidate);
+      candidates.push(candidate);
+    }
+
+    return candidates;
+  }
 
   for (const extension of extensionsToTry) {
-    const fallbackCandidate = path.resolve(parsed.dir, `${parsed.name}.${extension}`);
-    if (!fallbackCandidate.startsWith(publicRoot)) {
-      continue;
-    }
+    const candidate =
+      extension === preferredExtension
+        ? normalizedPath
+        : path.posix.join(parsedPath.dir, `${parsedPath.name}.${extension}`);
 
-    if (await pathExists(fallbackCandidate)) {
-      return fallbackCandidate;
-    }
+    if (seen.has(candidate)) continue;
+
+    seen.add(candidate);
+    candidates.push(candidate);
   }
 
-  throw new Error(`Local image not found: ${normalizedPath}`);
+  return candidates;
 }
 
 async function resolveRemoteSource(imageUrl: string): Promise<ResolvedUploadSource> {
@@ -208,22 +216,54 @@ async function resolveRemoteSource(imageUrl: string): Promise<ResolvedUploadSour
   };
 }
 
-async function resolveLocalSource(imagePath: string): Promise<ResolvedUploadSource> {
-  const resolvedPath = await resolveLocalPublicPath(imagePath);
-  const extension = normalizeExtension(path.extname(resolvedPath));
-  const mimeType = getMimeTypeFromExtension(extension);
-
-  if (!extension || !mimeType) {
-    throw new Error("Unsupported local image type");
+async function resolveLocalSourceFromOrigin(
+  imagePath: string,
+  appOrigin?: string
+): Promise<ResolvedUploadSource> {
+  if (!appOrigin) {
+    throw new Error(`Missing app origin for local image: ${imagePath}`);
   }
 
-  return {
-    buffer: await fs.readFile(resolvedPath),
-    extension,
-    mimeType,
-    originalName: path.basename(resolvedPath) || null,
-    sourceLabel: imagePath,
-  };
+  const candidates = buildLocalSourceCandidates(imagePath);
+  let lastError: string | null = null;
+
+  for (const candidatePath of candidates) {
+    const candidateUrl = new URL(candidatePath, appOrigin);
+    const response = await withRetry(
+      () => fetch(candidateUrl, { cache: "no-store" }),
+      3,
+      300
+    );
+
+    if (!response.ok) {
+      lastError = `Local image request failed (${response.status})`;
+      continue;
+    }
+
+    const mimeType =
+      normalizeMimeType(response.headers.get("content-type")) ??
+      getMimeTypeFromExtension(path.extname(candidateUrl.pathname));
+
+    if (!mimeType) {
+      lastError = "Unsupported local image type";
+      continue;
+    }
+
+    const extension =
+      normalizeExtension(path.extname(candidateUrl.pathname)) ??
+      getExtensionFromMimeType(mimeType) ??
+      "jpg";
+
+    return {
+      buffer: Buffer.from(await response.arrayBuffer()),
+      extension,
+      mimeType,
+      originalName: path.basename(candidateUrl.pathname) || null,
+      sourceLabel: candidateUrl.toString(),
+    };
+  }
+
+  throw new Error(lastError || `Local image not found: ${imagePath}`);
 }
 
 async function resolveBrowserFile(file: File): Promise<ResolvedUploadSource> {
@@ -263,7 +303,7 @@ async function resolveUploadSource(
 
   return isExternalUrl(input.imageUrl)
     ? resolveRemoteSource(input.imageUrl)
-    : resolveLocalSource(input.imageUrl);
+    : resolveLocalSourceFromOrigin(input.imageUrl, input.appOrigin);
 }
 
 export function getManagedStoragePath(url: string): string | null {

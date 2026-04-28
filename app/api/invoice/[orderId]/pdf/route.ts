@@ -12,16 +12,16 @@ import {
   Image,
   Font,
 } from "@react-pdf/renderer";
-import path from "path";
-import fs from "fs";
 import arabicReshaper from "arabic-reshaper";
 
 /* ================= تسجيل الخطوط ================= */
+const FONT_URL =
+  "https://bdmumdbykzbozgkxtsmk.supabase.co/storage/v1/object/public/upload/fonts/Cairo.ttf";
+
 Font.register({
   family: "Cairo",
-  src: path.join(process.cwd(), "public", "fonts", "Cairo-VariableFont_slnt,wght.ttf"),
+  src: FONT_URL,
 });
-
 /* ================= معالجة النص ================= */
 const smartText = (text: string) => {
   if (!text) return "";
@@ -122,15 +122,20 @@ const styles = StyleSheet.create({
 export async function GET(_req: Request, { params }: { params: { orderId: string } }) {
   const orderId = params.orderId;
 
-  let logoBuffer;
-  try {
-    const logoPath = path.join(process.cwd(), "public", "logo (1).png");
-    if (fs.existsSync(logoPath)) {
-      logoBuffer = fs.readFileSync(logoPath);
-    }
-  } catch (err) {
-    console.error("Logo Error:", err);
+ let logoBuffer: Buffer | null = null;
+
+try {
+  const logoRes = await fetch(
+    "https://YOUR_SUPABASE_URL/storage/v1/object/public/upload/logo.png"
+  );
+
+  if (logoRes.ok) {
+    const arrayBuffer = await logoRes.arrayBuffer();
+    logoBuffer = Buffer.from(arrayBuffer);
   }
+} catch (err) {
+  console.error("Logo Fetch Error:", err);
+}
 
   let order;
 
