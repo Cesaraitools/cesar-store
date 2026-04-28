@@ -226,22 +226,33 @@ export default function AdminProductsPage() {
       let currentJob = await createImportJob(fileName, previewRows);
       setImportJob(currentJob);
 
-      while (
-        currentJob.status === "pending" ||
-        currentJob.status === "processing"
-      ) {
-        currentJob = await processImportJob(currentJob.id);
-        setImportJob(currentJob);
+      let delay = 150;
 
-        if (
-          currentJob.status === "completed" ||
-          currentJob.status === "failed"
-        ) {
-          break;
-        }
+while (
+  currentJob.status === "pending" ||
+  currentJob.status === "processing"
+) {
+  currentJob = await processImportJob(currentJob.id);
+  setImportJob(currentJob);
 
-        await sleep(150);
-      }
+  if (
+    currentJob.status === "completed" ||
+    currentJob.status === "failed"
+  ) {
+    break;
+  }
+
+  await sleep(delay);
+
+  // 🔥 زيادة تدريجية لوقت الانتظار (max 1000ms)
+  if (currentJob.rowsProcessed > (importJob?.rowsProcessed ?? 0)) {
+  delay = 150;
+} else {
+  // 😴 مفيش تقدم → بطّأ تدريجيًا
+  delay = Math.min(delay + 150, 2000);
+}
+}
+      
 
       setImportReport({
         success: currentJob.rowsSuccess,
