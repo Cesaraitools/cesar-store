@@ -272,7 +272,7 @@ export default function CheckoutPage() {
                        {new Intl.NumberFormat("en-EG", {
                  minimumFractionDigits: 2,
                  maximumFractionDigits: 2,
-                 }).format(total)} جنيه
+                 }).format(total)}
                     </span>
 
                     <span className="text-xs font-black text-blue-600 mr-1">

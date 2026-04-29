@@ -366,7 +366,7 @@ if (!whatsappWindow) {
                  {new Intl.NumberFormat("en-EG", {
                  minimumFractionDigits: 2,
                  maximumFractionDigits: 2,
-                 }).format(total)} جنيه
+                 }).format(total)}
                   <small className="text-xs font-black"> ج.م</small>
                 </span>
 
