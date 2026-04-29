@@ -154,17 +154,30 @@ try {
   const rawItems = Array.isArray(order.items_snapshot) ? order.items_snapshot : [];
 
   /* ================= ULTRA SAFE ADDITION ================= */
-  const items = rawItems.map((item: any) => ({
-  name:
+  const items = rawItems.map((item: any) => {
+  const name =
     item?.name ||
+    item?.product?.name ||
     item?.title ||
     item?.product_name ||
-    item?.name_en ||
-    item?.name_ar ||
-    "—",
-  price: Number(item?.price || 0),
-  quantity: Number(item?.quantity || 0),
-}));
+    "—";
+
+  const price =
+    Number(item?.price) ||
+    Number(item?.unit_price) ||
+    0;
+
+  const quantity =
+    Number(item?.quantity) ||
+    Number(item?.qty) ||
+    1;
+
+  return {
+    name,
+    price,
+    quantity,
+  };
+});
   /* ===================================================== */
 
   const document = React.createElement(
@@ -227,7 +240,7 @@ try {
           React.createElement(
             View,
             { style: styles.tableRow },
-            React.createElement(Text, { style: styles.colDescription }, smartText(item.name),
+            React.createElement(Text, { style: styles.colDescription }, smartText(String(item.name).split(":")[0]),
             React.createElement(Text, { style: styles.colQty }, String(item.quantity)),
             React.createElement(Text, { style: styles.colPrice }, `${item.price}`),
             React.createElement(Text, { style: styles.colAmount }, `${(item.price * item.quantity).toFixed(2)}`)
