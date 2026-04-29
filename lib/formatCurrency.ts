@@ -1,4 +1,4 @@
-export function formatCurrency(value: number) {
+export function formatCurrency(value: number | string | null | undefined) {
   return new Intl.NumberFormat("en-EG", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
