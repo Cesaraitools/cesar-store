@@ -1,5 +1,5 @@
 export const runtime = "nodejs";
-
+export const maxDuration = 60;
 import { createClient } from "@supabase/supabase-js";
 import React from "react";
 import {
@@ -163,10 +163,16 @@ try {
 
   /* ================= ULTRA SAFE ADDITION ================= */
   const items = rawItems.map((item: any) => ({
-    name: item?.name || "—",
-    price: Number(item?.price || 0),
-    quantity: Number(item?.quantity || 0),
-  }));
+  name:
+    item?.name ||
+    item?.title ||
+    item?.product_name ||
+    item?.name_en ||
+    item?.name_ar ||
+    "—",
+  price: Number(item?.price || 0),
+  quantity: Number(item?.quantity || 0),
+}));
   /* ===================================================== */
 
   const document = React.createElement(
