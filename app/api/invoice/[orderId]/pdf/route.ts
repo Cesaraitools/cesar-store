@@ -243,7 +243,7 @@ if (!rawItems.length) {
           React.createElement(Text, { style: styles.colAmount }, smartText("Amount / الإجمالي"))
         ),
 
-        ...items.map((item: any) =>
+        ...items.slice(0, 50).map((item: any) =>
           React.createElement(
             View,
             { style: styles.tableRow },
