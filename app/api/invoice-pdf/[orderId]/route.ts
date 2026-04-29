@@ -13,7 +13,6 @@ import {
   Font,
 } from "@react-pdf/renderer";
 import path from "path";
-import fs from "fs";
 import arabicReshaper from "arabic-reshaper";
 
 /* ================= تسجيل الخطوط ================= */
@@ -122,15 +121,15 @@ const styles = StyleSheet.create({
 export async function GET(_req: Request, { params }: { params: { orderId: string } }) {
   const orderId = params.orderId;
 
-  let logoBuffer;
-  try {
-    const logoPath = path.join(process.cwd(), "public", "logo (1).png");
-    if (fs.existsSync(logoPath)) {
-      logoBuffer = fs.readFileSync(logoPath);
-    }
-  } catch (err) {
-    console.error("Logo Error:", err);
-  }
+ 
+  let logoBuffer: Buffer | null = null;
+
+try {
+  const res = await fetch("https://bdmumdbykzbozgkxtsmk.supabase.co/storage/v1/object/public/upload/logo.png");
+  logoBuffer = Buffer.from(await res.arrayBuffer());
+} catch (err) {
+  console.error("Logo Fetch Error:", err);
+}
 
   let order;
 
@@ -156,10 +155,16 @@ try {
 
   /* ================= ULTRA SAFE ADDITION ================= */
   const items = rawItems.map((item: any) => ({
-    name: item?.name || "—",
-    price: Number(item?.price || 0),
-    quantity: Number(item?.quantity || 0),
-  }));
+  name:
+    item?.name ||
+    item?.title ||
+    item?.product_name ||
+    item?.name_en ||
+    item?.name_ar ||
+    "—",
+  price: Number(item?.price || 0),
+  quantity: Number(item?.quantity || 0),
+}));
   /* ===================================================== */
 
   const document = React.createElement(
@@ -222,7 +227,7 @@ try {
           React.createElement(
             View,
             { style: styles.tableRow },
-            React.createElement(Text, { style: styles.colDescription }, smartText(item.name_ar || item.name_en || item.name || "—")),
+            React.createElement(Text, { style: styles.colDescription }, smartText(item.name),
             React.createElement(Text, { style: styles.colQty }, String(item.quantity)),
             React.createElement(Text, { style: styles.colPrice }, `${item.price}`),
             React.createElement(Text, { style: styles.colAmount }, `${(item.price * item.quantity).toFixed(2)}`)
@@ -250,14 +255,19 @@ try {
       ),
 
       React.createElement(
-        View,
-        { style: styles.footer },
-        React.createElement(
-          Text,
-          null,
-          smartText("Thank you for choosing Cesar Store / شكراً لتعاملك مع متجر سيزر.")
-        ),
-        React.createElement(Text, { style: { marginTop: 4 } }, "support@cesarstore.com")
+  View,
+  { style: styles.footer },
+  React.createElement(
+    Text,
+    null,
+    smartText("Thank you for choosing Cesar Store / شكراً لتعاملك مع متجر سيزر.")
+  ),
+  React.createElement(
+    Text,
+    { style: { marginTop: 4 } },
+    "support@cesarstore.com"
+  )
+)
       )
     )
   );
