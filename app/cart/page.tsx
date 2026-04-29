@@ -175,8 +175,7 @@ export default function CartPage() {
                   </span>
                 </div>
                 <p className="text-[10px] text-gray-400 font-bold text-center mt-2">
-                  السعر شامل ضريبة القيمة المضافة
-                </p>
+               </p>
               </div>
 
               <button
