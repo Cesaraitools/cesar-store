@@ -269,7 +269,10 @@ export default function CheckoutPage() {
 
                   <div className="text-left">
                     <span className="text-3xl font-black text-blue-600 tracking-tighter">
-                      {total}
+                       {new Intl.NumberFormat("en-EG", {
+                 minimumFractionDigits: 2,
+                 maximumFractionDigits: 2,
+                 }).format(total)} جنيه
                     </span>
 
                     <span className="text-xs font-black text-blue-600 mr-1">

@@ -116,15 +116,18 @@ export default function ReviewPage() {
         address: checkoutData.address,
       };
       const orderToken = crypto.randomUUID();
-      const itemsSnapshot = cartItems.map((item) => ({
-        
-        id: generateUUID(),
-        product_id: item.product_id,
-        name: item.name,
-        price: item.price,
-        image: item.image,
-        quantity: item.quantity,
-      }));
+     const itemsSnapshot = cartItems.map((item) => ({
+  id: generateUUID(),
+  product_id: item.product_id,
+
+  // ✅ FIX: دعم العربي والانجليزي
+  name_ar: item.name_ar || item.name || "",
+  name_en: item.name_en || item.name || "",
+
+  price: item.price,
+  image: item.image,
+  quantity: item.quantity,
+}));
 
       const response = await fetch("/api/orders", {
         method: "POST",
@@ -186,7 +189,7 @@ export default function ReviewPage() {
 🛒 المنتجات:
 ${productsText}
 
-💰 الإجمالي: ${total} جنيه`;
+💰 الإجمالي: $Number(total).toFixed(2) جنيه`;
 
       const whatsappWindow = window.open(
   `https://wa.me/201211120208?text=${encodeURIComponent(message)}`,
@@ -343,7 +346,7 @@ if (!whatsappWindow) {
 
                 <div className="flex justify-between font-bold text-slate-400">
                   <span>المجموع</span>
-                  <span>{total} ج.م</span>
+                  <span>Number(total).toFixed(2) ج.م</span>
                 </div>
 
                 <div className="flex justify-between font-bold text-slate-400">
@@ -360,7 +363,10 @@ if (!whatsappWindow) {
                 </span>
 
                 <span className="text-3xl font-black text-blue-600 tracking-tighter">
-                  {total}
+                 {new Intl.NumberFormat("en-EG", {
+                 minimumFractionDigits: 2,
+                 maximumFractionDigits: 2,
+                 }).format(total)} جنيه
                   <small className="text-xs font-black"> ج.م</small>
                 </span>
 

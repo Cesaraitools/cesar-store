@@ -155,7 +155,14 @@ try {
 
   /* ================= ULTRA SAFE ADDITION ================= */
   const items = rawItems.map((item: any) => ({
-  name: item?.name || "—",
+  name: [
+  item?.name_ar,
+  item?.name_en,
+  item?.name,
+  item?.product?.name_ar,
+  item?.product?.name_en,
+  item?.product?.name,
+].find((v) => typeof v === "string" && v.trim().length > 0) || "—",
   price: Number(item?.price || 0),
   quantity: Number(item?.quantity || 0),
 }));

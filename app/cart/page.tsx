@@ -171,7 +171,10 @@ export default function CartPage() {
                     المجموع الكلي
                   </span>
                   <span className="text-2xl font-black text-blue-600 tracking-tighter">
-                    {total} جنيه
+                     {new Intl.NumberFormat("en-EG", {
+                 minimumFractionDigits: 2,
+                 maximumFractionDigits: 2,
+                 }).format(total)} جنيه
                   </span>
                 </div>
                 <p className="text-[10px] text-gray-400 font-bold text-center mt-2">
