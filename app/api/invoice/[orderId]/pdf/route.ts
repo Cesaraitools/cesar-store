@@ -159,7 +159,19 @@ try {
 }
 
   const customer = order.customer_snapshot || {};
-  const rawItems = Array.isArray(order.items_snapshot) ? order.items_snapshot : [];
+  const rawItems =
+  Array.isArray(order.items_snapshot)
+    ? order.items_snapshot
+    : [];
+
+if (!rawItems.length) {
+  console.error("❌ EMPTY ITEMS SNAPSHOT", order.items_snapshot);
+
+  return Response.json(
+    { error: "Invoice has no items" },
+    { status: 500 }
+  );
+}
 
   /* ================= ULTRA SAFE ADDITION ================= */
   const items = rawItems.map((item: any) => ({
