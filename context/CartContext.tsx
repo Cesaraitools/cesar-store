@@ -147,7 +147,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 };
 
   syncCart();
-}, [user]);
+}, [user, session]);
   /* ================= ACTIONS ================= */
 
   const addToCart = (product: any) => {
