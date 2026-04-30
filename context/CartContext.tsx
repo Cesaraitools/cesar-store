@@ -97,6 +97,57 @@ export function CartProvider({ children }: { children: ReactNode }) {
     saveCartToStorage(cart);
   }, [cart]);
 
+  useEffect(() => {
+  if (!user) return;
+  if (hasSyncedWithApi.current) return;
+  if (!cart.items.length) return;
+
+  
+
+  const syncCart = async () => {
+  try {
+    const token = session?.access_token;
+    if (!token) return;
+
+    // 🔁 retry logic
+    let success = false;
+
+    for (let i = 0; i < 2; i++) {
+      const res = await fetch("/api/cart/sync", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          items: cart.items,
+        }),
+      });
+
+      if (res.ok) {
+        success = true;
+        hasSyncedWithApi.current = true;
+        break;
+      }
+
+      console.warn("Sync failed... retrying");
+    }
+
+    if (!success) {
+      console.error("Cart sync failed completely ❌");
+      hasSyncedWithApi.current = false; // مهم جدًا
+      return;
+    }
+
+    console.log("Cart synced to DB ✅");
+  } catch (err) {
+    console.error("Cart sync failed ❌", err);
+    hasSyncedWithApi.current = false; // مهم جدًا
+  }
+};
+
+  syncCart();
+}, [user]);
   /* ================= ACTIONS ================= */
 
   const addToCart = (product: any) => {
