@@ -5,11 +5,25 @@ export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
 
+  // تبادل الكود للحصول على session
   if (code) {
     const supabase = createClient();
     await supabase.auth.exchangeCodeForSession(code);
   }
 
-  // نوجه للـ sync page وهي اللي تقرأ sessionStorage وتكمل التوجيه
-  return NextResponse.redirect(`${requestUrl.origin}/auth/sync`);
+  // نجيب redirect من query
+  let redirectTo = "/checkout";
+
+  // fallback لو مش موجود
+  if (!redirectTo) {
+    redirectTo = "/checkout";
+  }
+
+  // نحول لـ absolute URL
+  const finalUrl = redirectTo.startsWith("http")
+    ? redirectTo
+    : `${requestUrl.origin}${redirectTo}`;
+
+  // redirect مباشر
+  return NextResponse.redirect(finalUrl);
 }
