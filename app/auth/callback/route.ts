@@ -15,8 +15,8 @@ export async function GET(request: Request) {
 
   // ❗ fallback (لو Google ضيّع الـ redirect)
   if (!redirectTo) {
-    redirectTo = "/auth/sync";
-  }
+  redirectTo = "/auth/sync";
+}
 
   const finalUrl = redirectTo.startsWith("http")
     ? redirectTo
