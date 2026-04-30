@@ -122,14 +122,7 @@ export async function GET(_req: Request, { params }: { params: { orderId: string
   const orderId = params.orderId;
 
  
-  let logoBuffer: Buffer | null = null;
-
-try {
-  const res = await fetch("https://bdmumdbykzbozgkxtsmk.supabase.co/storage/v1/object/public/upload/logo.png");
-  logoBuffer = Buffer.from(await res.arrayBuffer());
-} catch (err) {
-  console.error("Logo Fetch Error:", err);
-}
+ const logoUrl = "https://cesareshop.com/logo.png";
 
   let order;
 
@@ -182,11 +175,10 @@ try {
         React.createElement(
           View,
           { style: styles.rightHeaderSection },
-          logoBuffer &&
-            React.createElement(Image, {
-              style: styles.logo,
-              src: { data: logoBuffer, format: "png" },
-            }),
+          React.createElement(Image, {
+  style: styles.logo,
+  src: logoUrl,
+}),
           React.createElement(Text, null, smartText("Invoice / فاتورة")),
           React.createElement(Text, { style: { fontSize: 9 } }, `#${order.id.slice(0, 8)}`)
         )
