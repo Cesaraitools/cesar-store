@@ -48,7 +48,14 @@ export async function GET(
 
     /* -------- Safe Items -------- */
     const items = (order.items_snapshot || []).map((item: any) => ({
-      name: item?.name || "—",
+      name:
+  item?.name ||
+  item?.name_ar ||
+  item?.name_en ||
+  item?.product?.name_ar ||
+  item?.product?.name_en ||
+  item?.product?.name ||
+  "—",
       price: Number(item?.price || 0),
       quantity: Number(item?.quantity || 0),
     }));
