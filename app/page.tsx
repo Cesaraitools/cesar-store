@@ -46,8 +46,25 @@ export default function LandingPage() {
   const [index, setIndex] = useState(0);
   const [slides, setSlides] = useState<Slide[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+  if (typeof window === "undefined") return;
+
+  const url = new URL(window.location.href);
+  const code = url.searchParams.get("code");
+
+  if (code) {
+    const redirect =
+      sessionStorage.getItem("oauth_redirect") || "/checkout";
+
+    window.location.replace(
+      `/auth/callback?code=${code}&redirect=${redirect}`
+    );
+  }
+}, []);
 
   useEffect(() => {
+    
     fetch("/api/categories")
       .then((r) => r.json())
       .then((categories) => {
