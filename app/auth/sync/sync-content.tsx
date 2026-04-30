@@ -7,7 +7,24 @@ import { createClient } from "@/lib/supabase/client";
 export default function SyncContent() {
   const router = useRouter();
   const params = useSearchParams();
-  const redirect = params.get("redirect") || "/";
+  let redirect = params.get("redirect");
+
+// 💣 FIX: fallback ذكي
+if (!redirect) {
+  const stored =
+    typeof window !== "undefined"
+      ? sessionStorage.getItem("last_redirect")
+      : null;
+
+  if (stored) {
+    redirect = stored;
+  }
+}
+
+// fallback نهائي
+if (!redirect) {
+  redirect = "/checkout";
+}
 
   useEffect(() => {
     const run = async () => {

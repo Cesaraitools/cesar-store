@@ -39,6 +39,7 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (!loading && !user) {
       const current = window.location.pathname;
+      sessionStorage.setItem("last_redirect", window.location.pathname);
       router.push(`/auth/login?redirect=${encodeURIComponent(current)}`);
     }
   }, [user, loading, router]);
