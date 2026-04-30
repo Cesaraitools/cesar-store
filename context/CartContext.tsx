@@ -113,7 +113,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     let success = false;
 
     for (let i = 0; i < 2; i++) {
-      const res = await fetch("/api/cart/sync", {
+      const res = await fetch("/api/cart/merge", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
