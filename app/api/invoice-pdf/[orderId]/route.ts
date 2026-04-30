@@ -122,7 +122,7 @@ export async function GET(_req: Request, { params }: { params: { orderId: string
   const orderId = params.orderId;
 
  
- const logoUrl = "https://cesareshop.com/logo.png";
+ const logoUrl = "https://cesareshop.com/logo-v2.png"; // Replace with your actual logo URL
 
   let order;
 
