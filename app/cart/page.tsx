@@ -91,7 +91,7 @@ export default function CartPage() {
                         {item.name}
                       </h2>
                       <p className="text-blue-600 font-black text-sm mb-2">
-                        {item.price} جنيه
+                        {formatCurrency(item.price)}
                       </p>
                       <p className="text-xs text-slate-500 font-semibold mb-4">
                         المتاح: {typeof stock === "number" ? stock : "-"}
@@ -123,7 +123,7 @@ export default function CartPage() {
                           إجمالي الصنف
                         </p>
                         <p className="text-lg font-black text-gray-900">
-                          {item.price * item.quantity} جنيه
+                          {formatCurrency(item.price * item.quantity)}
                         </p>
                       </div>
                       <button
@@ -155,11 +155,11 @@ export default function CartPage() {
                         {item.name}
                       </p>
                       <p className="text-gray-400 font-bold text-xs mt-1">
-                        {item.quantity} × {item.price} جنيه
+                        {item.quantity} × {formatCurrency(item.price)}
                       </p>
                     </div>
                     <span className="font-black text-gray-900 whitespace-nowrap">
-                      {item.price * item.quantity} ج.م
+                      {formatCurrency(item.price * item.quantity)}
                     </span>
                   </div>
                 ))}

@@ -1,5 +1,5 @@
 "use client";
-
+import { formatCurrency } from "@/lib/formatCurrency";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCheckout } from "@/context/CheckoutContext";
@@ -255,7 +255,7 @@ export default function CheckoutPage() {
                     </div>
 
                     <span className="font-black text-slate-900">
-                      {item.price * item.quantity} ج.م
+                      {formatCurrency(item.price * item.quantity)}
                     </span>
                   </div>
                 ))}
@@ -269,15 +269,8 @@ export default function CheckoutPage() {
 
                   <div className="text-left">
                     <span className="text-3xl font-black text-blue-600 tracking-tighter">
-                       {new Intl.NumberFormat("en-EG", {
-                 minimumFractionDigits: 2,
-                 maximumFractionDigits: 2,
-                 }).format(total)}
-                    </span>
-
-                    <span className="text-xs font-black text-blue-600 mr-1">
-                      جنيه
-                    </span>
+                      {formatCurrency(total)}
+                   </span>
                   </div>
                 </div>
               </div>

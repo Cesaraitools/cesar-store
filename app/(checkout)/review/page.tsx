@@ -1,7 +1,7 @@
 // app/(checkout)/review/page.tsx
 
 "use client";
-
+import { formatCurrency } from "@/lib/formatCurrency";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/context/CartContext";
@@ -189,7 +189,7 @@ export default function ReviewPage() {
 🛒 المنتجات:
 ${productsText}
 
-💰 الإجمالي: $Number(total).toFixed(2) جنيه`;
+💰 الإجمالي: ${formatCurrency(total)}`;
 
       const whatsappWindow = window.open(
   `https://wa.me/201211120208?text=${encodeURIComponent(message)}`,
@@ -265,14 +265,14 @@ if (!whatsappWindow) {
                           {item.name}
                         </p>
                         <p className="text-xs text-slate-400">
-                          {item.price} ج.م
+                          {formatCurrency(item.price)}
                         </p>
                       </div>
 
                     </div>
 
                     <span className="font-black text-slate-900">
-                      {item.price * item.quantity} ج.م
+                      {formatCurrency(item.price * item.quantity)}
                     </span>
 
                   </div>
@@ -346,7 +346,7 @@ if (!whatsappWindow) {
 
                 <div className="flex justify-between font-bold text-slate-400">
                   <span>المجموع</span>
-                  <span>Number(total).toFixed(2) ج.م</span>
+                  <span>{formatCurrency(total)}</span>
                 </div>
 
                 <div className="flex justify-between font-bold text-slate-400">
@@ -363,11 +363,7 @@ if (!whatsappWindow) {
                 </span>
 
                 <span className="text-3xl font-black text-blue-600 tracking-tighter">
-                 {new Intl.NumberFormat("en-EG", {
-                 minimumFractionDigits: 2,
-                 maximumFractionDigits: 2,
-                 }).format(total)}
-                  <small className="text-xs font-black"> ج.م</small>
+                 {formatCurrency(total)}
                 </span>
 
               </div>
