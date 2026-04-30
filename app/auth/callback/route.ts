@@ -25,26 +25,18 @@ let redirectTo = requestUrl.searchParams.get("redirect");
 
 // 💣 FIX: fallback أقوى
 if (!redirectTo) {
-  // حاول من referer (مهم جدًا)
-  const referer = request.headers.get("referer");
+  // نحاول نجيب redirect من query (ده الأساس)
+let redirectTo = requestUrl.searchParams.get("redirect");
 
-  if (referer && referer.includes("redirect=")) {
-    const url = new URL(referer);
-    redirectTo = url.searchParams.get("redirect");
-  }
-}
-
-// fallback نهائي
+// 💣 fallback ذكي من sessionStorage (عن طريق auth/sync مش هنا)
 if (!redirectTo) {
-  redirectTo = "/checkout"; // مش "/" علشان ده السيناريو الأساسي
+  redirectTo = "/checkout";
 }
 
-// 💣 FIX: إجبار المسار يكون absolute بشكل صحيح
+// إجبار المسار يكون absolute
 const finalUrl = redirectTo.startsWith("http")
   ? redirectTo
   : `${requestUrl.origin}${redirectTo}`;
 
-return NextResponse.redirect(
-  `${requestUrl.origin}/auth/sync?redirect=${encodeURIComponent(finalUrl)}`
-);
-}
+// redirect مباشر
+return NextResponse.redirect(finalUrl);
