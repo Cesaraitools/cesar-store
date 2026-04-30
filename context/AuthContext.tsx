@@ -79,24 +79,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithGoogle = async (redirect?: string) => {
-    setLoading(true);
+  setLoading(true);
 
-    const redirectPath = redirect || "/";
+  const redirectPath = redirect || "/checkout";
 
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${location.origin}/auth/callback?redirect=${encodeURIComponent(
-          redirectPath
-        )}`,
-      },
-    });
+  // 💣 نحفظ الصفحة قبل الخروج لـ Google
+  if (typeof window !== "undefined") {
+    sessionStorage.setItem("oauth_redirect", redirectPath);
+  }
 
-    if (error) {
-      console.error("Google sign-in error:", error.message);
-      setLoading(false);
-    }
-  };
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${location.origin}/auth/callback`,
+    },
+  });
+
+  if (error) {
+    console.error("Google sign-in error:", error.message);
+    setLoading(false);
+  }
+};
 
   return (
     <AuthContext.Provider

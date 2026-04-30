@@ -12,7 +12,7 @@ export async function GET(request: Request) {
   }
 
   // نجيب redirect من query
-  let redirectTo = requestUrl.searchParams.get("redirect");
+  let redirectTo = "/checkout";
 
   // fallback لو مش موجود
   if (!redirectTo) {
