@@ -45,21 +45,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
       setLoading(false);
-
-      /**
-       * 💣 FIX: بعد Google login
-       * لو فيه redirect محفوظ → نرجع له
-       */
-      if (currentSession?.user) {
-        const redirect = sessionStorage.getItem("oauth_redirect");
-
-        if (redirect) {
-          sessionStorage.removeItem("oauth_redirect");
-
-          // مهم: replace عشان مايرجعش تاني
-          router.replace(redirect);
-        }
-      }
     };
 
     init();
@@ -73,18 +58,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!session?.user) {
         ensuredUserRef.current = false;
-      }
-
-      /**
-       * 💣 FIX: نفس الفكرة هنا برضو (event-based)
-       */
-      if (event === "SIGNED_IN" && session?.user) {
-        const redirect = sessionStorage.getItem("oauth_redirect");
-
-        if (redirect) {
-          sessionStorage.removeItem("oauth_redirect");
-          router.replace(redirect);
-        }
       }
 
       if (event === "SIGNED_OUT") {
@@ -110,17 +83,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const redirectPath = redirect || "/";
 
-    /**
-     * 💣 FIX: نحفظ الصفحة قبل ما نخرج لـ Google
-     */
-    if (typeof window !== "undefined") {
-      sessionStorage.setItem("oauth_redirect", redirectPath);
-    }
-
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-       redirectTo: `${location.origin}/auth/callback?redirect=${encodeURIComponent(redirectPath)}`,
+        redirectTo: `${location.origin}/auth/callback?redirect=${encodeURIComponent(
+          redirectPath
+        )}`,
       },
     });
 

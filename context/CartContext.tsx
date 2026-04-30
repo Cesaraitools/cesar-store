@@ -110,17 +110,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
 
     const newItem: CartItem = {
-      id: generateUUID(),
-      cart_id: cart.id,
-      product_id: product.id,
-      name_ar: product.name_ar || product.name || "",
-      name_en: product.name_en || product.name || "",
-      name: product.name || "Product",
-      price: Number(product.price),
-      image: product.image || null,
-      quantity: 1,
-      created_at: new Date().toISOString(),
-    };
+  id: generateUUID(),
+  cart_id: cart.id,
+  product_id: product.id,
+  stock: product.stock ?? product.quantity ?? 0,
+  name_ar: product.name_ar || product.name || "",
+  name_en: product.name_en || product.name || "",
+  name: product.name || "Product",
+  price: Number(product.price),
+  image: product.image || null,
+  quantity: 1,
+  created_at: new Date().toISOString(),
+};
 
     setCart((prev) => ({
       ...prev,
@@ -129,18 +130,25 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const updateQuantity = (cartItemId: string, quantity: number) => {
-    const normalized = Math.max(1, quantity);
+  setCart((prev) => ({
+    ...prev,
+    items: prev.items.map((item) => {
+      if (item.id !== cartItemId) return item;
 
-    setCart((prev) => ({
-      ...prev,
-      items: prev.items.map((item) =>
-        item.id === cartItemId
-          ? { ...item, quantity: normalized }
-          : item
-      ),
-    }));
-  };
+      const max = item.stock ?? 9999;
 
+      if (quantity > max) {
+        toast.error(`الحد الأقصى المتاح هو ${max}`);
+        return { ...item, quantity: max };
+      }
+
+      return {
+        ...item,
+        quantity: Math.max(1, quantity),
+      };
+    }),
+  }));
+};
   const removeFromCart = (cartItemId: string) => {
     setCart((prev) => ({
       ...prev,
