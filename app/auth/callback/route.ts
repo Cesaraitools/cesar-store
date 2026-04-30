@@ -20,11 +20,23 @@ export async function GET(request: Request) {
     await supabase.auth.exchangeCodeForSession(code);
   }
 
- let redirectTo = requestUrl.searchParams.get("redirect");
+ // نحاول نجيب redirect من query
+let redirectTo = requestUrl.searchParams.get("redirect");
 
-// 💣 FIX: fallback ذكي
+// 💣 FIX: fallback أقوى
 if (!redirectTo) {
-  redirectTo = "/review"; // أو أي default منطقي
+  // حاول من referer (مهم جدًا)
+  const referer = request.headers.get("referer");
+
+  if (referer && referer.includes("redirect=")) {
+    const url = new URL(referer);
+    redirectTo = url.searchParams.get("redirect");
+  }
+}
+
+// fallback نهائي
+if (!redirectTo) {
+  redirectTo = "/checkout"; // مش "/" علشان ده السيناريو الأساسي
 }
 
 // 💣 FIX: إجبار المسار يكون absolute بشكل صحيح
