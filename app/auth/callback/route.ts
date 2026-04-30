@@ -10,13 +10,13 @@ export async function GET(request: Request) {
     await supabase.auth.exchangeCodeForSession(code);
   }
 
-  // 🧠 نحاول نجيب redirect من query
+  // 🧠 نحاول نجيب redirect
   let redirectTo = requestUrl.searchParams.get("redirect");
 
-  // ❗ fallback (لو Google ضيّع الـ redirect)
+  // 💣 أهم سطر في الحل كله
   if (!redirectTo) {
-  redirectTo = "/auth/sync";
-}
+    redirectTo = "/auth/sync";
+  }
 
   const finalUrl = redirectTo.startsWith("http")
     ? redirectTo
