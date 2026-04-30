@@ -83,7 +83,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const redirectPath = redirect || "/checkout";
 
-  // 💣 نحفظ الصفحة قبل الخروج لـ Google
   if (typeof window !== "undefined") {
     sessionStorage.setItem("oauth_redirect", redirectPath);
   }
@@ -91,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: `${location.origin}/auth/callback?redirect=${encodeURIComponent(redirectPath)}`,
+      redirectTo: `${location.origin}/auth/callback`,
     },
   });
 

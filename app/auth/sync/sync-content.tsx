@@ -9,22 +9,16 @@ export default function SyncContent() {
   const params = useSearchParams();
   let redirect = params.get("redirect");
 
-// 💣 FIX: fallback ذكي
-if (!redirect) {
-  const stored =
-    typeof window !== "undefined"
-      ? sessionStorage.getItem("last_redirect")
-      : null;
-
-  if (stored) {
-    redirect = stored;
+  if (!redirect && typeof window !== "undefined") {
+    redirect =
+      sessionStorage.getItem("oauth_redirect") ||
+      sessionStorage.getItem("last_redirect") ||
+      "/checkout";
   }
-}
 
-// fallback نهائي
-if (!redirect) {
-  redirect = "/checkout";
-}
+  if (!redirect) {
+    redirect = "/checkout";
+  }
 
   useEffect(() => {
     const run = async () => {
