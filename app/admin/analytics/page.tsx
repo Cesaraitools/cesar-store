@@ -1,5 +1,5 @@
 "use client";
-
+import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -110,7 +110,16 @@ const STATUS_OPTIONS = [
   { value: "delivered", label: "delivered" },
   { value: "canceled", label: "canceled" },
 ];
+const [userEmail, setUserEmail] = useState<string | null>(null);
 
+useEffect(() => {
+  const loadUser = async () => {
+    const { data } = await supabase.auth.getUser();
+    setUserEmail(data.user?.email ?? null);
+  };
+
+  loadUser();
+}, []);
 function formatDate(value: string | null) {
   if (!value) return "—";
   return new Date(value).toLocaleDateString("ar-EG");
@@ -265,7 +274,7 @@ export default function AdminAnalyticsPage() {
   method: "POST",
   headers: {
     "x-reset-secret": "123456",
-    "x-user-email": "mohamed.seeking@gmail.com",
+    
   },
 });
       const json = await res.json();
@@ -349,8 +358,16 @@ export default function AdminAnalyticsPage() {
 
           <button
             onClick={handleResetTestData}
-            disabled={resettingData || data.volume.total_orders === 0}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={
+  resettingData ||
+  data.volume.total_orders === 0 ||
+  userEmail !== process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL
+}
+            className={`inline-flex items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60 ${
+  userEmail !== process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL
+    ? "opacity-50 cursor-not-allowed"
+    : ""
+}`}
           >
             <Trash2 className="h-4 w-4" />
             {resettingData ? "جارٍ تصفير البيانات..." : "تصفير البيانات التجريبية"}
