@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { validateAdminSession } from "@/lib/admin/validateAdminSession";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -204,9 +205,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     /* 🔐 NEW: Super Admin Email Check */
-const userEmail = request.headers.get("x-user-email");
+const supabase = createServerClient();
 
-if (userEmail !== process.env.SUPER_ADMIN_EMAIL) {
+const {
+  data: { user },
+} = await supabase.auth.getUser();
+
+if (!user || user.email !== process.env.SUPER_ADMIN_EMAIL) {
   return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 }
     const { data: orders, error: ordersError } = await supabase
