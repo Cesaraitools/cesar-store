@@ -191,16 +191,12 @@ export async function POST(request: Request) {
       // Fall back to the client payload.
     }
 
-    if (finalItems.length === 0 && Array.isArray(items)) {
-      finalItems = items.map((item: any) => ({
-        product_id: String(item.product_id),
-        quantity: Number(item.quantity),
-        name_ar: item.name_ar ?? item.name ?? "",
-        name_en: item.name_en ?? item.name ?? "",
-        price: Number(item.price),
-        image: item.image ?? null,
-      }));
-    }
+    if (finalItems.length === 0) {
+  return NextResponse.json(
+    { error: "Cart not synced with database" },
+    { status: 400 }
+  );
+}
 
     if (!finalItems.length) {
       return NextResponse.json(
