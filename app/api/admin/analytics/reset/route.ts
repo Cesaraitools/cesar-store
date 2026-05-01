@@ -48,6 +48,12 @@ type InventoryUpdate = {
 
 const supabase = createServiceRoleClient();
 
+/* 🔐 NEW: Validate Reset Secret */
+function validateResetSecret(request: Request) {
+  const secret = request.headers.get("x-reset-secret");
+  return secret && secret === process.env.RESET_SECRET;
+}
+
 function extractOrderItems(itemsSnapshot: any[]): OrderSnapshotItem[] {
   const merged = new Map<string, OrderSnapshotItem>();
 
@@ -187,12 +193,22 @@ async function deleteOptionalOrderDependencies(orderIds: string[]) {
   }
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
+    /* 🔐 NEW: Secret check */
+    if (!validateResetSecret(request)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     if (!validateAdminSession()) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    /* 🔐 NEW: Super Admin Email Check */
+const userEmail = request.headers.get("x-user-email");
 
+if (userEmail !== process.env.SUPER_ADMIN_EMAIL) {
+  return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+}
     const { data: orders, error: ordersError } = await supabase
       .from("orders")
       .select("id, items_snapshot");
@@ -246,23 +262,23 @@ export async function POST() {
     const appliedInventoryUpdates: InventoryUpdate[] = [];
 
     try {
-  for (const [productId, quantity] of restoreMap.entries()) {
-    try {
-      const update = await restoreProductInventory(productId, quantity);
-      appliedInventoryUpdates.push(update);
-    } catch (err) {
-      console.warn("Skip restoring product:", productId);
-      continue;
-    }
-  }
-} catch (error) {
-  await rollbackInventory(appliedInventoryUpdates);
+      for (const [productId, quantity] of restoreMap.entries()) {
+        try {
+          const update = await restoreProductInventory(productId, quantity);
+          appliedInventoryUpdates.push(update);
+        } catch {
+          console.warn("Skip restoring product:", productId);
+          continue;
+        }
+      }
+    } catch (error) {
+      await rollbackInventory(appliedInventoryUpdates);
 
-  return NextResponse.json(
-    { error: "Failed to restore inventory before reset" },
-    { status: 500 }
-  );
-}
+      return NextResponse.json(
+        { error: "Failed to restore inventory before reset" },
+        { status: 500 }
+      );
+    }
 
     let deleteOrdersError: any = null;
 

@@ -262,9 +262,12 @@ export default function AdminAnalyticsPage() {
       setResettingData(true);
 
       const res = await fetch("/api/admin/analytics/reset", {
-        method: "POST",
-      });
-
+  method: "POST",
+  headers: {
+    "x-reset-secret": "123456",
+    "x-user-email": "mohamed.seeking@gmail.com",
+  },
+});
       const json = await res.json();
 
       if (!res.ok) {
