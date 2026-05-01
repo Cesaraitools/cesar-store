@@ -110,16 +110,7 @@ const STATUS_OPTIONS = [
   { value: "delivered", label: "delivered" },
   { value: "canceled", label: "canceled" },
 ];
-const [userEmail, setUserEmail] = useState<string | null>(null);
 
-useEffect(() => {
-  const loadUser = async () => {
-    const { data } = await supabase.auth.getUser();
-    setUserEmail(data.user?.email ?? null);
-  };
-
-  loadUser();
-}, []);
 function formatDate(value: string | null) {
   if (!value) return "—";
   return new Date(value).toLocaleDateString("ar-EG");
@@ -200,7 +191,16 @@ export default function AdminAnalyticsPage() {
   const [resettingData, setResettingData] = useState(false);
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<FiltersState>(EMPTY_FILTERS);
+const [userEmail, setUserEmail] = useState<string | null>(null);
 
+useEffect(() => {
+  const loadUser = async () => {
+    const { data } = await supabase.auth.getUser();
+    setUserEmail(data.user?.email ?? null);
+  };
+
+  loadUser();
+}, []);
   const pageSize = 10;
 
   async function loadAnalytics(activeFilters: FiltersState) {
