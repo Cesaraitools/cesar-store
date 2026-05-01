@@ -246,32 +246,23 @@ export async function POST() {
     const appliedInventoryUpdates: InventoryUpdate[] = [];
 
     try {
-      for (const [productId, quantity] of restoreMap.entries()) {
-        const update = await restoreProductInventory(productId, quantity);
-        appliedInventoryUpdates.push(update);
-      }
-    } catch (error) {
-      await rollbackInventory(appliedInventoryUpdates);
-
-      return NextResponse.json(
-        { error: "Failed to restore inventory before reset" },
-        { status: 500 }
-      );
+  for (const [productId, quantity] of restoreMap.entries()) {
+    try {
+      const update = await restoreProductInventory(productId, quantity);
+      appliedInventoryUpdates.push(update);
+    } catch (err) {
+      console.warn("Skip restoring product:", productId);
+      continue;
     }
+  }
+} catch (error) {
+  await rollbackInventory(appliedInventoryUpdates);
 
-    const { error: deleteTrackingError } = await supabase
-      .from("order_tracking_events")
-      .delete()
-      .in("order_id", orderIds);
-
-    if (deleteTrackingError) {
-      await rollbackInventory(appliedInventoryUpdates);
-
-      return NextResponse.json(
-        { error: "Failed to delete order tracking events" },
-        { status: 500 }
-      );
-    }
+  return NextResponse.json(
+    { error: "Failed to restore inventory before reset" },
+    { status: 500 }
+  );
+}
 
     let deleteOrdersError: any = null;
 
