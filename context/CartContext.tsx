@@ -11,8 +11,6 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import toast from "react-hot-toast";
 
-/* ================= TYPES ================= */
-
 export type CartItem = {
   id: string;
   cart_id: string;
@@ -32,19 +30,14 @@ type LocalCart = {
   items: CartItem[];
 };
 
-type CartStateType = {
+type CartContextType = {
   cartId: string;
   cartItems: CartItem[];
-};
-
-type CartActionsType = {
   addToCart: (product: any) => void;
   updateQuantity: (cartItemId: string, quantity: number) => void;
   removeFromCart: (cartItemId: string) => void;
   clearCart: () => void;
 };
-
-/* ================= STORAGE ================= */
 
 const CART_STORAGE_KEY = "cesar_store_cart_v2";
 
@@ -52,11 +45,33 @@ function generateUUID() {
   return crypto.randomUUID();
 }
 
+function sanitizeImage(image?: string): string | null {
+  if (!image) return null;
+  if (image.startsWith("blob:")) return null;
+  if (image.includes("\\")) return null;
+  if (image.startsWith("/") || image.startsWith("http")) return image;
+  return null;
+}
+
+function normalizeStockValue(stock?: number): number | null {
+  if (typeof stock !== "number" || !Number.isFinite(stock)) return null;
+  return Math.max(0, Math.floor(stock));
+}
+
+function getStockExceededMessage(available?: number) {
+  if (typeof available === "number") {
+    return `الكمية المتاحة حاليًا هي ${available} فقط`;
+  }
+  return "الكمية المطلوبة غير متاحة في المخزون";
+}
+
 function loadCartFromStorage(): LocalCart {
   try {
     const raw = localStorage.getItem(CART_STORAGE_KEY);
-    if (!raw) return { id: generateUUID(), items: [] };
-    return JSON.parse(raw);
+    if (!raw) {
+      return { id: generateUUID(), items: [] };
+    }
+    return JSON.parse(raw) as LocalCart;
   } catch {
     return { id: generateUUID(), items: [] };
   }
@@ -68,12 +83,7 @@ function saveCartToStorage(cart: LocalCart) {
   } catch {}
 }
 
-/* ================= CONTEXTS ================= */
-
-const CartStateContext = createContext<CartStateType | null>(null);
-const CartActionsContext = createContext<CartActionsType | null>(null);
-
-/* ================= PROVIDER ================= */
+const CartContext = createContext<CartContextType | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const { user, session } = useAuth();
@@ -84,8 +94,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   });
 
   const hasSyncedWithApi = useRef(false);
-
-  /* ================= INIT ================= */
+  const isMerging = useRef(false);
+  const mergedForUserId = useRef<string | null>(null);
 
   useEffect(() => {
     const stored = loadCartFromStorage();
@@ -97,114 +107,282 @@ export function CartProvider({ children }: { children: ReactNode }) {
     saveCartToStorage(cart);
   }, [cart]);
 
-  useEffect(() => {
-  if (!user) return;
-  if (hasSyncedWithApi.current) return;
-  if (!cart.items.length) return;
+  const ensureCartExistsInDb = async () => {
+    if (!user || !session || hasSyncedWithApi.current) return;
 
-  
-
-  const syncCart = async () => {
-  try {
-    const token = session?.access_token;
-    if (!token) return;
-
-    // 🔁 retry logic
-    let success = false;
-
-    for (let i = 0; i < 2; i++) {
-      const res = await fetch("/api/cart/merge", {
+    try {
+      await fetch("/api/cart", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({
-          items: cart.items,
-        }),
       });
 
-      if (res.ok) {
-        success = true;
-        hasSyncedWithApi.current = true;
-        break;
-      }
-
-      console.warn("Sync failed... retrying");
+      hasSyncedWithApi.current = true;
+    } catch {
+      console.warn("Cart init failed");
+      hasSyncedWithApi.current = false;
     }
+  };
 
-    if (!success) {
-      console.error("Cart sync failed completely ❌");
-      hasSyncedWithApi.current = false; // مهم جدًا
+  useEffect(() => {
+    if (!user || !session) return;
+    if (isMerging.current) return;
+    if (mergedForUserId.current === user.id) return;
+
+    const mergeCart = async () => {
+      try {
+        isMerging.current = true;
+        mergedForUserId.current = user.id;
+
+        if (cart.items.length > 0) {
+          await fetch("/api/cart/merge", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              items: cart.items.map((item) => ({
+                product_id: item.product_id,
+                quantity: item.quantity,
+              })),
+            }),
+          });
+        }
+
+        const itemsRes = await fetch("/api/cart/items", {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        });
+
+        const itemsData = await itemsRes.json();
+        const dbItems = itemsData?.items || [];
+
+        if (dbItems.length === 0 && cart.items.length > 0) {
+          isMerging.current = false;
+          return;
+        }
+
+        setCart((prev) => ({
+          ...prev,
+          items: dbItems.map((item: any) => ({
+            id: item.id,
+            cart_id: item.cart_id,
+            product_id: item.product_id,
+            name_ar: item.name_ar || item.name || "",
+            name_en: item.name_en || item.name || "",
+            name: item.name || item.name_en || item.name_ar || "Product",
+            price: Number(item.price || 0),
+            image: item.image || null,
+            quantity: item.quantity,
+            stock: normalizeStockValue(item.stock) ?? 0,
+            created_at: item.created_at,
+          })),
+        }));
+
+        isMerging.current = false;
+      } catch {
+        isMerging.current = false;
+      }
+    };
+
+    mergeCart();
+  }, [user, session, cart.items]);
+
+  const addToCart = (product: any) => {
+    void ensureCartExistsInDb();
+
+    const productStock = normalizeStockValue(product.stock);
+
+    if (productStock !== null && productStock <= 0) {
+      toast.error("هذا المنتج غير متوفر حاليًا");
       return;
     }
 
-    console.log("Cart synced to DB ✅");
-  } catch (err) {
-    console.error("Cart sync failed ❌", err);
-    hasSyncedWithApi.current = false; // مهم جدًا
-  }
-};
-
-  syncCart();
-}, [user, session]);
-  /* ================= ACTIONS ================= */
-
-  const addToCart = (product: any) => {
-    const existing = cart.items.find(
-      (item) => item.product_id === product.id
-    );
-
+    const existing = cart.items.find((item) => item.product_id === product.id);
     if (existing) {
       toast.error("المنتج موجود بالفعل في السلة");
       return;
     }
 
     const newItem: CartItem = {
-  id: generateUUID(),
-  cart_id: cart.id,
-  product_id: product.id,
-  stock: product.stock ?? product.quantity ?? 0,
-  name_ar: product.name_ar || product.name || "",
-  name_en: product.name_en || product.name || "",
-  name: product.name || "Product",
-  price: Number(product.price),
-  image: product.image || null,
-  quantity: 1,
-  created_at: new Date().toISOString(),
-};
+      id: generateUUID(),
+      cart_id: cart.id,
+      product_id: product.id,
+      name_ar: product.name_ar || product.name || "",
+      name_en: product.name_en || product.name || "",
+      name: product.name || product.name_en || product.name_ar || "Product",
+      price: Number(product.price),
+      image: sanitizeImage(product.image),
+      quantity: 1,
+      stock: productStock ?? undefined,
+      created_at: new Date().toISOString(),
+    };
 
     setCart((prev) => ({
       ...prev,
       items: [...prev.items, newItem],
     }));
+
+    if (user && session) {
+      const syncWithDb = async () => {
+        try {
+          const response = await fetch("/api/cart/items", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              product_id: product.id,
+              quantity: 1,
+            }),
+          });
+
+          if (!response.ok) {
+            const payload = await response.json().catch(() => null);
+            toast.error(getStockExceededMessage(payload?.available));
+
+            setCart((current) => ({
+              ...current,
+              items: current.items.filter(
+                (item) => item.product_id !== product.id
+              ),
+            }));
+          }
+        } catch {
+          console.warn("Cart sync failed (POST)");
+        }
+      };
+
+      void syncWithDb();
+    }
   };
 
   const updateQuantity = (cartItemId: string, quantity: number) => {
-  setCart((prev) => ({
-    ...prev,
-    items: prev.items.map((item) => {
-      if (item.id !== cartItemId) return item;
+    const normalizedQuantity = Math.max(1, Math.floor(quantity));
+    const item = cart.items.find((cartItem) => cartItem.id === cartItemId);
 
-      const max = item.stock ?? 9999;
+    if (!item) return;
 
-      if (quantity > max) {
-        toast.error(`الحد الأقصى المتاح هو ${max}`);
-        return { ...item, quantity: max };
+    const knownStock = normalizeStockValue(item.stock);
+    const isIncrease = normalizedQuantity > item.quantity;
+
+    if (isIncrease && knownStock !== null && normalizedQuantity > knownStock) {
+      toast.error(getStockExceededMessage(knownStock));
+      return;
+    }
+
+    if (isIncrease && knownStock === null) {
+      toast.error("تعذر التحقق من المخزون الحالي لهذا المنتج");
+      return;
+    }
+
+    const applyLocalUpdate = (nextStock?: number) => {
+      setCart((prev) => ({
+        ...prev,
+        items: prev.items.map((cartItem) =>
+          cartItem.id === cartItemId
+            ? {
+                ...cartItem,
+                quantity: normalizedQuantity,
+                ...(typeof nextStock === "number"
+                  ? { stock: nextStock }
+                  : {}),
+              }
+            : cartItem
+        ),
+      }));
+    };
+
+    if (user && session) {
+      const syncWithDb = async () => {
+        try {
+          const response = await fetch("/api/cart/items", {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              product_id: item.product_id,
+              quantity: normalizedQuantity,
+            }),
+          });
+
+          const payload = await response.json().catch(() => null);
+
+          if (!response.ok) {
+            if (typeof payload?.available === "number") {
+              setCart((prev) => ({
+                ...prev,
+                items: prev.items.map((cartItem) =>
+                  cartItem.id === cartItemId
+                    ? { ...cartItem, stock: payload.available }
+                    : cartItem
+                ),
+              }));
+            }
+
+            toast.error(
+              getStockExceededMessage(
+                typeof payload?.available === "number"
+                  ? payload.available
+                  : knownStock ?? undefined
+              )
+            );
+            return;
+          }
+
+          applyLocalUpdate(
+            typeof payload?.available === "number"
+              ? payload.available
+              : knownStock ?? undefined
+          );
+        } catch {
+          console.warn("Cart sync failed (PATCH)");
+        }
+      };
+
+      void syncWithDb();
+      return;
+    }
+
+    applyLocalUpdate(knownStock ?? undefined);
+  };
+
+  const removeFromCart = (cartItemId: string) => {
+    setCart((prev) => {
+      const item = prev.items.find((i) => i.id === cartItemId);
+
+      if (item && user && session) {
+        const syncWithDb = async () => {
+          try {
+            await fetch("/api/cart/items", {
+              method: "DELETE",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({
+                product_id: item.product_id,
+              }),
+            });
+          } catch {
+            console.warn("Cart sync failed (DELETE)");
+          }
+        };
+
+        void syncWithDb();
       }
 
       return {
-        ...item,
-        quantity: Math.max(1, quantity),
+        ...prev,
+        items: prev.items.filter((i) => i.id !== cartItemId),
       };
-    }),
-  }));
-};
-  const removeFromCart = (cartItemId: string) => {
-    setCart((prev) => ({
-      ...prev,
-      items: prev.items.filter((i) => i.id !== cartItemId),
-    }));
+    });
   };
 
   const clearCart = () => {
@@ -214,55 +392,26 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  /* ================= VALUES ================= */
-
-  const stateValue: CartStateType = {
-    cartId: cart.id,
-    cartItems: cart.items,
-  };
-
-  const actionsValue: CartActionsType = {
-    addToCart,
-    updateQuantity,
-    removeFromCart,
-    clearCart,
-  };
-
   return (
-    <CartStateContext.Provider value={stateValue}>
-      <CartActionsContext.Provider value={actionsValue}>
-        {children}
-      </CartActionsContext.Provider>
-    </CartStateContext.Provider>
+    <CartContext.Provider
+      value={{
+        cartId: cart.id,
+        cartItems: cart.items,
+        addToCart,
+        updateQuantity,
+        removeFromCart,
+        clearCart,
+      }}
+    >
+      {children}
+    </CartContext.Provider>
   );
 }
 
-/* ================= HOOKS ================= */
-
-export function useCartState() {
-  const context = useContext(CartStateContext);
-  if (!context) {
-    throw new Error("useCartState must be used inside CartProvider");
-  }
-  return context;
-}
-
-export function useCartActions() {
-  const context = useContext(CartActionsContext);
-  if (!context) {
-    throw new Error("useCartActions must be used inside CartProvider");
-  }
-  return context;
-}
-
-/* ================= SAFE (OLD API) ================= */
-
 export function useCart() {
-  const state = useCartState();
-  const actions = useCartActions();
-
-  return {
-    ...state,
-    ...actions,
-  };
+  const context = useContext(CartContext);
+  if (!context) {
+    throw new Error("useCart must be used within CartProvider");
+  }
+  return context;
 }
