@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
+import { rateLimit } from "@/lib/rateLimit";
 
 const serviceSupabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -111,6 +112,16 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+ const ip =
+  request.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+  request.headers.get("x-real-ip") ||
+  "unknown";
+if (!rateLimit(ip, 10, 60000)) {
+  return new Response(
+    JSON.stringify({ error: "Too many requests" }),
+    { status: 429 }
+  );
+}
   try {
     const user = await resolveUser(request);
 

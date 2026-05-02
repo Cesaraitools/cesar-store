@@ -2,6 +2,7 @@
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { rateLimit } from "@/lib/rateLimit";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
@@ -72,6 +73,17 @@ async function getOrCreateActiveCart(userId: string) {
 // GET: Get cart items
 // ===============================
 export async function GET(req: Request) {
+  const ip =
+  req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+  req.headers.get("x-real-ip") ||
+  "unknown";
+
+if (!rateLimit(ip, 25, 60000)) {
+  return new Response(
+    JSON.stringify({ error: "Too many requests" }),
+    { status: 429 }
+  );
+}
   const user = await getUserFromRequest(req);
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -124,6 +136,17 @@ export async function GET(req: Request) {
 // POST: Add item to cart
 // ===============================
 export async function POST(req: Request) {
+  const ip =
+  req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+  req.headers.get("x-real-ip") ||
+  "unknown";
+
+if (!rateLimit(ip, 20, 60000)) {
+  return new Response(
+    JSON.stringify({ error: "Too many requests" }),
+    { status: 429 }
+  );
+}
   const user = await getUserFromRequest(req);
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

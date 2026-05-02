@@ -1,6 +1,7 @@
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { rateLimit } from "@/lib/rateLimit";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
@@ -54,6 +55,17 @@ GET /api/cart
 -------------------------------------------------- */
 
 export async function GET(req: Request) {
+    const ip =
+  req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+  req.headers.get("x-real-ip") ||
+  "unknown";
+
+if (!rateLimit(ip, 20, 60000)) {
+  return new Response(
+    JSON.stringify({ error: "Too many requests" }),
+    { status: 429 }
+  );
+}
 const user = await getUserFromRequest(req);
 
 if (!user) {
@@ -87,6 +99,17 @@ POST /api/cart
 -------------------------------------------------- */
 
 export async function POST(req: Request) {
+    const ip =
+  req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+  req.headers.get("x-real-ip") ||
+  "unknown";
+
+if (!rateLimit(ip, 20, 60000)) {
+  return new Response(
+    JSON.stringify({ error: "Too many requests" }),
+    { status: 429 }
+  );
+}
 const user = await getUserFromRequest(req);
 
 if (!user) {

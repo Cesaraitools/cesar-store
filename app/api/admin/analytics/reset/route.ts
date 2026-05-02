@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { validateAdminSession } from "@/lib/admin/validateAdminSession";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { rateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -195,6 +196,17 @@ async function deleteOptionalOrderDependencies(orderIds: string[]) {
 }
 
 export async function POST(request: Request) {
+  const ip =
+  request.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+  request.headers.get("x-real-ip") ||
+  "unknown";
+
+if (!rateLimit(ip, 3, 60000)) {
+  return new Response(
+    JSON.stringify({ error: "Too many requests" }),
+    { status: 429 }
+  );
+}
   try {
     /* 🔐 NEW: Secret check */
     if (!validateResetSecret(request)) {
