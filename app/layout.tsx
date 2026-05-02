@@ -6,11 +6,18 @@ import { LanguageProvider } from "@/context/LanguageContext";
 import { AuthProvider } from "@/context/AuthContext";
 import Navbar from "@/components/Navbar";
 import { Toaster } from "react-hot-toast";
+import * as Sentry from "@sentry/nextjs";
+import type { Metadata } from "next";
 
-export const metadata = {
-  title: "متجر سيزر | Cesar Store",
-  description: "الوجهة الأولى لمنتجات العناية بالسيارات والكماليات الأصلية",
-};
+export function generateMetadata(): Metadata {
+  return {
+    title: "متجر سيزر | Cesar Store",
+    description: "الوجهة الأولى لمنتجات العناية بالسيارات والكماليات الأصلية",
+    other: {
+      ...Sentry.getTraceData(),
+    },
+  };
+}
 
 export default function RootLayout({
   children,

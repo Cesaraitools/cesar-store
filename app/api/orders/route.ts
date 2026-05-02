@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import { rateLimit } from "@/lib/rateLimit";
+import * as Sentry from "@sentry/nextjs";
 
 const serviceSupabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -295,50 +296,56 @@ console.log("ORDER CREATE ATTEMPT", {
   itemsCount: finalItems.length,
   order_token,
 });
-    // ===== RPC MODE (SAFE TEST) =====
-  try {
-    const { data, error } = await serviceSupabase.rpc(
-      "create_order_atomic",
-      {
-        p_user_id: user.id,
-        p_items: finalItems,
-        p_customer: customer_snapshot,
-        p_currency: currency,
-        p_order_token: order_token,
-      }
+       // ===== RPC MODE (SAFE TEST) =====
+    try {
+      const { data, error } = await serviceSupabase.rpc(
+        "create_order_atomic",
+        {
+          p_user_id: user.id,
+          p_items: finalItems,
+          p_customer: customer_snapshot,
+          p_currency: currency,
+          p_order_token: order_token,
+        }
+      );
+
+      if (error) throw error;
+
+      console.log("ORDER SUCCESS", {
+        orderId: data.order_id,
+        orderNumber: data.order_number,
+      });
+
+      return NextResponse.json({
+        success: true,
+        orderId: data.order_id,
+        order_number: data.order_number,
+      });
+
+    } catch (err) {
+      Sentry.captureException(err);
+
+      console.error("ORDER FAILED", {
+        error: err,
+        userId: user?.id,
+        order_token,
+      });
+
+      return NextResponse.json(
+        { error: "Order creation failed" },
+        { status: 500 }
+      );
+    }
+
+  } catch (error) {
+    Sentry.captureException(error);
+
+    console.error("Unexpected POST error:", error);
+
+    return NextResponse.json(
+      { error: "Unexpected server error" },
+      { status: 500 }
     );
-
-    if (error) throw error;
-    console.log("ORDER SUCCESS", {
-  orderId: data.order_id,
-  orderNumber: data.order_number,
-});
-
-    return NextResponse.json({
-      success: true,
-      orderId: data.order_id,
-      order_number: data.order_number,
-    });
-
-  } catch (err) {
-  console.error("ORDER FAILED", {
-  error: err,
-  userId: user?.id,
-  order_token,
-});
-
-  return NextResponse.json(
-    { error: "Order creation failed" },
-    { status: 500 }
-    );
-   }
-   } catch (error) {
-  console.error("Unexpected POST error:", error);
-
-  return NextResponse.json(
-    { error: "Unexpected server error" },
-    { status: 500 }
-  );
-}
   }
+}
   
