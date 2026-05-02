@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import { validateAdminSession } from "@/lib/admin/validateAdminSession";
-
+import * as Sentry from "@sentry/nextjs";
 export const runtime = "nodejs";
 
 const supabase = createClient(
@@ -284,7 +284,9 @@ export async function POST(req: NextRequest) {
         const orderItems = extractOrderItems(order.items_snapshot ?? []);
         appliedInventoryUpdates = await restoreOrderInventory(orderItems);
       } catch (error) {
-        console.error("INVENTORY RESTORE ERROR:", error);
+        Sentry.captureException(error);
+
+console.error("INVENTORY RESTORE ERROR:", error);
         return NextResponse.json(
           { ok: false, error: "Failed to restore inventory for canceled order" },
           { status: 500 }
@@ -304,7 +306,9 @@ export async function POST(req: NextRequest) {
       });
 
     if (insertError) {
-      console.error(insertError);
+  Sentry.captureException(insertError);
+
+  console.error(insertError);
       await rollbackInventory(appliedInventoryUpdates);
       return NextResponse.json(
         { ok: false, error: "Failed to save tracking event" },
@@ -320,7 +324,9 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (updateError) {
-      console.error(updateError);
+  Sentry.captureException(updateError);
+
+  console.error(updateError);
       await supabase
         .from("order_tracking_events")
         .delete()
@@ -350,7 +356,9 @@ export async function POST(req: NextRequest) {
       restoredInventory: safeEvent === "canceled",
     });
   } catch (err) {
-    console.error(err);
+  Sentry.captureException(err);
+
+  console.error(err);
     return NextResponse.json(
       { ok: false, error: "Unexpected server error" },
       { status: 500 }
