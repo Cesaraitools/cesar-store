@@ -12,6 +12,7 @@ import {
   TicketPercent,
   LogOut,
   UserCircle,
+  ShieldAlert, // ✅ أضف ده
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +38,7 @@ export default function AdminClientLayout({ children }: { children: ReactNode })
     { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
     { name: "Analytics", href: "/admin/analytics", icon: BarChart3 },
     { name: "Charts", href: "/admin/charts", icon: LineChart },
+    { name: "Errors", href: "/admin/errors", icon: ShieldAlert },
     { name: "Categories", href: "/admin/categories", icon: Tag },
     { name: "Orders", href: "/admin/orders", icon: Package },
     { name: "Archive", href: "/admin/orders/archive", icon: Package },
