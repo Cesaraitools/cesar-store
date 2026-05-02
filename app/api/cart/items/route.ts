@@ -246,6 +246,17 @@ if (!rateLimit(ip, 20, 60000)) {
 // PATCH: Update quantity
 // ===============================
 export async function PATCH(req: Request) {
+  const ip =
+  req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+  req.headers.get("x-real-ip") ||
+  "unknown";
+
+if (!rateLimit(ip, 20, 60000)) {
+  return new Response(
+    JSON.stringify({ error: "Too many requests" }),
+    { status: 429 }
+  );
+}
   const user = await getUserFromRequest(req);
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -320,6 +331,17 @@ export async function PATCH(req: Request) {
 // DELETE: Remove item
 // ===============================
 export async function DELETE(req: Request) {
+  const ip =
+  req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+  req.headers.get("x-real-ip") ||
+  "unknown";
+
+if (!rateLimit(ip, 15, 60000)) {
+  return new Response(
+    JSON.stringify({ error: "Too many requests" }),
+    { status: 429 }
+  );
+}
   const user = await getUserFromRequest(req);
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
