@@ -207,6 +207,10 @@ if (!rateLimit(ip, 3, 60000)) {
     { status: 429 }
   );
 }
+console.log("RESET START", {
+  ip,
+  time: new Date().toISOString(),
+});
   try {
     /* 🔐 NEW: Secret check */
     if (!validateResetSecret(request)) {
@@ -226,6 +230,10 @@ const {
 if (!user || user.email !== process.env.SUPER_ADMIN_EMAIL) {
   return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 }
+console.log("RESET AUTHORIZED", {
+  userId: user?.id,
+  email: user?.email,
+});
     const { data: orders, error: ordersError } = await supabase
       .from("orders")
       .select("id, items_snapshot");
@@ -237,6 +245,9 @@ if (!user || user.email !== process.env.SUPER_ADMIN_EMAIL) {
     const safeOrders = (orders || []) as OrderRow[];
 
     if (!safeOrders.length) {
+      console.log("RESET SUCCESS", {
+  deletedOrders: safeOrders.length,
+});
       return NextResponse.json({
         ok: true,
         deletedOrders: 0,
@@ -360,6 +371,9 @@ if (!user || user.email !== process.env.SUPER_ADMIN_EMAIL) {
       ),
     });
   } catch (error: any) {
+    console.error("RESET FAILED", {
+  error,
+});
     return NextResponse.json(
       {
         error: "Failed to reset analytics data",

@@ -85,6 +85,10 @@ function mergeDuplicateItems(items: FinalOrderItem[]) {
 export async function GET(request: Request) {
   try {
     const user = await resolveUser(request);
+    console.log("ORDER USER", {
+  userId: user?.id,
+  email: user?.email,
+});
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -122,8 +126,16 @@ if (!rateLimit(ip, 10, 60000)) {
     { status: 429 }
   );
 }
+console.log("ORDER REQUEST START", {
+  ip,
+  time: new Date().toISOString(),
+});
   try {
     const user = await resolveUser(request);
+    console.log("ORDER USER", {
+  userId: user?.id,
+  email: user?.email,
+});
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -278,6 +290,11 @@ if (!rateLimit(ip, 10, 60000)) {
   phone: customer?.phone ?? "",
   address: customer?.address ?? "",
 };
+console.log("ORDER CREATE ATTEMPT", {
+  userId: user.id,
+  itemsCount: finalItems.length,
+  order_token,
+});
     // ===== RPC MODE (SAFE TEST) =====
   try {
     const { data, error } = await serviceSupabase.rpc(
@@ -292,6 +309,10 @@ if (!rateLimit(ip, 10, 60000)) {
     );
 
     if (error) throw error;
+    console.log("ORDER SUCCESS", {
+  orderId: data.order_id,
+  orderNumber: data.order_number,
+});
 
     return NextResponse.json({
       success: true,
@@ -300,7 +321,11 @@ if (!rateLimit(ip, 10, 60000)) {
     });
 
   } catch (err) {
-  console.error("RPC FAILED", err);
+  console.error("ORDER FAILED", {
+  error: err,
+  userId: user?.id,
+  order_token,
+});
 
   return NextResponse.json(
     { error: "Order creation failed" },
