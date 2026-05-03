@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { deleteSession } from "@/lib/admin/adminSessionStore";
 const SESSION_COOKIE_NAME = "cesar_admin_session";
 

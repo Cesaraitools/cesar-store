@@ -1,26 +1,33 @@
 import { NextResponse } from "next/server";
-
+import { getRedis } from "@/lib/infra/redis";
 export async function POST() {
   try {
-    const SESSION_VERSION = "v1";
+    const redis = getRedis();
 
-    const currentVersion =
-      (globalThis as any).ADMIN_SESSION_VERSION || SESSION_VERSION;
+// 🔍 search all admin sessions
+const keys: string[] = [];
 
-    const newVersion = `v${Date.now()}`;
+let cursor = 0;
 
-    (globalThis as any).ADMIN_SESSION_VERSION = newVersion;
+do {
+  const result = await redis.scan(cursor, {
+    match: "admin_session:*",
+    count: 100,
+  });
 
-    console.log(
-      `[ADMIN_AUTH] ${new Date().toISOString()} | FORCE_LOGOUT_ALL | oldVersion=${currentVersion} | newVersion=${newVersion}`
-    );
+  cursor = Number(result[0]);
+  keys.push(...result[1]);
+} while (cursor !== 0);
+
+// 🗑️ delete all sessions
+if (keys.length > 0) {
+  await redis.del(...keys);
+}
 
     return NextResponse.json({
-      success: true,
-      message: "All admin sessions invalidated",
-      oldVersion: currentVersion,
-      newVersion,
-    });
+  success: true,
+  message: "All admin sessions deleted from Redis",
+});
   } catch (error) {
     console.error("FORCE LOGOUT ERROR:", error);
 

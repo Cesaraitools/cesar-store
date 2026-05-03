@@ -60,7 +60,7 @@ export async function validateAdminSession(): Promise<boolean> {
 
     // 2. check Redis session
     const exists = await isSessionValid(token);
-
+    if (exists) await getRedis().expire(`admin_session:${token}`, SESSION_TTL_SECONDS);
     return exists;
   } catch {
     return false;
