@@ -19,12 +19,6 @@ type FinalOrderItem = {
   image?: string | null;
 };
 
-type ProductStockRow = {
-  id: string;
-  stock: number;
-  is_active: boolean;
-};
-
 async function resolveUser(request: Request) {
   try {
     const authHeader = request.headers.get("authorization");
@@ -58,12 +52,6 @@ async function resolveUser(request: Request) {
   } catch {
     return null;
   }
-}
-
-function generateOrderNumber() {
-  const timestamp = Date.now().toString().slice(-6);
-  const random = Math.floor(Math.random() * 900 + 100);
-  return `CS-${timestamp}${random}`;
 }
 
 function mergeDuplicateItems(items: FinalOrderItem[]) {
@@ -131,6 +119,7 @@ console.log("ORDER REQUEST START", {
   ip,
   time: new Date().toISOString(),
 });
+let order_token: string | null = null;
   try {
     const user = await resolveUser(request);
     console.log("ORDER USER", {
@@ -143,7 +132,7 @@ console.log("ORDER REQUEST START", {
     }
 
     const body = await request.json();
-    const { order_token } = body;
+    order_token = body.order_token ?? null;
 
     if (!order_token) {
       return NextResponse.json(
@@ -161,59 +150,49 @@ console.log("ORDER REQUEST START", {
       );
     }
 
-    const { data: existingOrder } = await serviceSupabase
-      .from("orders")
-      .select("id, order_number")
-      .eq("order_token", order_token)
-      .maybeSingle();
-
-    if (existingOrder) {
-      return NextResponse.json({
-        success: true,
-        reused: true,
-        orderId: existingOrder.id,
-        order_number: existingOrder.order_number,
-      });
-    }
-
     let finalItems: FinalOrderItem[] = [];
-    let cartId: string | null = null;
+   
 
     try {
-      const { data: cart } = await serviceSupabase
-        .from("carts")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("status", "active")
-        .single();
+  const { data: cart } = await serviceSupabase
+    .from("carts")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .maybeSingle();
 
-      if (cart) {
-        cartId = cart.id;
+  if (cart) {
+   const { data: cartItems } = await serviceSupabase
+      .from("cart_items")
+      .select("product_id, quantity, name_ar, name_en, price, image")
+      .eq("cart_id", cart.id);
 
-        const { data: cartItems } = await serviceSupabase
-          .from("cart_items")
-          .select("product_id, quantity, name_ar, name_en, price, image")
-          .eq("cart_id", cart.id);
-
-        if (!cartItems || cartItems.length === 0) {
-          return NextResponse.json(
-            { error: "Cart is empty in DB" },
-            { status: 400 }
-          );
-        }
-
-        finalItems = cartItems.map((ci) => ({
-          product_id: String(ci.product_id),
-          quantity: Number(ci.quantity),
-          name_ar: ci.name_ar ?? "",
-          name_en: ci.name_en ?? "",
-          price: Number(ci.price),
-          image: ci.image ?? null,
-        }));
-      }
-    } catch {
-      // Fall back to the client payload.
+    if (cartItems && cartItems.length > 0) {
+      finalItems = cartItems.map((ci) => ({
+        product_id: String(ci.product_id),
+        quantity: Number(ci.quantity),
+        name_ar: ci.name_ar ?? "",
+        name_en: ci.name_en ?? "",
+        price: Number(ci.price),
+        image: ci.image ?? null,
+      }));
     }
+  }
+} catch (err) {
+  console.warn("Cart DB fetch failed, falling back to client payload", err);
+}
+
+/* ✅ fallback الحقيقي */
+if (!finalItems.length && Array.isArray(items)) {
+  finalItems = items.map((item) => ({
+    product_id: String(item.product_id),
+    quantity: Number(item.quantity),
+    name_ar: item.name_ar ?? "",
+    name_en: item.name_en ?? "",
+    price: Number(item.price),
+    image: item.image ?? null,
+  }));
+}
 
     if (finalItems.length === 0) {
   return NextResponse.json(
@@ -229,63 +208,21 @@ console.log("ORDER REQUEST START", {
       );
     }
 
-    for (const item of finalItems) {
-      if (!item.product_id || item.quantity <= 0 || item.price <= 0) {
-        return NextResponse.json(
-          { error: "Invalid item data" },
-          { status: 400 }
-        );
-      }
-    }
-
-    finalItems = mergeDuplicateItems(finalItems);
-
-    const productIds = finalItems.map((item) => item.product_id);
-    const { data: products, error: productsError } = await serviceSupabase
-      .from("products")
-      .select("id, stock, is_active")
-      .in("id", productIds);
-
-    if (productsError) {
-      console.error("PRODUCT STOCK LOAD ERROR:", productsError);
-      return NextResponse.json(
-        { error: "Failed to validate stock" },
-        { status: 500 }
-      );
-    }
-
-    const productMap = new Map(
-      (products ?? []).map((product) => [
-        product.id,
-        {
-          id: String(product.id),
-          stock: Number(product.stock ?? 0),
-          is_active: Boolean(product.is_active),
-        } satisfies ProductStockRow,
-      ])
+   for (const item of finalItems) {
+  if (
+    !item.product_id ||
+    typeof item.quantity !== "number" ||
+    item.quantity <= 0 ||
+    !Number.isFinite(item.price)
+  ) {
+    return NextResponse.json(
+      { error: "Invalid item data" },
+      { status: 400 }
     );
+  }
+}
 
-    for (const item of finalItems) {
-      const product = productMap.get(item.product_id);
-
-      if (!product || !product.is_active) {
-        return NextResponse.json(
-          { error: "Product not available" },
-          { status: 400 }
-        );
-      }
-
-      if (product.stock < item.quantity) {
-        return NextResponse.json(
-          {
-            error: "Insufficient stock for product",
-            product_id: item.product_id,
-            available: product.stock,
-          },
-          { status: 400 }
-        );
-      }
-    }
+finalItems = mergeDuplicateItems(finalItems);
     const customer_snapshot = {
   name: customer?.name ?? "",
   phone: customer?.phone ?? "",
@@ -293,23 +230,54 @@ console.log("ORDER REQUEST START", {
 };
 console.log("ORDER CREATE ATTEMPT", {
   userId: user.id,
+  email: user.email,
   itemsCount: finalItems.length,
+  currency,
   order_token,
+  customer: {
+    name: customer_snapshot.name,
+    phone: customer_snapshot.phone,
+  },
+  items: finalItems.map(i => ({
+    product_id: i.product_id,
+    qty: i.quantity,
+    price: i.price,
+  })),
+  timestamp: new Date().toISOString(),
 });
        // ===== RPC MODE (SAFE TEST) =====
     try {
-      const { data, error } = await serviceSupabase.rpc(
-        "create_order_atomic",
-        {
-          p_user_id: user.id,
-          p_items: finalItems,
-          p_customer: customer_snapshot,
-          p_currency: currency,
-          p_order_token: order_token,
-        }
-      );
+ let data, error;
+let attempts = 0;
+const maxRetries = 2;
 
-      if (error) throw error;
+while (attempts <= maxRetries) {
+  const response = await serviceSupabase.rpc("create_order_atomic", {
+    p_user_id: user.id,
+    p_items: finalItems,
+    p_customer: customer_snapshot,
+    p_currency: currency,
+    p_order_token: order_token,
+  });
+
+  data = response.data;
+  error = response.error;
+
+  if (!error) break;
+
+  console.warn(`RPC attempt ${attempts + 1} failed`, error);
+
+  attempts++;
+  await new Promise((res) => setTimeout(res, 300 * attempts));
+}
+
+if (error) throw error;
+if (data?.reused) {
+  return NextResponse.json({
+    success: true,
+    reused: true,
+  });
+}
 
       console.log("ORDER SUCCESS", {
         orderId: data.order_id,
@@ -322,8 +290,14 @@ console.log("ORDER CREATE ATTEMPT", {
         order_number: data.order_number,
       });
 
-    } catch (err) {
-      Sentry.captureException(err);
+        } catch (err) {
+      Sentry.captureException(err, {
+        extra: {
+          userId: user ? user.id : null,
+          order_token,
+          items: finalItems,
+        },
+      });
 
       console.error("ORDER FAILED", {
         error: err,
@@ -336,9 +310,15 @@ console.log("ORDER CREATE ATTEMPT", {
         { status: 500 }
       );
     }
-
+  
   } catch (error) {
-    Sentry.captureException(error);
+    Sentry.captureException(error, {
+      extra: {
+        route: "POST /api/orders",
+        order_token,
+        timestamp: new Date().toISOString(),
+      },
+    });
 
     console.error("Unexpected POST error:", error);
 
@@ -348,4 +328,3 @@ console.log("ORDER CREATE ATTEMPT", {
     );
   }
 }
-  
