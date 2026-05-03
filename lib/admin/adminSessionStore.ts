@@ -1,41 +1,21 @@
 // =====================================================
-// Admin Session Validator (Production-Grade)
-// Cesar Store
-// Path: /lib/admin/validateAdminSession.ts
+// Admin Session System (Redis-based - Production Ready)
+// Path: /lib/admin/adminSessionStore.ts
 // =====================================================
 
 import crypto from "crypto";
 import { cookies } from "next/headers";
-// =====================================================
-// Admin Session Store (In-Memory)
-// Cesar Store
-// Path: /lib/admin/adminSessionStore.ts
-// =====================================================
+import { getRedis } from "@/lib/infra/redis";
 
-const activeSessions = new Set<string>();
-
-export function createSession(token: string) {
-  activeSessions.add(token);
-}
-
-export function isSessionValid(token: string) {
-  return activeSessions.has(token);
-}
-
-export function deleteSession(token: string) {
-  activeSessions.delete(token);
-}
-
-export function clearAllSessions() {
-  activeSessions.clear();
-}
 const SESSION_COOKIE_NAME = "cesar_admin_session";
 const SESSION_VERSION = "v1";
-
 const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET!;
 
+// ⏱️ Session TTL (مثلاً 7 أيام)
+const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
+
 /**
- * Verify HMAC signature
+ * 🔐 Verify HMAC signature
  */
 function verifySignature(token: string, signature: string): boolean {
   const expected = crypto
@@ -50,9 +30,52 @@ function verifySignature(token: string, signature: string): boolean {
 }
 
 /**
- * Main validator
+ * 🔥 Create Session (Redis)
  */
-export function validateAdminSession(): boolean {
+export async function createSession(token: string) {
+  const redis = getRedis();
+
+  const key = `admin_session:${token}`;
+
+  await redis.set(key, "1", {
+    ex: SESSION_TTL_SECONDS,
+  });
+}
+
+/**
+ * 🔥 Check Session (Redis)
+ */
+export async function isSessionValid(token: string): Promise<boolean> {
+  const redis = getRedis();
+
+  const key = `admin_session:${token}`;
+  const exists = await redis.get(key);
+
+  return Boolean(exists);
+}
+
+/**
+ * 🔥 Delete Session (Logout)
+ */
+export async function deleteSession(token: string) {
+  const redis = getRedis();
+
+  const key = `admin_session:${token}`;
+  await redis.del(key);
+}
+
+/**
+ * 🔥 Clear All Sessions (optional)
+ */
+export async function clearAllSessions() {
+  // ❗ ممكن نعمل scan + delete لو احتجنا
+  // مش ضروري دلوقتي
+}
+
+/**
+ * 🔥 Main Validator (Signature + Redis)
+ */
+export async function validateAdminSession(): Promise<boolean> {
   try {
     const cookieStore = cookies();
     const session = cookieStore.get(SESSION_COOKIE_NAME)?.value;
@@ -68,7 +91,14 @@ export function validateAdminSession(): boolean {
 
     if (!token || !signature) return false;
 
-    return verifySignature(token, signature);
+    // 🔐 Step 1: Verify signature
+    const isValidSignature = verifySignature(token, signature);
+    if (!isValidSignature) return false;
+
+    // 🔥 Step 2: Check Redis session
+    const exists = await isSessionValid(token);
+
+    return exists;
   } catch {
     return false;
   }
