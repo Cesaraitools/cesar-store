@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { deleteSession } from "@/lib/admin/adminSessionStore";
 const SESSION_COOKIE_NAME = "cesar_admin_session";
 
@@ -27,7 +28,7 @@ if (match) {
   if (payload) {
     const token = payload.split(".")[0];
     if (token) {
-      deleteSession(token);
+      await deleteSession(token);
     }
   }
 }
