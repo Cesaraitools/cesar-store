@@ -4,9 +4,8 @@ import { createSession } from "@/lib/admin/adminSessionStore";
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
 const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET!;
-
+import { getRedis } from "@/lib/infra/redis";
 const SESSION_COOKIE_NAME = "cesar_admin_session";
-const SESSION_VERSION = "v1";
 
 // ⏱️ 8 ساعات
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
@@ -57,6 +56,13 @@ export async function POST(request: Request) {
     }
 
     const token = crypto.randomUUID();
+    const redis = getRedis();
+let currentVersion = await redis.get("admin_session_version");
+
+if (!currentVersion) {
+  currentVersion = "v1";
+  await redis.set("admin_session_version", currentVersion);
+}
     await createSession(token);
     const signature = signToken(token);
 
@@ -64,7 +70,7 @@ export async function POST(request: Request) {
 
     response.cookies.set({
       name: SESSION_COOKIE_NAME,
-      value: `${SESSION_VERSION}:${token}.${signature}`,
+      value: `${currentVersion}:${token}.${signature}`,
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",

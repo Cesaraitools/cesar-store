@@ -8,7 +8,7 @@ import { cookies } from "next/headers";
 import { getRedis } from "@/lib/infra/redis";
 
 const SESSION_COOKIE_NAME = "cesar_admin_session";
-const SESSION_VERSION = "v1";
+const SESSION_VERSION_KEY = "admin_session_version";
 const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET!;
 
 // ⏱️ Session TTL (مثلاً 7 أيام)
@@ -34,8 +34,14 @@ function verifySignature(token: string, signature: string): boolean {
  */
 export async function createSession(token: string) {
   const redis = getRedis();
+let currentVersion = await redis.get(SESSION_VERSION_KEY);
 
-  const key = `admin_session:${token}`;
+if (!currentVersion) {
+  currentVersion = "v1";
+  await redis.set(SESSION_VERSION_KEY, currentVersion);
+}
+
+  const key = `admin_session:${currentVersion}:${token}`;
 
   await redis.set(key, "1", {
     ex: SESSION_TTL_SECONDS,
@@ -48,7 +54,11 @@ export async function createSession(token: string) {
 export async function isSessionValid(token: string): Promise<boolean> {
   const redis = getRedis();
 
-  const key = `admin_session:${token}`;
+ 
+const currentVersion =
+  (await redis.get(SESSION_VERSION_KEY)) || "v1";
+
+const key = `admin_session:${currentVersion}:${token}`;
   const exists = await redis.get(key);
 
   return Boolean(exists);
@@ -60,7 +70,11 @@ export async function isSessionValid(token: string): Promise<boolean> {
 export async function deleteSession(token: string) {
   const redis = getRedis();
 
-  const key = `admin_session:${token}`;
+ 
+const currentVersion =
+  (await redis.get(SESSION_VERSION_KEY)) || "v1";
+ 
+const key = `admin_session:${currentVersion}:${token}`;
   await redis.del(key);
 }
 
@@ -85,7 +99,13 @@ export async function validateAdminSession(): Promise<boolean> {
     // Expected: v1:token.signature
     const [version, payload] = session.split(":");
 
-    if (version !== SESSION_VERSION || !payload) return false;
+    if (!payload) return false;
+
+const redis = getRedis();
+const currentVersion =
+  (await redis.get(SESSION_VERSION_KEY)) || "v1";
+
+if (version !== currentVersion) return false;
 
     const [token, signature] = payload.split(".");
 
