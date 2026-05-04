@@ -17,7 +17,7 @@ export default function ProductCard({ product }: Props) {
 
   const [isAdding, setIsAdding] = useState(false);
   const isOutOfStock = product.stock <= 0;
-  const LOW_STOCK_THRESHOLD = 5;
+  const LOW_STOCK_THRESHOLD = 10;
 const isLowStock = product.stock > 0 && product.stock <= LOW_STOCK_THRESHOLD;
 
   const name = lang === "ar" ? product.name.ar : product.name.en;

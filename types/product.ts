@@ -20,6 +20,8 @@ export type Product = {
   stock: number;
   active: boolean;
 
+low_stock_threshold?: number;
+
   createdAt: string;
   updatedAt: string;
 };

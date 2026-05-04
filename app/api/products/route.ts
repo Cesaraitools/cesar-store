@@ -130,6 +130,7 @@ export async function POST(request: Request) {
       active: body.active ?? true,
       createdAt: now,
       updatedAt: now,
+      low_stock_threshold: body.low_stock_threshold ?? 10,
     };
 
     const { error: insertError } = await supabase.from("products").insert([
@@ -148,6 +149,7 @@ export async function POST(request: Request) {
         is_active: productToSave.active,
         created_at: now,
         updated_at: now,
+        low_stock_threshold: productToSave.low_stock_threshold,
       },
     ]);
 
@@ -228,6 +230,7 @@ export async function PUT(request: Request) {
         image_url: images[0] || null,
         images_json: images,
         category: normalizeCategory(updates.category),
+         low_stock_threshold: updates.low_stock_threshold,
         updated_at: new Date().toISOString(),
       })
       .eq("id", id);
