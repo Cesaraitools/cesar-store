@@ -393,7 +393,7 @@ while (
   <span className="bg-red-100 text-red-800 px-2 rounded text-xs">
     Out ({product.stock})
   </span>
-) : product.stock <= 5 ? (
+) : product.stock <= (product.low_stock_threshold ?? 10) ? (
   <span className="bg-orange-100 text-orange-800 px-2 rounded text-xs">
     Low Stock ({product.stock})
   </span>
