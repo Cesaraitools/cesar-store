@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { createSession } from "@/lib/admin/adminSessionStore";
+import { getRedis } from "@/lib/infra/redis";
+
+
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
 const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET!;
@@ -57,7 +60,12 @@ export async function POST(request: Request) {
     }
 
     const token = crypto.randomUUID();
-    await createSession(token);
+    const redis = getRedis();
+   await redis.set(
+   `admin_session:${SESSION_VERSION}:${token}`,
+    "1",
+   { ex: SESSION_TTL_SECONDS }
+    );
     const signature = signToken(token);
 
     const response = NextResponse.json({ success: true });
