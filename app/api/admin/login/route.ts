@@ -71,14 +71,15 @@ export async function POST(request: Request) {
     const response = NextResponse.json({ success: true });
 
     response.cookies.set({
-      name: SESSION_COOKIE_NAME,
-      value: `${SESSION_VERSION}:${token}.${signature}`,
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: SESSION_TTL_SECONDS,
-    });
+  name: SESSION_COOKIE_NAME,
+  value: `${SESSION_VERSION}:${token}.${signature}`,
+  httpOnly: true,
+  sameSite: "lax",
+  secure: true,
+  path: "/",
+  domain: ".cesareshop.com", // 🔥 أهم سطر
+  maxAge: SESSION_TTL_SECONDS,
+});
 
     return response;
   } catch {
