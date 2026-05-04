@@ -109,7 +109,7 @@ export async function POST(request: Request) {
   request.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
   request.headers.get("x-real-ip") ||
   "unknown";
-if (!rateLimit(ip, 10, 60000)) {
+if (!await rateLimit(ip, 10, 60000)) {
   return new Response(
     JSON.stringify({ error: "Too many requests" }),
     { status: 429 }

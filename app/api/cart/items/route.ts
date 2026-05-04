@@ -78,7 +78,7 @@ export async function GET(req: Request) {
   req.headers.get("x-real-ip") ||
   "unknown";
 
-if (!rateLimit(ip, 25, 60000)) {
+if (!await rateLimit(ip, 25, 60000)) {
   return new Response(
     JSON.stringify({ error: "Too many requests" }),
     { status: 429 }
@@ -141,7 +141,7 @@ export async function POST(req: Request) {
   req.headers.get("x-real-ip") ||
   "unknown";
 
-if (!rateLimit(ip, 20, 60000)) {
+if (!await rateLimit(ip, 20, 60000)) {
   return new Response(
     JSON.stringify({ error: "Too many requests" }),
     { status: 429 }
@@ -251,7 +251,7 @@ export async function PATCH(req: Request) {
   req.headers.get("x-real-ip") ||
   "unknown";
 
-if (!rateLimit(ip, 20, 60000)) {
+if (!await rateLimit(ip, 20, 60000)) {
   return new Response(
     JSON.stringify({ error: "Too many requests" }),
     { status: 429 }
@@ -336,7 +336,7 @@ export async function DELETE(req: Request) {
   req.headers.get("x-real-ip") ||
   "unknown";
 
-if (!rateLimit(ip, 15, 60000)) {
+if (!await rateLimit(ip, 15, 60000)) {
   return new Response(
     JSON.stringify({ error: "Too many requests" }),
     { status: 429 }
