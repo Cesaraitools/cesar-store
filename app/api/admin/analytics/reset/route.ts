@@ -201,7 +201,7 @@ export async function POST(request: Request) {
   request.headers.get("x-real-ip") ||
   "unknown";
 
-if (!await rateLimit(ip, 3, 60000)) {
+if (!rateLimit(ip, 3, 60000)) {
   return new Response(
     JSON.stringify({ error: "Too many requests" }),
     { status: 429 }

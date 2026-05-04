@@ -389,19 +389,15 @@ while (
                     )}
                   </td>
                   <td className="p-3">
-                    {product.stock <= 0 ? (
-  <span className="bg-red-100 text-red-800 px-2 rounded text-xs">
-    Out ({product.stock})
-  </span>
-) : product.stock <= 5 ? (
-  <span className="bg-orange-100 text-orange-800 px-2 rounded text-xs">
-    Low Stock ({product.stock})
-  </span>
-) : (
-  <span className="bg-green-100 text-green-800 px-2 rounded text-xs">
-    In Stock ({product.stock})
-  </span>
-)}
+                    {product.stock > 0 ? (
+                      <span className="bg-green-100 text-green-800 px-2 rounded text-xs">
+                        In Stock ({product.stock})
+                      </span>
+                    ) : (
+                      <span className="bg-red-100 text-red-800 px-2 rounded text-xs">
+                        Out ({product.stock})
+                      </span>
+                    )}
                   </td>
                   <td className="p-3">
                     {product.active ? "Active" : "Inactive"}

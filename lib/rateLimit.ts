@@ -1,41 +1,27 @@
-// /lib/rateLimit.ts
+const requests = new Map<string, { count: number; lastRequest: number }>();
 
-import { getRedis } from "@/lib/infra/redis";
+export function rateLimit(key: string, limit = 5, windowMs = 10000) {
+  const now = Date.now();
 
-/**
- * 🔥 Redis-based Rate Limiting (Sliding Window Approximation)
- * Production-safe for serverless environments
- */
+  const entry = requests.get(key);
 
-export async function rateLimit(
-  key: string,
-  limit = 5,
-  windowMs = 10000
-) {
-  try {
-    const redis = getRedis();
-
-    const now = Date.now();
-    const windowKey = `rate_limit:${key}`;
-
-    // 🔹 Increment counter
-    const count = await redis.incr(windowKey);
-
-    // 🔹 Set expiration only on first request
-    if (count === 1) {
-      await redis.pexpire(windowKey, windowMs);
-    }
-
-    // 🔹 Check limit
-    if (count > limit) {
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Rate limit error:", error);
-
-    // ❗ Fail-open (don't block user if Redis fails)
+  if (!entry) {
+    requests.set(key, { count: 1, lastRequest: now });
     return true;
   }
+
+  // reset window
+  if (now - entry.lastRequest > windowMs) {
+    requests.set(key, { count: 1, lastRequest: now });
+    return true;
+  }
+
+  // increment
+  entry.count++;
+
+  if (entry.count > limit) {
+    return false;
+  }
+
+  return true;
 }

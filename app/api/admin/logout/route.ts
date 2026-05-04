@@ -27,7 +27,7 @@ if (match) {
   if (payload) {
     const token = payload.split(".")[0];
     if (token) {
-      await deleteSession(token);
+      deleteSession(token);
     }
   }
 }

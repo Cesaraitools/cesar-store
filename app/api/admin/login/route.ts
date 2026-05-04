@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { createSession } from "@/lib/admin/adminSessionStore";
-import { getRedis } from "@/lib/infra/redis";
-
-
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
 const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET!;
@@ -60,26 +57,20 @@ export async function POST(request: Request) {
     }
 
     const token = crypto.randomUUID();
-    const redis = getRedis();
-   await redis.set(
-   `admin_session:${SESSION_VERSION}:${token}`,
-    "1",
-   { ex: SESSION_TTL_SECONDS }
-    );
+    createSession(token);
     const signature = signToken(token);
 
     const response = NextResponse.json({ success: true });
 
     response.cookies.set({
-  name: SESSION_COOKIE_NAME,
-  value: `${SESSION_VERSION}:${token}.${signature}`,
-  httpOnly: true,
-  sameSite: "lax",
-  secure: true,
-  path: "/",
-  domain: ".cesareshop.com", // 🔥 أهم سطر
-  maxAge: SESSION_TTL_SECONDS,
-});
+      name: SESSION_COOKIE_NAME,
+      value: `${SESSION_VERSION}:${token}.${signature}`,
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: SESSION_TTL_SECONDS,
+    });
 
     return response;
   } catch {

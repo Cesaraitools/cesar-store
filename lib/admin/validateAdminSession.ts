@@ -6,10 +6,9 @@
 
 import crypto from "crypto";
 import { cookies } from "next/headers";
-import { getRedis } from "@/lib/infra/redis";
 
 const SESSION_COOKIE_NAME = "cesar_admin_session";
-
+const SESSION_VERSION = "v1";
 
 const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET!;
 
@@ -31,7 +30,7 @@ function verifySignature(token: string, signature: string): boolean {
 /**
  * Main validator
  */
-export async function validateAdminSession(): Promise<boolean> {
+export function validateAdminSession(): boolean {
   try {
     const cookieStore = cookies();
     const session = cookieStore.get(SESSION_COOKIE_NAME)?.value;
@@ -40,33 +39,14 @@ export async function validateAdminSession(): Promise<boolean> {
 
     // Expected: v1:token.signature
     const [version, payload] = session.split(":");
-    const redis = getRedis();
-let currentVersion = await redis.get("admin_session_version");
 
-if (!currentVersion) {
-  currentVersion = version; // fallback ذكي من الكوكي
-}
-
-// نخليها flexible شوية
-if (currentVersion && version !== currentVersion) return false;
-
-    if (!payload) return false;
+    if (version !== SESSION_VERSION || !payload) return false;
 
     const [token, signature] = payload.split(".");
 
     if (!token || !signature) return false;
 
-    // Verify signature
-const isValidSignature = verifySignature(token, signature);
-if (!isValidSignature) return false;
-
-// Check Redis session (IMPORTANT)
-const key = `admin_session:${version}:${token}`;
-const exists = await redis.get(key);
-
-if (!exists) return false;
-
-return true;
+    return verifySignature(token, signature);
   } catch {
     return false;
   }
