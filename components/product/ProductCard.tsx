@@ -17,6 +17,8 @@ export default function ProductCard({ product }: Props) {
 
   const [isAdding, setIsAdding] = useState(false);
   const isOutOfStock = product.stock <= 0;
+  const LOW_STOCK_THRESHOLD = 5;
+const isLowStock = product.stock > 0 && product.stock <= LOW_STOCK_THRESHOLD;
 
   const name = lang === "ar" ? product.name.ar : product.name.en;
   const description =
@@ -68,11 +70,17 @@ export default function ProductCard({ product }: Props) {
             {product.price} جنيه
           </p>
 
-          <p className="text-xs font-semibold text-slate-500 mb-3">
-            {lang === "ar"
-              ? `المتاح: ${product.stock}`
-              : `Available: ${product.stock}`}
-          </p>
+          <p className="text-xs font-semibold mb-1 text-slate-500">
+  {lang === "ar"
+    ? `المتاح: ${product.stock}`
+    : `Available: ${product.stock}`}
+</p>
+
+{isLowStock && (
+  <p className="text-xs font-bold text-red-600 mb-3">
+    {lang === "ar" ? "قارب على النفاذ" : "Low stock"}
+  </p>
+)}
 
           <button
             onClick={handleAddToCart}
