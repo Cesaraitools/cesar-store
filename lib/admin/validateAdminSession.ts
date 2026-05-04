@@ -47,7 +47,8 @@ if (!currentVersion) {
   currentVersion = version; // fallback ذكي من الكوكي
 }
 
-if (version !== currentVersion) return false;
+// نخليها flexible شوية
+if (currentVersion && version !== currentVersion) return false;
 
     if (!payload) return false;
 
@@ -60,7 +61,7 @@ const isValidSignature = verifySignature(token, signature);
 if (!isValidSignature) return false;
 
 // Check Redis session (IMPORTANT)
-const key = `admin_session:${currentVersion}:${token}`;
+const key = `admin_session:${version}:${token}`;
 const exists = await redis.get(key);
 
 if (!exists) return false;
