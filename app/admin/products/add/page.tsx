@@ -158,10 +158,11 @@ export default function AddProductPage() {
       console.log("SENDING:", cleanProduct);
 
       const res = await fetch("/api/products", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(cleanProduct),
-    });
+  method: "POST",
+  credentials: "include", // 🔥 أهم سطر في المشروع كله حالياً
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(cleanProduct),
+});
 
       // 🔥 تأكد إن الطلب خرج فعلاً
       if (!res) {
