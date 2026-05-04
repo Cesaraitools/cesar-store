@@ -62,7 +62,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  if (!validateAdminSession()) {
+  if (!(await validateAdminSession())) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -172,7 +172,7 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  if (!validateAdminSession()) {
+  if (!(await validateAdminSession())) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -257,7 +257,7 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  if (!validateAdminSession()) {
+  if (!(await validateAdminSession())) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
