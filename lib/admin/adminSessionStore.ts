@@ -77,3 +77,11 @@ const currentVersion =
 const key = `admin_session:${currentVersion}:${token}`;
   await redis.del(key);
 }
+
+/**
+ * 🔥 Clear All Sessions (optional)
+ */
+export async function clearAllSessions() {
+  // ❗ ممكن نعمل scan + delete لو احتجنا
+  // مش ضروري دلوقتي
+}
