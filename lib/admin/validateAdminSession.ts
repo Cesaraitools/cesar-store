@@ -55,7 +55,17 @@ if (version !== currentVersion) return false;
 
     if (!token || !signature) return false;
 
-    return verifySignature(token, signature);
+    // Verify signature
+const isValidSignature = verifySignature(token, signature);
+if (!isValidSignature) return false;
+
+// Check Redis session (IMPORTANT)
+const key = `admin_session:${currentVersion}:${token}`;
+const exists = await redis.get(key);
+
+if (!exists) return false;
+
+return true;
   } catch {
     return false;
   }

@@ -57,7 +57,7 @@ export async function POST(request: Request) {
     }
 
     const token = crypto.randomUUID();
-    createSession(token);
+    await createSession(token);
     const signature = signToken(token);
 
     const response = NextResponse.json({ success: true });
