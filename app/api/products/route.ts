@@ -33,9 +33,15 @@ function toProductResponse(product: any): Product {
     category: normalizeCategory(product?.category || "equipment"),
     images: normalizeImagesArray(rawImages),
     stock: Number(product?.stock ?? 0),
-    active: Boolean(product?.is_active ?? true),
-    createdAt: product?.created_at || new Date().toISOString(),
-    updatedAt: product?.updated_at || new Date().toISOString(),
+active: Boolean(product?.is_active ?? true),
+
+low_stock_threshold:
+  typeof product?.low_stock_threshold === "number"
+    ? product.low_stock_threshold
+    : 10,
+
+createdAt: product?.created_at || new Date().toISOString(),
+updatedAt: product?.updated_at || new Date().toISOString(),
   };
 }
 
