@@ -130,7 +130,11 @@ export async function POST(request: Request) {
       active: body.active ?? true,
       createdAt: now,
       updatedAt: now,
-      low_stock_threshold: body.low_stock_threshold ?? 10,
+      low_stock_threshold:
+  typeof body.low_stock_threshold === "number" &&
+  !Number.isNaN(body.low_stock_threshold)
+    ? body.low_stock_threshold
+    : 10,
     };
 
     const { error: insertError } = await supabase.from("products").insert([
