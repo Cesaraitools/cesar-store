@@ -46,7 +46,8 @@ export function validateAdminSession(): boolean {
 
     if (!token || !signature) return false;
 
-    return verifySignature(token, signature) && isSessionValid(token);
+   return verifySignature(token, signature);
+
   } catch {
     return false;
   }
