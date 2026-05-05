@@ -15,3 +15,14 @@ export function deleteSession(token: string) {
 export function clearAllSessions() {
   activeSessions.clear();
 }
+
+// 🔥 placeholder لمرحلة Redis (مش مستخدم حالياً)
+export async function createSessionPersistent(token: string) {
+  // TODO: store in Redis later
+  createSession(token);
+}
+
+export async function isSessionValidPersistent(token: string) {
+  // TODO: check Redis later
+  return isSessionValid(token);
+}
