@@ -1,4 +1,4 @@
-import { redis } from "@/lib/redis";
+import { redis } from "../redis";
 const activeSessions = new Set<string>();
 
 export function createSession(token: string) {
