@@ -6,12 +6,13 @@
 
 import crypto from "crypto";
 import { cookies } from "next/headers";
-import { isSessionValid } from "@/lib/admin/adminSessionStore";
 const SESSION_COOKIE_NAME = "cesar_admin_session";
 const SESSION_VERSION = "v1";
+const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET;
 
-const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET!;
-
+if (!ADMIN_SESSION_SECRET) {
+  throw new Error("ADMIN_SESSION_SECRET is not set");
+}
 /**
  * Verify HMAC signature
  */
