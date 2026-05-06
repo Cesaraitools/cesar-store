@@ -9,9 +9,9 @@ const supabase = createClient(
 
 export async function POST(req: Request) {
   try {
-    if (!validateAdminSession()) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (!(await validateAdminSession())) {
+  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+}
 
     const { id } = await req.json();
 

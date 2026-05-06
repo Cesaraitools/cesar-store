@@ -19,9 +19,9 @@ export async function GET(
 ) {
   try {
     /* 🔒 Security */
-    if (!validateAdminSession()) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (!(await validateAdminSession())) {
+  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+}
 
     const { orderId } = params;
 

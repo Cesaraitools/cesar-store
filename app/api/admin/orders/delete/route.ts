@@ -32,7 +32,7 @@ return NextResponse.json(
 }
 
   /* 🔒 Security */
-if (!validateAdminSession()) {
+if (!(await validateAdminSession())) {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 }
   try {

@@ -1,6 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ensureMediaAssetForSource } from "@/lib/server/media-assets";
 
+function isSafeImageUrl(url: string) {
+  try {
+    const parsed = new URL(url);
+
+    if (!["http:", "https:"].includes(parsed.protocol)) {
+      return false;
+    }
+
+    const hostname = parsed.hostname.toLowerCase();
+
+    // منع localhost/internal
+    if (
+      hostname === "localhost" ||
+      hostname.startsWith("127.") ||
+      hostname.startsWith("10.") ||
+      hostname.startsWith("192.168.") ||
+      hostname.endsWith(".local")
+    ) {
+      return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -21,6 +47,13 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+if (imageUrl && !isSafeImageUrl(imageUrl)) {
+  return NextResponse.json(
+    { error: "Invalid image URL" },
+    { status: 400 }
+  );
+}
 
     const asset = file
       ? await ensureMediaAssetForSource({
