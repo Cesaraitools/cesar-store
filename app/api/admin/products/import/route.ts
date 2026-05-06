@@ -7,9 +7,9 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
-    if (!validateAdminSession()) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (!(await validateAdminSession())) {
+  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+}
 
     const body = await req.json();
     const rows = Array.isArray(body?.rows) ? body.rows : [];

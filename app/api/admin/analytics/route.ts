@@ -119,9 +119,9 @@ function formatDuration(start?: string | null, end?: string | null) {
 
 export async function GET(req: NextRequest) {
   try {
-    if (!validateAdminSession()) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (!(await validateAdminSession())) {
+  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+}
 
     const { searchParams } = new URL(req.url);
     const dateFrom = searchParams.get("from");

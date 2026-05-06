@@ -13,9 +13,9 @@ export async function GET(
   { params }: { params: { jobId: string } }
 ) {
   try {
-    if (!validateAdminSession()) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (!(await validateAdminSession())) {
+  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+}
 
     const job = await getProductImportJob(params.jobId);
     return NextResponse.json({ job });
@@ -35,9 +35,9 @@ export async function POST(
   { params }: { params: { jobId: string } }
 ) {
   try {
-    if (!validateAdminSession()) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (!(await validateAdminSession())) {
+  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+}
 
     const job = await processProductImportJob(params.jobId, req.nextUrl.origin);
     return NextResponse.json({ job });

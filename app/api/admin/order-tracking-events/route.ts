@@ -10,9 +10,9 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
     // 🔒 NEW: UNIFIED ADMIN AUTH
-    if (!validateAdminSession()) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (!(await validateAdminSession())) {
+  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+}
 
     // ✅ Safe ENV + Client
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

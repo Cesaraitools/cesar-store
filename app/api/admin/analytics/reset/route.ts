@@ -213,14 +213,10 @@ console.log("RESET START", {
 });
   try {
     /* 🔐 NEW: Secret check */
-    if (!validateResetSecret(request)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    if (!(await validateAdminSession())) {
+  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+}   
 
-    if (!validateAdminSession()) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    /* 🔐 NEW: Super Admin Email Check */
 const supabase = createServerClient();
 
 const {
