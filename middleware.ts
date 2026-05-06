@@ -9,7 +9,9 @@ import {
   SESSION_COOKIE_NAME,
   SESSION_VERSION,
 } from "@/lib/admin/constants";
-
+import {
+  parseAdminSessionCookie,
+} from "@/lib/admin/session-core";
 /* =========================
    Verify HMAC (Web Crypto)
 ========================= */
@@ -72,17 +74,13 @@ export async function middleware(request: NextRequest) {
     const raw = decodeURIComponent(sessionCookie.value);
 
     // Expected: v1:token.signature
-    const [version, payload] = raw.split(":");
+    const parsed = parseAdminSessionCookie(raw);
 
-    if (version !== SESSION_VERSION || !payload) {
-      return NextResponse.redirect(new URL("/admin-login", request.url));
-    }
+if (!parsed) {
+  return NextResponse.redirect(new URL("/admin-login", request.url));
+}
 
-    const [token, signature] = payload.split(".");
-
-    if (!token || !signature) {
-      return NextResponse.redirect(new URL("/admin-login", request.url));
-    }
+const { token, signature } = parsed;
 
     const isValid = await verifySignature(token, signature);
 
