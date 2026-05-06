@@ -138,8 +138,18 @@ async function restoreProductInventory(
     }
 
     if (!product) {
-      throw new Error(`Product ${productId} not found`);
-    }
+  console.warn(
+    `Skipping inventory restore: product ${productId} not found`
+  );
+
+  return {
+    id: productId,
+    previousStock: 0,
+    previousActive: false,
+    nextStock: 0,
+    nextActive: false,
+  };
+}
 
     const currentProduct: ProductStockRow = {
       id: String(product.id),
