@@ -73,6 +73,9 @@ export default function AdminProductsPage() {
     skipped: number;
     failed: { index: number; reason: string }[];
   } | null>(null);
+  const [stockFilter, setStockFilter] = useState<
+  "all" | "out" | "low" | "in"
+>("all");
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -283,35 +286,54 @@ while (
       fetchProducts();
     }
   }
-  const sortedProducts = [...products].sort((a, b) => {
-  const aOut = a.stock <= 0 ? 1 : 0;
-  const bOut = b.stock <= 0 ? 1 : 0;
+  const sortedProducts = [...products]
+  .filter((product) => {
+    if (stockFilter === "out") {
+      return product.stock <= 0;
+    }
 
-  if (aOut !== bOut) {
-    return bOut - aOut;
-  }
+    if (stockFilter === "low") {
+      return (
+        product.stock > 0 &&
+        product.stock <= (product.low_stock_threshold ?? 10)
+      );
+    }
 
-  const aLow =
-    a.stock > 0 &&
-    a.stock <= (a.low_stock_threshold ?? 10)
-      ? 1
-      : 0;
+    if (stockFilter === "in") {
+      return product.stock > (product.low_stock_threshold ?? 10);
+    }
 
-  const bLow =
-    b.stock > 0 &&
-    b.stock <= (b.low_stock_threshold ?? 10)
-      ? 1
-      : 0;
+    return true;
+  })
+  .sort((a, b) => {
+    const aOut = a.stock <= 0 ? 1 : 0;
+    const bOut = b.stock <= 0 ? 1 : 0;
 
-  if (aLow !== bLow) {
-    return bLow - aLow;
-  }
+    if (aOut !== bOut) {
+      return bOut - aOut;
+    }
 
-  return (
-    new Date(b.createdAt).getTime() -
-    new Date(a.createdAt).getTime()
-  );
-});
+    const aLow =
+      a.stock > 0 &&
+      a.stock <= (a.low_stock_threshold ?? 10)
+        ? 1
+        : 0;
+
+    const bLow =
+      b.stock > 0 &&
+      b.stock <= (b.low_stock_threshold ?? 10)
+        ? 1
+        : 0;
+
+    if (aLow !== bLow) {
+      return bLow - aLow;
+    }
+
+    return (
+      new Date(b.createdAt).getTime() -
+      new Date(a.createdAt).getTime()
+    );
+  });
 
   if (loading) return <div className="p-6">Loading…</div>;
   if (error) return <div className="p-6 text-red-600">{error}</div>;
