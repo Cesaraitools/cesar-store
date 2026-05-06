@@ -121,20 +121,29 @@ const [categoryFilter, setCategoryFilter] = useState("all");
 
   isFetchingRef.current = true;
 
-    try {
-      const response = await fetch("/api/products");
-      if (!response.ok) throw new Error();
-
-      const data: Product[] = await response.json();
-      setProducts(data);
-    } catch {
-      setError("فشل في تحميل المنتجات");
-    } finally {
-      setLoading(false);
-      setIsRefreshing(false);
-      isFetchingRef.current = false;
-    }
+  if (isInitial) {
+    setLoading(true);
+  } else {
+    setIsRefreshing(true);
   }
+
+  try {
+    const response = await fetch("/api/products");
+
+    if (!response.ok) {
+      throw new Error();
+    }
+
+    const data: Product[] = await response.json();
+    setProducts(data);
+  } catch {
+    setError("فشل في تحميل المنتجات");
+  } finally {
+    setLoading(false);
+    setIsRefreshing(false);
+    isFetchingRef.current = false;
+  }
+}
 
   useEffect(() => {
     fetchProducts(true);
