@@ -80,7 +80,7 @@ export default function AdminProductsPage() {
 const [searchQuery, setSearchQuery] = useState("");
 const [categoryFilter, setCategoryFilter] = useState("all");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
+  const isFetchingRef = useRef(false);
   function toggleSelect(id: string) {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
@@ -117,11 +117,9 @@ const [categoryFilter, setCategoryFilter] = useState("all");
   }
 
   async function fetchProducts(isInitial = false) {
-    if (isInitial) {
-      setLoading(true);
-    } else {
-      setIsRefreshing(true);
-    }
+  if (isFetchingRef.current) return;
+
+  isFetchingRef.current = true;
 
     try {
       const response = await fetch("/api/products");
@@ -134,6 +132,7 @@ const [categoryFilter, setCategoryFilter] = useState("all");
     } finally {
       setLoading(false);
       setIsRefreshing(false);
+      isFetchingRef.current = false;
     }
   }
 
@@ -237,6 +236,7 @@ const [categoryFilter, setCategoryFilter] = useState("all");
       setImportJob(currentJob);
 
       let delay = 150;
+let lastProcessed = 0;
 
 while (
   currentJob.status === "pending" ||
@@ -254,13 +254,12 @@ while (
 
   await sleep(delay);
 
-  // 🔥 زيادة تدريجية لوقت الانتظار (max 1000ms)
-  if (currentJob.rowsProcessed > (importJob?.rowsProcessed ?? 0)) {
-  delay = 150;
-} else {
-  // 😴 مفيش تقدم → بطّأ تدريجيًا
-  delay = Math.min(delay + 150, 2000);
-}
+  if (currentJob.rowsProcessed > lastProcessed) {
+    delay = 150;
+    lastProcessed = currentJob.rowsProcessed;
+  } else {
+    delay = Math.min(delay + 150, 2000);
+  }
 }
       
 
@@ -461,7 +460,7 @@ while (
         className="hidden"
       />
 
-      <div className={`overflow-x-auto border rounded-xl bg-white transition-opacity duration-300 relative ${isRefreshing ? "opacity-60 pointer-events-none" : "opacity-100"}`}>
+      <div className={`overflow-x-auto border rounded-xl bg-white transition-opacity duration-300 relative ${isRefreshing ? "opacity-60 pointer-events-auto" : "opacity-100"}`}>
         {isRefreshing && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/10 backdrop-blur-[1px]">
              <div className="bg-white px-4 py-2 rounded-full shadow-lg border border-gray-100 flex items-center gap-2">
