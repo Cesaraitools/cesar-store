@@ -43,7 +43,7 @@ const isLowStock = product.stock > 0 && product.stock <= threshold;
   };
 
   return (
-    <div className="border rounded-2xl bg-white shadow-sm hover:shadow-lg transition flex flex-col h-[420px]">
+    <div className="border border-gray-100 rounded-[2.5rem] bg-white shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col h-[520px] overflow-hidden">
       <Link href={`/product/${product.id}`}>
         <div className="h-[240px] bg-gray-100 flex items-center justify-center rounded-t-2xl overflow-hidden">
           <img
@@ -58,12 +58,12 @@ const isLowStock = product.stock > 0 && product.stock <= threshold;
 
       <div className="flex flex-col flex-1 p-4 gap-2">
         <Link href={`/product/${product.id}`}>
-          <h3 className="font-semibold text-sm text-gray-900 line-clamp-2">
+          <h3 className="font-bold text-base text-gray-900 leading-tight">
             {name}
           </h3>
         </Link>
 
-        <p className="text-xs text-gray-500 line-clamp-2">{description}</p>
+        <p className="text-sm text-gray-400 line-clamp-2 text-ellipsis overflow-hidden">{description}</p>
 
         <div className="mt-auto">
           <p className="text-green-600 font-bold text-base mb-2">
