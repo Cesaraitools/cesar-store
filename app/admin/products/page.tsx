@@ -76,7 +76,8 @@ export default function AdminProductsPage() {
   const [stockFilter, setStockFilter] = useState<
   "all" | "out" | "low" | "in"
 >("all");
-
+const [searchQuery, setSearchQuery] = useState("");
+const [categoryFilter, setCategoryFilter] = useState("all");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   function toggleSelect(id: string) {
@@ -286,8 +287,26 @@ while (
       fetchProducts();
     }
   }
+  const categories = Array.from(
+  new Set(products.map((product) => product.category))
+).sort();
   const sortedProducts = [...products]
   .filter((product) => {
+        const matchesSearch =
+      product.name.ar
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase()) ||
+      product.name.en
+        ?.toLowerCase()
+        .includes(searchQuery.toLowerCase());
+
+    const matchesCategory =
+      categoryFilter === "all" ||
+      product.category === categoryFilter;
+
+    if (!matchesSearch || !matchesCategory) {
+      return false;
+    }
     if (stockFilter === "out") {
       return product.stock <= 0;
     }
@@ -357,6 +376,27 @@ while (
           >
             Bulk Import (Excel)
           </button>
+          <input
+  type="text"
+  placeholder="Search products..."
+  value={searchQuery}
+  onChange={(event) => setSearchQuery(event.target.value)}
+  className="border rounded px-3 py-2 text-sm"
+/>
+
+<select
+  value={categoryFilter}
+  onChange={(event) => setCategoryFilter(event.target.value)}
+  className="border rounded px-3 py-2 text-sm"
+>
+  <option value="all">All Categories</option>
+
+  {categories.map((category) => (
+    <option key={category} value={category}>
+      {category}
+    </option>
+  ))}
+</select>
           <select
   value={stockFilter}
   onChange={(event) =>
