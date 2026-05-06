@@ -362,6 +362,15 @@ while (
     );
   }); 
 },[products, stockFilter, searchQuery, categoryFilter]);
+// إحصائيات لوحة المخزون بناءً على البيانات المسترجعة
+  const stats = useMemo(() => {
+    return {
+      total: products.length,
+      outOfStock: products.filter(p => p.stock <= 0).length,
+      lowStock: products.filter(p => p.stock > 0 && p.stock <= (p.low_stock_threshold ?? 10)).length,
+      available: products.filter(p => p.stock > 0).length
+    };
+  }, [products]);
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center min-h-screen gap-4">
@@ -410,166 +419,161 @@ while (
         </div>
       </div>
 
-      {/* شريط البحث والفلترة السريع */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        <div className="relative">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-          <input
-            type="text"
-            placeholder="بحث عن منتج..."
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            className="w-full pr-10 pl-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-          />
-        </div>
-
-        <div className="relative">
-          <Tag className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-          <select
-            value={categoryFilter}
-            onChange={(event) => setCategoryFilter(event.target.value)}
-            className="w-full pr-10 pl-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm appearance-none outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-          >
-            <option value="all">جميع التصنيفات</option>
-            {categories.map((category) => (
-              <option key={category} value={category}>{category}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="relative">
-          <Filter className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-          <select
-            value={stockFilter}
-            onChange={(event) => setStockFilter(event.target.value as any)}
-            className="w-full pr-10 pl-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm appearance-none outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-          >
-            <option value="all">حالة المخزون (الكل)</option>
-            <option value="out">نفذ من المخزن</option>
-            <option value="low">مخزون منخفض</option>
-            <option value="in">متوفر</option>
-          </select>
-        </div>
-      </div>
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".xlsx,.xls"
-        onChange={handleFileSelected}
-        className="hidden"
-      />
-
-      <div className={`overflow-x-auto border rounded-xl bg-white transition-opacity duration-300 relative ${isRefreshing ? "opacity-60 pointer-events-auto" : "opacity-100"}`}>
-        {isRefreshing && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/10 backdrop-blur-[1px]">
-             <div className="bg-white px-4 py-2 rounded-full shadow-lg border border-gray-100 flex items-center gap-2">
-                <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                <span className="text-xs font-bold text-blue-600">جاري تحديث البيانات...</span>
-             </div>
+      {/* القسم الرئيسي: الإحصائيات + المنتجات */}
+      <div className="flex flex-col lg:flex-row gap-6">
+        
+        {/* لوحة الإحصائيات الجانبية */}
+        <aside className="w-full lg:w-64 flex-shrink-0">
+          <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm sticky top-6">
+            <h2 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <Tag size={16} className="text-blue-600" />
+              ملخص المخزون
+            </h2>
+            
+            <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
+              {[
+                { label: "إجمالي الأصناف", value: stats.total, color: "text-gray-700", bg: "bg-gray-50" },
+                { label: "متاحة للبيع", value: stats.available, color: "text-green-700", bg: "bg-green-50" },
+                { label: "مخزون منخفض", value: stats.lowStock, color: "text-orange-700", bg: "bg-orange-50" },
+                { label: "نفدت تماماً", value: stats.outOfStock, color: "text-red-700", bg: "bg-red-50" }
+              ].map((item, i) => (
+                <div key={i} className={`p-3 rounded-lg border border-gray-100 ${item.bg} flex flex-col`}>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{item.label}</span>
+                  <span className={`text-lg font-black mt-1 ${item.color}`}>
+                    {item.value}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
-        )}
-        <table className="w-full text-sm">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="p-3 w-12 text-center bg-yellow-100">
-                <input
-                  type="checkbox"
-                  checked={selectedIds.length === products.length && products.length > 0}
-                  onChange={toggleSelectAll}
-                />
-              </th>
-              <th className="p-3">Image</th>
-              <th className="p-3">Name</th>
-              <th className="p-3">Category</th>
-              <th className="p-3">Price</th>
-              <th className="p-3">Stock</th>
-              <th className="p-3">Active</th>
-              <th className="p-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedProducts.map((product) => {
-              const hasEN = product.name.en?.trim();
+        </aside>
 
-              return (
-                <tr
-                  key={product.id}
-                  className={`border-t ${
-                    selectedIds.includes(product.id) ? "bg-red-50" : ""
-                  }`}
-                >
-                  <td className="p-3 w-12 text-center bg-yellow-50">
+        {/* منطقة البحث والجدول */}
+        <div className="flex-1 min-w-0">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+            <div className="relative">
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <input
+                type="text"
+                placeholder="بحث عن منتج..."
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                className="w-full pr-10 pl-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              />
+            </div>
+
+            <div className="relative">
+              <Tag className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <select
+                value={categoryFilter}
+                onChange={(event) => setCategoryFilter(event.target.value)}
+                className="w-full pr-10 pl-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm appearance-none outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              >
+                <option value="all">جميع التصنيفات</option>
+                {categories.map((category) => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="relative">
+              <Filter className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <select
+                value={stockFilter}
+                onChange={(event) => setStockFilter(event.target.value as any)}
+                className="w-full pr-10 pl-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm appearance-none outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+              >
+                <option value="all">حالة المخزون (الكل)</option>
+                <option value="out">نفذ من المخزن</option>
+                <option value="low">مخزون منخفض</option>
+                <option value="in">متوفر</option>
+              </select>
+            </div>
+          </div>
+
+          <div className={`overflow-x-auto border rounded-xl bg-white transition-opacity duration-300 relative ${isRefreshing ? "opacity-60 pointer-events-none" : "opacity-100"}`}>
+            {isRefreshing && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/10 backdrop-blur-[1px]">
+                 <div className="bg-white px-4 py-2 rounded-full shadow-lg border border-gray-100 flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-xs font-bold text-blue-600">جاري تحديث البيانات...</span>
+                 </div>
+              </div>
+            )}
+            <table className="w-full text-sm">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="p-3 w-12 text-center bg-yellow-100">
                     <input
                       type="checkbox"
-                      checked={selectedIds.includes(product.id)}
-                      onChange={() => toggleSelect(product.id)}
+                      checked={selectedIds.length === products.length && products.length > 0}
+                      onChange={toggleSelectAll}
                     />
-                  </td>
-                  <td className="p-3">
-                    <img
-                      src={getSafeImage(product.images?.[0])}
-                      onError={(event) => {
-                        (event.currentTarget as HTMLImageElement).src = PLACEHOLDER_IMAGE;
-                      }}
-                      className="h-12 w-12 object-contain"
-                    />
-                  </td>
-                  <td className="p-3 font-medium">
-                    {product.name.ar}
-                    {!hasEN && (
-                      <span className="ml-2 text-xs bg-yellow-100 px-2 rounded">
-                        Missing EN
-                      </span>
-                    )}
-                  </td>
-                  <td className="p-3">{product.category}</td>
-                  <td className="p-3">
-                    {product.price} جنيه
-                    {product.price === 0 && (
-                      <span className="ml-2 text-xs bg-yellow-100 px-2 rounded">
-                        Price = 0
-                      </span>
-                    )}
-                  </td>
-                  <td className="p-3">
-                    {product.stock <= 0 ? (
-  <span className="bg-red-100 text-red-800 px-2 rounded text-xs">
-    Out ({product.stock})
-  </span>
-) : product.stock <= (product.low_stock_threshold ?? 10) ? (
-  <span className="bg-orange-100 text-orange-800 px-2 rounded text-xs">
-    Low Stock ({product.stock})
-  </span>
-) : (
-  <span className="bg-green-100 text-green-800 px-2 rounded text-xs">
-    In Stock ({product.stock})
-  </span>
-)}
-                  </td>
-                  <td className="p-3">
-                    {product.active ? "Active" : "Inactive"}
-                  </td>
-                  <td className="p-3 flex gap-2">
-                    <Link
-                      href={`/admin/products/edit/${product.id}`}
-                      className="text-xs bg-sky-100 px-3 py-1 rounded"
-                    >
-                      Edit
-                    </Link>
-                    <button
-                      disabled={deletingId === product.id}
-                      onClick={() => handleDelete(product.id)}
-                      className="text-xs bg-red-100 px-3 py-1 rounded"
-                    >
-                      {deletingId === product.id ? "Deleting..." : "Delete"}
-                    </button>
-                  </td>
+                  </th>
+                  <th className="p-3">Image</th>
+                  <th className="p-3">Name</th>
+                  <th className="p-3">Category</th>
+                  <th className="p-3">Price</th>
+                  <th className="p-3">Stock</th>
+                  <th className="p-3">Active</th>
+                  <th className="p-3">Actions</th>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                {sortedProducts.map((product) => {
+                  const hasEN = product.name.en?.trim();
+                  return (
+                    <tr key={product.id} className={`border-t ${selectedIds.includes(product.id) ? "bg-red-50" : ""}`}>
+                      <td className="p-3 w-12 text-center bg-yellow-50">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(product.id)}
+                          onChange={() => toggleSelect(product.id)}
+                        />
+                      </td>
+                      <td className="p-3">
+                        <img
+                          src={getSafeImage(product.images?.[0])}
+                          onError={(event) => { (event.currentTarget as HTMLImageElement).src = PLACEHOLDER_IMAGE; }}
+                          className="h-12 w-12 object-contain"
+                        />
+                      </td>
+                      <td className="p-3 font-medium">
+                        {product.name.ar}
+                        {!hasEN && <span className="ml-2 text-xs bg-yellow-100 px-2 rounded">Missing EN</span>}
+                      </td>
+                      <td className="p-3">{product.category}</td>
+                      <td className="p-3">
+                        {product.price} جنيه
+                        {product.price === 0 && <span className="ml-2 text-xs bg-yellow-100 px-2 rounded">Price = 0</span>}
+                      </td>
+                      <td className="p-3">
+                        {product.stock <= 0 ? (
+                          <span className="bg-red-100 text-red-800 px-2 rounded text-xs">Out ({product.stock})</span>
+                        ) : product.stock <= (product.low_stock_threshold ?? 10) ? (
+                          <span className="bg-orange-100 text-orange-800 px-2 rounded text-xs">Low Stock ({product.stock})</span>
+                        ) : (
+                          <span className="bg-green-100 text-green-800 px-2 rounded text-xs">In Stock ({product.stock})</span>
+                        )}
+                      </td>
+                      <td className="p-3">{product.active ? "Active" : "Inactive"}</td>
+                      <td className="p-3 flex gap-2">
+                        <Link href={`/admin/products/edit/${product.id}`} className="text-xs bg-sky-100 px-3 py-1 rounded">Edit</Link>
+                        <button
+                          disabled={deletingId === product.id}
+                          onClick={() => handleDelete(product.id)}
+                          className="text-xs bg-red-100 px-3 py-1 rounded"
+                        >
+                          {deletingId === product.id ? "Deleting..." : "Delete"}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       {isPreviewOpen && (
