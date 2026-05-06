@@ -5,9 +5,10 @@
 // =====================================================
 
 import { NextRequest, NextResponse } from "next/server";
-
-const SESSION_COOKIE_NAME = "cesar_admin_session";
-const SESSION_VERSION = "v1";
+import {
+  SESSION_COOKIE_NAME,
+  SESSION_VERSION,
+} from "@/lib/admin/constants";
 
 /* =========================
    Verify HMAC (Web Crypto)

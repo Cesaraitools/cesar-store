@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { createSessionPersistent } from "@/lib/admin/adminSessionStore";
+import {
+  SESSION_COOKIE_NAME,
+  SESSION_VERSION,
+} from "@/lib/admin/constants";
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
 const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET!;
-
-const SESSION_COOKIE_NAME = "cesar_admin_session";
-const SESSION_VERSION = "v1";
 
 // ⏱️ 8 ساعات
 const SESSION_TTL_SECONDS = 60 * 60 * 8;

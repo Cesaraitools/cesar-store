@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { redis } from "@/lib/redis";
-const SESSION_COOKIE_NAME = "cesar_admin_session";
+import { SESSION_COOKIE_NAME } from "@/lib/admin/constants";
 
 export async function POST(request: Request) {
   try {

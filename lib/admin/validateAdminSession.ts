@@ -7,8 +7,11 @@
 import crypto from "crypto";
 import { cookies } from "next/headers";
 import { isSessionValidPersistent } from "@/lib/admin/adminSessionStore";
-const SESSION_COOKIE_NAME = "cesar_admin_session";
-const SESSION_VERSION = "v1";
+import {
+  SESSION_COOKIE_NAME,
+  SESSION_VERSION,
+} from "@/lib/admin/constants";
+  
 const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET;
 
 if (!ADMIN_SESSION_SECRET) {
