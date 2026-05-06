@@ -82,7 +82,7 @@ export default function AdminProductsPage() {
   
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const isFetchingRef = useRef(false);
-
+  const pendingRefreshRef = useRef(false);
   function toggleSelect(id: string) {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
@@ -118,7 +118,10 @@ export default function AdminProductsPage() {
   }
 
   async function fetchProducts(isInitial = false) {
-    if (isFetchingRef.current) return;
+    if (isFetchingRef.current) {
+  pendingRefreshRef.current = true;
+  return;
+}
     isFetchingRef.current = true;
 
     if (isInitial) setLoading(true);
@@ -135,6 +138,10 @@ export default function AdminProductsPage() {
       setLoading(false);
       setIsRefreshing(false);
       isFetchingRef.current = false;
+      if (pendingRefreshRef.current) {
+  pendingRefreshRef.current = false;
+  fetchProducts();
+}
     }
   }
 
@@ -328,33 +335,56 @@ export default function AdminProductsPage() {
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-8">
-        {/* Statistics Sidebar */}
-        <aside className="w-full lg:w-64 flex-shrink-0">
-          <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm sticky top-6">
-            <h2 className="text-sm font-black text-gray-900 mb-6 flex items-center gap-2">
-              <LayoutGrid size={18} className="text-blue-600" />
-              حالة المستودع
-            </h2>
-            
-            <div className="space-y-4">
-              {[
-                { label: "إجمالي المنتجات", value: stats.total, color: "text-blue-700", bg: "bg-blue-50" },
-                { label: "متوفر حالياً", value: stats.available, color: "text-green-700", bg: "bg-green-50" },
-                { label: "مخزون منخفض", value: stats.lowStock, color: "text-orange-700", bg: "bg-orange-50" },
-                { label: "غير متوفر", value: stats.outOfStock, color: "text-red-700", bg: "bg-red-50" }
-              ].map((item, i) => (
-                <div key={i} className={`p-4 rounded-xl ${item.bg} border border-white/50 shadow-inner`}>
-                  <span className="text-xs font-bold text-gray-500 block mb-1">{item.label}</span>
-                  <span className={`text-2xl font-black ${item.color}`}>{item.value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </aside>
+      <div className="space-y-6">
+        {/* Statistics Bar */}
+<div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+  {[
+    {
+      label: "إجمالي المنتجات",
+      value: stats.total,
+      color: "text-blue-700",
+      bg: "bg-blue-50",
+    },
+    {
+      label: "متوفر حالياً",
+      value: stats.available,
+      color: "text-green-700",
+      bg: "bg-green-50",
+    },
+    {
+      label: "مخزون منخفض",
+      value: stats.lowStock,
+      color: "text-orange-700",
+      bg: "bg-orange-50",
+    },
+    {
+      label: "غير متوفر",
+      value: stats.outOfStock,
+      color: "text-red-700",
+      bg: "bg-red-50",
+    },
+  ].map((item, i) => (
+    <div
+      key={i}
+      className={`${item.bg} border border-gray-100 rounded-2xl p-5 shadow-sm`}
+    >
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-bold text-gray-500">
+          {item.label}
+        </span>
+
+        <LayoutGrid size={18} className="text-gray-400" />
+      </div>
+
+      <div className={`text-3xl font-black ${item.color}`}>
+        {item.value}
+      </div>
+    </div>
+  ))}
+</div>
 
         {/* Main Content Area */}
-        <div className="flex-1 min-w-0">
+         <div className="w-full">
           {/* Filters Bar */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             <div className="relative">
