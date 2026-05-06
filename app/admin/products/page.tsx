@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import * as XLSX from "xlsx";
 import type { Product } from "@/types/product";
 import type { ProductImportJobSnapshot } from "@/types/product-import";
 import { getSafeImage } from "@/lib/image-safe";
 import { supabase } from "@/lib/supabaseClient";
-
+import { Search, Plus, Trash2, FileUp, Filter, Tag } from "lucide-react";
 const PLACEHOLDER_IMAGE = "/placeholder.png";
 
 type PreviewRow = Record<string, any>;
@@ -287,10 +287,13 @@ while (
       fetchProducts();
     }
   }
-  const categories = Array.from(
-  new Set(products.map((product) => product.category))
-).sort();
-  const sortedProducts = [...products]
+  const categories = useMemo(() => {
+  return Array.from(
+    new Set(products.map((product) => product.category))
+  ).sort();
+}, [products]);
+  const sortedProducts = useMemo(() => {
+  return [...products]
   .filter((product) => {
         const matchesSearch =
       product.name.ar
@@ -352,71 +355,90 @@ while (
       new Date(b.createdAt).getTime() -
       new Date(a.createdAt).getTime()
     );
-  });
+  }); 
+},[products, stockFilter, searchQuery, categoryFilter]);
 
   if (loading) return <div className="p-6">Loading…</div>;
   if (error) return <div className="p-6 text-red-600">{error}</div>;
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex justify-between mb-6">
-        <h1 className="text-2xl font-bold">Admin – Products</h1>
-        <div className="flex gap-3 items-center flex-wrap">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 bg-gray-50 p-4 rounded-xl border border-gray-200">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">إدارة المنتجات</h1>
+          <p className="text-sm text-gray-500 mt-1">عرض وتحرير كافة المنتجات المتاحة في متجر سيزر</p>
+        </div>
+
+        <div className="flex flex-wrap gap-2 items-center">
+          {/* زر الحذف الجماعي */}
           <button
             onClick={handleBulkDelete}
             disabled={!selectedIds.length}
-            className="bg-red-500 text-white px-4 py-2 rounded disabled:opacity-50"
+            className="flex items-center gap-2 bg-white text-red-600 border border-red-200 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:bg-red-50 hover:shadow-sm disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            Delete Selected ({selectedIds.length})
+            <Trash2 size={16} />
+            حذف المحدد ({selectedIds.length})
           </button>
 
+          {/* زر استيراد إكسل */}
           <button
             onClick={handleBulkImportClick}
-            className="bg-gray-100 px-4 py-2 rounded"
+            className="flex items-center gap-2 bg-white text-gray-700 border border-gray-200 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:bg-gray-100 hover:border-gray-300"
           >
-            Bulk Import (Excel)
+            <FileUp size={16} />
+            استيراد Excel
           </button>
-          <input
-  type="text"
-  placeholder="Search products..."
-  value={searchQuery}
-  onChange={(event) => setSearchQuery(event.target.value)}
-  className="border rounded px-3 py-2 text-sm"
-/>
 
-<select
-  value={categoryFilter}
-  onChange={(event) => setCategoryFilter(event.target.value)}
-  className="border rounded px-3 py-2 text-sm"
->
-  <option value="all">All Categories</option>
-
-  {categories.map((category) => (
-    <option key={category} value={category}>
-      {category}
-    </option>
-  ))}
-</select>
-          <select
-  value={stockFilter}
-  onChange={(event) =>
-    setStockFilter(
-      event.target.value as "all" | "out" | "low" | "in"
-    )
-  }
-  className="border rounded px-3 py-2 text-sm"
->
-  <option value="all">All Products</option>
-  <option value="out">Out of Stock</option>
-  <option value="low">Low Stock</option>
-  <option value="in">In Stock</option>
-</select>
+          {/* زر إضافة منتج */}
           <Link
             href="/admin/products/add"
-            className="bg-black text-white px-4 py-2 rounded"
+            className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 hover:bg-blue-700 hover:shadow-lg active:scale-95"
           >
-            Add Product
+            <Plus size={18} />
+            إضافة منتج جديد
           </Link>
+        </div>
+      </div>
+
+      {/* شريط البحث والفلترة السريع */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <div className="relative">
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <input
+            type="text"
+            placeholder="بحث عن منتج..."
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            className="w-full pr-10 pl-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+          />
+        </div>
+
+        <div className="relative">
+          <Tag className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <select
+            value={categoryFilter}
+            onChange={(event) => setCategoryFilter(event.target.value)}
+            className="w-full pr-10 pl-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm appearance-none outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+          >
+            <option value="all">جميع التصنيفات</option>
+            {categories.map((category) => (
+              <option key={category} value={category}>{category}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="relative">
+          <Filter className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <select
+            value={stockFilter}
+            onChange={(event) => setStockFilter(event.target.value as any)}
+            className="w-full pr-10 pl-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm appearance-none outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+          >
+            <option value="all">حالة المخزون (الكل)</option>
+            <option value="out">نفذ من المخزن</option>
+            <option value="low">مخزون منخفض</option>
+            <option value="in">متوفر</option>
+          </select>
         </div>
       </div>
 
