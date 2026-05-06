@@ -3,12 +3,12 @@ import { Product } from "@/types/product";
 
 export default function ProductGrid({ products }: { products: Product[] }) {
   return (
-    <div
+   <div
       className="
         grid
-        gap-6
+        gap-8
         justify-center
-        [grid-template-columns:repeat(auto-fit,minmax(200px,260px))]
+        grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4
       "
     >
       {products.map((p) => (
