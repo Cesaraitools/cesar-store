@@ -4,13 +4,9 @@
 // Path: /lib/admin/validateAdminSession.ts
 // =====================================================
 
-import crypto from "crypto";
 import { cookies } from "next/headers";
 import { isSessionValidPersistent } from "@/lib/admin/adminSessionStore";
-import {
-  SESSION_COOKIE_NAME,
-  SESSION_VERSION,
-} from "@/lib/admin/constants";
+import { SESSION_COOKIE_NAME } from "@/lib/admin/constants";
 import {
   parseAdminSessionCookie,
   verifyAdminSessionSignature,
