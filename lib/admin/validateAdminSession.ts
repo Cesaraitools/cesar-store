@@ -11,25 +11,15 @@ import {
   SESSION_COOKIE_NAME,
   SESSION_VERSION,
 } from "@/lib/admin/constants";
-  
+import {
+  parseAdminSessionCookie,
+  verifyAdminSessionSignature,
+} from "@/lib/admin/session-core";
+
 const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET;
 
 if (!ADMIN_SESSION_SECRET) {
   throw new Error("ADMIN_SESSION_SECRET is not set");
-}
-/**
- * Verify HMAC signature
- */
-function verifySignature(token: string, signature: string): boolean {
-  const expected = crypto
-    .createHmac("sha256", ADMIN_SESSION_SECRET)
-    .update(token)
-    .digest("hex");
-
-  return crypto.timingSafeEqual(
-    Buffer.from(signature),
-    Buffer.from(expected)
-  );
 }
 
 /**
@@ -43,15 +33,16 @@ export async function validateAdminSession(): Promise<boolean> {
     if (!session) return false;
 
     // Expected: v1:token.signature
-    const [version, payload] = session.split(":");
+   const parsed = parseAdminSessionCookie(session);
 
-    if (version !== SESSION_VERSION || !payload) return false;
+if (!parsed) return false;
 
-    const [token, signature] = payload.split(".");
+const { token, signature } = parsed;
 
-    if (!token || !signature) return false;
-
-   return verifySignature(token, signature) && (await isSessionValidPersistent(token));
+   return (
+  verifyAdminSessionSignature(token, signature) &&
+  (await isSessionValidPersistent(token))
+);
 
   } catch {
     return false;
