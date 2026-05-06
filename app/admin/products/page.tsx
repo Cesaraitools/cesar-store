@@ -283,6 +283,35 @@ while (
       fetchProducts();
     }
   }
+  const sortedProducts = [...products].sort((a, b) => {
+  const aOut = a.stock <= 0 ? 1 : 0;
+  const bOut = b.stock <= 0 ? 1 : 0;
+
+  if (aOut !== bOut) {
+    return bOut - aOut;
+  }
+
+  const aLow =
+    a.stock > 0 &&
+    a.stock <= (a.low_stock_threshold ?? 10)
+      ? 1
+      : 0;
+
+  const bLow =
+    b.stock > 0 &&
+    b.stock <= (b.low_stock_threshold ?? 10)
+      ? 1
+      : 0;
+
+  if (aLow !== bLow) {
+    return bLow - aLow;
+  }
+
+  return (
+    new Date(b.createdAt).getTime() -
+    new Date(a.createdAt).getTime()
+  );
+});
 
   if (loading) return <div className="p-6">Loading…</div>;
   if (error) return <div className="p-6 text-red-600">{error}</div>;
@@ -345,7 +374,7 @@ while (
             </tr>
           </thead>
           <tbody>
-            {products.map((product) => {
+            {sortedProducts.map((product) => {
               const hasEN = product.name.en?.trim();
 
               return (
