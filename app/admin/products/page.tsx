@@ -342,7 +342,7 @@ while (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex justify-between mb-6">
         <h1 className="text-2xl font-bold">Admin – Products</h1>
-        <div className="flex gap-3">
+        <div className="flex gap-3 items-center flex-wrap">
           <button
             onClick={handleBulkDelete}
             disabled={!selectedIds.length}
@@ -357,7 +357,20 @@ while (
           >
             Bulk Import (Excel)
           </button>
-
+          <select
+  value={stockFilter}
+  onChange={(event) =>
+    setStockFilter(
+      event.target.value as "all" | "out" | "low" | "in"
+    )
+  }
+  className="border rounded px-3 py-2 text-sm"
+>
+  <option value="all">All Products</option>
+  <option value="out">Out of Stock</option>
+  <option value="low">Low Stock</option>
+  <option value="in">In Stock</option>
+</select>
           <Link
             href="/admin/products/add"
             className="bg-black text-white px-4 py-2 rounded"
