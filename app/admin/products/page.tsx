@@ -500,7 +500,7 @@ while (
             </div>
           </div>
 
-          <div className={`overflow-x-auto border rounded-xl bg-white transition-opacity duration-300 relative ${isRefreshing ? "opacity-60 pointer-events-none" : "opacity-100"}`}>
+          <div className={`overflow-x-auto border rounded-xl bg-white transition-opacity duration-300 relative ${isRefreshing ? "opacity-60" : "opacity-100"}`}>
             {isRefreshing && (
               <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/10 backdrop-blur-[1px]">
                  <div className="bg-white px-4 py-2 rounded-full shadow-lg border border-gray-100 flex items-center gap-2">
