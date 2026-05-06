@@ -58,6 +58,7 @@ async function processImportJob(jobId: string) {
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -115,8 +116,12 @@ const [categoryFilter, setCategoryFilter] = useState("all");
     }
   }
 
-  async function fetchProducts() {
-    setLoading(true);
+  async function fetchProducts(isInitial = false) {
+    if (isInitial) {
+      setLoading(true);
+    } else {
+      setIsRefreshing(true);
+    }
 
     try {
       const response = await fetch("/api/products");
@@ -125,14 +130,15 @@ const [categoryFilter, setCategoryFilter] = useState("all");
       const data: Product[] = await response.json();
       setProducts(data);
     } catch {
-      setError("Failed to load products");
+      setError("فشل في تحميل المنتجات");
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   }
 
   useEffect(() => {
-    fetchProducts();
+    fetchProducts(true);
 
     const channel = supabase
       .channel("products-realtime")
@@ -358,7 +364,12 @@ while (
   }); 
 },[products, stockFilter, searchQuery, categoryFilter]);
 
-  if (loading) return <div className="p-6">Loading…</div>;
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+      <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      <p className="text-gray-500 font-medium animate-pulse">جاري تحميل منتجات متجر سيزر...</p>
+    </div>
+  );
   if (error) return <div className="p-6 text-red-600">{error}</div>;
 
   return (
@@ -450,7 +461,15 @@ while (
         className="hidden"
       />
 
-      <div className="overflow-x-auto border rounded bg-white">
+      <div className={`overflow-x-auto border rounded-xl bg-white transition-opacity duration-300 relative ${isRefreshing ? "opacity-60 pointer-events-none" : "opacity-100"}`}>
+        {isRefreshing && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/10 backdrop-blur-[1px]">
+             <div className="bg-white px-4 py-2 rounded-full shadow-lg border border-gray-100 flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-xs font-bold text-blue-600">جاري تحديث البيانات...</span>
+             </div>
+          </div>
+        )}
         <table className="w-full text-sm">
           <thead className="bg-gray-100">
             <tr>
