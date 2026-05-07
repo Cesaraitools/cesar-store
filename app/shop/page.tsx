@@ -114,7 +114,6 @@ export default function ShopPage({ searchParams }: Props) {
   const rightPromo = promos.find(
     (promo) => promo.position === "shop_right" && promo.isActive
   );
-  const hasShopSidePromos = Boolean(leftPromo || rightPromo);
   const hasActiveFilters =
     selectedCategory !== "all" || searchQuery.trim().length > 0;
 
@@ -160,101 +159,99 @@ export default function ShopPage({ searchParams }: Props) {
                 </p>
               </div>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 w-full md:w-auto md:min-w-[760px]">
-              <div className="relative">
-                <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
-                  <Search size={16} />
-                </div>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={isAr ? "ابحث باسم المنتج" : "Search by product name"}
-                  className="w-full bg-gray-50 border-none rounded-[1.5rem] px-6 py-4 pr-12 text-sm font-black text-gray-700 focus:ring-2 focus:ring-blue-600/10 transition-all hover:bg-gray-100 shadow-sm"
-                />
-              </div>
-
-              <div className="relative">
-                <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
-                  <Tag size={16} />
-                </div>
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="w-full appearance-none bg-gray-50 border-none rounded-[1.5rem] px-6 py-4 pr-12 text-sm font-black text-gray-700 focus:ring-2 focus:ring-blue-600/10 cursor-pointer transition-all hover:bg-gray-100 shadow-sm"
-                >
-                  <option value="all">
-                    {isAr ? "كل الأقسام" : "All Categories"}
-                  </option>
-                  {visibleCategories.map((category) => (
-                    <option key={category.id} value={category.category}>
-                      {isAr ? category.ar.title : category.en.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="relative">
-                <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
-                  <SlidersHorizontal size={16} />
-                </div>
-                <select
-                  value={sort}
-                  onChange={(e) => setSort(e.target.value as SortOption)}
-                  className="w-full appearance-none bg-gray-50 border-none rounded-[1.5rem] px-6 py-4 pr-12 text-sm font-black text-gray-700 focus:ring-2 focus:ring-blue-600/10 cursor-pointer transition-all hover:bg-gray-100 shadow-sm"
-                >
-                  <option value="default">
-                    {isAr ? "الترتيب الافتراضي" : "Default Sorting"}
-                  </option>
-                  <option value="price-asc">
-                    {isAr ? "السعر: من الأقل للأعلى" : "Price: Low to High"}
-                  </option>
-                  <option value="price-desc">
-                    {isAr ? "السعر: من الأعلى للأقل" : "Price: High to Low"}
-                  </option>
-                  <option value="featured">
-                    {isAr ? "الأكثر تميزاً" : "Featured Products"}
-                  </option>
-                </select>
-              </div>
-            </div>
           </div>
+        </div>
+      </div>
 
-          {hasActiveFilters && (
-            <div className="mt-5 flex flex-wrap items-center gap-3">
+      <div className="sticky top-20 z-30 border-b border-gray-100 bg-white/92 backdrop-blur-md">
+        <div className="mx-auto max-w-[1500px] px-6 py-5">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
+            <div className="relative">
+              <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+                <Search size={16} />
+              </div>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={isAr ? "ابحث باسم المنتج" : "Search by product name"}
+                className="w-full bg-gray-50 border-none rounded-[1.5rem] px-6 py-4 pr-12 text-sm font-black text-gray-700 focus:ring-2 focus:ring-blue-600/10 transition-all hover:bg-gray-100 shadow-sm"
+              />
+            </div>
+
+            <div className="relative">
+              <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+                <Tag size={16} />
+              </div>
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="w-full appearance-none bg-gray-50 border-none rounded-[1.5rem] px-6 py-4 pr-12 text-sm font-black text-gray-700 focus:ring-2 focus:ring-blue-600/10 cursor-pointer transition-all hover:bg-gray-100 shadow-sm"
+              >
+                <option value="all">
+                  {isAr ? "كل الأقسام" : "All Categories"}
+                </option>
+                {visibleCategories.map((category) => (
+                  <option key={category.id} value={category.category}>
+                    {isAr ? category.ar.title : category.en.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="relative">
+              <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+                <SlidersHorizontal size={16} />
+              </div>
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value as SortOption)}
+                className="w-full appearance-none bg-gray-50 border-none rounded-[1.5rem] px-6 py-4 pr-12 text-sm font-black text-gray-700 focus:ring-2 focus:ring-blue-600/10 cursor-pointer transition-all hover:bg-gray-100 shadow-sm"
+              >
+                <option value="default">
+                  {isAr ? "الترتيب الافتراضي" : "Default Sorting"}
+                </option>
+                <option value="price-asc">
+                  {isAr ? "السعر: من الأقل للأعلى" : "Price: Low to High"}
+                </option>
+                <option value="price-desc">
+                  {isAr ? "السعر: من الأعلى للأقل" : "Price: High to Low"}
+                </option>
+                <option value="featured">
+                  {isAr ? "الأكثر تميزاً" : "Featured Products"}
+                </option>
+              </select>
+            </div>
+
+            {hasActiveFilters && (
               <button
                 type="button"
                 onClick={() => {
                   setSearchQuery("");
                   setSelectedCategory("all");
                 }}
-                className="rounded-full border border-gray-200 px-4 py-2 text-xs font-black text-gray-600 hover:bg-gray-50"
+                className="rounded-full border border-gray-200 px-4 py-2 text-xs font-black text-gray-600 hover:bg-gray-50 md:self-center"
               >
-                {isAr ? "مسح البحث والفلاتر" : "Clear search and filters"}
+                {isAr ? "مسح الفلاتر" : "Clear filters"}
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="mx-auto mt-12 max-w-[1500px] px-6">
+      <div className="mx-auto mt-12 max-w-[1700px] px-6">
         <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)_280px] items-start">
           <div className="order-1">
             {leftPromo ? (
               <ShopSidePromoSlider promo={leftPromo} lang={lang} />
             ) : (
-              <div className="hidden xl:block" />
+              <aside className="hidden xl:flex xl:sticky xl:top-32 min-h-[560px] rounded-[2.5rem] border border-dashed border-gray-200 bg-white items-center justify-center p-8 text-center text-sm font-bold text-gray-300">
+                {isAr ? "مكان بلوك العرض الترويجي الأيسر" : "Left promo block"}
+              </aside>
             )}
           </div>
 
-          <div
-            className={`order-3 xl:order-2 ${
-              hasShopSidePromos
-                ? "[&>div>div]:xl:grid-cols-2 [&>div>div]:2xl:grid-cols-3"
-                : ""
-            }`}
-          >
+          <div className="order-3 xl:order-2">
             {finalProducts.length === 0 ? (
               <div className="bg-white rounded-[3rem] border border-dashed border-gray-200 py-24 flex flex-col items-center justify-center text-center">
                 <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6">
@@ -291,7 +288,9 @@ export default function ShopPage({ searchParams }: Props) {
             {rightPromo ? (
               <ShopSidePromoSlider promo={rightPromo} lang={lang} />
             ) : (
-              <div className="hidden xl:block" />
+              <aside className="hidden xl:flex xl:sticky xl:top-32 min-h-[560px] rounded-[2.5rem] border border-dashed border-gray-200 bg-white items-center justify-center p-8 text-center text-sm font-bold text-gray-300">
+                {isAr ? "مكان بلوك العرض الترويجي الأيمن" : "Right promo block"}
+              </aside>
             )}
           </div>
         </div>

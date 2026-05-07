@@ -47,7 +47,12 @@ export default function ShopSidePromoSlider({ promo, lang }: Props) {
   const ctaLink = promo.cta.link || "/shop";
 
   return (
-    <aside className="group relative min-h-[560px] overflow-hidden rounded-[2.5rem] bg-slate-950 shadow-[0_30px_80px_rgba(15,23,42,0.18)] xl:sticky xl:top-6">
+    <aside className="group relative xl:sticky xl:top-32">
+      <div className="pointer-events-none absolute inset-x-5 -bottom-7 h-16 rounded-full bg-slate-900/12 blur-2xl transition-all duration-500 group-hover:bg-slate-900/18" />
+      <div className="pointer-events-none absolute -inset-x-2 -top-3 h-24 rounded-[2.5rem] bg-white/55 blur-2xl" />
+      <div className="absolute inset-0 rounded-[2.7rem] bg-gradient-to-b from-white/40 via-white/10 to-transparent opacity-70" />
+
+      <div className="relative min-h-[560px] overflow-hidden rounded-[2.5rem] border border-white/45 bg-slate-950 shadow-[0_18px_40px_rgba(15,23,42,0.12),0_38px_90px_rgba(15,23,42,0.2)] ring-1 ring-slate-900/5 transition-all duration-500 group-hover:-translate-y-1.5 group-hover:shadow-[0_24px_48px_rgba(15,23,42,0.16),0_46px_110px_rgba(15,23,42,0.24)]">
       <div className="absolute inset-0">
         {images.map((image, index) => (
           <div
@@ -68,7 +73,9 @@ export default function ShopSidePromoSlider({ promo, lang }: Props) {
 
       <div className="absolute inset-0 bg-gradient-to-b from-slate-900/5 via-slate-950/25 to-slate-950/85" />
       <div className="absolute inset-x-0 top-0 h-40 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.22),transparent_60%)]" />
+      <div className="absolute inset-x-8 top-4 h-px bg-white/40" />
       <div className="absolute right-4 top-4 h-14 w-14 rounded-full border border-white/15 bg-white/10 blur-[1px]" />
+      <div className="absolute left-5 top-5 h-20 w-20 rounded-full bg-white/10 blur-2xl" />
 
       <div className="relative z-10 flex min-h-[560px] flex-col justify-between p-6 text-white">
         <div className="flex items-center justify-between">
@@ -120,12 +127,13 @@ export default function ShopSidePromoSlider({ promo, lang }: Props) {
 
           <Link
             href={ctaLink}
-            className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-black text-slate-900 transition-transform duration-300 hover:-translate-y-0.5"
+            className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-black text-slate-900 shadow-[0_12px_24px_rgba(255,255,255,0.18)] transition-transform duration-300 hover:-translate-y-0.5"
           >
             {cta || "Shop now"}
             <ArrowUpRight size={15} />
           </Link>
         </div>
+      </div>
       </div>
     </aside>
   );
