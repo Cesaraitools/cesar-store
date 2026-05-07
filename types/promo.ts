@@ -1,5 +1,9 @@
+import type { Product } from "@/types/product";
+
 export type PromoPosition =
   | "categories_side"
+  | "categories_left"
+  | "categories_right"
   | "shop_left"
   | "shop_right";
 
@@ -17,6 +21,8 @@ export type PromoData = {
   position: PromoPosition;
   isActive: boolean;
   productId?: string;
+  selectedProductIds: string[];
+  products: Product[];
   image?: string;
   images: string[];
   title: PromoLocalizedText;
@@ -28,6 +34,15 @@ export type PromoData = {
 
 export const PROMO_POSITIONS: PromoPosition[] = [
   "categories_side",
+  "categories_left",
+  "categories_right",
+  "shop_left",
+  "shop_right",
+];
+
+export const MANAGED_PROMO_POSITIONS: PromoPosition[] = [
+  "categories_left",
+  "categories_right",
   "shop_left",
   "shop_right",
 ];
@@ -38,6 +53,8 @@ export function createEmptyPromo(position: PromoPosition): PromoData {
     position,
     isActive: false,
     productId: "",
+    selectedProductIds: [],
+    products: [],
     image: "",
     images: [],
     title: {

@@ -1,505 +1,376 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Search, LayoutPanelTop, MonitorSmartphone, Grid3X3 } from "lucide-react";
+import { getSafeImage } from "@/lib/image-safe";
+import type { Product } from "@/types/product";
 import {
   createEmptyPromo,
+  MANAGED_PROMO_POSITIONS,
   type PromoData,
   type PromoPosition,
 } from "@/types/promo";
 
-const POSITIONS: Array<{
+const BLOCKS: Array<{
   position: PromoPosition;
   title: string;
   subtitle: string;
 }> = [
   {
-    position: "categories_side",
-    title: "Categories Side Banner",
-    subtitle: "Existing banner used on categories page.",
-  },
-  {
     position: "shop_left",
-    title: "Shop Left Ad Block",
-    subtitle: "Left-side animated promo block beside the products grid.",
+    title: "Shop Left Block",
+    subtitle: "Sticky floating promo rail on the left side of shop products.",
   },
   {
     position: "shop_right",
-    title: "Shop Right Ad Block",
-    subtitle: "Right-side animated promo block beside the products grid.",
+    title: "Shop Right Block",
+    subtitle: "Sticky floating promo rail on the right side of shop products.",
+  },
+  {
+    position: "categories_left",
+    title: "Categories Left Block",
+    subtitle: "Sticky floating promo rail on the left side of categories.",
+  },
+  {
+    position: "categories_right",
+    title: "Categories Right Block",
+    subtitle: "Sticky floating promo rail on the right side of categories.",
   },
 ];
 
-function createInitialPromos() {
+function createPromoState() {
   return {
-    categories_side: createEmptyPromo("categories_side"),
     shop_left: createEmptyPromo("shop_left"),
     shop_right: createEmptyPromo("shop_right"),
+    categories_left: createEmptyPromo("categories_left"),
+    categories_right: createEmptyPromo("categories_right"),
   } as Record<PromoPosition, PromoData>;
-}
-
-function createBooleanState() {
-  return {
-    categories_side: false,
-    shop_left: false,
-    shop_right: false,
-  } as Record<PromoPosition, boolean>;
-}
-
-function createErrorState() {
-  return {
-    categories_side: "",
-    shop_left: "",
-    shop_right: "",
-  } as Record<PromoPosition, string>;
 }
 
 export default function PromosAdminPage() {
   const [promos, setPromos] = useState<Record<PromoPosition, PromoData>>(
-    createInitialPromos()
+    createPromoState()
   );
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState<Record<PromoPosition, boolean>>(
-    createBooleanState()
-  );
-  const [uploading, setUploading] = useState<Record<PromoPosition, boolean>>(
-    createBooleanState()
-  );
-  const [errors, setErrors] = useState<Record<PromoPosition, string>>(
-    createErrorState()
-  );
+  const [saving, setSaving] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/promos")
-      .then((response) => response.json())
-      .then((data: PromoData[]) => {
-        const nextPromos = createInitialPromos();
+    Promise.all([
+      fetch("/api/promos").then((response) => response.json()),
+      fetch("/api/products").then((response) => response.json()),
+    ])
+      .then(([promosData, productsData]) => {
+        const nextPromos = createPromoState();
 
-        if (Array.isArray(data)) {
-          for (const promo of data) {
-            if (promo.position in nextPromos) {
+        if (Array.isArray(promosData)) {
+          for (const promo of promosData) {
+            if (MANAGED_PROMO_POSITIONS.includes(promo.position)) {
               nextPromos[promo.position] = {
                 ...nextPromos[promo.position],
                 ...promo,
-                images: Array.isArray(promo.images) ? promo.images : [],
-                image: promo.image || promo.images?.[0] || "",
+                selectedProductIds: Array.isArray(promo.selectedProductIds)
+                  ? promo.selectedProductIds
+                  : [],
               };
             }
           }
         }
 
         setPromos(nextPromos);
+        setProducts(Array.isArray(productsData) ? productsData : []);
+      })
+      .catch((loadError) => {
+        console.error(loadError);
+        setError("Failed to load promos data");
       })
       .finally(() => setLoading(false));
   }, []);
 
-  function setPromo(position: PromoPosition, nextPromo: PromoData) {
+  const filteredProducts = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+
+    if (!normalizedQuery) {
+      return products;
+    }
+
+    return products.filter((product) => {
+      return (
+        product.name.ar.toLowerCase().includes(normalizedQuery) ||
+        product.name.en.toLowerCase().includes(normalizedQuery) ||
+        product.category.toLowerCase().includes(normalizedQuery)
+      );
+    });
+  }, [products, searchQuery]);
+
+  function updatePromo(position: PromoPosition, nextPromo: PromoData) {
     setPromos((prev) => ({
       ...prev,
       [position]: nextPromo,
     }));
   }
 
-  function updatePromoField(
-    position: PromoPosition,
-    field:
-      | "isActive"
-      | "title.ar"
-      | "title.en"
-      | "description.ar"
-      | "description.en"
-      | "cta.ar"
-      | "cta.en"
-      | "cta.link",
-    value: string | boolean
-  ) {
-    const promo = promos[position];
-
-    if (field === "isActive") {
-      setPromo(position, {
-        ...promo,
-        isActive: Boolean(value),
-      });
-      return;
-    }
-
-    const [group, key] = field.split(".") as [
-      "title" | "description" | "cta",
-      "ar" | "en" | "link",
-    ];
-
-    setPromo(position, {
-      ...promo,
-      [group]: {
-        ...promo[group],
-        [key]: value,
-      },
+  function toggleBlock(position: PromoPosition, checked: boolean) {
+    updatePromo(position, {
+      ...promos[position],
+      isActive: checked,
     });
   }
 
-  async function handleBrowseImages(
-    position: PromoPosition,
-    e: React.ChangeEvent<HTMLInputElement>
-  ) {
-    const files = Array.from(e.target.files || []);
+  function toggleProductSelection(position: PromoPosition, productId: string) {
+    const promo = promos[position];
+    const isSelected = promo.selectedProductIds.includes(productId);
 
-    if (!files.length) return;
+    updatePromo(position, {
+      ...promo,
+      selectedProductIds: isSelected
+        ? promo.selectedProductIds.filter((id) => id !== productId)
+        : [...promo.selectedProductIds, productId],
+    });
+  }
 
-    setUploading((prev) => ({ ...prev, [position]: true }));
-    setErrors((prev) => ({ ...prev, [position]: "" }));
+  async function saveAllPromos() {
+    setSaving(true);
+    setError(null);
 
     try {
-      const uploadedUrls: string[] = [];
+      for (const position of MANAGED_PROMO_POSITIONS) {
+        const promo = promos[position];
 
-      for (const file of files) {
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("type", "promo");
-
-        const response = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
+        const response = await fetch("/api/promos", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...promo,
+            id: promo.id || position,
+            position,
+            selectedProductIds: promo.selectedProductIds,
+          }),
         });
 
-        const payload = await response.json();
+        const payload = await response.json().catch(() => null);
 
         if (!response.ok) {
-          throw new Error(payload.error || "Upload failed");
+          throw new Error(payload?.error || `Failed to save ${position}`);
         }
 
-        uploadedUrls.push(payload.url);
+        updatePromo(position, {
+          ...promos[position],
+          ...payload,
+        });
       }
 
-      const promo = promos[position];
-      const nextImages = [...promo.images, ...uploadedUrls];
-
-      setPromo(position, {
-        ...promo,
-        images: nextImages,
-        image: nextImages[0] || "",
-      });
-    } catch (error) {
-      setErrors((prev) => ({
-        ...prev,
-        [position]:
-          error instanceof Error ? error.message : "Upload failed",
-      }));
+      alert("Promotional blocks saved");
+    } catch (saveError) {
+      console.error(saveError);
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Failed to save promos"
+      );
     } finally {
-      setUploading((prev) => ({ ...prev, [position]: false }));
-      e.target.value = "";
-    }
-  }
-
-  function removeImage(position: PromoPosition, index: number) {
-    const promo = promos[position];
-    const nextImages = promo.images.filter((_, imageIndex) => imageIndex !== index);
-
-    setPromo(position, {
-      ...promo,
-      images: nextImages,
-      image: nextImages[0] || "",
-    });
-  }
-
-  function makePrimaryImage(position: PromoPosition, index: number) {
-    if (index <= 0) return;
-
-    const promo = promos[position];
-    const nextImages = [...promo.images];
-    const [selectedImage] = nextImages.splice(index, 1);
-
-    if (!selectedImage) return;
-
-    nextImages.unshift(selectedImage);
-
-    setPromo(position, {
-      ...promo,
-      images: nextImages,
-      image: nextImages[0] || "",
-    });
-  }
-
-  async function savePromo(position: PromoPosition) {
-    const promo = promos[position];
-
-    if (promo.images.some((image) => image.startsWith("blob:"))) {
-      alert("Invalid image detected. Please re-upload image.");
-      return;
-    }
-
-    setSaving((prev) => ({ ...prev, [position]: true }));
-    setErrors((prev) => ({ ...prev, [position]: "" }));
-
-    try {
-      const response = await fetch("/api/promos", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...promo,
-          image: promo.images[0] || "",
-        }),
-      });
-
-      const payload = await response.json();
-
-      if (!response.ok) {
-        throw new Error(payload.error || "Failed to save promo");
-      }
-
-      setPromo(position, {
-        ...promo,
-        ...payload,
-      });
-
-      alert("Saved");
-    } catch (error) {
-      setErrors((prev) => ({
-        ...prev,
-        [position]:
-          error instanceof Error ? error.message : "Failed to save promo",
-      }));
-    } finally {
-      setSaving((prev) => ({ ...prev, [position]: false }));
+      setSaving(false);
     }
   }
 
   if (loading) {
-    return <p className="p-10">Loading promos...</p>;
+    return <p className="p-10">Loading promo controls...</p>;
   }
 
   return (
-    <main className="p-6 md:p-10 max-w-7xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Promotional Blocks</h1>
-        <p className="mt-2 text-sm text-gray-500">
-          Manage the existing categories banner and the two new shop-side
-          advertising blocks from one place.
-        </p>
+    <main className="max-w-7xl mx-auto p-6 md:p-10 space-y-6" dir="rtl">
+      <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 className="text-2xl font-black text-gray-900">
+              إدارة البلوكات الترويجية
+            </h1>
+            <p className="mt-2 text-sm text-gray-500">
+              اختر أكثر من منتج لكل بلوك. صور واسم ووصف السلايدز سيتم سحبها
+              تلقائيًا من بيانات المنتج.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={saveAllPromos}
+            disabled={saving}
+            className="rounded-2xl bg-blue-600 px-6 py-3 text-sm font-black text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {saving ? "جارٍ الحفظ..." : "حفظ كل البلوكات"}
+          </button>
+        </div>
+
+        {error && (
+          <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+            {error}
+          </p>
+        )}
       </div>
 
-      <div className="grid gap-6">
-        {POSITIONS.map(({ position, title, subtitle }) => {
-          const promo = promos[position];
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {BLOCKS.map((block) => {
+          const promo = promos[block.position];
+          const isShopBlock = block.position.startsWith("shop");
 
           return (
             <section
-              key={position}
-              className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm"
+              key={block.position}
+              className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm"
             >
-              <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <h2 className="text-xl font-bold">{title}</h2>
-                  <p className="text-sm text-gray-500">{subtitle}</p>
-                </div>
-
-                <label className="inline-flex items-center gap-2 text-sm font-semibold text-gray-700">
-                  <input
-                    type="checkbox"
-                    checked={promo.isActive}
-                    onChange={(e) =>
-                      updatePromoField(position, "isActive", e.target.checked)
-                    }
-                  />
-                  Active
-                </label>
-              </div>
-
-              <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-                <div className="space-y-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
+                    {isShopBlock ? (
+                      <MonitorSmartphone size={18} />
+                    ) : (
+                      <Grid3X3 size={18} />
+                    )}
+                  </div>
                   <div>
-                    <label className="mb-2 block text-sm font-medium">
-                      Promo Images
-                    </label>
-
-                    <input
-                      id={`promo-upload-${position}`}
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      hidden
-                      onChange={(e) => handleBrowseImages(position, e)}
-                    />
-
-                    <div className="flex flex-wrap gap-3">
-                      {promo.images.map((image, index) => (
-                        <div key={`${image}-${index}`} className="relative">
-                          <button
-                            type="button"
-                            onClick={() => makePrimaryImage(position, index)}
-                            className={`overflow-hidden rounded-2xl border-2 ${
-                              index === 0 ? "border-black" : "border-gray-200"
-                            }`}
-                            title={index === 0 ? "Opening slide" : "Move to first slide"}
-                          >
-                            <img
-                              src={image}
-                              alt=""
-                              className="h-28 w-24 object-cover"
-                            />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => removeImage(position, index)}
-                            className="absolute -left-2 -top-2 h-6 w-6 rounded-full bg-black text-xs text-white"
-                            aria-label="Remove image"
-                          >
-                            x
-                          </button>
-                        </div>
-                      ))}
-
-                      <label
-                        htmlFor={`promo-upload-${position}`}
-                        className="flex h-28 w-24 cursor-pointer items-center justify-center rounded-2xl border-2 border-dashed border-gray-300 text-sm font-bold text-gray-500 hover:bg-gray-50"
-                      >
-                        {uploading[position] ? "..." : "+"}
-                      </label>
-                    </div>
-
-                    <p className="mt-2 text-xs text-gray-500">
-                      The first image is used as the opening slide and preview
-                      cover. You can upload multiple images for the rotating
-                      ad block.
-                    </p>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <input
-                      value={promo.title.en}
-                      onChange={(e) =>
-                        updatePromoField(position, "title.en", e.target.value)
-                      }
-                      placeholder="Title (EN)"
-                      className="w-full rounded-xl border p-3"
-                    />
-                    <input
-                      value={promo.title.ar}
-                      onChange={(e) =>
-                        updatePromoField(position, "title.ar", e.target.value)
-                      }
-                      placeholder="Title (AR)"
-                      className="w-full rounded-xl border p-3"
-                    />
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <textarea
-                      value={promo.description.en}
-                      onChange={(e) =>
-                        updatePromoField(
-                          position,
-                          "description.en",
-                          e.target.value
-                        )
-                      }
-                      placeholder="Description (EN)"
-                      rows={4}
-                      className="w-full rounded-xl border p-3"
-                    />
-                    <textarea
-                      value={promo.description.ar}
-                      onChange={(e) =>
-                        updatePromoField(
-                          position,
-                          "description.ar",
-                          e.target.value
-                        )
-                      }
-                      placeholder="Description (AR)"
-                      rows={4}
-                      className="w-full rounded-xl border p-3"
-                    />
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <input
-                      value={promo.cta.en}
-                      onChange={(e) =>
-                        updatePromoField(position, "cta.en", e.target.value)
-                      }
-                      placeholder="CTA (EN)"
-                      className="w-full rounded-xl border p-3"
-                    />
-                    <input
-                      value={promo.cta.ar}
-                      onChange={(e) =>
-                        updatePromoField(position, "cta.ar", e.target.value)
-                      }
-                      placeholder="CTA (AR)"
-                      className="w-full rounded-xl border p-3"
-                    />
-                  </div>
-
-                  <input
-                    value={promo.cta.link}
-                    onChange={(e) =>
-                      updatePromoField(position, "cta.link", e.target.value)
-                    }
-                    placeholder="CTA Link"
-                    className="w-full rounded-xl border p-3"
-                  />
-
-                  {errors[position] && (
-                    <p className="text-sm text-red-600">{errors[position]}</p>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => savePromo(position)}
-                    disabled={saving[position] || uploading[position]}
-                    className="rounded-xl bg-sky-500 px-6 py-3 text-sm font-bold text-white disabled:opacity-50"
-                  >
-                    {saving[position] ? "Saving..." : "Save Changes"}
-                  </button>
-                </div>
-
-                <div className="rounded-[2rem] border border-gray-100 bg-gray-50 p-4">
-                  <p className="mb-3 text-sm font-semibold text-gray-600">
-                    Quick Preview
-                  </p>
-                  <div
-                    className="relative min-h-[420px] overflow-hidden rounded-[1.75rem] bg-slate-900"
-                    style={{
-                      backgroundImage: promo.images[0]
-                        ? `url(${promo.images[0]})`
-                        : undefined,
-                      backgroundSize: "cover",
-                      backgroundPosition: "center",
-                    }}
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/35 to-black/70" />
-                    <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-white/20 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 z-10 p-6 text-white">
-                      <div className="mb-4 flex gap-2">
-                        {promo.images.slice(0, 5).map((_, index) => (
-                          <span
-                            key={index}
-                            className={`h-1.5 rounded-full ${
-                              index === 0 ? "w-8 bg-white" : "w-3 bg-white/45"
-                            }`}
-                          />
-                        ))}
-                      </div>
-                      <h3 className="text-2xl font-black">
-                        {promo.title.en || promo.title.ar || "Promo headline"}
-                      </h3>
-                      <p className="mt-3 max-w-xs text-sm leading-6 text-white/85">
-                        {promo.description.en ||
-                          promo.description.ar ||
-                          "Upload multiple slides and write a short ad copy for this block."}
-                      </p>
-                      {(promo.cta.en || promo.cta.ar) && (
-                        <span className="mt-5 inline-flex rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold backdrop-blur-sm">
-                          {promo.cta.en || promo.cta.ar}
-                        </span>
-                      )}
-                    </div>
+                    <h2 className="text-sm font-black text-gray-900">
+                      {block.title}
+                    </h2>
+                    <p className="text-xs text-gray-500">{block.subtitle}</p>
                   </div>
                 </div>
               </div>
+
+              <div className="flex items-center justify-between rounded-2xl bg-gray-50 px-4 py-3">
+                <span className="text-xs font-bold text-gray-600">
+                  المنتجات المختارة
+                </span>
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-blue-700 shadow-sm">
+                  {promo.selectedProductIds.length}
+                </span>
+              </div>
+
+              <label className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={promo.isActive}
+                  onChange={(e) => toggleBlock(block.position, e.target.checked)}
+                />
+                تفعيل البلوك
+              </label>
+
+              <p className="mt-3 text-xs leading-6 text-gray-500">
+                ترتيب السلايدز يتبع ترتيب اختيار المنتجات. أول منتج محدد يظهر
+                كأول سلايد.
+              </p>
             </section>
           );
         })}
       </div>
+
+      <section className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="text-xl font-black text-gray-900">
+              اختيار المنتجات داخل البلوكات
+            </h2>
+            <p className="mt-1 text-sm text-gray-500">
+              ضع علامة checkbox بجوار المنتج داخل البلوك المطلوب.
+            </p>
+          </div>
+
+          <div className="relative w-full lg:max-w-sm">
+            <Search
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"
+              size={18}
+            />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="ابحث باسم المنتج أو القسم..."
+              className="w-full rounded-2xl border border-gray-200 bg-gray-50 py-3 pr-11 pl-4 text-sm outline-none transition focus:border-blue-300 focus:bg-white"
+            />
+          </div>
+        </div>
+
+        <div className="overflow-hidden rounded-3xl border border-gray-100">
+          <div className="max-h-[70vh] overflow-auto">
+            <table className="w-full text-right text-sm">
+              <thead className="sticky top-0 z-10 bg-gray-50">
+                <tr className="border-b border-gray-100">
+                  <th className="p-4 font-black text-gray-600">المنتج</th>
+                  <th className="p-4 font-black text-gray-600">القسم</th>
+                  <th className="p-4 text-center font-black text-gray-600">
+                    <div className="flex items-center justify-center gap-2">
+                      <LayoutPanelTop size={16} />
+                      <span>Shop Left</span>
+                    </div>
+                  </th>
+                  <th className="p-4 text-center font-black text-gray-600">
+                    <div className="flex items-center justify-center gap-2">
+                      <LayoutPanelTop size={16} />
+                      <span>Shop Right</span>
+                    </div>
+                  </th>
+                  <th className="p-4 text-center font-black text-gray-600">
+                    <div className="flex items-center justify-center gap-2">
+                      <Grid3X3 size={16} />
+                      <span>Categories Left</span>
+                    </div>
+                  </th>
+                  <th className="p-4 text-center font-black text-gray-600">
+                    <div className="flex items-center justify-center gap-2">
+                      <Grid3X3 size={16} />
+                      <span>Categories Right</span>
+                    </div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {filteredProducts.map((product) => (
+                  <tr key={product.id} className="hover:bg-blue-50/30">
+                    <td className="p-4">
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={getSafeImage(product.images?.[0])}
+                          alt={product.name.ar}
+                          className="h-14 w-14 rounded-2xl border border-gray-100 bg-gray-100 object-cover"
+                        />
+                        <div>
+                          <p className="font-black text-gray-900">
+                            {product.name.ar}
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            {product.name.en || "No EN name"}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-4 font-semibold text-gray-600">
+                      {product.category}
+                    </td>
+
+                    {MANAGED_PROMO_POSITIONS.map((position) => (
+                      <td key={`${product.id}-${position}`} className="p-4 text-center">
+                        <input
+                          type="checkbox"
+                          checked={promos[position].selectedProductIds.includes(product.id)}
+                          onChange={() => toggleProductSelection(position, product.id)}
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {filteredProducts.length === 0 && (
+              <div className="p-10 text-center text-sm font-bold text-gray-400">
+                لا توجد منتجات مطابقة للبحث الحالي.
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
     </main>
   );
 }

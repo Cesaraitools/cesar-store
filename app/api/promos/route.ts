@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { normalizeImagePath, normalizeImagesArray } from "@/lib/image-normalizer";
+import type { Product } from "@/types/product";
 import {
   createEmptyPromo,
   PROMO_POSITIONS,
@@ -45,7 +46,59 @@ function normalizeCta(value: unknown) {
   };
 }
 
-function toPromoResponse(row: any): PromoData | null {
+function normalizeSelectedProductIds(row: any): string[] {
+  if (Array.isArray(row?.product_ids_json)) {
+    return row.product_ids_json
+      .filter((value: unknown) => typeof value === "string")
+      .map((value: string) => value.trim())
+      .filter(Boolean);
+  }
+
+  if (typeof row?.product_id === "string" && row.product_id.trim()) {
+    return [row.product_id.trim()];
+  }
+
+  if (typeof row?.productId === "string" && row.productId.trim()) {
+    return [row.productId.trim()];
+  }
+
+  return [];
+}
+
+function toProductResponse(product: any): Product {
+  const images = normalizeImagesArray(
+    Array.isArray(product?.images_json) && product.images_json.length
+      ? product.images_json
+      : product?.image_url
+      ? [product.image_url]
+      : []
+  );
+
+  return {
+    id: String(product.id),
+    name: {
+      ar: product?.name_ar || "",
+      en: product?.name_en || product?.name_ar || "",
+    },
+    description: {
+      ar: product?.description_ar || "",
+      en: product?.description_en || product?.description_ar || "",
+    },
+    price: Number(product?.price ?? 0),
+    category: String(product?.category || ""),
+    images,
+    stock: Number(product?.stock ?? 0),
+    active: Boolean(product?.is_active ?? true),
+    low_stock_threshold:
+      typeof product?.low_stock_threshold === "number"
+        ? product.low_stock_threshold
+        : 10,
+    createdAt: product?.created_at || new Date().toISOString(),
+    updatedAt: product?.updated_at || new Date().toISOString(),
+  };
+}
+
+function mapPromoRow(row: any): PromoData | null {
   if (!isPromoPosition(row?.position)) {
     return null;
   }
@@ -68,6 +121,8 @@ function toPromoResponse(row: any): PromoData | null {
         : typeof row?.productId === "string"
         ? row.productId
         : "",
+    selectedProductIds: normalizeSelectedProductIds(row),
+    products: [],
     image: images[0] || "",
     images,
     title: normalizeLocalizedText(row?.title),
@@ -87,12 +142,18 @@ function toPromoRow(promo: Partial<PromoData> & { id: string; position: PromoPos
       ? [normalizedSingleImage]
       : []
   );
+  const selectedProductIds = Array.isArray(promo.selectedProductIds)
+    ? promo.selectedProductIds.filter(
+        (value): value is string => typeof value === "string" && value.trim().length > 0
+      )
+    : [];
 
   return {
     id: promo.id,
     position: promo.position,
     is_active: promo.isActive ?? false,
-    product_id: promo.productId || null,
+    product_id: selectedProductIds[0] || promo.productId || null,
+    product_ids_json: selectedProductIds,
     image_url: images[0] || null,
     images_json: images,
     title: normalizeLocalizedText(promo.title),
@@ -102,17 +163,50 @@ function toPromoRow(promo: Partial<PromoData> & { id: string; position: PromoPos
   };
 }
 
+async function hydratePromosWithProducts(promos: PromoData[]) {
+  const selectedIds = Array.from(
+    new Set(promos.flatMap((promo) => promo.selectedProductIds))
+  );
+
+  if (!selectedIds.length) {
+    return promos;
+  }
+
+  const { data: productRows, error: productsError } = await supabase
+    .from("products")
+    .select("*")
+    .in("id", selectedIds);
+
+  if (productsError) {
+    throw productsError;
+  }
+
+  const productMap = new Map<string, Product>();
+
+  for (const row of productRows || []) {
+    const product = toProductResponse(row);
+    productMap.set(product.id, product);
+  }
+
+  return promos.map((promo) => ({
+    ...promo,
+    products: promo.selectedProductIds
+      .map((productId) => productMap.get(productId))
+      .filter((product): product is Product => Boolean(product)),
+  }));
+}
+
 export async function GET() {
   try {
     const { data, error } = await supabase.from("promos").select("*");
 
     if (error) throw error;
 
-    return Response.json(
-      (data || [])
-        .map(toPromoResponse)
-        .filter((promo): promo is PromoData => Boolean(promo))
-    );
+    const promos = (data || [])
+      .map(mapPromoRow)
+      .filter((promo): promo is PromoData => Boolean(promo));
+
+    return Response.json(await hydratePromosWithProducts(promos));
   } catch (err) {
     console.error("GET PROMOS ERROR:", err);
 
@@ -154,7 +248,12 @@ export async function POST(request: Request) {
 
     if (error) throw error;
 
-    return Response.json(toPromoResponse(data), { status: 201 });
+    const mappedPromo = mapPromoRow(data);
+
+    return Response.json(
+      mappedPromo ? (await hydratePromosWithProducts([mappedPromo]))[0] : null,
+      { status: 201 }
+    );
   } catch (err) {
     console.error("CREATE PROMO ERROR:", err);
 
@@ -191,13 +290,18 @@ export async function PUT(request: Request) {
       .eq("id", body.id)
       .maybeSingle();
 
-    const existingPromo = existingRow ? toPromoResponse(existingRow) : null;
+    const existingPromo = existingRow ? mapPromoRow(existingRow) : null;
     const mergedPromo: PromoData = {
       ...createEmptyPromo(position),
       ...existingPromo,
       ...body,
       id: body.id,
       position,
+      selectedProductIds:
+        Array.isArray(body.selectedProductIds)
+          ? body.selectedProductIds
+          : existingPromo?.selectedProductIds || [],
+      products: existingPromo?.products || [],
       title: {
         ...(existingPromo?.title || createEmptyPromo(position).title),
         ...(body.title || {}),
@@ -240,7 +344,11 @@ export async function PUT(request: Request) {
 
     if (error) throw error;
 
-    return Response.json(toPromoResponse(data));
+    const mappedPromo = mapPromoRow(data);
+
+    return Response.json(
+      mappedPromo ? (await hydratePromosWithProducts([mappedPromo]))[0] : null
+    );
   } catch (err) {
     console.error("UPDATE PROMO ERROR:", err);
 
