@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Product } from "@/types/product";
 import { useLanguage } from "@/context/LanguageContext";
+import { getSafeImage } from "@/lib/image-safe";
 
 /* ---------------- Types ---------------- */
 
@@ -44,20 +45,16 @@ export default function ProductPage({ params }: Props) {
     setLoading(true);
 
     Promise.all([
-      fetch("/api/products").then((r) => r.json()),
-      fetch("/api/categories").then((r) => r.json()),
-    ])
-      .then(([productsData, categoriesData]) => {
-        const foundProduct = productsData.find(
-          (p: Product) => p.id === params.id
-        );
-
-        if (!foundProduct) {
-          setProduct(null);
-          setMainImage(null);
-          return;
+      fetch(`/api/products/${params.id}`).then(async (response) => {
+        if (!response.ok) {
+          throw new Error("Product not found");
         }
 
+        return response.json();
+      }),
+      fetch("/api/categories").then((r) => r.json()),
+    ])
+      .then(([foundProduct, categoriesData]) => {
         setProduct(foundProduct);
         setMainImage(foundProduct.images?.[0] || null);
         setCategories(categoriesData);
@@ -102,6 +99,9 @@ export default function ProductPage({ params }: Props) {
     lang === "ar"
       ? product.description.ar
       : product.description.en;
+  const productImages = product.images.length
+    ? product.images.map((image) => getSafeImage(image))
+    : [getSafeImage()];
 
   /* ---------------- Render ---------------- */
 
@@ -138,29 +138,27 @@ export default function ProductPage({ params }: Props) {
         {/* Images */}
         <div>
           <div className="border rounded-xl p-4 flex items-center justify-center bg-gray-50 mb-4">
-            {mainImage && (
-              <img
-                src={mainImage}
-                alt={name}
-                className="max-h-[350px] object-contain"
-              />
-            )}
+            <img
+              src={getSafeImage(mainImage || productImages[0])}
+              alt={name}
+              className="max-h-[350px] object-contain"
+            />
           </div>
 
-          <div className="flex gap-3">
-            {product.images.map((img, index) => (
+          <div className="flex flex-wrap gap-3">
+            {productImages.map((img, index) => (
               <button
                 key={index}
                 onClick={() => setMainImage(img)}
                 className={`border rounded-lg p-2 ${
-                  mainImage === img
+                  getSafeImage(mainImage || productImages[0]) === img
                     ? "border-black"
                     : "border-gray-200"
                 }`}
               >
                 <img
                   src={img}
-                  alt=""
+                  alt={`${name}-${index + 1}`}
                   className="h-16 w-16 object-contain"
                 />
               </button>

@@ -31,7 +31,6 @@ export default function AddProductPage() {
   });
 
   const [previews, setPreviews] = useState<string[]>([]);
-  const imagesRef = useRef<string[]>([]);
 
   useEffect(() => {
     fetch("/api/categories")
@@ -86,20 +85,61 @@ export default function AddProductPage() {
         uploadedUrls.push(data.url);
       }
 
-      setForm((prev) => {
-  const updated = [...prev.images, ...uploadedUrls];
-
-  imagesRef.current = updated; // 🔥 أهم سطر (الحل الحقيقي)
-
-  return { ...prev, images: updated };
-});
+      setForm((prev) => ({
+        ...prev,
+        images: [...prev.images, ...uploadedUrls],
+      }));
       setPreviews((prev) => [...prev, ...uploadedUrls]);
 
     } catch (err: any) {
       setUploadError(err.message);
     } finally {
       setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
+  };
+
+  const removeImage = (index: number) => {
+    setForm((prev) => ({
+      ...prev,
+      images: prev.images.filter((_, imageIndex) => imageIndex !== index),
+    }));
+
+    setPreviews((prev) => prev.filter((_, imageIndex) => imageIndex !== index));
+  };
+
+  const makePrimaryImage = (index: number) => {
+    if (index <= 0) return;
+
+    setForm((prev) => {
+      const nextImages = [...prev.images];
+      const [selectedImage] = nextImages.splice(index, 1);
+
+      if (!selectedImage) {
+        return prev;
+      }
+
+      nextImages.unshift(selectedImage);
+
+      return {
+        ...prev,
+        images: nextImages,
+      };
+    });
+
+    setPreviews((prev) => {
+      const nextPreviews = [...prev];
+      const [selectedPreview] = nextPreviews.splice(index, 1);
+
+      if (!selectedPreview) {
+        return prev;
+      }
+
+      nextPreviews.unshift(selectedPreview);
+      return nextPreviews;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -321,7 +361,26 @@ export default function AddProductPage() {
           />
           <div className="flex flex-wrap gap-3 mb-3">
             {previews.map((src, i) => (
-              <img key={i} src={src} alt="" className="w-20 h-20 object-cover rounded border" />
+              <div key={`${src}-${i}`} className="relative">
+                <button
+                  type="button"
+                  onClick={() => makePrimaryImage(i)}
+                  className={`overflow-hidden rounded border-2 ${
+                    i === 0 ? "border-black" : "border-gray-200"
+                  }`}
+                  title={i === 0 ? "Main image" : "Set as main image"}
+                >
+                  <img src={src} alt="" className="w-20 h-20 object-cover" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeImage(i)}
+                  className="absolute -top-2 -left-2 h-6 w-6 rounded-full bg-black text-xs text-white"
+                  aria-label="Remove image"
+                >
+                  x
+                </button>
+              </div>
             ))}
             <button
               type="button"
@@ -331,6 +390,11 @@ export default function AddProductPage() {
               {uploading ? "..." : "+"}
             </button>
           </div>
+          {previews.length > 0 && (
+            <p className="mb-2 text-xs text-gray-500">
+              أول صورة ستظهر كصورة رئيسية في المتجر. اضغط على أي صورة لجعلها الأولى.
+            </p>
+          )}
           {uploadError && <p className="text-red-500 text-xs font-bold">{uploadError}</p>}
         </div>
 

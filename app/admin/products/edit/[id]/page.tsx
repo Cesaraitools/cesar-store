@@ -39,10 +39,6 @@ export default function EditProductPage({ params }: Props) {
     images: [] as string[], // URLs ONLY
     active: true,
   });
-
-  // Preview blobs (UI only)
-  const [previews, setPreviews] = useState<string[]>([]);
-
   /* ---------------- Load Product + Categories ---------------- */
 
   useEffect(() => {
@@ -133,10 +129,6 @@ export default function EditProductPage({ params }: Props) {
     setUploading(true);
     setUploadError(null);
 
-    // UI previews only (blob)
-    const newPreviews = files.map((f) => URL.createObjectURL(f));
-    setPreviews((prev) => [...prev, ...newPreviews]);
-
     try {
       const uploadedUrls: string[] = [];
 
@@ -177,6 +169,26 @@ export default function EditProductPage({ params }: Props) {
       ...prev,
       images: prev.images.filter((_, i) => i !== index),
     }));
+  }
+
+  function makePrimaryImage(index: number) {
+    if (index <= 0) return;
+
+    setForm((prev) => {
+      const nextImages = [...prev.images];
+      const [selectedImage] = nextImages.splice(index, 1);
+
+      if (!selectedImage) {
+        return prev;
+      }
+
+      nextImages.unshift(selectedImage);
+
+      return {
+        ...prev,
+        images: nextImages,
+      };
+    });
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -422,13 +434,17 @@ export default function EditProductPage({ params }: Props) {
               {form.images.map((img, idx) => (
                 <div
                   key={`${img}-${idx}`}
-                  className="relative border rounded-md overflow-hidden"
+                  className={`relative overflow-hidden rounded-md border-2 ${
+                    idx === 0 ? "border-black" : "border-gray-200"
+                  }`}
                 >
-                  <img
-                    src={img}
-                    alt={`img-${idx}`}
-                    className="h-24 w-full object-contain bg-gray-100"
-                  />
+                  <button type="button" onClick={() => makePrimaryImage(idx)} className="block w-full">
+                    <img
+                      src={img}
+                      alt={`img-${idx}`}
+                      className="h-24 w-full object-contain bg-gray-100"
+                    />
+                  </button>
                   <button
                     type="button"
                     onClick={() => removeImage(idx)}
@@ -439,6 +455,11 @@ export default function EditProductPage({ params }: Props) {
                 </div>
               ))}
             </div>
+            {form.images.length > 0 && (
+              <p className="mt-2 text-xs text-gray-500">
+                أول صورة هي التي ستظهر كصورة رئيسية في المتجر. اضغط على أي صورة لإرسالها إلى البداية.
+              </p>
+            )}
           </div>
 
           <div>

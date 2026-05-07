@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { normalizeImagesArray } from "@/lib/image-normalizer";
 import type { Product } from "@/types/product";
 
 const supabase = createClient(
@@ -26,23 +27,33 @@ export async function GET(
     }
 
     return Response.json({
-  id: product.id,
-  name: {
-    ar: product.name_ar || "",
-    en: product.name_en || product.name_ar || "",
-  },
-  description: {
-    ar: product.description_ar || "",
-    en: product.description_en || product.description_ar || "",
-  },
-  price: product.price ?? 0,
-  category: product.category,
-  images: product.images_json || (product.image_url ? [product.image_url] : []),
-  stock: product.stock ?? 0,
-  active: product.is_active ?? true,
-  createdAt: product.created_at,
-  updatedAt: product.updated_at,
-});
+      id: product.id,
+      name: {
+        ar: product.name_ar || "",
+        en: product.name_en || product.name_ar || "",
+      },
+      description: {
+        ar: product.description_ar || "",
+        en: product.description_en || product.description_ar || "",
+      },
+      price: product.price ?? 0,
+      category: product.category,
+      images: normalizeImagesArray(
+        Array.isArray(product.images_json) && product.images_json.length
+          ? product.images_json
+          : product.image_url
+          ? [product.image_url]
+          : []
+      ),
+      stock: product.stock ?? 0,
+      active: product.is_active ?? true,
+      low_stock_threshold:
+        typeof product.low_stock_threshold === "number"
+          ? product.low_stock_threshold
+          : 10,
+      createdAt: product.created_at,
+      updatedAt: product.updated_at,
+    });
   } catch (error) {
     return Response.json(
       { error: "Failed to fetch product" },
