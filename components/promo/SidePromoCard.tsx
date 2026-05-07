@@ -4,6 +4,7 @@ type Language = "ar" | "en";
 
 interface PromoData {
   image?: string;
+  images?: string[];
   title: {
     ar: string;
     en: string;
@@ -22,12 +23,14 @@ interface Props {
 export default function SidePromoCard({ promo, lang }: Props) {
   if (!promo) return null;
 
+  const heroImage = promo.image || promo.images?.[0];
+
   return (
     <div
       className="relative rounded-2xl text-white p-6 flex flex-col justify-center min-h-[420px] shadow-lg overflow-hidden"
       style={{
-        backgroundImage: promo.image
-          ? `url(${promo.image})`
+        backgroundImage: heroImage
+          ? `url(${heroImage})`
           : undefined,
         backgroundSize: "cover",
         backgroundPosition: "center",

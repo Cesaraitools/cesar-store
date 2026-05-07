@@ -1,208 +1,505 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
+import {
+  createEmptyPromo,
+  type PromoData,
+  type PromoPosition,
+} from "@/types/promo";
 
-type PromoData = {
-  id: string;
-  position: "categories_side";
-  isActive: boolean;
+const POSITIONS: Array<{
+  position: PromoPosition;
+  title: string;
+  subtitle: string;
+}> = [
+  {
+    position: "categories_side",
+    title: "Categories Side Banner",
+    subtitle: "Existing banner used on categories page.",
+  },
+  {
+    position: "shop_left",
+    title: "Shop Left Ad Block",
+    subtitle: "Left-side animated promo block beside the products grid.",
+  },
+  {
+    position: "shop_right",
+    title: "Shop Right Ad Block",
+    subtitle: "Right-side animated promo block beside the products grid.",
+  },
+];
 
-  image: string;
+function createInitialPromos() {
+  return {
+    categories_side: createEmptyPromo("categories_side"),
+    shop_left: createEmptyPromo("shop_left"),
+    shop_right: createEmptyPromo("shop_right"),
+  } as Record<PromoPosition, PromoData>;
+}
 
-  title: { ar: string; en: string };
-  description: { ar: string; en: string };
-  cta: { ar: string; en: string; link: string };
-};
+function createBooleanState() {
+  return {
+    categories_side: false,
+    shop_left: false,
+    shop_right: false,
+  } as Record<PromoPosition, boolean>;
+}
 
-export default function CategoriesSidePromoAdmin() {
-  const [promo, setPromo] = useState<PromoData | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+function createErrorState() {
+  return {
+    categories_side: "",
+    shop_left: "",
+    shop_right: "",
+  } as Record<PromoPosition, string>;
+}
 
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  // UI-only preview
-  const [preview, setPreview] = useState<string | null>(null);
+export default function PromosAdminPage() {
+  const [promos, setPromos] = useState<Record<PromoPosition, PromoData>>(
+    createInitialPromos()
+  );
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<Record<PromoPosition, boolean>>(
+    createBooleanState()
+  );
+  const [uploading, setUploading] = useState<Record<PromoPosition, boolean>>(
+    createBooleanState()
+  );
+  const [errors, setErrors] = useState<Record<PromoPosition, string>>(
+    createErrorState()
+  );
 
   useEffect(() => {
     fetch("/api/promos")
-      .then((r) => r.json())
+      .then((response) => response.json())
       .then((data: PromoData[]) => {
-        const found = data.find(
-          (p) => p.position === "categories_side"
-        );
-        setPromo(found || null);
-      });
+        const nextPromos = createInitialPromos();
+
+        if (Array.isArray(data)) {
+          for (const promo of data) {
+            if (promo.position in nextPromos) {
+              nextPromos[promo.position] = {
+                ...nextPromos[promo.position],
+                ...promo,
+                images: Array.isArray(promo.images) ? promo.images : [],
+                image: promo.image || promo.images?.[0] || "",
+              };
+            }
+          }
+        }
+
+        setPromos(nextPromos);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
-  function updateField(
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) {
-    if (!promo) return;
-    const { name, value, checked, type } = e.target as HTMLInputElement;
+  function setPromo(position: PromoPosition, nextPromo: PromoData) {
+    setPromos((prev) => ({
+      ...prev,
+      [position]: nextPromo,
+    }));
+  }
 
-    setPromo({
+  function updatePromoField(
+    position: PromoPosition,
+    field:
+      | "isActive"
+      | "title.ar"
+      | "title.en"
+      | "description.ar"
+      | "description.en"
+      | "cta.ar"
+      | "cta.en"
+      | "cta.link",
+    value: string | boolean
+  ) {
+    const promo = promos[position];
+
+    if (field === "isActive") {
+      setPromo(position, {
+        ...promo,
+        isActive: Boolean(value),
+      });
+      return;
+    }
+
+    const [group, key] = field.split(".") as [
+      "title" | "description" | "cta",
+      "ar" | "en" | "link",
+    ];
+
+    setPromo(position, {
       ...promo,
-      ...(name === "isActive" ? { isActive: checked } : {}),
-      title: {
-        ...promo.title,
-        ...(name === "title_ar" ? { ar: value } : {}),
-        ...(name === "title_en" ? { en: value } : {}),
-      },
-      description: {
-        ...promo.description,
-        ...(name === "desc_ar" ? { ar: value } : {}),
-        ...(name === "desc_en" ? { en: value } : {}),
-      },
-      cta: {
-        ...promo.cta,
-        ...(name === "cta_ar" ? { ar: value } : {}),
-        ...(name === "cta_en" ? { en: value } : {}),
-        ...(name === "cta_link" ? { link: value } : {}),
+      [group]: {
+        ...promo[group],
+        [key]: value,
       },
     });
   }
 
-  async function handleBrowseImage(
+  async function handleBrowseImages(
+    position: PromoPosition,
     e: React.ChangeEvent<HTMLInputElement>
   ) {
-    if (!promo) return;
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
 
-    setUploading(true);
-    setError(null);
+    if (!files.length) return;
 
-    // UI preview only
-    const previewUrl = URL.createObjectURL(file);
-    setPreview(previewUrl);
+    setUploading((prev) => ({ ...prev, [position]: true }));
+    setErrors((prev) => ({ ...prev, [position]: "" }));
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("type", "promo");
+      const uploadedUrls: string[] = [];
 
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("type", "promo");
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Upload failed");
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        const payload = await response.json();
+
+        if (!response.ok) {
+          throw new Error(payload.error || "Upload failed");
+        }
+
+        uploadedUrls.push(payload.url);
       }
 
-      const data = await res.json();
+      const promo = promos[position];
+      const nextImages = [...promo.images, ...uploadedUrls];
 
-      setPromo({
+      setPromo(position, {
         ...promo,
-        image: data.url, // REAL URL ONLY
+        images: nextImages,
+        image: nextImages[0] || "",
       });
-    } catch (err: any) {
-      setError(err.message);
+    } catch (error) {
+      setErrors((prev) => ({
+        ...prev,
+        [position]:
+          error instanceof Error ? error.message : "Upload failed",
+      }));
     } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      setUploading((prev) => ({ ...prev, [position]: false }));
+      e.target.value = "";
     }
   }
 
-  async function save() {
-    if (!promo) return;
+  function removeImage(position: PromoPosition, index: number) {
+    const promo = promos[position];
+    const nextImages = promo.images.filter((_, imageIndex) => imageIndex !== index);
 
-    // Hard guard
-    if (promo.image.startsWith("blob:")) {
+    setPromo(position, {
+      ...promo,
+      images: nextImages,
+      image: nextImages[0] || "",
+    });
+  }
+
+  function makePrimaryImage(position: PromoPosition, index: number) {
+    if (index <= 0) return;
+
+    const promo = promos[position];
+    const nextImages = [...promo.images];
+    const [selectedImage] = nextImages.splice(index, 1);
+
+    if (!selectedImage) return;
+
+    nextImages.unshift(selectedImage);
+
+    setPromo(position, {
+      ...promo,
+      images: nextImages,
+      image: nextImages[0] || "",
+    });
+  }
+
+  async function savePromo(position: PromoPosition) {
+    const promo = promos[position];
+
+    if (promo.images.some((image) => image.startsWith("blob:"))) {
       alert("Invalid image detected. Please re-upload image.");
       return;
     }
 
-    setSaving(true);
+    setSaving((prev) => ({ ...prev, [position]: true }));
+    setErrors((prev) => ({ ...prev, [position]: "" }));
 
-    await fetch("/api/promos", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(promo),
-    });
+    try {
+      const response = await fetch("/api/promos", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...promo,
+          image: promo.images[0] || "",
+        }),
+      });
 
-    setSaving(false);
-    alert("Saved");
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to save promo");
+      }
+
+      setPromo(position, {
+        ...promo,
+        ...payload,
+      });
+
+      alert("Saved");
+    } catch (error) {
+      setErrors((prev) => ({
+        ...prev,
+        [position]:
+          error instanceof Error ? error.message : "Failed to save promo",
+      }));
+    } finally {
+      setSaving((prev) => ({ ...prev, [position]: false }));
+    }
   }
 
-  if (!promo) return <p>Loading...</p>;
+  if (loading) {
+    return <p className="p-10">Loading promos...</p>;
+  }
 
   return (
-    <main className="p-10 max-w-4xl space-y-6">
-      <h1 className="text-2xl font-bold">Categories Side Banner</h1>
-
-      {/* Image */}
+    <main className="p-6 md:p-10 max-w-7xl mx-auto space-y-6">
       <div>
-        <label className="block text-sm font-medium mb-1">
-          Image
-        </label>
-
-        <div className="flex gap-3">
-          <input
-            value={promo.image}
-            readOnly
-            className="w-full border p-2 rounded bg-gray-50 text-sm"
-          />
-
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="rounded border px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
-          >
-            {uploading ? "Uploading..." : "Browse"}
-          </button>
-        </div>
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          hidden
-          onChange={handleBrowseImage}
-        />
-
-        {(preview || promo.image) && (
-          <img
-            src={preview || promo.image}
-            alt="Preview"
-            className="mt-3 h-32 rounded object-cover"
-          />
-        )}
-
-        {error && (
-          <p className="text-sm text-red-600 mt-2">{error}</p>
-        )}
+        <h1 className="text-2xl font-bold">Promotional Blocks</h1>
+        <p className="mt-2 text-sm text-gray-500">
+          Manage the existing categories banner and the two new shop-side
+          advertising blocks from one place.
+        </p>
       </div>
 
-      {/* Titles */}
-      <input
-        name="title_en"
-        value={promo.title.en}
-        onChange={updateField}
-        placeholder="Title (EN)"
-        className="w-full border p-2 rounded"
-      />
+      <div className="grid gap-6">
+        {POSITIONS.map(({ position, title, subtitle }) => {
+          const promo = promos[position];
 
-      <input
-        name="title_ar"
-        value={promo.title.ar}
-        onChange={updateField}
-        placeholder="Title (AR)"
-        className="w-full border p-2 rounded"
-      />
+          return (
+            <section
+              key={position}
+              className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm"
+            >
+              <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h2 className="text-xl font-bold">{title}</h2>
+                  <p className="text-sm text-gray-500">{subtitle}</p>
+                </div>
 
-      {/* Actions */}
-      <button
-        onClick={save}
-        disabled={saving || uploading}
-        className="bg-sky-500 text-white px-6 py-2 rounded disabled:opacity-50"
-      >
-        {saving ? "Saving..." : "Save Changes"}
-      </button>
+                <label className="inline-flex items-center gap-2 text-sm font-semibold text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={promo.isActive}
+                    onChange={(e) =>
+                      updatePromoField(position, "isActive", e.target.checked)
+                    }
+                  />
+                  Active
+                </label>
+              </div>
+
+              <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+                <div className="space-y-4">
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">
+                      Promo Images
+                    </label>
+
+                    <input
+                      id={`promo-upload-${position}`}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      hidden
+                      onChange={(e) => handleBrowseImages(position, e)}
+                    />
+
+                    <div className="flex flex-wrap gap-3">
+                      {promo.images.map((image, index) => (
+                        <div key={`${image}-${index}`} className="relative">
+                          <button
+                            type="button"
+                            onClick={() => makePrimaryImage(position, index)}
+                            className={`overflow-hidden rounded-2xl border-2 ${
+                              index === 0 ? "border-black" : "border-gray-200"
+                            }`}
+                            title={index === 0 ? "Opening slide" : "Move to first slide"}
+                          >
+                            <img
+                              src={image}
+                              alt=""
+                              className="h-28 w-24 object-cover"
+                            />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeImage(position, index)}
+                            className="absolute -left-2 -top-2 h-6 w-6 rounded-full bg-black text-xs text-white"
+                            aria-label="Remove image"
+                          >
+                            x
+                          </button>
+                        </div>
+                      ))}
+
+                      <label
+                        htmlFor={`promo-upload-${position}`}
+                        className="flex h-28 w-24 cursor-pointer items-center justify-center rounded-2xl border-2 border-dashed border-gray-300 text-sm font-bold text-gray-500 hover:bg-gray-50"
+                      >
+                        {uploading[position] ? "..." : "+"}
+                      </label>
+                    </div>
+
+                    <p className="mt-2 text-xs text-gray-500">
+                      The first image is used as the opening slide and preview
+                      cover. You can upload multiple images for the rotating
+                      ad block.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <input
+                      value={promo.title.en}
+                      onChange={(e) =>
+                        updatePromoField(position, "title.en", e.target.value)
+                      }
+                      placeholder="Title (EN)"
+                      className="w-full rounded-xl border p-3"
+                    />
+                    <input
+                      value={promo.title.ar}
+                      onChange={(e) =>
+                        updatePromoField(position, "title.ar", e.target.value)
+                      }
+                      placeholder="Title (AR)"
+                      className="w-full rounded-xl border p-3"
+                    />
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <textarea
+                      value={promo.description.en}
+                      onChange={(e) =>
+                        updatePromoField(
+                          position,
+                          "description.en",
+                          e.target.value
+                        )
+                      }
+                      placeholder="Description (EN)"
+                      rows={4}
+                      className="w-full rounded-xl border p-3"
+                    />
+                    <textarea
+                      value={promo.description.ar}
+                      onChange={(e) =>
+                        updatePromoField(
+                          position,
+                          "description.ar",
+                          e.target.value
+                        )
+                      }
+                      placeholder="Description (AR)"
+                      rows={4}
+                      className="w-full rounded-xl border p-3"
+                    />
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <input
+                      value={promo.cta.en}
+                      onChange={(e) =>
+                        updatePromoField(position, "cta.en", e.target.value)
+                      }
+                      placeholder="CTA (EN)"
+                      className="w-full rounded-xl border p-3"
+                    />
+                    <input
+                      value={promo.cta.ar}
+                      onChange={(e) =>
+                        updatePromoField(position, "cta.ar", e.target.value)
+                      }
+                      placeholder="CTA (AR)"
+                      className="w-full rounded-xl border p-3"
+                    />
+                  </div>
+
+                  <input
+                    value={promo.cta.link}
+                    onChange={(e) =>
+                      updatePromoField(position, "cta.link", e.target.value)
+                    }
+                    placeholder="CTA Link"
+                    className="w-full rounded-xl border p-3"
+                  />
+
+                  {errors[position] && (
+                    <p className="text-sm text-red-600">{errors[position]}</p>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => savePromo(position)}
+                    disabled={saving[position] || uploading[position]}
+                    className="rounded-xl bg-sky-500 px-6 py-3 text-sm font-bold text-white disabled:opacity-50"
+                  >
+                    {saving[position] ? "Saving..." : "Save Changes"}
+                  </button>
+                </div>
+
+                <div className="rounded-[2rem] border border-gray-100 bg-gray-50 p-4">
+                  <p className="mb-3 text-sm font-semibold text-gray-600">
+                    Quick Preview
+                  </p>
+                  <div
+                    className="relative min-h-[420px] overflow-hidden rounded-[1.75rem] bg-slate-900"
+                    style={{
+                      backgroundImage: promo.images[0]
+                        ? `url(${promo.images[0]})`
+                        : undefined,
+                      backgroundSize: "cover",
+                      backgroundPosition: "center",
+                    }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/35 to-black/70" />
+                    <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-white/20 to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 z-10 p-6 text-white">
+                      <div className="mb-4 flex gap-2">
+                        {promo.images.slice(0, 5).map((_, index) => (
+                          <span
+                            key={index}
+                            className={`h-1.5 rounded-full ${
+                              index === 0 ? "w-8 bg-white" : "w-3 bg-white/45"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <h3 className="text-2xl font-black">
+                        {promo.title.en || promo.title.ar || "Promo headline"}
+                      </h3>
+                      <p className="mt-3 max-w-xs text-sm leading-6 text-white/85">
+                        {promo.description.en ||
+                          promo.description.ar ||
+                          "Upload multiple slides and write a short ad copy for this block."}
+                      </p>
+                      {(promo.cta.en || promo.cta.ar) && (
+                        <span className="mt-5 inline-flex rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold backdrop-blur-sm">
+                          {promo.cta.en || promo.cta.ar}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          );
+        })}
+      </div>
     </main>
   );
 }

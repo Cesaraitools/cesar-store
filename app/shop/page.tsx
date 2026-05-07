@@ -3,9 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import ProductGrid from "@/components/product/ProductGrid";
+import ShopSidePromoSlider from "@/components/promo/ShopSidePromoSlider";
 import { sortProducts, SortOption } from "@/lib/filters";
 import { useLanguage } from "@/context/LanguageContext";
 import type { Product } from "@/types/product";
+import type { PromoData } from "@/types/promo";
 import {
   ChevronRight,
   ArrowRight,
@@ -41,15 +43,18 @@ export default function ShopPage({ searchParams }: Props) {
   );
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [promos, setPromos] = useState<PromoData[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
+
     Promise.all([
       fetch("/api/products").then((r) => r.json()),
       fetch("/api/categories").then((r) => r.json()),
+      fetch("/api/promos").then((r) => r.json()),
     ])
-      .then(([productsData, categoriesData]) => {
+      .then(([productsData, categoriesData, promosData]) => {
         const safeProducts = Array.isArray(productsData)
           ? productsData.filter(
               (p: Product) => p.active !== false && p.stock > 0
@@ -58,6 +63,7 @@ export default function ShopPage({ searchParams }: Props) {
 
         setProducts(safeProducts);
         setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+        setPromos(Array.isArray(promosData) ? promosData : []);
       })
       .catch((error) => {
         console.error("Shop Error:", error);
@@ -102,6 +108,13 @@ export default function ShopPage({ searchParams }: Props) {
     ? "كل المنتجات"
     : "All Products";
 
+  const leftPromo = promos.find(
+    (promo) => promo.position === "shop_left" && promo.isActive
+  );
+  const rightPromo = promos.find(
+    (promo) => promo.position === "shop_right" && promo.isActive
+  );
+  const hasShopSidePromos = Boolean(leftPromo || rightPromo);
   const hasActiveFilters =
     selectedCategory !== "all" || searchQuery.trim().length > 0;
 
@@ -225,37 +238,63 @@ export default function ShopPage({ searchParams }: Props) {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 mt-12">
-        {finalProducts.length === 0 ? (
-          <div className="bg-white rounded-[3rem] border border-dashed border-gray-200 py-24 flex flex-col items-center justify-center text-center">
-            <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6">
-              <PackageSearch size={40} className="text-gray-300" />
-            </div>
-            <h3 className="text-xl font-black text-gray-900 mb-2">
-              {isAr ? "لم نجد أي منتجات هنا" : "No products found"}
-            </h3>
-            <p className="text-gray-400 max-w-xs mx-auto text-sm font-bold">
-              {isAr
-                ? "جرّب اسم منتج آخر أو اختر قسمًا مختلفًا."
-                : "Try another product name or a different category."}
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                setSearchQuery("");
-                setSelectedCategory("all");
-                setSort("default");
-              }}
-              className="mt-8 bg-gray-900 text-white px-8 py-3 rounded-2xl font-black text-sm active:scale-95 transition-all"
-            >
-              {isAr ? "عرض كل المنتجات" : "View All Products"}
-            </button>
+      <div className="mx-auto mt-12 max-w-[1500px] px-6">
+        <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)_280px] items-start">
+          <div className="order-1">
+            {leftPromo ? (
+              <ShopSidePromoSlider promo={leftPromo} lang={lang} />
+            ) : (
+              <div className="hidden xl:block" />
+            )}
           </div>
-        ) : (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <ProductGrid products={finalProducts} />
+
+          <div
+            className={`order-3 xl:order-2 ${
+              hasShopSidePromos
+                ? "[&>div>div]:xl:grid-cols-2 [&>div>div]:2xl:grid-cols-3"
+                : ""
+            }`}
+          >
+            {finalProducts.length === 0 ? (
+              <div className="bg-white rounded-[3rem] border border-dashed border-gray-200 py-24 flex flex-col items-center justify-center text-center">
+                <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6">
+                  <PackageSearch size={40} className="text-gray-300" />
+                </div>
+                <h3 className="text-xl font-black text-gray-900 mb-2">
+                  {isAr ? "لم نجد أي منتجات هنا" : "No products found"}
+                </h3>
+                <p className="text-gray-400 max-w-xs mx-auto text-sm font-bold">
+                  {isAr
+                    ? "جرّب اسم منتج آخر أو اختر قسمًا مختلفًا."
+                    : "Try another product name or a different category."}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setSelectedCategory("all");
+                    setSort("default");
+                  }}
+                  className="mt-8 bg-gray-900 text-white px-8 py-3 rounded-2xl font-black text-sm active:scale-95 transition-all"
+                >
+                  {isAr ? "عرض كل المنتجات" : "View All Products"}
+                </button>
+              </div>
+            ) : (
+              <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <ProductGrid products={finalProducts} />
+              </div>
+            )}
           </div>
-        )}
+
+          <div className="order-2 xl:order-3">
+            {rightPromo ? (
+              <ShopSidePromoSlider promo={rightPromo} lang={lang} />
+            ) : (
+              <div className="hidden xl:block" />
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
