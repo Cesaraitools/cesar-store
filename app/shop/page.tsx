@@ -239,8 +239,8 @@ export default function ShopPage({ searchParams }: Props) {
         </div>
       </div>
 
-      <div className="mx-auto mt-12 max-w-[1700px] px-6">
-        <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)_280px] items-start">
+      <div className="mx-auto mt-12 max-w-[1820px] px-6">
+        <div className="grid justify-center gap-6 xl:grid-cols-[220px_minmax(0,1fr)_220px] 2xl:grid-cols-[240px_minmax(0,1200px)_240px] items-start">
           <div className="order-1">
             {leftPromo ? (
               <ShopSidePromoSlider promo={leftPromo} lang={lang} />
@@ -251,7 +251,7 @@ export default function ShopPage({ searchParams }: Props) {
             )}
           </div>
 
-          <div className="order-3 xl:order-2">
+          <div className="order-3 xl:order-2 mx-auto w-full max-w-[1200px]">
             {finalProducts.length === 0 ? (
               <div className="bg-white rounded-[3rem] border border-dashed border-gray-200 py-24 flex flex-col items-center justify-center text-center">
                 <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6">

@@ -73,8 +73,8 @@ export default function CategoriesPage() {
         </p>
       </div>
 
-      <section className="mx-auto max-w-[1700px] px-6">
-        <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)_280px] items-start">
+      <section className="mx-auto max-w-[1740px] px-6">
+        <div className="grid justify-center gap-6 xl:grid-cols-[220px_minmax(0,1fr)_220px] 2xl:grid-cols-[240px_minmax(0,1120px)_240px] items-start">
           <div className="order-1">
             {leftPromo ? (
               <ShopSidePromoSlider promo={leftPromo} lang={lang} />
@@ -85,7 +85,7 @@ export default function CategoriesPage() {
             )}
           </div>
 
-          <div className="order-3 xl:order-2">
+          <div className="order-3 xl:order-2 mx-auto w-full max-w-[1120px]">
             <div className="grid gap-8 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
               {categories.map((cat, idx) => (
                 <div
