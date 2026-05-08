@@ -216,7 +216,6 @@ export async function GET() {
     );
   }
 }
-
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as Partial<PromoData>;
@@ -328,19 +327,36 @@ export async function PUT(request: Request) {
       updatedAt: new Date().toISOString(),
     };
 
-    const { data, error } = await supabase
-      .from("promos")
-      .upsert(
-        [
-          {
-            ...toPromoRow(mergedPromo),
-            created_at: existingPromo?.createdAt || new Date().toISOString(),
-          },
-        ],
-        { onConflict: "id" }
-      )
-      .select("*")
-      .single();
+    let data = null;
+let error = null;
+
+if (existingPromo) {
+  const response = await supabase
+    .from("promos")
+    .update({
+      ...toPromoRow(mergedPromo),
+    })
+    .eq("id", body.id)
+    .select("*")
+    .single();
+
+  data = response.data;
+  error = response.error;
+} else {
+  const response = await supabase
+    .from("promos")
+    .insert([
+      {
+        ...toPromoRow(mergedPromo),
+        created_at: new Date().toISOString(),
+      },
+    ])
+    .select("*")
+    .single();
+
+  data = response.data;
+  error = response.error;
+}
 
     if (error) throw error;
 
