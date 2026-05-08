@@ -1,28 +1,57 @@
 import crypto from "crypto";
+import fs from "fs/promises";
 import path from "path";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
 
-const ALLOWED_MIME_TYPES = new Set([
-  "image/avif",
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-]);
-
 const EXTENSION_TO_MIME: Record<string, string> = {
+  apng: "image/apng",
   avif: "image/avif",
+  bmp: "image/bmp",
+  dib: "image/bmp",
+  gif: "image/gif",
+  heic: "image/heic",
+  heif: "image/heif",
+  ico: "image/x-icon",
+  jfif: "image/jpeg",
+  jpe: "image/jpeg",
   jpeg: "image/jpeg",
   jpg: "image/jpeg",
+  jxl: "image/jxl",
   png: "image/png",
+  svg: "image/svg+xml",
+  tif: "image/tiff",
+  tiff: "image/tiff",
   webp: "image/webp",
 };
 
 const MIME_TO_EXTENSION: Record<string, string> = {
+  "image/apng": "apng",
   "image/avif": "avif",
+  "image/bmp": "bmp",
+  "image/gif": "gif",
+  "image/heic": "heic",
+  "image/heif": "heif",
   "image/jpeg": "jpg",
+  "image/jxl": "jxl",
   "image/png": "png",
+  "image/svg+xml": "svg",
+  "image/tiff": "tiff",
+  "image/vnd.microsoft.icon": "ico",
   "image/webp": "webp",
+  "image/x-icon": "ico",
 };
+
+const MIME_TYPE_ALIASES: Record<string, string> = {
+  "image/jpg": "image/jpeg",
+  "image/pjpeg": "image/jpeg",
+  "image/svg": "image/svg+xml",
+  "image/x-ms-bmp": "image/bmp",
+  "image/x-png": "image/png",
+};
+
+const SEARCHABLE_IMAGE_EXTENSIONS = Array.from(
+  new Set(Object.keys(EXTENSION_TO_MIME))
+);
 
 const MANAGED_UPLOAD_PUBLIC_SEGMENT = "/storage/v1/object/public/upload/";
 
@@ -88,26 +117,50 @@ function normalizeMimeType(input?: string | null): string | null {
   if (!input) return null;
 
   const normalized = input.toLowerCase().split(";")[0].trim();
-  const mapped = normalized === "image/jpg" ? "image/jpeg" : normalized;
+  const mapped = MIME_TYPE_ALIASES[normalized] || normalized;
 
-  return ALLOWED_MIME_TYPES.has(mapped) ? mapped : null;
+  if (MIME_TO_EXTENSION[mapped]) {
+    return mapped;
+  }
+
+  return mapped.startsWith("image/") ? mapped : null;
 }
 
 function normalizeExtension(input?: string | null): string | null {
   if (!input) return null;
 
   const normalized = input.toLowerCase().replace(/^\./, "").trim();
-  return EXTENSION_TO_MIME[normalized] ? normalized : null;
+
+  if (EXTENSION_TO_MIME[normalized]) {
+    return normalized;
+  }
+
+  return /^[a-z0-9]+$/i.test(normalized) ? normalized : null;
 }
 
 function getMimeTypeFromExtension(input?: string | null): string | null {
   const extension = normalizeExtension(input);
-  return extension ? EXTENSION_TO_MIME[extension] : null;
+
+  if (!extension) {
+    return null;
+  }
+
+  return EXTENSION_TO_MIME[extension] || `image/${extension}`;
 }
 
 function getExtensionFromMimeType(input?: string | null): string | null {
   const mimeType = normalizeMimeType(input);
-  return mimeType ? MIME_TO_EXTENSION[mimeType] : null;
+
+  if (!mimeType) {
+    return null;
+  }
+
+  if (MIME_TO_EXTENSION[mimeType]) {
+    return MIME_TO_EXTENSION[mimeType];
+  }
+
+  const subtype = mimeType.slice("image/".length).split("+")[0].trim().toLowerCase();
+  return normalizeExtension(subtype);
 }
 
 function sanitizeUploadType(input: string): string {
@@ -142,19 +195,20 @@ function toNormalizedLocalPath(input: string): string {
 function buildLocalSourceCandidates(imagePath: string) {
   const normalizedPath = toNormalizedLocalPath(imagePath);
   const parsedPath = path.posix.parse(normalizedPath);
-  const preferredExtension = normalizeExtension(parsedPath.ext);
+  const rawExtension = parsedPath.ext.replace(/^\./, "").trim().toLowerCase();
+  const preferredExtension = normalizeExtension(rawExtension);
   const extensionsToTry = preferredExtension
     ? [
         preferredExtension,
-        ...Object.keys(EXTENSION_TO_MIME).filter(
+        ...SEARCHABLE_IMAGE_EXTENSIONS.filter(
           (extension) => extension !== preferredExtension
         ),
       ]
-    : Object.keys(EXTENSION_TO_MIME);
+    : SEARCHABLE_IMAGE_EXTENSIONS;
   const seen = new Set<string>();
   const candidates: string[] = [];
 
-  if (!preferredExtension) {
+  if (!rawExtension) {
     for (const extension of extensionsToTry) {
       const candidate = `${normalizedPath}.${extension}`;
       if (seen.has(candidate)) continue;
@@ -166,9 +220,12 @@ function buildLocalSourceCandidates(imagePath: string) {
     return candidates;
   }
 
+  candidates.push(normalizedPath);
+  seen.add(normalizedPath);
+
   for (const extension of extensionsToTry) {
     const candidate =
-      extension === preferredExtension
+      rawExtension === extension
         ? normalizedPath
         : path.posix.join(parsedPath.dir, `${parsedPath.name}.${extension}`);
 
@@ -179,6 +236,88 @@ function buildLocalSourceCandidates(imagePath: string) {
   }
 
   return candidates;
+}
+
+function toPublicFilePath(localPath: string) {
+  const normalized = toNormalizedLocalPath(localPath).replace(/^\/+/, "");
+  return path.join(process.cwd(), "public", ...normalized.split("/"));
+}
+
+function isMissingFileError(error: unknown) {
+  return (
+    error &&
+    typeof error === "object" &&
+    "code" in error &&
+    (error as NodeJS.ErrnoException).code === "ENOENT"
+  );
+}
+
+async function tryReadLocalFile(candidatePath: string): Promise<ResolvedUploadSource | null> {
+  try {
+    const fullPath = toPublicFilePath(candidatePath);
+    const stat = await fs.stat(fullPath);
+
+    if (!stat.isFile()) {
+      return null;
+    }
+
+    const mimeType = getMimeTypeFromExtension(path.extname(fullPath));
+    if (!mimeType) {
+      throw new Error("Unsupported local image type");
+    }
+
+    const extension =
+      normalizeExtension(path.extname(fullPath)) ??
+      getExtensionFromMimeType(mimeType) ??
+      "img";
+
+    return {
+      buffer: await fs.readFile(fullPath),
+      extension,
+      mimeType,
+      originalName: path.basename(fullPath) || null,
+      sourceLabel: fullPath,
+    };
+  } catch (error) {
+    if (isMissingFileError(error)) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+async function tryReadFirstImageFromDirectory(
+  imagePath: string
+): Promise<ResolvedUploadSource | null> {
+  try {
+    const fullPath = toPublicFilePath(imagePath);
+    const stat = await fs.stat(fullPath);
+
+    if (!stat.isDirectory()) {
+      return null;
+    }
+
+    const entries = await fs.readdir(fullPath, { withFileTypes: true });
+    const firstImage = entries
+      .filter((entry) => entry.isFile())
+      .map((entry) => entry.name)
+      .filter((fileName) => Boolean(getMimeTypeFromExtension(path.extname(fileName))))
+      .sort((a, b) => a.localeCompare(b, "en"))
+      .at(0);
+
+    if (!firstImage) {
+      return null;
+    }
+
+    return tryReadLocalFile(path.posix.join(toNormalizedLocalPath(imagePath), firstImage));
+  } catch (error) {
+    if (isMissingFileError(error)) {
+      return null;
+    }
+
+    throw error;
+  }
 }
 
 async function resolveRemoteSource(imageUrl: string): Promise<ResolvedUploadSource> {
@@ -205,7 +344,7 @@ async function resolveRemoteSource(imageUrl: string): Promise<ResolvedUploadSour
   const extension =
     normalizeExtension(path.extname(remoteUrl.pathname)) ??
     getExtensionFromMimeType(mimeType) ??
-    "jpg";
+    "img";
 
   return {
     buffer,
@@ -220,12 +359,24 @@ async function resolveLocalSourceFromOrigin(
   imagePath: string,
   appOrigin?: string
 ): Promise<ResolvedUploadSource> {
-  if (!appOrigin) {
-    throw new Error(`Missing app origin for local image: ${imagePath}`);
-  }
-
   const candidates = buildLocalSourceCandidates(imagePath);
   let lastError: string | null = null;
+
+  for (const candidatePath of candidates) {
+    const localFile = await tryReadLocalFile(candidatePath);
+    if (localFile) {
+      return localFile;
+    }
+  }
+
+  const directoryImage = await tryReadFirstImageFromDirectory(imagePath);
+  if (directoryImage) {
+    return directoryImage;
+  }
+
+  if (!appOrigin) {
+    throw new Error(`Local image not found in public directory: ${imagePath}`);
+  }
 
   for (const candidatePath of candidates) {
     const candidateUrl = new URL(candidatePath, appOrigin);
@@ -252,7 +403,7 @@ async function resolveLocalSourceFromOrigin(
     const extension =
       normalizeExtension(path.extname(candidateUrl.pathname)) ??
       getExtensionFromMimeType(mimeType) ??
-      "jpg";
+      "img";
 
     return {
       buffer: Buffer.from(await response.arrayBuffer()),
@@ -273,13 +424,13 @@ async function resolveBrowserFile(file: File): Promise<ResolvedUploadSource> {
     getMimeTypeFromExtension(path.extname(file.name));
 
   if (!mimeType) {
-    throw new Error("Invalid file type");
+    throw new Error("Invalid image file type");
   }
 
   const extension =
     normalizeExtension(path.extname(file.name)) ??
     getExtensionFromMimeType(mimeType) ??
-    "jpg";
+    "img";
 
   return {
     buffer,

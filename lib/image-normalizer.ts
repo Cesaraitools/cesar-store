@@ -1,41 +1,40 @@
-// /lib/image-normalizer.ts
-
 export function normalizeImagePath(input: string): string | null {
   if (!input) return null;
 
-  let path = input.trim();
+  let imagePath = input.trim().replace(/\\/g, "/");
 
-  // remove spaces
-  path = path.replace(/\s+/g, "");
-
-  // block invalid patterns
-  if (path.includes("..")) return null;
-
-  // ✅ 1. external URL (Supabase or any CDN)
-  if (path.startsWith("http://") || path.startsWith("https://")) {
-    return path;
+  if (!imagePath || imagePath.includes("..")) {
+    return null;
   }
 
-  // ✅ 2. allow known local paths (fallback only)
-  if (path.startsWith("/products") || path.startsWith("products/")) {
-    return path.startsWith("/") ? path : `/${path}`;
+  if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
+    return imagePath;
   }
 
-  // ❌ 3. أي حاجة غير معروفة → نرفضها
+  if (imagePath.startsWith("public/")) {
+    imagePath = imagePath.slice("public".length);
+  }
+
+  if (imagePath.startsWith("/")) {
+    return imagePath;
+  }
+
+  if (/^[^:]+$/.test(imagePath)) {
+    return `/${imagePath.replace(/^\/+/, "")}`;
+  }
+
   return null;
 }
 
-export function normalizeImagesArray(
-  input: string | string[]
-): string[] {
+export function normalizeImagesArray(input: string | string[]): string[] {
   if (!input) return [];
 
-  const arr =
+  const values =
     typeof input === "string"
-      ? input.split(",")
+      ? input.split(/[\n;,]+/)
       : input;
 
-  return arr
-    .map((img) => normalizeImagePath(img))
-    .filter((img): img is string => Boolean(img));
+  return values
+    .map((value) => normalizeImagePath(String(value || "")))
+    .filter((value): value is string => Boolean(value));
 }
