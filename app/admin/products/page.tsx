@@ -5,7 +5,6 @@ import Link from "next/link";
 import * as XLSX from "xlsx";
 import type { Product } from "@/types/product";
 import type { ProductImportJobSnapshot } from "@/types/product-import";
-import { normalizeImagesArray } from "@/lib/image-normalizer";
 import { getSafeImage } from "@/lib/image-safe";
 import { supabase } from "@/lib/supabaseClient";
 import { Search, Plus, Trash2, FileUp, Filter, Tag, LayoutGrid } from "lucide-react";
@@ -189,26 +188,7 @@ export default function AdminProductsPage() {
     if (!row.category) warnings.push("التصنيف مفقود");
     if (Number.isNaN(Number(row.price)) || Number(row.price) <= 0) warnings.push("سعر غير صالح");
     if (Number.isNaN(Number(row.stock)) || Number(row.stock) < 0) warnings.push("مخزون غير صالح");
-    if (!normalizeImagesArray(row.images).length) warnings.push("ØµÙˆØ±Ø© ØºÙŠØ± ØµØ§Ù„Ø­Ø© Ø£Ùˆ Ù…Ø³Ø§Ø± ØµÙˆØ± Ù…ÙÙ‚ÙˆØ¯");
-    if (!normalizeImagesArray(row.images).length) warnings[warnings.length - 1] = warnings[warnings.length - 1] === "Invalid or missing image path" ? warnings[warnings.length - 1] : warnings[warnings.length - 1];
-    const cleanedWarnings = warnings
-      .map((warning) =>
-        warning.includes("Ã") ? "Invalid or missing image path" : warning
-      )
-      .filter((warning, index, items) => items.indexOf(warning) === index);
-    const finalWarnings = cleanedWarnings
-      .filter((warning) => !warning.includes("Ã"))
-      .filter((warning, index, items) => items.indexOf(warning) === index);
-    if (!normalizeImagesArray(row.images).length && !finalWarnings.includes("Invalid or missing image path")) {
-      finalWarnings.push("Invalid or missing image path");
-    }
-    const stableWarnings: string[] = [];
-    if (!row.name_ar) stableWarnings.push("Missing Arabic name");
-    if (!row.category) stableWarnings.push("Missing category");
-    if (Number.isNaN(Number(row.price)) || Number(row.price) <= 0) stableWarnings.push("Invalid price");
-    if (Number.isNaN(Number(row.stock)) || Number(row.stock) < 0) stableWarnings.push("Invalid stock");
-    if (!normalizeImagesArray(row.images).length) stableWarnings.push("Invalid or missing image path");
-    return stableWarnings;
+    return warnings;
   }
 
   async function handleFileSelected(event: React.ChangeEvent<HTMLInputElement>) {
