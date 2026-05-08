@@ -13,6 +13,8 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+const LEGACY_SELECTED_PRODUCT_IDS_KEY = "__selectedProductIds";
+
 function isPromoPosition(value: unknown): value is PromoPosition {
   return (
     typeof value === "string" &&
@@ -33,6 +35,36 @@ function normalizeLocalizedText(value: unknown) {
   };
 }
 
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function extractLegacySelectedProductIds(row: any): string[] {
+  const candidates = [
+    row?.cta?.[LEGACY_SELECTED_PRODUCT_IDS_KEY],
+    row?.cta?.meta?.selectedProductIds,
+    row?.description?.[LEGACY_SELECTED_PRODUCT_IDS_KEY],
+    row?.title?.[LEGACY_SELECTED_PRODUCT_IDS_KEY],
+  ];
+
+  for (const candidate of candidates) {
+    const normalized = normalizeStringArray(candidate);
+
+    if (normalized.length) {
+      return normalized;
+    }
+  }
+
+  return [];
+}
+
 function normalizeCta(value: unknown) {
   return {
     ...normalizeLocalizedText(value),
@@ -47,11 +79,16 @@ function normalizeCta(value: unknown) {
 }
 
 function normalizeSelectedProductIds(row: any): string[] {
-  if (Array.isArray(row?.product_ids_json)) {
-    return row.product_ids_json
-      .filter((value: unknown) => typeof value === "string")
-      .map((value: string) => value.trim())
-      .filter(Boolean);
+  const productIdsJson = normalizeStringArray(row?.product_ids_json);
+
+  if (productIdsJson.length) {
+    return productIdsJson;
+  }
+
+  const legacySelectedProductIds = extractLegacySelectedProductIds(row);
+
+  if (legacySelectedProductIds.length) {
+    return legacySelectedProductIds;
   }
 
   if (typeof row?.product_id === "string" && row.product_id.trim()) {
@@ -147,6 +184,10 @@ function toPromoRow(promo: Partial<PromoData> & { id: string; position: PromoPos
         (value): value is string => typeof value === "string" && value.trim().length > 0
       )
     : [];
+  const ctaPayload = {
+    ...normalizeCta(promo.cta),
+    [LEGACY_SELECTED_PRODUCT_IDS_KEY]: selectedProductIds,
+  };
 
   return {
     id: promo.id,
@@ -158,9 +199,124 @@ function toPromoRow(promo: Partial<PromoData> & { id: string; position: PromoPos
     images_json: images,
     title: normalizeLocalizedText(promo.title),
     description: normalizeLocalizedText(promo.description),
-    cta: normalizeCta(promo.cta),
+    cta: ctaPayload,
     updated_at: new Date().toISOString(),
   };
+}
+
+function toLegacyPromoRow(
+  promo: Partial<PromoData> & { id: string; position: PromoPosition }
+) {
+  const selectedProductIds = Array.isArray(promo.selectedProductIds)
+    ? promo.selectedProductIds.filter(
+        (value): value is string => typeof value === "string" && value.trim().length > 0
+      )
+    : [];
+
+  return {
+    id: promo.id,
+    position: promo.position,
+    is_active: promo.isActive ?? false,
+    product_id: selectedProductIds[0] || promo.productId || null,
+    title: normalizeLocalizedText(promo.title),
+    description: normalizeLocalizedText(promo.description),
+    cta: {
+      ...normalizeCta(promo.cta),
+      [LEGACY_SELECTED_PRODUCT_IDS_KEY]: selectedProductIds,
+    },
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function shouldRetryWithLegacyPromoRow(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const code = "code" in error && typeof error.code === "string" ? error.code : "";
+  const message =
+    "message" in error && typeof error.message === "string" ? error.message : "";
+
+  return (
+    code === "42703" ||
+    code === "PGRST204" ||
+    message.includes("product_ids_json") ||
+    message.includes("image_url") ||
+    message.includes("images_json")
+  );
+}
+
+async function persistPromo(
+  promo: PromoData,
+  existingPromo: PromoData | null
+) {
+  const modernPayload = toPromoRow(promo);
+
+  if (existingPromo) {
+    const response = await supabase
+      .from("promos")
+      .update(modernPayload)
+      .eq("id", promo.id)
+      .select("*")
+      .single();
+
+    if (!response.error) {
+      return response.data;
+    }
+
+    if (!shouldRetryWithLegacyPromoRow(response.error)) {
+      throw response.error;
+    }
+
+    const legacyResponse = await supabase
+      .from("promos")
+      .update(toLegacyPromoRow(promo))
+      .eq("id", promo.id)
+      .select("*")
+      .single();
+
+    if (legacyResponse.error) {
+      throw legacyResponse.error;
+    }
+
+    return legacyResponse.data;
+  }
+
+  const response = await supabase
+    .from("promos")
+    .insert([
+      {
+        ...modernPayload,
+        created_at: new Date().toISOString(),
+      },
+    ])
+    .select("*")
+    .single();
+
+  if (!response.error) {
+    return response.data;
+  }
+
+  if (!shouldRetryWithLegacyPromoRow(response.error)) {
+    throw response.error;
+  }
+
+  const legacyResponse = await supabase
+    .from("promos")
+    .insert([
+      {
+        ...toLegacyPromoRow(promo),
+        created_at: new Date().toISOString(),
+      },
+    ])
+    .select("*")
+    .single();
+
+  if (legacyResponse.error) {
+    throw legacyResponse.error;
+  }
+
+  return legacyResponse.data;
 }
 
 async function hydratePromosWithProducts(promos: PromoData[]) {
@@ -234,18 +390,7 @@ export async function POST(request: Request) {
       position: body.position,
     };
 
-    const { data, error } = await supabase
-      .from("promos")
-      .insert([
-        {
-          ...toPromoRow(promo),
-          created_at: new Date().toISOString(),
-        },
-      ])
-      .select("*")
-      .single();
-
-    if (error) throw error;
+    const data = await persistPromo(promo, null);
 
     const mappedPromo = mapPromoRow(data);
 
@@ -327,38 +472,7 @@ export async function PUT(request: Request) {
       updatedAt: new Date().toISOString(),
     };
 
-    let data = null;
-let error = null;
-
-if (existingPromo) {
-  const response = await supabase
-    .from("promos")
-    .update({
-      ...toPromoRow(mergedPromo),
-    })
-    .eq("id", body.id)
-    .select("*")
-    .single();
-
-  data = response.data;
-  error = response.error;
-} else {
-  const response = await supabase
-    .from("promos")
-    .insert([
-      {
-        ...toPromoRow(mergedPromo),
-        created_at: new Date().toISOString(),
-      },
-    ])
-    .select("*")
-    .single();
-
-  data = response.data;
-  error = response.error;
-}
-
-    if (error) throw error;
+    const data = await persistPromo(mergedPromo, existingPromo);
 
     const mappedPromo = mapPromoRow(data);
 
@@ -369,7 +483,13 @@ if (existingPromo) {
     console.error("UPDATE PROMO ERROR:", err);
 
     return Response.json(
-      { error: "Failed to update promo" },
+      {
+        error: "Failed to update promo",
+        details:
+          err && typeof err === "object" && "message" in err && typeof err.message === "string"
+            ? err.message
+            : null,
+      },
       { status: 500 }
     );
   }

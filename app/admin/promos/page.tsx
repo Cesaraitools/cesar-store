@@ -153,7 +153,9 @@ export default function PromosAdminPage() {
         const payload = await response.json().catch(() => null);
 
         if (!response.ok) {
-          throw new Error(payload?.error || `Failed to save ${position}`);
+          throw new Error(
+            payload?.details || payload?.error || `Failed to save ${position}`
+          );
         }
 
         updatePromo(position, {
