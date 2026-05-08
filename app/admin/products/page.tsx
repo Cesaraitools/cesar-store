@@ -5,6 +5,7 @@ import Link from "next/link";
 import * as XLSX from "xlsx";
 import type { Product } from "@/types/product";
 import type { ProductImportJobSnapshot } from "@/types/product-import";
+import { normalizeImagesArray } from "@/lib/image-normalizer";
 import { getSafeImage } from "@/lib/image-safe";
 import { supabase } from "@/lib/supabaseClient";
 import { Search, Plus, Trash2, FileUp, Filter, Tag, LayoutGrid } from "lucide-react";
@@ -73,7 +74,7 @@ export default function AdminProductsPage() {
   const [importReport, setImportReport] = useState<{
     success: number;
     skipped: number;
-    failed: { index: number; reason: string }[];
+    failed: { index: number; name: string; reason: string }[];
   } | null>(null);
   
   const [stockFilter, setStockFilter] = useState<"all" | "out" | "low" | "in">("all");
@@ -188,6 +189,7 @@ export default function AdminProductsPage() {
     if (!row.category) warnings.push("التصنيف مفقود");
     if (Number.isNaN(Number(row.price)) || Number(row.price) <= 0) warnings.push("سعر غير صالح");
     if (Number.isNaN(Number(row.stock)) || Number(row.stock) < 0) warnings.push("مخزون غير صالح");
+    if (!normalizeImagesArray(row.images).length) warnings.push("مسار صورة غير صالح أو مفقود");
     return warnings;
   }
 
@@ -238,7 +240,11 @@ export default function AdminProductsPage() {
       setImportReport({
         success: currentJob.rowsSuccess,
         skipped: currentJob.rowsSkipped,
-        failed: currentJob.failures.map((f) => ({ index: f.index, reason: f.reason })),
+        failed: currentJob.failures.map((f) => ({
+          index: f.index,
+          name: f.name,
+          reason: f.reason,
+        })),
       });
     } catch (err) {
       console.error(err);
@@ -597,10 +603,26 @@ export default function AdminProductsPage() {
             </div>
 
             {importReport && (
-              <div className="px-6 py-4 bg-blue-50 border-t border-blue-100 text-center">
-                <p className="text-sm font-bold text-blue-800">
+              <div className="px-6 py-4 bg-blue-50 border-t border-blue-100 space-y-3">
+                <p className="text-sm font-bold text-blue-800 text-center">
                   النتيجة: {importReport.success} ناجح | {importReport.skipped} تم تخطيه | {importReport.failed.length} فشل
                 </p>
+                {!!importReport.failed.length && (
+                  <div className="max-h-48 overflow-auto rounded-xl border border-red-100 bg-white/80 p-3 text-right">
+                    <div className="space-y-2 text-xs">
+                      {importReport.failed.map((failure) => (
+                        <div key={`${failure.index}-${failure.name}`} className="rounded-lg border border-red-100 bg-red-50/60 p-2">
+                          <div className="font-bold text-red-700">
+                            {failure.name || `الصف ${failure.index}`}
+                          </div>
+                          <div className="text-gray-600">
+                            الصف {failure.index} | {failure.reason}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
