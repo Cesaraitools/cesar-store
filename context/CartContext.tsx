@@ -27,6 +27,7 @@ export type CartItem = {
 
 type LocalCart = {
   id: string;
+  ownerUserId: string | null;
   items: CartItem[];
 };
 
@@ -58,6 +59,14 @@ function normalizeStockValue(stock?: number): number | null {
   return Math.max(0, Math.floor(stock));
 }
 
+function createEmptyCart(ownerUserId: string | null): LocalCart {
+  return {
+    id: generateUUID(),
+    ownerUserId,
+    items: [],
+  };
+}
+
 function getStockExceededMessage(available?: number) {
   if (typeof available === "number") {
     return `الكمية المتاحة حاليًا هي ${available} فقط`;
@@ -69,11 +78,17 @@ function loadCartFromStorage(): LocalCart {
   try {
     const raw = localStorage.getItem(CART_STORAGE_KEY);
     if (!raw) {
-      return { id: generateUUID(), items: [] };
+      return createEmptyCart(null);
     }
-    return JSON.parse(raw) as LocalCart;
+    const parsed = JSON.parse(raw) as Partial<LocalCart>;
+    return {
+      id: typeof parsed.id === "string" && parsed.id ? parsed.id : generateUUID(),
+      ownerUserId:
+        typeof parsed.ownerUserId === "string" ? parsed.ownerUserId : null,
+      items: Array.isArray(parsed.items) ? (parsed.items as CartItem[]) : [],
+    };
   } catch {
-    return { id: generateUUID(), items: [] };
+    return createEmptyCart(null);
   }
 }
 
@@ -90,17 +105,80 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const [cart, setCart] = useState<LocalCart>({
     id: "",
+    ownerUserId: null,
     items: [],
   });
 
   const hasSyncedWithApi = useRef(false);
   const isMerging = useRef(false);
   const mergedForUserId = useRef<string | null>(null);
+  const previousUserId = useRef<string | null | undefined>(undefined);
+  const shouldMergeGuestCart = useRef(false);
 
   useEffect(() => {
     const stored = loadCartFromStorage();
     setCart(stored);
   }, []);
+
+  useEffect(() => {
+    const currentUserId = user?.id ?? null;
+    const previous = previousUserId.current;
+
+    hasSyncedWithApi.current = false;
+    mergedForUserId.current = null;
+
+    if (previous === undefined) {
+      previousUserId.current = currentUserId;
+      shouldMergeGuestCart.current = false;
+
+      if (!currentUserId) {
+        setCart((prev) =>
+          prev.ownerUserId === null ? prev : createEmptyCart(null)
+        );
+        return;
+      }
+
+      setCart((prev) =>
+        prev.ownerUserId === currentUserId ? prev : createEmptyCart(currentUserId)
+      );
+      return;
+    }
+
+    if (!currentUserId) {
+      previousUserId.current = null;
+      shouldMergeGuestCart.current = false;
+      setCart(createEmptyCart(null));
+      return;
+    }
+
+    if (previous === null) {
+      previousUserId.current = currentUserId;
+      shouldMergeGuestCart.current = true;
+      setCart((prev) => ({
+        ...prev,
+        ownerUserId: currentUserId,
+      }));
+      return;
+    }
+
+    if (previous !== currentUserId) {
+      previousUserId.current = currentUserId;
+      shouldMergeGuestCart.current = false;
+      setCart(createEmptyCart(currentUserId));
+      return;
+    }
+
+    previousUserId.current = currentUserId;
+    shouldMergeGuestCart.current = false;
+    setCart((prev) =>
+      prev.ownerUserId === currentUserId
+        ? prev
+        : {
+            ...prev,
+            ownerUserId: currentUserId,
+          }
+    );
+  }, [user?.id]);
 
   useEffect(() => {
     if (!cart.id) return;
@@ -135,7 +213,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         isMerging.current = true;
         mergedForUserId.current = user.id;
 
-        if (cart.items.length > 0) {
+        if (shouldMergeGuestCart.current && cart.items.length > 0) {
           await fetch("/api/cart/merge", {
             method: "POST",
             headers: {
@@ -150,6 +228,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
             }),
           });
         }
+
+        shouldMergeGuestCart.current = false;
 
         const itemsRes = await fetch("/api/cart/items", {
           headers: {
@@ -167,6 +247,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
         setCart((prev) => ({
           ...prev,
+          ownerUserId: user.id,
           items: dbItems.map((item: any) => ({
             id: item.id,
             cart_id: item.cart_id,
@@ -223,6 +304,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     setCart((prev) => ({
       ...prev,
+      ownerUserId: user?.id ?? null,
       items: [...prev.items, newItem],
     }));
 
@@ -403,6 +485,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     setCart({
       id: cart.id,
+      ownerUserId: user?.id ?? null,
       items: [],
     });
   };
