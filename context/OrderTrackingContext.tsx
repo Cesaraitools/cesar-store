@@ -9,12 +9,12 @@ import {
 /* ================== Types ================== */
 
 export type OrderStatus =
-  | "created"
+  | "requested"
   | "confirmed"
-  | "processing"
+  | "preparing"
   | "shipped"
   | "delivered"
-  | "cancelled"
+  | "canceled"
   | "refunded";
 
 export type OrderTrackingEvent = {

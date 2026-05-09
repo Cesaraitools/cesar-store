@@ -212,7 +212,7 @@ export const orderService = {
         "preparing",
         "shipped",
         "delivered",
-        "cancelled",
+        "canceled",
       ];
 
       if (!validStatuses.includes(status)) {
@@ -228,7 +228,7 @@ export const orderService = {
           ...(status === "confirmed" && {
             confirmed_at: new Date().toISOString(),
           }),
-          ...(["delivered", "cancelled"].includes(status) && {
+          ...(["delivered", "canceled"].includes(status) && {
             closed_at: new Date().toISOString(),
           }),
         })

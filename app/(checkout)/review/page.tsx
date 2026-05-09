@@ -155,21 +155,25 @@ export default function ReviewPage() {
         toast.error(result?.error || "Failed to create order");
         return;
       }
-      orderId = result.orderId;
+      orderId = result?.orderId ?? "";
+
+      if (!orderId) {
+        toast.error("تعذر استكمال الطلب، حاول مرة أخرى");
+        return;
+      }
 
       saveOrders([
         ...loadOrders(),
         {
           id: orderId,
-          status: "created",
+          status: "requested",
           total,
           created_at: new Date().toISOString(),
           customer: customerSnapshot,
         },
       ]);
 
-      addEvent(orderId, "created");
-      addEvent(orderId, "confirmed");
+      addEvent(orderId, "requested");
 
       /* ================== ✅ FIXED WHATSAPP MESSAGE ================== */
 
@@ -204,7 +208,7 @@ if (!whatsappWindow) {
 
       /* ============================================================= */
         toast.success("تم إنشاء الطلب بنجاح 🎉");
-      clearCart();
+      await clearCart();
 
       router.push(`/confirm?orderId=${orderId}`);
 

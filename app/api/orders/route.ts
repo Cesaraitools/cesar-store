@@ -292,6 +292,8 @@ if (activeCartId) {
 if (data?.reused) {
   return NextResponse.json({
     success: true,
+    orderId: data.order_id,
+    order_number: data.order_number,
     reused: true,
   });
 }

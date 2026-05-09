@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -23,7 +23,7 @@ function getRegisterErrorMessage(error: unknown) {
   return "حدث خطأ، حاول مرة أخرى";
 }
 
-export default function RegisterPage() {
+function RegisterContent() {
   const searchParams = useSearchParams();
   const redirectParam = searchParams.get("redirect");
   const loginHref = redirectParam
@@ -169,5 +169,13 @@ export default function RegisterPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <RegisterContent />
+    </Suspense>
   );
 }

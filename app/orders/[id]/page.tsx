@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { CheckCircle2, Circle, Clock, Package, Truck, Check, AlertCircle } from "lucide-react";
@@ -142,7 +142,7 @@ export default function OrderDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!orderId) return;
     try {
       setLoading(true);
@@ -180,11 +180,11 @@ export default function OrderDetailsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [orderId, router]);
 
   useEffect(() => {
     if (orderId) load();
-  }, [orderId]);
+  }, [orderId, load]);
 
   useEffect(() => {
     if (!orderId) return;
