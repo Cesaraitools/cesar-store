@@ -101,6 +101,8 @@ const EMPTY_FILTERS: FiltersState = {
   productId: "",
 };
 
+const RESET_ALLOWED_EMAIL = "mohamed.seeikng@gmail.com";
+
 const STATUS_OPTIONS = [
   { value: "", label: "كل الحالات" },
   { value: "requested", label: "requested" },
@@ -191,16 +193,7 @@ export default function AdminAnalyticsPage() {
   const [resettingData, setResettingData] = useState(false);
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<FiltersState>(EMPTY_FILTERS);
-const [userEmail, setUserEmail] = useState<string | null>(null);
-
-useEffect(() => {
-  const loadUser = async () => {
-    const { data } = await supabase.auth.getUser();
-    setUserEmail(data.user?.email ?? null);
-  };
-
-  loadUser();
-}, []);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const pageSize = 10;
 
   async function loadAnalytics(activeFilters: FiltersState) {
@@ -229,6 +222,18 @@ useEffect(() => {
   useEffect(() => {
     void loadAnalytics(filters);
   }, [filters]);
+
+  useEffect(() => {
+    const loadUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      setUserEmail(user?.email?.toLowerCase() ?? null);
+    };
+
+    void loadUser();
+  }, []);
 
   useEffect(() => {
     setPage(1);
@@ -271,12 +276,8 @@ useEffect(() => {
       setResettingData(true);
 
       const res = await fetch("/api/admin/analytics/reset", {
-  method: "POST",
-  headers: {
-    "x-reset-secret": "123456",
-    
-  },
-});
+        method: "POST",
+      });
       const json = await res.json();
 
       if (!res.ok) {
@@ -359,20 +360,26 @@ useEffect(() => {
           <button
             onClick={handleResetTestData}
             disabled={
-  resettingData ||
-  data.volume.total_orders === 0 ||
-  userEmail !== process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL
-}
+              resettingData ||
+              data.volume.total_orders === 0 ||
+              userEmail !== RESET_ALLOWED_EMAIL
+            }
             className={`inline-flex items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60 ${
-  userEmail !== process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL
-    ? "opacity-50 cursor-not-allowed"
-    : ""
-}`}
+              userEmail !== RESET_ALLOWED_EMAIL
+                ? "opacity-50 cursor-not-allowed"
+                : ""
+            }`}
           >
             <Trash2 className="h-4 w-4" />
             {resettingData ? "جارٍ تصفير البيانات..." : "تصفير البيانات التجريبية"}
           </button>
         </div>
+        {userEmail !== RESET_ALLOWED_EMAIL ? (
+          <p className="mt-3 text-xs text-amber-900">
+            هذا الإجراء متاح فقط عند تسجيل الدخول بحساب Supabase البريد{" "}
+            {RESET_ALLOWED_EMAIL}
+          </p>
+        ) : null}
       </section>
 
       <section className="space-y-4 rounded-2xl border bg-white p-4">

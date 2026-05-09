@@ -36,7 +36,7 @@ type CartContextType = {
   addToCart: (product: any) => void;
   updateQuantity: (cartItemId: string, quantity: number) => void;
   removeFromCart: (cartItemId: string) => void;
-  clearCart: () => void;
+  clearCart: () => Promise<void>;
 };
 
 const CART_STORAGE_KEY = "cesar_store_cart_v2";
@@ -385,7 +385,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const clearCart = () => {
+  const clearCart = async () => {
+    if (user && session) {
+      try {
+        await fetch("/api/cart/items", {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ clear: true }),
+        });
+      } catch {
+        console.warn("Cart sync failed (CLEAR)");
+      }
+    }
+
     setCart({
       id: cart.id,
       items: [],

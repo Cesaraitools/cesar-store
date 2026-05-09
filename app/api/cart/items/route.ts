@@ -348,9 +348,9 @@ if (!await rateLimit(ip, 15, 60000)) {
   }
 
   const body = await req.json();
-  const { product_id } = body;
+  const { product_id, clear } = body;
 
-  if (!product_id) {
+  if (!clear && !product_id) {
     return NextResponse.json(
       { error: "Invalid product" },
       { status: 400 }
@@ -369,11 +369,14 @@ if (!await rateLimit(ip, 15, 60000)) {
       return NextResponse.json({ error: "Cart not found" }, { status: 404 });
     }
 
-    const { error } = await serviceSupabase
+    const deleteQuery = serviceSupabase
       .from("cart_items")
       .delete()
-      .eq("cart_id", cart.id)
-      .eq("product_id", product_id);
+      .eq("cart_id", cart.id);
+
+    const { error } = clear
+      ? await deleteQuery
+      : await deleteQuery.eq("product_id", product_id);
 
     if (error) {
       return NextResponse.json(

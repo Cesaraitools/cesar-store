@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
+import { validateAdminSession } from "@/lib/admin/validateAdminSession";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
+    if (!(await validateAdminSession())) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const org = "cesar-store";
     const project = "javascript-nextjs";
 

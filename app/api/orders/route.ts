@@ -120,6 +120,7 @@ console.log("ORDER REQUEST START", {
   time: new Date().toISOString(),
 });
 let order_token: string | null = null;
+let activeCartId: string | null = null;
   try {
     const user = await resolveUser(request);
     console.log("ORDER USER", {
@@ -162,6 +163,7 @@ let order_token: string | null = null;
     .maybeSingle();
 
   if (cart) {
+    activeCartId = String(cart.id);
    const { data: cartItems } = await serviceSupabase
       .from("cart_items")
       .select("product_id, quantity, name_ar, name_en, price, image")
@@ -272,6 +274,21 @@ while (attempts <= maxRetries) {
 }
 
 if (error) throw error;
+if (activeCartId) {
+  const { error: clearCartError } = await serviceSupabase
+    .from("cart_items")
+    .delete()
+    .eq("cart_id", activeCartId);
+
+  if (clearCartError) {
+    console.warn("Cart cleanup failed after order creation", {
+      userId: user.id,
+      cartId: activeCartId,
+      order_token,
+      error: clearCartError,
+    });
+  }
+}
 if (data?.reused) {
   return NextResponse.json({
     success: true,
