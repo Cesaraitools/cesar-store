@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 function getRegisterErrorMessage(error: unknown) {
@@ -23,6 +24,12 @@ function getRegisterErrorMessage(error: unknown) {
 }
 
 export default function RegisterPage() {
+  const searchParams = useSearchParams();
+  const redirectParam = searchParams.get("redirect");
+  const loginHref = redirectParam
+    ? `/auth/login?redirect=${encodeURIComponent(redirectParam)}`
+    : "/auth/login";
+
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
@@ -73,7 +80,7 @@ export default function RegisterPage() {
       setSuccess(true);
 
       setTimeout(() => {
-        window.location.href = "/auth/login";
+        window.location.href = loginHref;
       }, 1500);
     } catch (err) {
       setError(getRegisterErrorMessage(err));
@@ -105,7 +112,7 @@ export default function RegisterPage() {
             </p>
 
             <Link
-              href="/auth/login"
+              href={loginHref}
               className="block w-full bg-black text-white py-4 rounded-2xl font-bold shadow-lg"
             >
               تسجيل الدخول
@@ -153,7 +160,7 @@ export default function RegisterPage() {
         {!success && (
           <div className="mt-8 text-center">
             <Link
-              href="/auth/login"
+              href={loginHref}
               className="text-gray-500 text-sm font-medium hover:text-black transition-colors"
             >
               عودة لتسجيل الدخول

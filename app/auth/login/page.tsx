@@ -12,6 +12,9 @@ function LoginContent() {
   const { signInWithGoogle } = useAuth();
 
   const redirectParam = searchParams.get("redirect");
+  const registerHref = redirectParam
+    ? `/auth/register?redirect=${encodeURIComponent(redirectParam)}`
+    : "/auth/register";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -119,7 +122,7 @@ function LoginContent() {
 
         <p className="text-center text-sm mt-6">
           ليس لديك حساب؟{" "}
-          <Link href="/auth/register" className="text-orange-600">
+          <Link href={registerHref} className="text-orange-600">
             إنشاء حساب
           </Link>
         </p>
