@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
         total,
         currency,
         created_at,
+        status,
         customer_snapshot
       `);
 
@@ -92,7 +93,7 @@ export async function GET(req: NextRequest) {
       currency: o.currency,
       created_at: o.created_at,
       customer_snapshot: o.customer_snapshot,
-      status: latestStatusMap[o.id] || "requested",
+      status: latestStatusMap[o.id] || o.status || "requested",
     }));
 
     return NextResponse.json({ orders: result });

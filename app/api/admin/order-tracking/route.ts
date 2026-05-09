@@ -82,7 +82,15 @@ async function getCurrentStatus(orderId: string): Promise<TrackingStatus> {
     .order("created_at", { ascending: false })
     .limit(1);
 
-  if (!data || data.length === 0) return "requested";
+  if (!data || data.length === 0) {
+    const { data: order } = await supabase
+      .from("orders")
+      .select("status")
+      .eq("id", orderId)
+      .maybeSingle();
+
+    return (order?.status as TrackingStatus | null) ?? "requested";
+  }
   return data[0].status as TrackingStatus;
 }
 

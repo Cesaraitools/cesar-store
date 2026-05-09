@@ -125,7 +125,7 @@ export async function GET(
     const currentStatus =
       events && events.length > 0
         ? normalizeStatus(events[events.length - 1].status)
-        : "requested";
+        : normalizeStatus(order.status) ?? "requested";
 
     /* ===== Response ===== */
 

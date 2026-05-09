@@ -56,14 +56,8 @@ return NextResponse.json({ error: "Invalid id value" }, { status: 400 });
     if (!ids || !ids.length) {
       return NextResponse.json({ error: "No ids" }, { status: 400 });
     }
-
-    // حذف order_items
-    await supabase.from("order_items").delete().in("order_id", ids);
-
-    // حذف tracking
-    await supabase.from("order_tracking_events").delete().in("order_id", ids);
-
-    // حذف orders
+    // أرشفة الطلبات فقط مع الإبقاء على العناصر وسجل التتبع
+    // حتى لا نفقد الحالة الفعلية عند الاسترجاع من الأرشيف.
     const { error } = await supabase
 .from("orders")
 .update({ archived_at: new Date().toISOString() })

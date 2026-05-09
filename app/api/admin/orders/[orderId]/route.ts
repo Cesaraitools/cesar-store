@@ -33,6 +33,7 @@ export async function GET(
         total,
         currency,
         created_at,
+        status,
         customer_snapshot,
         items_snapshot
       `)
@@ -71,7 +72,7 @@ export async function GET(
     const latestStatus =
       tracking && tracking.length
         ? tracking[tracking.length - 1].status
-        : "requested";
+        : order.status || "requested";
 
     return NextResponse.json({
       order: {
