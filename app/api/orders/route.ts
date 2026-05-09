@@ -120,7 +120,7 @@ console.log("ORDER REQUEST START", {
   time: new Date().toISOString(),
 });
 let order_token: string | null = null;
-let activeCartId: string | null = null;
+let activeCartIds: string[] = [];
   try {
     const user = await resolveUser(request);
     console.log("ORDER USER", {
@@ -155,15 +155,18 @@ let activeCartId: string | null = null;
    
 
     try {
-  const { data: cart } = await serviceSupabase
+  const { data: carts } = await serviceSupabase
     .from("carts")
     .select("id")
     .eq("user_id", user.id)
     .eq("status", "active")
-    .maybeSingle();
+    .order("created_at", { ascending: true });
+
+  const cart = carts?.[0] ?? null;
+
+  activeCartIds = (carts ?? []).map((entry) => String(entry.id));
 
   if (cart) {
-    activeCartId = String(cart.id);
    const { data: cartItems } = await serviceSupabase
       .from("cart_items")
       .select("product_id, quantity, name_ar, name_en, price, image")
@@ -274,16 +277,16 @@ while (attempts <= maxRetries) {
 }
 
 if (error) throw error;
-if (activeCartId) {
+if (activeCartIds.length > 0) {
   const { error: clearCartError } = await serviceSupabase
     .from("cart_items")
     .delete()
-    .eq("cart_id", activeCartId);
+    .in("cart_id", activeCartIds);
 
   if (clearCartError) {
     console.warn("Cart cleanup failed after order creation", {
       userId: user.id,
-      cartId: activeCartId,
+      cartIds: activeCartIds,
       order_token,
       error: clearCartError,
     });

@@ -43,12 +43,15 @@ async function getUserFromRequest(req: Request) {
 // Helper: get or create cart
 // ===============================
 async function getOrCreateActiveCart(userId: string) {
-  const { data: existingCart, error } = await serviceSupabase
+  const { data: existingCarts, error } = await serviceSupabase
     .from("carts")
     .select("*")
     .eq("user_id", userId)
     .eq("status", "active")
-    .single();
+    .order("created_at", { ascending: true })
+    .limit(1);
+
+  const existingCart = existingCarts?.[0] ?? null;
 
   if (existingCart) return existingCart;
 
@@ -67,6 +70,21 @@ async function getOrCreateActiveCart(userId: string) {
   }
 
   return newCart;
+}
+
+async function getActiveCartIds(userId: string) {
+  const { data: carts, error } = await serviceSupabase
+    .from("carts")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    throw new Error("Failed to fetch active carts");
+  }
+
+  return (carts ?? []).map((cart) => String(cart.id));
 }
 
 // ===============================
@@ -90,14 +108,10 @@ if (!await rateLimit(ip, 25, 60000)) {
   }
 
   try {
-    const { data: cart } = await serviceSupabase
-      .from("carts")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("status", "active")
-      .single();
+    const cartIds = await getActiveCartIds(user.id);
+    const primaryCartId = cartIds[0] ?? null;
 
-    if (!cart) {
+    if (!primaryCartId) {
       return NextResponse.json({ items: [] }, { status: 200 });
     }
 
@@ -109,7 +123,7 @@ if (!await rateLimit(ip, 25, 60000)) {
           stock
         )
       `)
-      .eq("cart_id", cart.id);
+      .eq("cart_id", primaryCartId);
 
     if (error) {
       return NextResponse.json(
@@ -294,21 +308,16 @@ if (!await rateLimit(ip, 20, 60000)) {
       );
     }
 
-    const { data: cart } = await serviceSupabase
-      .from("carts")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("status", "active")
-      .single();
+    const cartIds = await getActiveCartIds(user.id);
 
-    if (!cart) {
+    if (cartIds.length === 0) {
       return NextResponse.json({ error: "Cart not found" }, { status: 404 });
     }
 
     const { error } = await serviceSupabase
       .from("cart_items")
       .update({ quantity })
-      .eq("cart_id", cart.id)
+      .in("cart_id", cartIds)
       .eq("product_id", product_id);
 
     if (error) {
@@ -358,25 +367,21 @@ if (!await rateLimit(ip, 15, 60000)) {
   }
 
   try {
-    const { data: cart } = await serviceSupabase
-      .from("carts")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("status", "active")
-      .single();
+    const cartIds = await getActiveCartIds(user.id);
 
-    if (!cart) {
+    if (cartIds.length === 0) {
       return NextResponse.json({ error: "Cart not found" }, { status: 404 });
     }
 
     const deleteQuery = serviceSupabase
       .from("cart_items")
-      .delete()
-      .eq("cart_id", cart.id);
+      .delete();
 
     const { error } = clear
-      ? await deleteQuery
-      : await deleteQuery.eq("product_id", product_id);
+      ? await deleteQuery.in("cart_id", cartIds)
+      : await deleteQuery
+          .in("cart_id", cartIds)
+          .eq("product_id", product_id);
 
     if (error) {
       return NextResponse.json(
