@@ -119,7 +119,7 @@ export async function GET(req: Request) {
   req.headers.get("x-real-ip") ||
   "unknown";
 
-if (!await rateLimit(ip, 25, 60000)) {
+if (!await rateLimit(`${ip}:cart-items:get`, 60, 60000)) {
   return new Response(
     JSON.stringify({ error: "Too many requests" }),
     { status: 429 }
@@ -174,7 +174,7 @@ export async function POST(req: Request) {
   req.headers.get("x-real-ip") ||
   "unknown";
 
-if (!await rateLimit(ip, 20, 60000)) {
+if (!await rateLimit(`${ip}:cart-items:post`, 60, 60000)) {
   return new Response(
     JSON.stringify({ error: "Too many requests" }),
     { status: 429 }
@@ -301,7 +301,7 @@ export async function PATCH(req: Request) {
   req.headers.get("x-real-ip") ||
   "unknown";
 
-if (!await rateLimit(ip, 20, 60000)) {
+if (!await rateLimit(`${ip}:cart-items:patch`, 120, 60000)) {
   return new Response(
     JSON.stringify({ error: "Too many requests" }),
     { status: 429 }
@@ -347,7 +347,10 @@ if (!await rateLimit(ip, 20, 60000)) {
     const cartIds = await getActiveCartIds(user.id);
 
     if (cartIds.length === 0) {
-      return NextResponse.json({ error: "Cart not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Cart item not found", stale: true },
+        { status: 404 }
+      );
     }
 
     const { data: matchingItems, error: fetchItemsError } = await serviceSupabase
@@ -367,7 +370,10 @@ if (!await rateLimit(ip, 20, 60000)) {
     const primaryItem = matchingItems?.[0] ?? null;
 
     if (!primaryItem) {
-      return NextResponse.json({ error: "Cart item not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Cart item not found", stale: true },
+        { status: 404 }
+      );
     }
 
     const { error } = await serviceSupabase
@@ -411,7 +417,7 @@ export async function DELETE(req: Request) {
   req.headers.get("x-real-ip") ||
   "unknown";
 
-if (!await rateLimit(ip, 15, 60000)) {
+if (!await rateLimit(`${ip}:cart-items:delete`, 60, 60000)) {
   return new Response(
     JSON.stringify({ error: "Too many requests" }),
     { status: 429 }
@@ -436,7 +442,7 @@ if (!await rateLimit(ip, 15, 60000)) {
     const cartIds = await getActiveCartIds(user.id);
 
     if (cartIds.length === 0) {
-      return NextResponse.json({ error: "Cart not found" }, { status: 404 });
+      return NextResponse.json({ success: true, stale: true });
     }
 
     const deleteQuery = serviceSupabase

@@ -255,6 +255,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     };
 
     mergeCart();
+  // Guest cart merge must run only on login/session changes, not on every cart item mutation.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cartLoaded, user?.id, session?.access_token]);
 
   const addToCart = (product: any) => {
@@ -380,6 +382,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
           const payload = await response.json().catch(() => null);
 
           if (!response.ok) {
+            if (response.status === 429) {
+              toast.error("Ù…Ù‡Ù„Ù‹Ø§ØŒ Ø­Ø§ÙˆÙ„ Ù…Ø±Ø© Ø£Ø®Ø±Ù‰ Ø¨Ø¹Ø¯ Ø«ÙˆØ§Ù†Ù");
+              return;
+            }
+
             if (typeof payload?.available === "number") {
               setCart((prev) => ({
                 ...prev,
@@ -389,6 +396,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
                     : cartItem
                 ),
               }));
+            }
+
+            if (response.status === 404 || payload?.stale) {
+              setCart((prev) => ({
+                ...prev,
+                items: prev.items.filter(
+                  (cartItem) => cartItem.id !== cartItemId
+                ),
+              }));
+              toast.error("ØªÙ… ØªØ­Ø¯ÙŠØ« Ø§Ù„Ø³Ù„Ø©ØŒ Ø§Ù„Ù…Ù†ØªØ¬ Ù„Ù… ÙŠØ¹Ø¯ Ù…ÙˆØ¬ÙˆØ¯Ù‹Ø§");
+              return;
             }
 
             toast.error(

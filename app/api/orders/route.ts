@@ -291,12 +291,13 @@ if (!createdOrder?.order_id) {
   throw new Error("Order RPC returned no order id");
 }
 
-if (!createdOrder.reused && activeCartIds.length > 0) {
+if (activeCartIds.length > 0) {
   const [{ error: clearCartError }, { error: closeCartError }] = await Promise.all([
     serviceSupabase
       .from("cart_items")
       .delete()
       .in("cart_id", activeCartIds),
+
     serviceSupabase
       .from("carts")
       .update({
