@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { validateAdminSession } from "@/lib/admin/validateAdminSession";
 
 type Category = {
   id: string;
@@ -48,6 +49,10 @@ export async function GET() {
 /* ---------------- POST ---------------- */
 
 export async function POST(request: Request) {
+  if (!(await validateAdminSession())) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
 
@@ -88,6 +93,10 @@ export async function POST(request: Request) {
 /* ---------------- PUT ---------------- */
 
 export async function PUT(request: Request) {
+  if (!(await validateAdminSession())) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const { id, ...updates } = await request.json();
 
@@ -124,6 +133,10 @@ export async function PUT(request: Request) {
 /* ---------------- DELETE ---------------- */
 
 export async function DELETE(request: Request) {
+  if (!(await validateAdminSession())) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const { id } = await request.json();
 

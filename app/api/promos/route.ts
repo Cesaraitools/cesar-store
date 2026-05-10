@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { validateAdminSession } from "@/lib/admin/validateAdminSession";
 import { normalizeImagePath, normalizeImagesArray } from "@/lib/image-normalizer";
 import type { Product } from "@/types/product";
 import {
@@ -373,6 +374,10 @@ export async function GET() {
   }
 }
 export async function POST(request: Request) {
+  if (!(await validateAdminSession())) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const body = (await request.json()) as Partial<PromoData>;
 
@@ -409,6 +414,10 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
+  if (!(await validateAdminSession())) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const body = (await request.json()) as Partial<PromoData> & { id: string };
 
@@ -496,6 +505,10 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  if (!(await validateAdminSession())) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const { id } = await request.json();
 
