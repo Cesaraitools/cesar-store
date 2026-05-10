@@ -1,34 +1,32 @@
-const RATE_LIMIT = new Map<string, { count: number; last: number }>();
+
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { validateAdminSession } from "@/lib/admin/validateAdminSession";
+import { rateLimit } from "@/lib/rateLimit";
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
 export async function POST(req: Request) {
-  /* 🚫 Rate Limit */
-const ip = req.headers.get("x-forwarded-for") || "unknown";
+ /* 🚫 Rate Limit */
+const ip =
+  req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+  req.headers.get("x-real-ip") ||
+  "unknown";
 
-const now = Date.now();
-const entry = RATE_LIMIT.get(ip) || { count: 0, last: now };
-
-if (now - entry.last < 10000) {
-entry.count++;
-} else {
-entry.count = 1;
-entry.last = now;
-}
-
-RATE_LIMIT.set(ip, entry);
-
-if (entry.count > 20) {
-return NextResponse.json(
-{ error: "Too many requests" },
-{ status: 429 }
+const allowed = await rateLimit(
+  `admin-orders-delete:${ip}`,
+  20,
+  10000
 );
+
+if (!allowed) {
+  return NextResponse.json(
+    { error: "Too many requests" },
+    { status: 429 }
+  );
 }
 
   /* 🔒 Security */
