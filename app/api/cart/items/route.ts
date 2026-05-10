@@ -87,6 +87,29 @@ async function getActiveCartIds(userId: string) {
   return (carts ?? []).map((cart) => String(cart.id));
 }
 
+function normalizeCartItems(items: any[]) {
+  const merged = new Map<string, any>();
+
+  for (const item of items || []) {
+    const productId = String(item.product_id);
+    const existing = merged.get(productId);
+    const quantity = Number(item.quantity || 0);
+
+    if (!existing) {
+      merged.set(productId, {
+        ...item,
+        quantity,
+        stock: item.products?.stock ?? 0,
+      });
+      continue;
+    }
+
+    existing.quantity += quantity;
+  }
+
+  return Array.from(merged.values());
+}
+
 // ===============================
 // GET: Get cart items
 // ===============================
@@ -109,9 +132,8 @@ if (!await rateLimit(ip, 25, 60000)) {
 
   try {
     const cartIds = await getActiveCartIds(user.id);
-    const primaryCartId = cartIds[0] ?? null;
 
-    if (!primaryCartId) {
+    if (cartIds.length === 0) {
       return NextResponse.json({ items: [] }, { status: 200 });
     }
 
@@ -123,7 +145,7 @@ if (!await rateLimit(ip, 25, 60000)) {
           stock
         )
       `)
-      .eq("cart_id", primaryCartId);
+      .in("cart_id", cartIds);
 
     if (error) {
       return NextResponse.json(
@@ -132,10 +154,7 @@ if (!await rateLimit(ip, 25, 60000)) {
       );
     }
 
-    const formattedItems = (items || []).map((item: any) => ({
-      ...item,
-      stock: item.products?.stock ?? 0,
-    }));
+    const formattedItems = normalizeCartItems(items || []);
 
     return NextResponse.json({ items: formattedItems }, { status: 200 });
   } catch {
@@ -178,6 +197,10 @@ if (!await rateLimit(ip, 20, 60000)) {
 
   try {
     const cart = await getOrCreateActiveCart(user.id);
+    const activeCartIds = await getActiveCartIds(user.id);
+    const cartIds = activeCartIds.includes(String(cart.id))
+      ? activeCartIds
+      : [...activeCartIds, String(cart.id)];
 
     // GET PRODUCT SNAPSHOT + STOCK
     const { data: product } = await serviceSupabase
@@ -202,12 +225,14 @@ if (!await rateLimit(ip, 20, 60000)) {
     }
 
     // Check if item already exists
-    const { data: existingItem } = await serviceSupabase
+    const { data: existingItems } = await serviceSupabase
       .from("cart_items")
-      .select("*")
-      .eq("cart_id", cart.id)
+      .select("id, cart_id, product_id, quantity")
+      .in("cart_id", cartIds)
       .eq("product_id", product_id)
-      .single();
+      .order("created_at", { ascending: true });
+
+    const existingItem = existingItems?.[0] ?? null;
 
     if (existingItem) {
       // استبدل الكمية بدل ما تجمعها
@@ -221,6 +246,17 @@ if (!await rateLimit(ip, 20, 60000)) {
           { error: "Failed to update item quantity" },
           { status: 500 }
         );
+      }
+
+      const duplicateIds = (existingItems ?? [])
+        .slice(1)
+        .map((item) => item.id);
+
+      if (duplicateIds.length > 0) {
+        await serviceSupabase
+          .from("cart_items")
+          .delete()
+          .in("id", duplicateIds);
       }
 
       return NextResponse.json({ success: true });
@@ -314,11 +350,30 @@ if (!await rateLimit(ip, 20, 60000)) {
       return NextResponse.json({ error: "Cart not found" }, { status: 404 });
     }
 
+    const { data: matchingItems, error: fetchItemsError } = await serviceSupabase
+      .from("cart_items")
+      .select("id")
+      .in("cart_id", cartIds)
+      .eq("product_id", product_id)
+      .order("created_at", { ascending: true });
+
+    if (fetchItemsError) {
+      return NextResponse.json(
+        { error: "Failed to update quantity" },
+        { status: 500 }
+      );
+    }
+
+    const primaryItem = matchingItems?.[0] ?? null;
+
+    if (!primaryItem) {
+      return NextResponse.json({ error: "Cart item not found" }, { status: 404 });
+    }
+
     const { error } = await serviceSupabase
       .from("cart_items")
       .update({ quantity })
-      .in("cart_id", cartIds)
-      .eq("product_id", product_id);
+      .eq("id", primaryItem.id);
 
     if (error) {
       return NextResponse.json(
@@ -327,7 +382,18 @@ if (!await rateLimit(ip, 20, 60000)) {
       );
     }
 
-    return NextResponse.json({ success: true });
+    const duplicateIds = (matchingItems ?? [])
+      .slice(1)
+      .map((item) => item.id);
+
+    if (duplicateIds.length > 0) {
+      await serviceSupabase
+        .from("cart_items")
+        .delete()
+        .in("id", duplicateIds);
+    }
+
+    return NextResponse.json({ success: true, available: product.stock });
   } catch {
     return NextResponse.json(
       { error: "Unexpected error" },

@@ -45,8 +45,7 @@ export async function POST(req: Request) {
       .select("*")
       .eq("user_id", user.id)
       .eq("status", "active")
-      .order("created_at", { ascending: true })
-      .limit(1);
+      .order("created_at", { ascending: true });
 
     let cart = carts?.[0] ?? null;
 
@@ -63,10 +62,15 @@ export async function POST(req: Request) {
       cart = newCart;
     }
 
+    const activeCartIds = (carts ?? []).map((entry) => String(entry.id));
+    const cartIds = activeCartIds.includes(String(cart.id))
+      ? activeCartIds
+      : [...activeCartIds, String(cart.id)];
+
     const { data: existingItems } = await serviceSupabase
       .from("cart_items")
       .select("id, product_id, quantity")
-      .eq("cart_id", cart.id);
+      .in("cart_id", cartIds);
 
     for (const item of items) {
       const productId = item?.product_id;
@@ -99,6 +103,17 @@ export async function POST(req: Request) {
             quantity: allowedQuantity,
           })
           .eq("id", existing.id);
+
+        const duplicateIds = existingItems
+          ?.filter((ei) => ei.product_id === productId && ei.id !== existing.id)
+          .map((ei) => ei.id);
+
+        if (duplicateIds && duplicateIds.length > 0) {
+          await serviceSupabase
+            .from("cart_items")
+            .delete()
+            .in("id", duplicateIds);
+        }
       } else {
         await serviceSupabase.from("cart_items").insert({
           cart_id: cart.id,

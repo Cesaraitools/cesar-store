@@ -19,6 +19,15 @@ type FinalOrderItem = {
   image?: string | null;
 };
 
+type DbCartItem = {
+  product_id: string;
+  quantity: number | string;
+  name_ar?: string | null;
+  name_en?: string | null;
+  price: number | string;
+  image?: string | null;
+};
+
 async function resolveUser(request: Request) {
   try {
     const authHeader = request.headers.get("authorization");
@@ -162,18 +171,16 @@ let activeCartIds: string[] = [];
     .eq("status", "active")
     .order("created_at", { ascending: true });
 
-  const cart = carts?.[0] ?? null;
-
   activeCartIds = (carts ?? []).map((entry) => String(entry.id));
 
-  if (cart) {
+  if (activeCartIds.length > 0) {
    const { data: cartItems } = await serviceSupabase
       .from("cart_items")
       .select("product_id, quantity, name_ar, name_en, price, image")
-      .eq("cart_id", cart.id);
+      .in("cart_id", activeCartIds);
 
     if (cartItems && cartItems.length > 0) {
-      finalItems = cartItems.map((ci) => ({
+      finalItems = (cartItems as DbCartItem[]).map((ci) => ({
         product_id: String(ci.product_id),
         quantity: Number(ci.quantity),
         name_ar: ci.name_ar ?? "",
@@ -252,7 +259,7 @@ console.log("ORDER CREATE ATTEMPT", {
 });
        // ===== RPC MODE (SAFE TEST) =====
     try {
- let data, error;
+let data, error;
 let attempts = 0;
 const maxRetries = 2;
 
@@ -277,39 +284,56 @@ while (attempts <= maxRetries) {
 }
 
 if (error) throw error;
-if (activeCartIds.length > 0) {
-  const { error: clearCartError } = await serviceSupabase
-    .from("cart_items")
-    .delete()
-    .in("cart_id", activeCartIds);
 
-  if (clearCartError) {
+const createdOrder = Array.isArray(data) ? data[0] : data;
+
+if (!createdOrder?.order_id) {
+  throw new Error("Order RPC returned no order id");
+}
+
+if (!createdOrder.reused && activeCartIds.length > 0) {
+  const [{ error: clearCartError }, { error: closeCartError }] = await Promise.all([
+    serviceSupabase
+      .from("cart_items")
+      .delete()
+      .in("cart_id", activeCartIds),
+    serviceSupabase
+      .from("carts")
+      .update({
+        status: "ordered",
+        updated_at: new Date().toISOString(),
+      })
+      .in("id", activeCartIds),
+  ]);
+
+  if (clearCartError || closeCartError) {
     console.warn("Cart cleanup failed after order creation", {
       userId: user.id,
       cartIds: activeCartIds,
       order_token,
-      error: clearCartError,
+      clearCartError,
+      closeCartError,
     });
   }
 }
-if (data?.reused) {
+if (createdOrder.reused) {
   return NextResponse.json({
     success: true,
-    orderId: data.order_id,
-    order_number: data.order_number,
+    orderId: createdOrder.order_id,
+    order_number: createdOrder.order_number,
     reused: true,
   });
 }
 
       console.log("ORDER SUCCESS", {
-        orderId: data.order_id,
-        orderNumber: data.order_number,
+        orderId: createdOrder.order_id,
+        orderNumber: createdOrder.order_number,
       });
 
       return NextResponse.json({
         success: true,
-        orderId: data.order_id,
-        order_number: data.order_number,
+        orderId: createdOrder.order_id,
+        order_number: createdOrder.order_number,
       });
 
         } catch (err) {

@@ -108,8 +108,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     ownerUserId: null,
     items: [],
   });
+  const [cartLoaded, setCartLoaded] = useState(false);
 
-  const hasSyncedWithApi = useRef(false);
   const isMerging = useRef(false);
   const mergedForUserId = useRef<string | null>(null);
   const previousUserId = useRef<string | null | undefined>(undefined);
@@ -118,13 +118,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const stored = loadCartFromStorage();
     setCart(stored);
+    setCartLoaded(true);
   }, []);
 
   useEffect(() => {
+    if (!cartLoaded) return;
+
     const currentUserId = user?.id ?? null;
     const previous = previousUserId.current;
 
-    hasSyncedWithApi.current = false;
     mergedForUserId.current = null;
 
     if (previous === undefined) {
@@ -178,32 +180,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
             ownerUserId: currentUserId,
           }
     );
-  }, [user?.id]);
+  }, [cartLoaded, user?.id]);
 
   useEffect(() => {
-    if (!cart.id) return;
+    if (!cartLoaded || !cart.id) return;
     saveCartToStorage(cart);
-  }, [cart]);
-
-  const ensureCartExistsInDb = async () => {
-    if (!user || !session || hasSyncedWithApi.current) return;
-
-    try {
-      await fetch("/api/cart", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
-
-      hasSyncedWithApi.current = true;
-    } catch {
-      console.warn("Cart init failed");
-      hasSyncedWithApi.current = false;
-    }
-  };
+  }, [cartLoaded, cart]);
 
   useEffect(() => {
+    if (!cartLoaded) return;
     if (!user || !session) return;
     if (isMerging.current) return;
     if (mergedForUserId.current === user.id) return;
@@ -237,13 +222,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
           },
         });
 
-        const itemsData = await itemsRes.json();
-        const dbItems = itemsData?.items || [];
-
-        if (dbItems.length === 0 && cart.items.length > 0) {
+        if (!itemsRes.ok) {
           isMerging.current = false;
           return;
         }
+
+        const itemsData = await itemsRes.json();
+        const dbItems = itemsData?.items || [];
 
         setCart((prev) => ({
           ...prev,
@@ -270,11 +255,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     };
 
     mergeCart();
-  }, [user, session, cart.items]);
+  }, [cartLoaded, user?.id, session?.access_token]);
 
   const addToCart = (product: any) => {
-    void ensureCartExistsInDb();
-
     const productStock = normalizeStockValue(product.stock);
 
     if (productStock !== null && productStock <= 0) {
@@ -483,11 +466,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    setCart({
-      id: cart.id,
-      ownerUserId: user?.id ?? null,
-      items: [],
-    });
+    setCart(createEmptyCart(user?.id ?? null));
   };
 
   return (
