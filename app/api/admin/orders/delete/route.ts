@@ -74,7 +74,7 @@ return NextResponse.json(
 /* 🧠 Audit Log */
 await supabase.from("admin_audit_logs").insert(
 ids.map((id: string) => ({
-admin_email: "admin", // مؤقتًا
+admin_email: process.env.ADMIN_USERNAME || "admin",
 action: "archive",
 entity: "orders",
 entity_id: id,

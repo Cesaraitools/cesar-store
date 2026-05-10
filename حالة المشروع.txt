@@ -1,0 +1,454 @@
+# CESAR STORE — Production Hardening Completion Prompt (May 2026)
+
+## 📌 الحالة الحالية الحقيقية للمشروع
+
+المشروع دخل فعليًا مرحلة:
+
+* Production Hardening
+* Stability Protection
+* Data Integrity Enforcement
+
+بعد الانتهاء من تثبيت أخطر أجزاء النظام:
+
+* Cart System
+* Orders Flow
+* Admin Authentication
+* Order Tracking
+* Database Integrity
+
+---
+
+# ✅ Admin Authentication — الحالة النهائية الحالية
+
+النظام الحالي يعتمد بالكامل على:
+
+* Signed Cookies
+* Redis Sessions (Upstash)
+* validateAdminSession()
+
+وأصبح:
+
+## ✅ Single Source of Truth
+
+الملفات الأساسية:
+
+```text
+/lib/redis.ts
+/lib/admin/adminSessionStore.ts
+/lib/admin/validateAdminSession.ts
+```
+
+الكوكي الأساسية:
+
+```text
+cesar_admin_session
+```
+
+تم إزالة الأنظمة القديمة بالكامل:
+
+* activeSessions
+* createSession
+* isSessionValid
+* deleteSession
+* clearAllSessions
+
+## ✅ Session Persistence تعمل بنجاح
+
+* refresh لا يعمل logout
+* redeploy لا يعمل logout
+* sessions محفوظة داخل Redis
+
+---
+
+# ✅ أخطر Bug بالمشروع تم إصلاحه بالكامل
+
+## المشكلة القديمة
+
+بعد تنفيذ الطلب:
+
+* cart_items لم تكن تُحذف دائمًا
+* carts لم تكن تتحول إلى ordered
+* المنتجات القديمة كانت تعود داخل السلة الجديدة
+
+## السبب الحقيقي الذي تم اكتشافه
+
+داخل:
+
+```text
+/app/api/orders/route.ts
+```
+
+كان يوجد الشرط الخطير:
+
+```ts
+if (!createdOrder.reused && activeCartIds.length > 0)
+```
+
+مما كان يمنع cleanup عندما:
+
+```ts
+createdOrder.reused === true
+```
+
+## ✅ الإصلاح النهائي المثبت
+
+تم حذف شرط:
+
+```ts
+!createdOrder.reused
+```
+
+وأصبح cleanup يحدث دائمًا بعد أي Order ناجح.
+
+---
+
+# ✅ Cart Cleanup — الحالة الحالية المؤكدة
+
+بعد نجاح الطلب:
+
+* cart_items يتم حذفها
+* carts تتحول إلى:
+
+```text
+ordered
+```
+
+* السلة الجديدة تبدأ نظيفة
+* المنتجات القديمة لا تعود
+
+## ✅ تم اختبار السيناريوهات التالية بنجاح
+
+1. Add to cart
+2. Checkout success
+3. Cart cleanup
+4. Open cart again
+5. Add new product
+6. Verify no old products return
+
+---
+
+# ✅ Orders API — الحالة الحالية
+
+الملف:
+
+```text
+/app/api/orders/route.ts
+```
+
+تمت مراجعته بالكامل.
+
+## الحالة الحالية:
+
+* DB-first cart strategy
+* fallback logic صحيح
+* mergeDuplicateItems موجود
+* idempotency تعمل
+* order_token يعمل
+* reused order لا يكسر cleanup
+
+## ⚠️ ملاحظات مؤجلة
+
+* RPC retries تعمل على جميع الأخطاء وليس transient فقط
+* cleanup failure لا يفشل order creation
+* لا يوجد DB transaction بين cleanup والـ RPC
+
+لكن:
+النظام الحالي مستقر ولا يجب لمسه الآن.
+
+---
+
+# ✅ Cart Items API — الحالة الحالية
+
+الملف:
+
+```text
+/app/api/cart/items/route.ts
+```
+
+## الحالة الحالية:
+
+* يعتمد فقط على active carts
+* duplicate rows يتم تنظيفها دفاعيًا
+* stale handling موجود
+* stock validation موجود
+* normalizeCartItems يدمج duplicates
+
+## ⚠️ ملاحظات مؤجلة
+
+* يوجد race condition بسيط نظريًا أثناء concurrent insert
+* quantity يتم استبدالها وليس زيادتها
+* cart الفارغة لا يتم غلقها
+
+لكن:
+النظام الحالي مستقر.
+
+---
+
+# ✅ Guest Cart Merge — الحالة الحالية
+
+الملف:
+
+```text
+/app/api/cart/merge/route.ts
+```
+
+## الحالة الحالية:
+
+* merge يعمل فقط على active carts
+* ordered carts لا تعود
+* duplicate cleanup موجود
+* stock respected
+* لا يوجد reopen logic
+
+## ⚠️ ملاحظة مؤجلة
+
+merge يستبدل quantity بدل جمعها.
+
+لا يتم تعديل هذا السلوك حاليًا حتى يتم تحديد UX النهائي.
+
+---
+
+# ✅ Admin Order Tracking — الحالة الحالية
+
+الملف:
+
+```text
+/app/api/admin/order-tracking/route.ts
+```
+
+تمت مراجعته بالكامل.
+
+## الحالة الحالية:
+
+* validateAdminSession مستخدم بشكل صحيح
+* ALLOWED_TRANSITIONS تعمل
+* rollbackInventory موجود
+* optimistic concurrency protection موجود
+* fallback إلى orders.status موجود
+* tracking events هي source of truth
+
+## ⚠️ ملاحظات مؤجلة
+
+* race condition صغيرة جدًا في double cancel
+* actor ثابت = "admin"
+* rate limit يعتمد على memory map
+
+لكن:
+النظام الحالي آمن ومستقر.
+
+---
+
+# ✅ Security Pass تم تنفيذه
+
+تم تأمين:
+
+```text
+/app/api/categories/route.ts
+/app/api/promos/route.ts
+```
+
+بحيث:
+
+* GET يظل public
+* POST / PUT / DELETE تحتاج validateAdminSession
+
+بدون تغيير:
+
+* schema
+* payloads
+* business logic
+
+---
+
+# ✅ Admin Orders Page Cleanup
+
+الملف:
+
+```text
+/app/admin/orders/page.tsx
+```
+
+تم تنفيذ cleanup جراحي:
+
+## ما تم:
+
+* حذف unreachable code داخل deleteOrders()
+* توحيد UX:
+
+  * "حذف" → "أرشفة"
+  * "حذف المحدد" → "أرشفة المحدد"
+
+## الحالة الحالية:
+
+* archive flow مستقر
+* realtime updates تعمل
+* pagination مستقرة
+* modal سليمة
+* لا يوجد corruption خطير
+
+---
+
+# ✅ Database Hardening — تم بنجاح
+
+تم فحص:
+
+## duplicate cart items
+
+```sql
+SELECT cart_id, product_id, COUNT(*)
+FROM cart_items
+GROUP BY cart_id, product_id
+HAVING COUNT(*) > 1;
+```
+
+النتيجة:
+
+```text
+No rows returned
+```
+
+## multiple active carts
+
+```sql
+SELECT user_id, status, COUNT(*)
+FROM carts
+WHERE status = 'active'
+GROUP BY user_id, status
+HAVING COUNT(*) > 1;
+```
+
+النتيجة:
+
+```text
+No rows returned
+```
+
+---
+
+# ✅ تم فرض Database Integrity Indexes
+
+تم تنفيذ:
+
+```sql
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_cart_product
+ON cart_items(cart_id, product_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_active_cart_per_user
+ON carts(user_id)
+WHERE status = 'active' AND user_id IS NOT NULL;
+```
+
+## وتم اختبار:
+
+* add item
+* update quantity
+* checkout
+* cleanup
+* new clean cart
+
+بنجاح كامل بعد الـ indexes.
+
+---
+
+# 📊 التقييم الحالي الحقيقي للمشروع
+
+| الجزء                | التقييم |
+| -------------------- | ------- |
+| Cart System          | 9/10    |
+| Orders Flow          | 9/10    |
+| Inventory Integrity  | 8.5/10  |
+| Admin Security       | 8.5/10  |
+| Tracking System      | 8.5/10  |
+| Database Integrity   | 9/10    |
+| Production Stability | 8.5/10  |
+
+---
+
+# 🚫 ممنوع حاليًا
+
+لا يتم لمس:
+
+```text
+CartContext.tsx
+/api/cart/**
+/api/orders/route.ts
+/api/admin/order-tracking/route.ts
+```
+
+إلا بسبب:
+
+* bug واضح
+* اختبار محدد
+* تحليل كامل
+
+---
+
+# 🎯 الأولويات القادمة بالترتيب
+
+## 1. Automated Tests
+
+الأولوية الحالية:
+
+* checkout cleanup
+* guest merge
+* cancel restore
+* archive/restore
+
+---
+
+## 2. Redis Rate Limit Refactor
+
+تحويل أي memory-based limit إلى Upstash Redis.
+
+---
+
+## 3. Admin Audit Logging
+
+تسجيل:
+
+* admin id
+* admin email
+* actions
+* transitions
+
+---
+
+## 4. Bulk Import Stabilization
+
+إصلاح:
+
+* upload failures
+* validation
+* image dedupe
+* batch processing
+
+---
+
+## 5. UTF-8 Cleanup Pass
+
+تنظيف النصوص العربية المتضررة فقط بدون خلط مع business logic.
+
+---
+
+# ⚠️ قواعد العمل الإلزامية
+
+* ممنوع التخمين
+* أي تعديل يكون جراحي
+* ممنوع إعادة كتابة ملفات كاملة بدون داعي
+* ممنوع خلط refactor مع bug fixing
+* طلب الملف الأصلي كاملًا قبل أي تعديل
+* الحفاظ على UI وbusiness logic الحالية
+* أي تحليل يجب أن يكون:
+
+  * Code
+  * DB
+  * Network
+    وليس بالتخمين
+
+---
+
+# 🚀 بداية الشات القادم
+
+ابدأ بـ:
+
+نريد بدء مرحلة Automated Testing & Final Production Hardening بعد تثبيت Cart Cleanup وفرض DB Integrity Indexes بنجاح، مع الحفاظ الكامل على استقرار orders/cart/tracking وعدم لمس core flows إلا بتحليل واختبار محدد.

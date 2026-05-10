@@ -357,14 +357,28 @@ console.error("INVENTORY RESTORE ERROR:", error);
       );
     }
 
-    console.log("AUDIT:", {
-      orderId,
-      from: currentStatus,
-      to: safeEvent,
-      restoredInventory: safeEvent === "canceled",
-      ip,
-      time: new Date().toISOString(),
-    });
+    await supabase.from("admin_audit_logs").insert({
+  admin_email: process.env.ADMIN_USERNAME || "admin",
+  action: "order_status_update",
+  entity: "orders",
+  entity_id: orderId,
+  metadata: {
+    from: currentStatus,
+    to: safeEvent,
+    restoredInventory: safeEvent === "canceled",
+    ip,
+    time: new Date().toISOString(),
+  },
+});
+
+console.log("AUDIT:", {
+  orderId,
+  from: currentStatus,
+  to: safeEvent,
+  restoredInventory: safeEvent === "canceled",
+  ip,
+  time: new Date().toISOString(),
+});
 
     return NextResponse.json({
       ok: true,
