@@ -161,30 +161,6 @@ function toggleSelectAll() {
   setIdsToDelete(ids);
 setShowDeleteModal(true);
   return;
-
-
-  try {
-    setDeleting(true);
-
-    const res = await fetch("/api/admin/orders/delete", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ ids }),
-    });
-
-    if (!res.ok) throw new Error("فشل الحذف");
-
-    // تحديث UI
-    setOrders(prev => prev.filter(o => !ids.includes(o.id)));
-    setSelectedOrders([]);
-
-  } catch (err: any) {
-    alert(err.message);
-  } finally {
-    setDeleting(false);
-  }
 }
 async function confirmDelete() {
   try {
@@ -310,7 +286,7 @@ async function confirmDelete() {
   disabled={deleting}
   className="bg-red-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-red-700 disabled:opacity-50"
 >
-  {deleting ? "جاري الحذف..." : `حذف المحدد (${selectedOrders.length})`}
+  {deleting ? "جاري الأرشفة..." : `أرشفة المحدد (${selectedOrders.length})`}
 </button>
   </div>
 )}
@@ -408,7 +384,7 @@ async function confirmDelete() {
   disabled={deleting}
   className="text-xs font-bold text-red-600 bg-red-50 px-3 py-1.5 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50"
 >
-  {deleting ? "..." : "حذف"}
+  {deleting ? "..." : "أرشفة"}
 </button>
 </td>
                 </tr>
