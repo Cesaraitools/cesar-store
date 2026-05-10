@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import { validateAdminSession } from "@/lib/admin/validateAdminSession";
 import * as Sentry from "@sentry/nextjs";
+import { rateLimit } from "@/lib/rateLimit";
 export const runtime = "nodejs";
 
 const supabase = createClient(
@@ -10,10 +11,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const RATE_LIMIT_WINDOW = 10 * 1000;
-const RATE_LIMIT_MAX = 10;
 
-const ipStore = new Map<string, number[]>();
 
 type TrackingStatus =
   | "requested"
@@ -60,19 +58,7 @@ const ALLOWED_TRANSITIONS: Record<TrackingStatus, TrackingStatus[]> = {
   canceled: [],
 };
 
-function isRateLimited(ip: string) {
-  const now = Date.now();
-  const timestamps = ipStore.get(ip) || [];
-  const filtered = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW);
 
-  if (filtered.length >= RATE_LIMIT_MAX) {
-    return true;
-  }
-
-  filtered.push(now);
-  ipStore.set(ip, filtered);
-  return false;
-}
 
 async function getCurrentStatus(orderId: string): Promise<TrackingStatus> {
   const { data } = await supabase
@@ -228,12 +214,18 @@ export async function POST(req: NextRequest) {
       req.headers.get("x-real-ip") ||
       "unknown";
 
-    if (isRateLimited(ip)) {
-      return NextResponse.json(
-        { ok: false, error: "Too many requests" },
-        { status: 429 }
-      );
-    }
+    const allowed = await rateLimit(
+  `order-tracking:${ip}`,
+  10,
+  10000
+);
+
+if (!allowed) {
+  return NextResponse.json(
+    { ok: false, error: "Too many requests" },
+    { status: 429 }
+  );
+}
 
     const body = await req.json();
     const { orderId, event } = body as {
