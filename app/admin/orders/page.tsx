@@ -243,50 +243,17 @@ async function confirmDelete() {
 
   const delivered = orders.filter(o => o.status === "delivered");
   const revenue = delivered.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-{showDeleteModal && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-    <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl text-center">
-      
-      <h2 className="text-lg font-black text-gray-900 mb-2">
-        تأكيد الحذف
-      </h2>
-
-      <p className="text-sm text-gray-500 mb-6">
-        هل أنت متأكد من حذف {idsToDelete.length} طلب؟
-      </p>
-
-      <div className="flex gap-3 justify-center">
-        
-        <button
-          onClick={() => setShowDeleteModal(false)}
-          className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200"
-        >
-          إلغاء
-        </button>
-
-        <button
-          onClick={confirmDelete}
-          disabled={deleting}
-          className="px-4 py-2 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 disabled:opacity-50"
-        >
-          {deleting ? "جاري الحذف..." : "تأكيد الحذف"}
-        </button>
-
-      </div>
-    </div>
-  </div>
-)}
   return (
     <>
     {showDeleteModal && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
         <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl text-center">
           <h2 className="text-lg font-black text-gray-900 mb-2">
-            ØªØ£ÙƒÙŠØ¯ Ø§Ù„Ø­Ø°Ù
+            Archive order confirmation
           </h2>
 
           <p className="text-sm text-gray-500 mb-6">
-            Ù‡Ù„ Ø£Ù†Øª Ù…ØªØ£ÙƒØ¯ Ù…Ù† Ø­Ø°Ù {idsToDelete.length} Ø·Ù„Ø¨ØŸ
+            Are you sure you want to move {idsToDelete.length} selected order{idsToDelete.length === 1 ? "" : "s"} to the archive?
           </p>
 
           <div className="flex gap-3 justify-center">
@@ -294,7 +261,7 @@ async function confirmDelete() {
               onClick={() => setShowDeleteModal(false)}
               className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200"
             >
-              Ø¥Ù„ØºØ§Ø¡
+              Cancel
             </button>
 
             <button
@@ -302,7 +269,7 @@ async function confirmDelete() {
               disabled={deleting}
               className="px-4 py-2 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 disabled:opacity-50"
             >
-              {deleting ? "Ø¬Ø§Ø±ÙŠ Ø§Ù„Ø­Ø°Ù..." : "ØªØ£ÙƒÙŠØ¯ Ø§Ù„Ø­Ø°Ù"}
+              {deleting ? "Archiving..." : "Move to archive"}
             </button>
           </div>
         </div>
