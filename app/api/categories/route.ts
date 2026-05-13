@@ -57,16 +57,15 @@ export async function POST(request: Request) {
     const body = await request.json();
 
     const newCategory = {
-      id: String(body.id || body.category).toLowerCase().trim(),
-      category: String(body.category || body.id).toLowerCase().trim(),
-      image: body.image || "",
-      en: body.en || { title: "", subtitle: "" },
-      ar: body.ar || { title: "", subtitle: "" },
-      active: body.active ?? true,
-      order: Number(body.order ?? 0),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+  category: String(body.category).toLowerCase().trim(),
+  image: body.image || "",
+  en: body.en || { title: "", subtitle: "" },
+  ar: body.ar || { title: "", subtitle: "" },
+  active: body.active ?? true,
+  order: Number(body.order ?? 0),
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+};
 
     const { data, error } = await supabase
       .from("categories")

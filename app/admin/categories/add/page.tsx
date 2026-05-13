@@ -102,7 +102,6 @@ export default function AddCategoryPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: "category",
-          id: form.id,
           category: form.category,
           image: form.image, // URL ONLY
           order: Number(form.order),
@@ -139,17 +138,7 @@ export default function AddCategoryPage() {
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Basic */}
         <div className="grid md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium mb-1">ID *</label>
-            <input
-              name="id"
-              value={form.id}
-              onChange={updateField}
-              className="w-full rounded border px-3 py-2"
-              required
-            />
-          </div>
-
+          
           <div>
             <label className="block text-sm font-medium mb-1">
               Category Slug *
