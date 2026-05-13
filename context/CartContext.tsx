@@ -130,21 +130,36 @@ export function CartProvider({ children }: { children: ReactNode }) {
     mergedForUserId.current = null;
 
     if (previous === undefined) {
-      previousUserId.current = currentUserId;
+  previousUserId.current = currentUserId;
+
+  if (!currentUserId) {
+    shouldMergeGuestCart.current = false;
+    setCart((prev) =>
+      prev.ownerUserId === null ? prev : createEmptyCart(null)
+    );
+    return;
+  }
+
+  setCart((prev) => {
+    if (prev.ownerUserId === currentUserId) {
       shouldMergeGuestCart.current = false;
-
-      if (!currentUserId) {
-        setCart((prev) =>
-          prev.ownerUserId === null ? prev : createEmptyCart(null)
-        );
-        return;
-      }
-
-      setCart((prev) =>
-        prev.ownerUserId === currentUserId ? prev : createEmptyCart(currentUserId)
-      );
-      return;
+      return prev;
     }
+
+    if (prev.ownerUserId === null && prev.items.length > 0) {
+      shouldMergeGuestCart.current = true;
+      return {
+        ...prev,
+        ownerUserId: currentUserId,
+      };
+    }
+
+    shouldMergeGuestCart.current = false;
+    return createEmptyCart(currentUserId);
+  });
+
+  return;
+}
 
     if (!currentUserId) {
       previousUserId.current = null;
