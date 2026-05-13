@@ -12,16 +12,15 @@ export default function AddCategoryPage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const [form, setForm] = useState({
-    id: "",
-    category: "",
-    image: "", // MUST be URL (not blob)
-    order: 1,
-    active: true,
-    arTitle: "",
-    arSubtitle: "",
-    enTitle: "",
-    enSubtitle: "",
-  });
+  category: "",
+  image: "", // MUST be URL (not blob)
+  order: 1,
+  active: true,
+  arTitle: "",
+  arSubtitle: "",
+  enTitle: "",
+  enSubtitle: "",
+});
 
   const [preview, setPreview] = useState<string>("");
 
@@ -82,14 +81,13 @@ export default function AddCategoryPage() {
     e.preventDefault();
 
     if (
-      !form.id ||
-      !form.category ||
-      !form.arTitle ||
-      !form.enTitle
-    ) {
-      alert("Please fill all required fields");
-      return;
-    }
+  !form.category ||
+  !form.arTitle ||
+  !form.enTitle
+) {
+  alert("Please fill all required fields");
+  return;
+}
 
     if (!form.image || form.image.startsWith("blob:")) {
       alert("Please upload a valid image before saving");
