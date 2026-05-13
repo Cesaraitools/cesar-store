@@ -1,35 +1,10 @@
 "use client";
 
-import { Suspense, useState } from "react";
-import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import Link from "next/link";
 
-function getRegisterErrorMessage(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error || "");
-
-  if (message.includes("already registered")) {
-    return "هذا البريد مسجل بالفعل، قم بتسجيل الدخول";
-  }
-
-  if (message.includes("invalid email")) {
-    return "البريد الإلكتروني غير صحيح";
-  }
-
-  if (message.includes("Password should be")) {
-    return "كلمة المرور ضعيفة (على الأقل 6 أحرف)";
-  }
-
-  return "حدث خطأ، حاول مرة أخرى";
-}
-
-function RegisterContent() {
-  const searchParams = useSearchParams();
-  const redirectParam = searchParams.get("redirect");
-  const loginHref = redirectParam
-    ? `/auth/login?redirect=${encodeURIComponent(redirectParam)}`
-    : "/auth/login";
-
+export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
@@ -42,48 +17,77 @@ function RegisterContent() {
     setError(null);
 
     if (!email || !phone || !password) {
-      setError("يجب إكمال الحقول");
-      return;
+      return setError("يجب إكمال الحقول");
     }
 
     try {
       setLoading(true);
+      // 🔍 محاولة تسجيل دخول لمعرفة إذا كان الحساب موجود (Google أو Email)
+const { error: checkError } = await supabase.auth.signInWithPassword({
+  email,
+  password: "fake_password_check_123",
+});
 
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            phone,
-          },
-        },
-      });
+if (checkError && !checkError.message.includes("Invalid login credentials")) {
+  setError("هذا البريد مرتبط بحساب Google، قم بتسجيل الدخول باستخدام Google");
+  setLoading(false);
+  return;
+}
 
-      if (signUpError) {
-        setError(getRegisterErrorMessage(signUpError));
-        return;
-      }
+// 🔍 CHECK: هل الإيميل موجود قبل التسجيل
+const { data: existingUsers } = await supabase.auth.admin.listUsers();
 
-      if (!data.user) {
-        throw new Error("فشل إنشاء المستخدم");
-      }
+const exists = existingUsers?.users?.some(
+  (u: any) => u.email?.toLowerCase() === email.toLowerCase()
+);
 
-      const isDuplicateSignup =
-        Array.isArray(data.user.identities) &&
-        data.user.identities.length === 0;
+if (exists) {
+  throw new Error("هذا البريد الإلكتروني مسجل بالفعل، قم بتسجيل الدخول");
+}
 
-      if (isDuplicateSignup) {
-        setError("هذا البريد مسجل بالفعل، قم بتسجيل الدخول");
-        return;
-      }
+// ✅ إنشاء المستخدم
+const { data, error: signUpError } =
+  await supabase.auth.signUp({
+    email,
+    password,
+  });
+
+if (signUpError) {
+  if (signUpError.message.includes("already registered")) {
+    setError("هذا البريد مسجل بالفعل، قم بتسجيل الدخول");
+  } else {
+    setError("حدث خطأ أثناء إنشاء الحساب");
+  }
+  setLoading(false);
+  return;
+}
+if (!data.user) throw new Error("فشل إنشاء المستخدم");
+
+      /**
+       * NOTE:
+       * user profile row is created by the database trigger
+       * (handle_new_user) after auth.users insertion.
+       * We intentionally do NOT insert into public.users here
+       * to keep Trigger as the Single Source of Truth.
+       */
 
       setSuccess(true);
 
-      setTimeout(() => {
-        window.location.href = loginHref;
-      }, 1500);
-    } catch (err) {
-      setError(getRegisterErrorMessage(err));
+setTimeout(() => {
+  window.location.href = "/auth/login";
+}, 1500);
+
+    } catch (err: any) {
+      if (err.message.includes("already registered")) {
+  setError("هذا البريد مسجل بالفعل، قم بتسجيل الدخول");
+} else if (err.message.includes("invalid email")) {
+  setError("البريد الإلكتروني غير صحيح");
+} else if (err.message.includes("Password should be")) {
+  setError("كلمة المرور ضعيفة (على الأقل 6 أحرف)");
+} else {
+  setError("حدث خطأ، حاول مرة أخرى");
+}
+
     } finally {
       setLoading(false);
     }
@@ -92,6 +96,7 @@ function RegisterContent() {
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-white p-4">
       <div className="w-full max-w-md bg-gray-50/50 rounded-[2.5rem] border border-gray-100 p-8 md:p-12 shadow-xl">
+
         <div className="mb-10 text-center">
           <h1 className="text-2xl font-black text-black">انضم إلى سيزر</h1>
           <div className="w-12 h-1.5 bg-orange-500 mx-auto mt-2 rounded-full"></div>
@@ -105,21 +110,23 @@ function RegisterContent() {
 
         {success ? (
           <div className="text-center py-10 space-y-4">
-            <div className="text-5xl">تم</div>
+            <div className="text-5xl">✅</div>
             <h2 className="text-xl font-bold text-gray-800">تم إنشاء حسابك!</h2>
             <p className="text-gray-500 text-sm">
               أهلاً بك في عائلة متجر سيزر، يمكنك الآن تسجيل الدخول.
             </p>
 
             <Link
-              href={loginHref}
+              href="/auth/login"
               className="block w-full bg-black text-white py-4 rounded-2xl font-bold shadow-lg"
             >
               تسجيل الدخول
             </Link>
           </div>
         ) : (
+
           <form onSubmit={handleRegister} className="space-y-4">
+
             <input
               type="email"
               placeholder="البريد الإلكتروني"
@@ -154,28 +161,22 @@ function RegisterContent() {
             >
               {loading ? "جارٍ الإنشاء..." : "إنشاء الحساب الآن"}
             </button>
+
           </form>
         )}
 
         {!success && (
           <div className="mt-8 text-center">
             <Link
-              href={loginHref}
+              href="/auth/login"
               className="text-gray-500 text-sm font-medium hover:text-black transition-colors"
             >
               عودة لتسجيل الدخول
             </Link>
           </div>
         )}
+
       </div>
     </div>
-  );
-}
-
-export default function RegisterPage() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <RegisterContent />
-    </Suspense>
   );
 }

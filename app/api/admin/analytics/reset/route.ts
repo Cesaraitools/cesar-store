@@ -49,7 +49,6 @@ type InventoryUpdate = {
 };
 
 const supabase = createServiceRoleClient();
-const RESET_ALLOWED_EMAIL = "mohamed.seeikng@gmail.com";
 
 /* 🔐 NEW: Validate Reset Secret */
 function validateResetSecret(request: Request) {
@@ -218,19 +217,18 @@ console.log("RESET START", {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 }   
 
-const authSupabase = createServerClient();
+const supabase = createServerClient();
+
 const {
   data: { user },
-} = await authSupabase.auth.getUser();
+} = await supabase.auth.getUser();
 
-if (user?.email?.toLowerCase() !== RESET_ALLOWED_EMAIL) {
+if (!user || user.email !== process.env.SUPER_ADMIN_EMAIL) {
   return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 }
-
 console.log("RESET AUTHORIZED", {
+  userId: user?.id,
   email: user?.email,
-  ip,
-  time: new Date().toISOString(),
 });
     const { data: orders, error: ordersError } = await supabase
       .from("orders")
