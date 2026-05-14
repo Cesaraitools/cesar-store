@@ -3,8 +3,50 @@ import { createClient } from "@supabase/supabase-js";
 
 const serviceSupabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { persistSession: false } }
 );
+
+async function ensurePublicUser(user: {
+  id: string;
+  email?: string | null;
+  user_metadata?: {
+    name?: string;
+    full_name?: string;
+    avatar_url?: string;
+  };
+  app_metadata?: {
+    providers?: string[];
+  };
+}) {
+  const { data: existingUser, error: fetchError } = await serviceSupabase
+    .from("users")
+    .select("id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (fetchError) {
+    throw new Error(`Failed to check public user: ${fetchError.message}`);
+  }
+
+  if (existingUser) return;
+
+  const { error: insertError } = await serviceSupabase.from("users").insert({
+    id: user.id,
+    email: user.email ?? null,
+    name:
+      user.user_metadata?.name ||
+      user.user_metadata?.full_name ||
+      user.email ||
+      null,
+    avatar_url: user.user_metadata?.avatar_url || null,
+    providers: user.app_metadata?.providers ?? [],
+  });
+
+  if (insertError) {
+    throw new Error(`Failed to create public user: ${insertError.message}`);
+  }
+}
 
 export async function POST(req: Request) {
   try {
@@ -26,6 +68,7 @@ export async function POST(req: Request) {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
+        auth: { persistSession: false },
         global: {
           headers: { Authorization: `Bearer ${token}` },
         },
@@ -34,23 +77,30 @@ export async function POST(req: Request) {
 
     const {
       data: { user },
+      error: authError,
     } = await supabase.auth.getUser();
 
-    if (!user) {
+    if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { data: carts } = await serviceSupabase
+    await ensurePublicUser(user);
+
+    const { data: carts, error: cartsError } = await serviceSupabase
       .from("carts")
       .select("*")
       .eq("user_id", user.id)
       .eq("status", "active")
       .order("created_at", { ascending: true });
 
+    if (cartsError) {
+      throw new Error(`Failed to fetch user carts: ${cartsError.message}`);
+    }
+
     let cart = carts?.[0] ?? null;
 
     if (!cart) {
-      const { data: newCart } = await serviceSupabase
+      const { data: newCart, error: createCartError } = await serviceSupabase
         .from("carts")
         .insert({
           user_id: user.id,
@@ -58,6 +108,14 @@ export async function POST(req: Request) {
         })
         .select()
         .single();
+
+      if (createCartError || !newCart) {
+        throw new Error(
+          `Failed to create user cart: ${
+            createCartError?.message || "No cart returned"
+          }`
+        );
+      }
 
       cart = newCart;
     }
@@ -67,10 +125,17 @@ export async function POST(req: Request) {
       ? activeCartIds
       : [...activeCartIds, String(cart.id)];
 
-    const { data: existingItems } = await serviceSupabase
-      .from("cart_items")
-      .select("id, product_id, quantity")
-      .in("cart_id", cartIds);
+    const { data: existingItems, error: existingItemsError } =
+      await serviceSupabase
+        .from("cart_items")
+        .select("id, product_id, quantity")
+        .in("cart_id", cartIds);
+
+    if (existingItemsError) {
+      throw new Error(
+        `Failed to fetch cart items: ${existingItemsError.message}`
+      );
+    }
 
     for (const item of items) {
       const productId = item?.product_id;
@@ -83,13 +148,13 @@ export async function POST(req: Request) {
         continue;
       }
 
-      const { data: product } = await serviceSupabase
+      const { data: product, error: productError } = await serviceSupabase
         .from("products")
         .select("name_ar, name_en, price, image_url, stock, is_active")
         .eq("id", productId)
         .single();
 
-      if (!product || !product.is_active || product.stock <= 0) {
+      if (productError || !product || !product.is_active || product.stock <= 0) {
         continue;
       }
 
@@ -97,39 +162,57 @@ export async function POST(req: Request) {
       const existing = existingItems?.find((ei) => ei.product_id === productId);
 
       if (existing) {
-        await serviceSupabase
+        const { error: updateError } = await serviceSupabase
           .from("cart_items")
           .update({
             quantity: allowedQuantity,
           })
           .eq("id", existing.id);
 
+        if (updateError) {
+          throw new Error(`Failed to update cart item: ${updateError.message}`);
+        }
+
         const duplicateIds = existingItems
           ?.filter((ei) => ei.product_id === productId && ei.id !== existing.id)
           .map((ei) => ei.id);
 
         if (duplicateIds && duplicateIds.length > 0) {
-          await serviceSupabase
+          const { error: deleteDuplicatesError } = await serviceSupabase
             .from("cart_items")
             .delete()
             .in("id", duplicateIds);
+
+          if (deleteDuplicatesError) {
+            throw new Error(
+              `Failed to remove duplicate cart items: ${deleteDuplicatesError.message}`
+            );
+          }
         }
       } else {
-        await serviceSupabase.from("cart_items").insert({
-          cart_id: cart.id,
-          product_id: productId,
-          quantity: allowedQuantity,
-          name_ar: product.name_ar ?? "",
-          name_en: product.name_en ?? "",
-          price: product.price ?? 0,
-          image: product.image_url ?? null,
-        });
+        const { error: insertItemError } = await serviceSupabase
+          .from("cart_items")
+          .insert({
+            cart_id: cart.id,
+            product_id: productId,
+            quantity: allowedQuantity,
+            name_ar: product.name_ar ?? "",
+            name_en: product.name_en ?? "",
+            price: product.price ?? 0,
+            image: product.image_url ?? null,
+          });
+
+        if (insertItemError) {
+          throw new Error(
+            `Failed to insert cart item: ${insertItemError.message}`
+          );
+        }
       }
     }
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error(err);
+    console.error("CART MERGE ERROR:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
