@@ -158,14 +158,24 @@ export async function POST(req: Request) {
         continue;
       }
 
-      const allowedQuantity = Math.min(requestedQuantity, product.stock);
+      const productStock = Math.max(0, Math.floor(Number(product.stock) || 0));
+      const allowedQuantity = Math.min(requestedQuantity, productStock);
       const existing = existingItems?.find((ei) => ei.product_id === productId);
 
       if (existing) {
+        const existingQuantity = Math.max(
+          0,
+          Math.floor(Number(existing.quantity) || 0)
+        );
+        const mergedQuantity = Math.min(
+          existingQuantity + requestedQuantity,
+          productStock
+        );
+
         const { error: updateError } = await serviceSupabase
           .from("cart_items")
           .update({
-            quantity: allowedQuantity,
+            quantity: mergedQuantity,
           })
           .eq("id", existing.id);
 

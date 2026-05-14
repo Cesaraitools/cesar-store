@@ -54,11 +54,14 @@ export default function LandingPage() {
   const code = url.searchParams.get("code");
 
   if (code) {
+    const storedRedirect = sessionStorage.getItem("oauth_redirect");
     const redirect =
-      sessionStorage.getItem("oauth_redirect") || "/checkout";
+      storedRedirect && storedRedirect.startsWith("/") && !storedRedirect.startsWith("//")
+        ? storedRedirect
+        : "/checkout";
 
     window.location.replace(
-      `/auth/callback?code=${code}&redirect=${redirect}`
+      `/auth/callback?code=${encodeURIComponent(code)}&redirect=${encodeURIComponent(redirect)}`
     );
   }
 }, []);

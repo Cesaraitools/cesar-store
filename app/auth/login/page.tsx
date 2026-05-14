@@ -6,6 +6,12 @@ import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 
+function getSafeRedirectPath(redirect: string | null, fallback = "/") {
+  if (!redirect) return fallback;
+  if (!redirect.startsWith("/") || redirect.startsWith("//")) return fallback;
+  return redirect;
+}
+
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -18,7 +24,7 @@ function LoginContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const target = redirectParam || "/";
+  const target = getSafeRedirectPath(redirectParam);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +58,7 @@ function LoginContent() {
     await supabase.auth.signInWithOAuth({
       provider: "apple",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?redirect=${target}`,
+        redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(target)}`,
       },
     });
   };

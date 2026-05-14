@@ -34,6 +34,7 @@ type LocalCart = {
 type CartContextType = {
   cartId: string;
   cartItems: CartItem[];
+  cartSyncing: boolean;
   addToCart: (product: any) => void;
   updateQuantity: (cartItemId: string, quantity: number) => void;
   removeFromCart: (cartItemId: string) => void;
@@ -109,6 +110,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     items: [],
   });
   const [cartLoaded, setCartLoaded] = useState(false);
+  const [cartSyncing, setCartSyncing] = useState(false);
 
   const isMerging = useRef(false);
   const mergedForUserId = useRef<string | null>(null);
@@ -208,25 +210,35 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (isMerging.current) return;
     if (mergedForUserId.current === user.id) return;
 
+    const itemsToMerge =
+      shouldMergeGuestCart.current && cart.items.length > 0
+        ? cart.items.map((item) => ({
+            product_id: item.product_id,
+            quantity: item.quantity,
+          }))
+        : [];
+
     const mergeCart = async () => {
       try {
         isMerging.current = true;
+        setCartSyncing(true);
         mergedForUserId.current = user.id;
 
-        if (shouldMergeGuestCart.current && cart.items.length > 0) {
-          await fetch("/api/cart/merge", {
+        if (itemsToMerge.length > 0) {
+          const mergeRes = await fetch("/api/cart/merge", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${session.access_token}`,
             },
             body: JSON.stringify({
-              items: cart.items.map((item) => ({
-                product_id: item.product_id,
-                quantity: item.quantity,
-              })),
+              items: itemsToMerge,
             }),
           });
+
+          if (!mergeRes.ok) {
+            throw new Error("Guest cart merge failed");
+          }
         }
 
         shouldMergeGuestCart.current = false;
@@ -238,8 +250,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         });
 
         if (!itemsRes.ok) {
-          isMerging.current = false;
-          return;
+          throw new Error("Failed to refresh cart items");
         }
 
         const itemsData = await itemsRes.json();
@@ -263,9 +274,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
           })),
         }));
 
+      } catch (error) {
+        console.warn("Cart merge failed", error);
+        mergedForUserId.current = null;
+        if (itemsToMerge.length > 0) {
+          shouldMergeGuestCart.current = true;
+        }
+      } finally {
         isMerging.current = false;
-      } catch {
-        isMerging.current = false;
+        setCartSyncing(false);
       }
     };
 
@@ -507,6 +524,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       value={{
         cartId: cart.id,
         cartItems: cart.items,
+        cartSyncing,
         addToCart,
         updateQuantity,
         removeFromCart,

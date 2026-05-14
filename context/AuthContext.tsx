@@ -4,6 +4,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   ReactNode,
@@ -22,8 +23,14 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function getSafeRedirectPath(redirect?: string) {
+  if (!redirect) return "/checkout";
+  if (!redirect.startsWith("/") || redirect.startsWith("//")) return "/checkout";
+  return redirect;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
 
   const [user, setUser] = useState<User | null>(null);
@@ -81,16 +88,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithGoogle = async (redirect?: string) => {
   setLoading(true);
 
-  const redirectPath = redirect || "/checkout";
+  const redirectPath = getSafeRedirectPath(redirect);
 
   if (typeof window !== "undefined") {
     sessionStorage.setItem("oauth_redirect", redirectPath);
+    sessionStorage.setItem("last_redirect", redirectPath);
   }
 
   const { error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: `${window.location.origin}/auth/callback?redirect=${redirectPath}`
+      redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirectPath)}`
     },
   });
 

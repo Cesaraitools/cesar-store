@@ -187,8 +187,9 @@ if (!await rateLimit(`${ip}:cart-items:post`, 60, 60000)) {
 
   const body = await req.json();
   const { product_id, quantity = 1 } = body;
+  const requestedQuantity = Math.max(1, Math.floor(Number(quantity) || 1));
 
-  if (!product_id || quantity <= 0) {
+  if (!product_id || requestedQuantity <= 0) {
     return NextResponse.json(
       { error: "Invalid product or quantity" },
       { status: 400 }
@@ -217,9 +218,11 @@ if (!await rateLimit(`${ip}:cart-items:post`, 60, 60000)) {
       );
     }
 
-    if (product.stock < quantity) {
+    const productStock = Math.max(0, Math.floor(Number(product.stock) || 0));
+
+    if (productStock < requestedQuantity) {
       return NextResponse.json(
-        { error: "Insufficient stock", available: product.stock },
+        { error: "Insufficient stock", available: productStock },
         { status: 400 }
       );
     }
@@ -235,10 +238,23 @@ if (!await rateLimit(`${ip}:cart-items:post`, 60, 60000)) {
     const existingItem = existingItems?.[0] ?? null;
 
     if (existingItem) {
-      // استبدل الكمية بدل ما تجمعها
+      const existingQuantity = Math.max(
+        0,
+        Math.floor(Number(existingItem.quantity) || 0)
+      );
+      const nextQuantity = existingQuantity + requestedQuantity;
+
+      if (nextQuantity > productStock) {
+        return NextResponse.json(
+          { error: "Insufficient stock", available: productStock },
+          { status: 400 }
+        );
+      }
+
+      // Add to the existing server-side quantity without exceeding stock.
       const { error: updateError } = await serviceSupabase
         .from("cart_items")
-        .update({ quantity })
+        .update({ quantity: nextQuantity })
         .eq("id", existingItem.id);
 
       if (updateError) {
@@ -268,7 +284,7 @@ if (!await rateLimit(`${ip}:cart-items:post`, 60, 60000)) {
       .insert({
         cart_id: cart.id,
         product_id,
-        quantity,
+        quantity: requestedQuantity,
         name_ar: product?.name_ar ?? "",
         name_en: product?.name_en ?? "",
         price: Number(product?.price ?? 0),
@@ -314,8 +330,9 @@ if (!await rateLimit(`${ip}:cart-items:patch`, 120, 60000)) {
 
   const body = await req.json();
   const { product_id, quantity } = body;
+  const requestedQuantity = Math.max(1, Math.floor(Number(quantity) || 1));
 
-  if (!product_id || quantity <= 0) {
+  if (!product_id || requestedQuantity <= 0) {
     return NextResponse.json(
       { error: "Invalid product or quantity" },
       { status: 400 }
@@ -337,9 +354,11 @@ if (!await rateLimit(`${ip}:cart-items:patch`, 120, 60000)) {
       );
     }
 
-    if (product.stock < quantity) {
+    const productStock = Math.max(0, Math.floor(Number(product.stock) || 0));
+
+    if (productStock < requestedQuantity) {
       return NextResponse.json(
-        { error: "Insufficient stock", available: product.stock },
+        { error: "Insufficient stock", available: productStock },
         { status: 400 }
       );
     }
@@ -378,7 +397,7 @@ if (!await rateLimit(`${ip}:cart-items:patch`, 120, 60000)) {
 
     const { error } = await serviceSupabase
       .from("cart_items")
-      .update({ quantity })
+      .update({ quantity: requestedQuantity })
       .eq("id", primaryItem.id);
 
     if (error) {
@@ -399,7 +418,7 @@ if (!await rateLimit(`${ip}:cart-items:patch`, 120, 60000)) {
         .in("id", duplicateIds);
     }
 
-    return NextResponse.json({ success: true, available: product.stock });
+    return NextResponse.json({ success: true, available: productStock });
   } catch {
     return NextResponse.json(
       { error: "Unexpected error" },
