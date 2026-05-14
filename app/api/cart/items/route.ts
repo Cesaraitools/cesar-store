@@ -39,14 +39,61 @@ async function getUserFromRequest(req: Request) {
   return user;
 }
 
+async function ensurePublicUser(user: {
+  id: string;
+  email?: string | null;
+  user_metadata?: {
+    name?: string;
+    full_name?: string;
+    avatar_url?: string;
+  };
+  app_metadata?: {
+    providers?: string[];
+  };
+}) {
+  const { data: existingUser, error: fetchError } = await serviceSupabase
+    .from("users")
+    .select("id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (fetchError) {
+    throw new Error(`Failed to check public user: ${fetchError.message}`);
+  }
+
+  if (existingUser) return;
+
+  const { error: insertError } = await serviceSupabase.from("users").insert({
+    id: user.id,
+    email: user.email ?? null,
+    name:
+      user.user_metadata?.name ||
+      user.user_metadata?.full_name ||
+      user.email ||
+      null,
+    avatar_url: user.user_metadata?.avatar_url || null,
+    providers: user.app_metadata?.providers ?? [],
+  });
+
+  if (insertError) {
+    throw new Error(`Failed to create public user: ${insertError.message}`);
+  }
+}
+
 // ===============================
 // Helper: get or create cart
 // ===============================
-async function getOrCreateActiveCart(userId: string) {
+async function getOrCreateActiveCart(user: Awaited<ReturnType<typeof getUserFromRequest>>) {
+  if (!user) {
+    throw new Error("Unauthorized");
+  }
+
+  await ensurePublicUser(user);
+
   const { data: existingCarts, error } = await serviceSupabase
     .from("carts")
     .select("*")
-    .eq("user_id", userId)
+    .eq("user_id", user.id)
     .eq("status", "active")
     .order("created_at", { ascending: true })
     .limit(1);
@@ -61,12 +108,12 @@ async function getOrCreateActiveCart(userId: string) {
 
   const { data: newCart, error: createError } = await serviceSupabase
     .from("carts")
-    .insert({ user_id: userId })
+    .insert({ user_id: user.id })
     .select()
     .single();
 
   if (createError) {
-    throw new Error("Failed to create cart");
+    throw new Error(`Failed to create cart: ${createError.message}`);
   }
 
   return newCart;
@@ -197,7 +244,7 @@ if (!await rateLimit(`${ip}:cart-items:post`, 60, 60000)) {
   }
 
   try {
-    const cart = await getOrCreateActiveCart(user.id);
+    const cart = await getOrCreateActiveCart(user);
     const activeCartIds = await getActiveCartIds(user.id);
     const cartIds = activeCartIds.includes(String(cart.id))
       ? activeCartIds
