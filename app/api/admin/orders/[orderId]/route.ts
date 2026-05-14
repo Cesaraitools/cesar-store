@@ -13,6 +13,30 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+const STATUS_RANK: Record<string, number> = {
+  requested: 1,
+  confirmed: 2,
+  preparing: 3,
+  shipped: 4,
+  delivered: 5,
+  canceled: 6,
+};
+
+function resolveOrderStatus(orderStatus?: string | null, trackingStatus?: string | null) {
+  if (orderStatus === "canceled" || trackingStatus === "canceled") {
+    return "canceled";
+  }
+
+  const orderRank = STATUS_RANK[orderStatus || ""] ?? 0;
+  const trackingRank = STATUS_RANK[trackingStatus || ""] ?? 0;
+
+  if (orderRank >= trackingRank && orderStatus) {
+    return orderStatus;
+  }
+
+  return trackingStatus || orderStatus || "requested";
+}
+
 export async function GET(
   req: Request,
   { params }: { params: { orderId: string } }
@@ -30,6 +54,7 @@ export async function GET(
       .from("orders")
       .select(`
         id,
+        status,
         total,
         currency,
         created_at,
@@ -69,9 +94,10 @@ export async function GET(
 
     /* -------- Latest Status -------- */
     const latestStatus =
-      tracking && tracking.length
-        ? tracking[tracking.length - 1].status
-        : "requested";
+      resolveOrderStatus(
+        order.status,
+        tracking && tracking.length ? tracking[tracking.length - 1].status : null
+      );
 
     return NextResponse.json({
       order: {

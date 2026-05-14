@@ -60,6 +60,40 @@ const ALLOWED_TRANSITIONS: Record<TrackingStatus, TrackingStatus[]> = {
   canceled: [],
 };
 
+const STATUS_RANK: Record<TrackingStatus, number> = {
+  requested: 1,
+  confirmed: 2,
+  preparing: 3,
+  shipped: 4,
+  delivered: 5,
+  canceled: 6,
+};
+
+function resolveOrderStatus(
+  orderStatus?: string | null,
+  trackingStatus?: string | null
+): TrackingStatus {
+  if (orderStatus === "canceled" || trackingStatus === "canceled") {
+    return "canceled";
+  }
+
+  const safeOrderStatus = VALID_STATUSES.includes(orderStatus as TrackingStatus)
+    ? (orderStatus as TrackingStatus)
+    : null;
+  const safeTrackingStatus = VALID_STATUSES.includes(trackingStatus as TrackingStatus)
+    ? (trackingStatus as TrackingStatus)
+    : null;
+
+  const orderRank = safeOrderStatus ? STATUS_RANK[safeOrderStatus] : 0;
+  const trackingRank = safeTrackingStatus ? STATUS_RANK[safeTrackingStatus] : 0;
+
+  if (orderRank >= trackingRank && safeOrderStatus) {
+    return safeOrderStatus;
+  }
+
+  return safeTrackingStatus || safeOrderStatus || "requested";
+}
+
 function isRateLimited(ip: string) {
   const now = Date.now();
   const timestamps = ipStore.get(ip) || [];
@@ -75,15 +109,21 @@ function isRateLimited(ip: string) {
 }
 
 async function getCurrentStatus(orderId: string): Promise<TrackingStatus> {
-  const { data } = await supabase
+  const [{ data: order }, { data }] = await Promise.all([
+    supabase
+      .from("orders")
+      .select("status")
+      .eq("id", orderId)
+      .maybeSingle(),
+    supabase
     .from("order_tracking_events")
     .select("status")
     .eq("order_id", orderId)
     .order("created_at", { ascending: false })
-    .limit(1);
+      .limit(1),
+  ]);
 
-  if (!data || data.length === 0) return "requested";
-  return data[0].status as TrackingStatus;
+  return resolveOrderStatus(order?.status, data?.[0]?.status);
 }
 
 function extractOrderItems(itemsSnapshot: any[]): OrderSnapshotItem[] {
