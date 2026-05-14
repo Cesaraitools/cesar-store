@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
 function getSafeRedirectPath(redirect: string | null) {
   if (!redirect) return "/checkout";
@@ -18,7 +19,14 @@ export async function GET(request: Request) {
   finalUrl.searchParams.set("redirect", redirectTo);
 
   if (code) {
-    finalUrl.searchParams.set("code", code);
+    const supabase = createClient();
+    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(
+      code
+    );
+
+    if (exchangeError) {
+      finalUrl.searchParams.set("error", exchangeError.message);
+    }
   }
 
   if (error) {

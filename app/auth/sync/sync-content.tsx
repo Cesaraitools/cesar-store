@@ -15,7 +15,6 @@ export default function SyncContent() {
   const router = useRouter();
   const params = useSearchParams();
   const redirectParam = params.get("redirect");
-  const code = params.get("code");
   const oauthError = params.get("error");
 
   useEffect(() => {
@@ -34,14 +33,6 @@ export default function SyncContent() {
       if (oauthError) {
         router.replace(`/auth/login?redirect=${encodeURIComponent(redirect)}`);
         return;
-      }
-
-      if (code) {
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
-
-        if (error) {
-          console.error("OAuth session exchange failed:", error.message);
-        }
       }
 
       let hasSession = false;
@@ -75,7 +66,7 @@ export default function SyncContent() {
     };
 
     run();
-  }, [code, oauthError, redirectParam, router]);
+  }, [oauthError, redirectParam, router]);
 
   return <div className="p-10 text-center">جاري تسجيل الدخول...</div>;
 }
