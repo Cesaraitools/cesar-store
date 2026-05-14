@@ -22,6 +22,7 @@ import {
 
 /* ---------------- Local Orders Helpers ---------------- */
 const ORDERS_STORAGE_KEY = "cesar_store_orders";
+const PENDING_ORDER_TOKEN_KEY = "cesar_store_pending_order_token";
 
 function generateUUID() {
   return crypto.randomUUID();
@@ -40,6 +41,25 @@ function loadOrders() {
 function saveOrders(orders: any[]) {
   try {
     localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(orders));
+  } catch {}
+}
+
+function getPendingOrderToken() {
+  try {
+    const existing = sessionStorage.getItem(PENDING_ORDER_TOKEN_KEY);
+    if (existing) return existing;
+
+    const next = crypto.randomUUID();
+    sessionStorage.setItem(PENDING_ORDER_TOKEN_KEY, next);
+    return next;
+  } catch {
+    return crypto.randomUUID();
+  }
+}
+
+function clearPendingOrderToken() {
+  try {
+    sessionStorage.removeItem(PENDING_ORDER_TOKEN_KEY);
   } catch {}
 }
 
@@ -115,7 +135,7 @@ export default function ReviewPage() {
         phone: checkoutData.phone,
         address: checkoutData.address,
       };
-      const orderToken = crypto.randomUUID();
+      const orderToken = getPendingOrderToken();
      const itemsSnapshot = cartItems.map((item) => ({
   id: generateUUID(),
   product_id: item.product_id,
@@ -208,7 +228,8 @@ if (!whatsappWindow) {
 
       /* ============================================================= */
         toast.success("تم إنشاء الطلب بنجاح 🎉");
-      await clearCart();
+      clearPendingOrderToken();
+      await clearCart({ sync: false });
 
       router.push(`/confirm?orderId=${orderId}`);
 

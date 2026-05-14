@@ -11,8 +11,6 @@ import {
 } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "./CartContext";
-import { cartService } from "@/lib/services/cartService";
-import { orderService } from "@/lib/services/orderService";
 
 export type CheckoutData = {
   name: string;
@@ -34,10 +32,30 @@ type CheckoutContextType = {
 const CheckoutContext = createContext<CheckoutContextType | null>(null);
 
 const CHECKOUT_STORAGE_KEY = "cesar_store_checkout";
+const PENDING_ORDER_TOKEN_KEY = "cesar_store_pending_order_token";
+
+function getPendingOrderToken() {
+  try {
+    const existing = sessionStorage.getItem(PENDING_ORDER_TOKEN_KEY);
+    if (existing) return existing;
+
+    const next = crypto.randomUUID();
+    sessionStorage.setItem(PENDING_ORDER_TOKEN_KEY, next);
+    return next;
+  } catch {
+    return crypto.randomUUID();
+  }
+}
+
+function clearPendingOrderToken() {
+  try {
+    sessionStorage.removeItem(PENDING_ORDER_TOKEN_KEY);
+  } catch {}
+}
 
 export function CheckoutProvider({ children }: { children: ReactNode }) {
   const { user, session } = useAuth();
-  const { cartId, cartItems, clearCart } = useCart();
+  const { cartItems, clearCart } = useCart();
 
   const [checkoutData, setCheckoutDataState] = useState<CheckoutData>({
     name: "",
@@ -93,39 +111,44 @@ export function CheckoutProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       setError(null);
 
-      // جلب تفاصيل المنتجات للطلب
-      const cartWithDetails = await cartService.getCartWithProductDetails(
-        cartId
-      );
-
-      if (cartWithDetails.length === 0) {
-        throw new Error("السلة فارغة أو غير صحيحة");
-      }
-
-      // تحضير عناصر الطلب
-      const orderItems = cartWithDetails.map((item) => ({
-        product_id: item.product.id,
-        name: item.product.name,
-        price: item.product.price,
+      const itemsSnapshot = cartItems.map((item) => ({
+        product_id: item.product_id,
+        name_ar: item.name_ar || item.name || "",
+        name_en: item.name_en || item.name || "",
+        price: item.price,
+        image: item.image,
         quantity: item.quantity,
       }));
 
-      // إنشاء الطلب
-      const order = await orderService.createOrder(
-        user.id,
-        cartId,
-        {
-          name: checkoutData.name,
-          phone: checkoutData.phone,
-          address: checkoutData.address,
-          city: checkoutData.city,
-          notes: checkoutData.notes,
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
         },
-        orderItems
-      );
+        body: JSON.stringify({
+          currency: "EGP",
+          customer: {
+            name: checkoutData.name,
+            phone: checkoutData.phone,
+            address: checkoutData.address,
+            city: checkoutData.city,
+            notes: checkoutData.notes,
+          },
+          items: itemsSnapshot,
+          order_token: getPendingOrderToken(),
+        }),
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok || !result?.orderId) {
+        throw new Error(result?.error || "خطأ في إنشاء الطلب");
+      }
 
       // مسح السلة والبيانات المحفوظة
-      await clearCart();
+      clearPendingOrderToken();
+      await clearCart({ sync: false });
       localStorage.removeItem(CHECKOUT_STORAGE_KEY);
       setCheckoutDataState({
         name: "",
@@ -135,7 +158,7 @@ export function CheckoutProvider({ children }: { children: ReactNode }) {
         notes: "",
       });
 
-      return order.id;
+      return result.orderId;
     } catch (err: any) {
       const message = err.message || "خطأ في إنشاء الطلب";
       setError(message);
@@ -143,7 +166,7 @@ export function CheckoutProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [user, session, cartId, cartItems, checkoutData, clearCart]);
+  }, [user, session, cartItems, checkoutData, clearCart]);
 
   /* ========== Reset checkout ========== */
 
@@ -181,4 +204,4 @@ export function useCheckout() {
     throw new Error("useCheckout must be used within CheckoutProvider");
   }
   return context;
-} 
+}

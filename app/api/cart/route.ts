@@ -146,6 +146,20 @@ status: "active",
 .select()
 .single();
 
+if (error?.code === "23505") {
+const { data: retryCarts, error: retryError } = await supabaseDb!
+.from("carts")
+.select("*")
+.eq("user_id", user.id)
+.eq("status", "active")
+.order("created_at", { ascending: true })
+.limit(1);
+
+if (!retryError && retryCarts?.[0]) {
+return NextResponse.json({ cart: retryCarts[0] }, { status: 200 });
+}
+}
+
 if (error) {
 return NextResponse.json(
 { error: "Failed to create cart" },

@@ -7,6 +7,25 @@ const serviceSupabase = createClient(
   { auth: { persistSession: false } }
 );
 
+function mergeRequestedItems(items: any[]) {
+  const merged = new Map<string, { product_id: string; quantity: number }>();
+
+  for (const item of items) {
+    const productId = item?.product_id ? String(item.product_id) : "";
+    const quantity = Math.max(0, Math.floor(Number(item?.quantity) || 0));
+
+    if (!productId || quantity <= 0) continue;
+
+    const existing = merged.get(productId);
+    merged.set(productId, {
+      product_id: productId,
+      quantity: (existing?.quantity ?? 0) + quantity,
+    });
+  }
+
+  return Array.from(merged.values());
+}
+
 async function ensurePublicUser(user: {
   id: string;
   email?: string | null;
@@ -56,6 +75,8 @@ export async function POST(req: Request) {
     if (!Array.isArray(items)) {
       return NextResponse.json({ error: "Invalid items" }, { status: 400 });
     }
+
+    const itemsToMerge = mergeRequestedItems(items);
 
     const authHeader = req.headers.get("authorization");
     if (!authHeader) {
@@ -109,7 +130,21 @@ export async function POST(req: Request) {
         .select()
         .single();
 
-      if (createCartError || !newCart) {
+      if (createCartError?.code === "23505") {
+        const { data: retryCarts, error: retryCartError } = await serviceSupabase
+          .from("carts")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("status", "active")
+          .order("created_at", { ascending: true })
+          .limit(1);
+
+        if (!retryCartError && retryCarts?.[0]) {
+          cart = retryCarts[0];
+        }
+      }
+
+      if (!cart && (createCartError || !newCart)) {
         throw new Error(
           `Failed to create user cart: ${
             createCartError?.message || "No cart returned"
@@ -117,7 +152,9 @@ export async function POST(req: Request) {
         );
       }
 
-      cart = newCart;
+      if (!cart) {
+        cart = newCart;
+      }
     }
 
     const activeCartIds = (carts ?? []).map((entry) => String(entry.id));
@@ -137,7 +174,7 @@ export async function POST(req: Request) {
       );
     }
 
-    for (const item of items) {
+    for (const item of itemsToMerge) {
       const productId = item?.product_id;
       const requestedQuantity = Math.max(
         0,

@@ -90,27 +90,36 @@ async function getOrCreateActiveCart(user: Awaited<ReturnType<typeof getUserFrom
 
   await ensurePublicUser(user);
 
-  const { data: existingCarts, error } = await serviceSupabase
-    .from("carts")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("status", "active")
-    .order("created_at", { ascending: true })
-    .limit(1);
+  const fetchActiveCart = async () => {
+    const { data: existingCarts, error } = await serviceSupabase
+      .from("carts")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .order("created_at", { ascending: true })
+      .limit(1);
 
-  const existingCart = existingCarts?.[0] ?? null;
+    if (error) {
+      throw new Error("Failed to fetch cart");
+    }
+
+    return existingCarts?.[0] ?? null;
+  };
+
+  const existingCart = await fetchActiveCart();
 
   if (existingCart) return existingCart;
 
-  if (error && error.code !== "PGRST116") {
-    throw new Error("Failed to fetch cart");
-  }
-
   const { data: newCart, error: createError } = await serviceSupabase
     .from("carts")
-    .insert({ user_id: user.id })
+    .insert({ user_id: user.id, status: "active" })
     .select()
     .single();
+
+  if (createError?.code === "23505") {
+    const cart = await fetchActiveCart();
+    if (cart) return cart;
+  }
 
   if (createError) {
     throw new Error(`Failed to create cart: ${createError.message}`);
@@ -120,7 +129,7 @@ async function getOrCreateActiveCart(user: Awaited<ReturnType<typeof getUserFrom
 }
 
 async function getActiveCartIds(userId: string) {
-  const { data: carts, error } = await serviceSupabase
+  const { data: existingCarts, error } = await serviceSupabase
     .from("carts")
     .select("id")
     .eq("user_id", userId)
@@ -131,7 +140,7 @@ async function getActiveCartIds(userId: string) {
     throw new Error("Failed to fetch active carts");
   }
 
-  return (carts ?? []).map((cart) => String(cart.id));
+  return (existingCarts ?? []).map((cart) => String(cart.id));
 }
 
 function normalizeCartItems(items: any[]) {
@@ -337,6 +346,38 @@ if (!await rateLimit(`${ip}:cart-items:post`, 60, 60000)) {
         price: Number(product?.price ?? 0),
         image: product?.image ?? product?.image_url ?? null,
       });
+
+    if (insertError?.code === "23505") {
+      const { data: raceItem, error: raceFetchError } = await serviceSupabase
+        .from("cart_items")
+        .select("id, quantity")
+        .in("cart_id", cartIds)
+        .eq("product_id", product_id)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (!raceFetchError && raceItem) {
+        const nextQuantity = Math.min(
+          Math.max(0, Math.floor(Number(raceItem.quantity) || 0)) +
+            requestedQuantity,
+          productStock
+        );
+
+        const { error: raceUpdateError } = await serviceSupabase
+          .from("cart_items")
+          .update({ quantity: nextQuantity })
+          .eq("id", raceItem.id);
+
+        if (!raceUpdateError) {
+          return NextResponse.json({
+            success: true,
+            available: productStock,
+            quantity: nextQuantity,
+          });
+        }
+      }
+    }
 
     if (insertError) {
       return NextResponse.json(

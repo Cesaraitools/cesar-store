@@ -1,6 +1,5 @@
 // lib/services/orderService.ts - النسخة الصحيحة
 
-import { createAnonServerClient } from "@/lib/supabase/runtime";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
 
 export const orderService = {
@@ -33,85 +32,43 @@ export const orderService = {
     try {
       const serviceSupabase = createServiceRoleClient();
 
-      // حساب الإجمالي
       const subtotal = items.reduce(
         (sum, item) => sum + item.price * item.quantity,
         0
       );
 
-      const shipping_fee = options?.shipping_fee ?? 0;
-      const discount = options?.discount ?? 0;
       const currency = options?.currency ?? "EGP";
-      const total = subtotal + shipping_fee - discount;
-
-      // إنشاء الطلب
-      const { data: order, error: orderError } = await serviceSupabase
-        .from("orders")
-        .insert({
-          user_id: userId,
-          status: "requested",
-          subtotal,
-          shipping_fee,
-          discount,
-          total,
-          currency,
-          customer_snapshot: customerData,
-          items_snapshot: items.map((item) => ({
-            product_id: String(item.product_id),
-            name: item.name,
-            price: item.price,
-            quantity: item.quantity,
-            image: item.image ?? null,
-          })),
-        })
-        .select()
-        .single();
-
-      if (orderError) throw orderError;
-
-      if (!order) {
-        throw new Error("Order creation returned no data");
-      }
-
-      // إضافة عناصر الطلب
-      const orderItems = items.map((item) => ({
-        order_id: order.id,
-        product_id: item.product_id,
-        name: item.name,
+      const atomicItems = items.map((item) => ({
+        product_id: String(item.product_id),
+        name_ar: item.name,
+        name_en: item.name,
         price: item.price,
         quantity: item.quantity,
         image: item.image ?? null,
       }));
 
-      const { error: itemsError } = await serviceSupabase
-        .from("order_items")
-        .insert(orderItems);
+      const { data, error } = await serviceSupabase.rpc("create_order_atomic", {
+        p_user_id: userId,
+        p_items: atomicItems,
+        p_customer: customerData,
+        p_currency: currency,
+        p_order_token: crypto.randomUUID(),
+      });
 
-      if (itemsError) {
-        console.warn("Warning: Failed to insert order items:", itemsError);
-        // لا نرجع error، الطلب الرئيسي نجح
-      }
+      if (error) throw error;
 
-      // إضافة tracking event
-      const { error: trackingError } = await serviceSupabase
-        .from("order_tracking_events")
-        .insert({
-          order_id: order.id,
-          status: "requested",
-          actor: "customer",
-          note: "تم إنشاء الطلب",
-        });
+      const order = Array.isArray(data) ? data[0] : data;
 
-      if (trackingError) {
-        console.warn("Warning: Failed to create tracking event:", trackingError);
+      if (!order?.order_id) {
+        throw new Error("Order creation returned no data");
       }
 
       return {
-        id: order.id,
+        id: order.order_id,
         order_number: order.order_number,
         status: "requested",
         subtotal,
-        total,
+        total: subtotal,
         currency,
       };
     } catch (error: any) {
