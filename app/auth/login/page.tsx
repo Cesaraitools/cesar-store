@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
@@ -15,7 +15,7 @@ function getSafeRedirectPath(redirect: string | null, fallback = "/") {
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signInWithGoogle } = useAuth();
+  const { signInWithGoogle, user, loading: authLoading } = useAuth();
 
   const redirectParam = searchParams.get("redirect");
 
@@ -25,6 +25,12 @@ function LoginContent() {
   const [error, setError] = useState<string | null>(null);
 
   const target = getSafeRedirectPath(redirectParam);
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.replace(target);
+    }
+  }, [authLoading, router, target, user]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
