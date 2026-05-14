@@ -99,6 +99,22 @@ function saveCartToStorage(cart: LocalCart) {
   } catch {}
 }
 
+function mapDbCartItems(dbItems: any[]): CartItem[] {
+  return dbItems.map((item: any) => ({
+    id: item.id,
+    cart_id: item.cart_id,
+    product_id: item.product_id,
+    name_ar: item.name_ar || item.name || "",
+    name_en: item.name_en || item.name || "",
+    name: item.name || item.name_en || item.name_ar || "Product",
+    price: Number(item.price || 0),
+    image: item.image || null,
+    quantity: item.quantity,
+    stock: normalizeStockValue(item.stock) ?? 0,
+    created_at: item.created_at,
+  }));
+}
+
 const CartContext = createContext<CartContextType | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
@@ -259,19 +275,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         setCart((prev) => ({
           ...prev,
           ownerUserId: user.id,
-          items: dbItems.map((item: any) => ({
-            id: item.id,
-            cart_id: item.cart_id,
-            product_id: item.product_id,
-            name_ar: item.name_ar || item.name || "",
-            name_en: item.name_en || item.name || "",
-            name: item.name || item.name_en || item.name_ar || "Product",
-            price: Number(item.price || 0),
-            image: item.image || null,
-            quantity: item.quantity,
-            stock: normalizeStockValue(item.stock) ?? 0,
-            created_at: item.created_at,
-          })),
+          items: mapDbCartItems(dbItems),
         }));
 
       } catch (error) {
@@ -339,9 +343,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
               quantity: 1,
             }),
           });
+          const payload = await response.json().catch(() => null);
 
           if (!response.ok) {
-            const payload = await response.json().catch(() => null);
             toast.error(getStockExceededMessage(payload?.available));
 
             setCart((current) => ({
@@ -349,6 +353,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
               items: current.items.filter(
                 (item) => item.product_id !== product.id
               ),
+            }));
+            return;
+          }
+
+          const itemsRes = await fetch("/api/cart/items", {
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          });
+
+          if (itemsRes.ok) {
+            const itemsData = await itemsRes.json().catch(() => null);
+            setCart((current) => ({
+              ...current,
+              ownerUserId: user.id,
+              items: mapDbCartItems(itemsData?.items || []),
             }));
           }
         } catch {

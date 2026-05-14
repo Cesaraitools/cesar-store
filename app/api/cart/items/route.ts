@@ -242,14 +242,10 @@ if (!await rateLimit(`${ip}:cart-items:post`, 60, 60000)) {
         0,
         Math.floor(Number(existingItem.quantity) || 0)
       );
-      const nextQuantity = existingQuantity + requestedQuantity;
-
-      if (nextQuantity > productStock) {
-        return NextResponse.json(
-          { error: "Insufficient stock", available: productStock },
-          { status: 400 }
-        );
-      }
+      const nextQuantity = Math.min(
+        existingQuantity + requestedQuantity,
+        productStock
+      );
 
       // Add to the existing server-side quantity without exceeding stock.
       const { error: updateError } = await serviceSupabase
@@ -275,7 +271,11 @@ if (!await rateLimit(`${ip}:cart-items:post`, 60, 60000)) {
           .in("id", duplicateIds);
       }
 
-      return NextResponse.json({ success: true });
+      return NextResponse.json({
+        success: true,
+        available: productStock,
+        quantity: nextQuantity,
+      });
     }
 
     // INSERT WITH SNAPSHOT
@@ -298,7 +298,10 @@ if (!await rateLimit(`${ip}:cart-items:post`, 60, 60000)) {
       );
     }
 
-    return NextResponse.json({ success: true }, { status: 201 });
+    return NextResponse.json(
+      { success: true, available: productStock, quantity: requestedQuantity },
+      { status: 201 }
+    );
 
   } catch (err: any) {
     return NextResponse.json(
