@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 
 function getSafeRedirectPath(redirect: string | null) {
   if (!redirect) return "/checkout";
@@ -11,15 +10,24 @@ function getSafeRedirectPath(redirect: string | null) {
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
-
-  if (code) {
-    const supabase = createClient();
-    await supabase.auth.exchangeCodeForSession(code);
-  }
+  const error = requestUrl.searchParams.get("error");
+  const errorDescription = requestUrl.searchParams.get("error_description");
 
   const redirectTo = getSafeRedirectPath(requestUrl.searchParams.get("redirect"));
   const finalUrl = new URL("/auth/sync", requestUrl.origin);
   finalUrl.searchParams.set("redirect", redirectTo);
+
+  if (code) {
+    finalUrl.searchParams.set("code", code);
+  }
+
+  if (error) {
+    finalUrl.searchParams.set("error", error);
+  }
+
+  if (errorDescription) {
+    finalUrl.searchParams.set("error_description", errorDescription);
+  }
 
   return NextResponse.redirect(finalUrl);
 }
