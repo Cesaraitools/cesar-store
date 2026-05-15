@@ -17,77 +17,56 @@ export default function RegisterPage() {
     setError(null);
 
     if (!email || !phone || !password) {
-      return setError("يجب إكمال الحقول");
+      setError("يجب إكمال الحقول");
+      return;
     }
 
     try {
       setLoading(true);
-      // 🔍 محاولة تسجيل دخول لمعرفة إذا كان الحساب موجود (Google أو Email)
-const { error: checkError } = await supabase.auth.signInWithPassword({
-  email,
-  password: "fake_password_check_123",
-});
 
-if (checkError && !checkError.message.includes("Invalid login credentials")) {
-  setError("هذا البريد مرتبط بحساب Google، قم بتسجيل الدخول باستخدام Google");
-  setLoading(false);
-  return;
-}
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            phone,
+          },
+        },
+      });
 
-// 🔍 CHECK: هل الإيميل موجود قبل التسجيل
-const { data: existingUsers } = await supabase.auth.admin.listUsers();
+      if (signUpError) {
+        if (signUpError.message.includes("already registered")) {
+          setError("هذا البريد مسجل بالفعل، قم بتسجيل الدخول");
+        } else {
+          setError("حدث خطأ أثناء إنشاء الحساب");
+        }
+        return;
+      }
 
-const exists = existingUsers?.users?.some(
-  (u: any) => u.email?.toLowerCase() === email.toLowerCase()
-);
+      if (!data.user) {
+        throw new Error("فشل إنشاء المستخدم");
+      }
 
-if (exists) {
-  throw new Error("هذا البريد الإلكتروني مسجل بالفعل، قم بتسجيل الدخول");
-}
-
-// ✅ إنشاء المستخدم
-const { data, error: signUpError } =
-  await supabase.auth.signUp({
-    email,
-    password,
-  });
-
-if (signUpError) {
-  if (signUpError.message.includes("already registered")) {
-    setError("هذا البريد مسجل بالفعل، قم بتسجيل الدخول");
-  } else {
-    setError("حدث خطأ أثناء إنشاء الحساب");
-  }
-  setLoading(false);
-  return;
-}
-if (!data.user) throw new Error("فشل إنشاء المستخدم");
-
-      /**
-       * NOTE:
-       * user profile row is created by the database trigger
-       * (handle_new_user) after auth.users insertion.
-       * We intentionally do NOT insert into public.users here
-       * to keep Trigger as the Single Source of Truth.
-       */
+      if (data.user.identities && data.user.identities.length === 0) {
+        setError("هذا البريد مسجل بالفعل، قم بتسجيل الدخول");
+        return;
+      }
 
       setSuccess(true);
 
-setTimeout(() => {
-  window.location.href = "/auth/login";
-}, 1500);
-
+      setTimeout(() => {
+        window.location.href = "/auth/login";
+      }, 1500);
     } catch (err: any) {
       if (err.message.includes("already registered")) {
-  setError("هذا البريد مسجل بالفعل، قم بتسجيل الدخول");
-} else if (err.message.includes("invalid email")) {
-  setError("البريد الإلكتروني غير صحيح");
-} else if (err.message.includes("Password should be")) {
-  setError("كلمة المرور ضعيفة (على الأقل 6 أحرف)");
-} else {
-  setError("حدث خطأ، حاول مرة أخرى");
-}
-
+        setError("هذا البريد مسجل بالفعل، قم بتسجيل الدخول");
+      } else if (err.message.includes("invalid email")) {
+        setError("البريد الإلكتروني غير صحيح");
+      } else if (err.message.includes("Password should be")) {
+        setError("كلمة المرور ضعيفة، يجب أن تكون 6 أحرف على الأقل");
+      } else {
+        setError("حدث خطأ، حاول مرة أخرى");
+      }
     } finally {
       setLoading(false);
     }
@@ -96,10 +75,9 @@ setTimeout(() => {
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-white p-4">
       <div className="w-full max-w-md bg-gray-50/50 rounded-[2.5rem] border border-gray-100 p-8 md:p-12 shadow-xl">
-
         <div className="mb-10 text-center">
           <h1 className="text-2xl font-black text-black">انضم إلى سيزر</h1>
-          <div className="w-12 h-1.5 bg-orange-500 mx-auto mt-2 rounded-full"></div>
+          <div className="w-12 h-1.5 bg-orange-500 mx-auto mt-2 rounded-full" />
         </div>
 
         {error && (
@@ -113,7 +91,7 @@ setTimeout(() => {
             <div className="text-5xl">✅</div>
             <h2 className="text-xl font-bold text-gray-800">تم إنشاء حسابك!</h2>
             <p className="text-gray-500 text-sm">
-              أهلاً بك في عائلة متجر سيزر، يمكنك الآن تسجيل الدخول.
+              أهلا بك في عائلة متجر سيزر، يمكنك الآن تسجيل الدخول.
             </p>
 
             <Link
@@ -124,9 +102,7 @@ setTimeout(() => {
             </Link>
           </div>
         ) : (
-
           <form onSubmit={handleRegister} className="space-y-4">
-
             <input
               type="email"
               placeholder="البريد الإلكتروني"
@@ -159,9 +135,8 @@ setTimeout(() => {
               disabled={loading}
               className="w-full bg-black text-white font-bold py-5 rounded-2xl shadow-xl hover:bg-orange-600 transition-all active:scale-95 disabled:opacity-50 mt-6"
             >
-              {loading ? "جارٍ الإنشاء..." : "إنشاء الحساب الآن"}
+              {loading ? "جار الإنشاء..." : "إنشاء الحساب الآن"}
             </button>
-
           </form>
         )}
 
@@ -175,7 +150,6 @@ setTimeout(() => {
             </Link>
           </div>
         )}
-
       </div>
     </div>
   );
