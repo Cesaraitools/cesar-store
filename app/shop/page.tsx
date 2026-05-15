@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import ProductGrid from "@/components/product/ProductGrid";
 import ShopSidePromoSlider from "@/components/promo/ShopSidePromoSlider";
+import { normalizeCategory } from "@/lib/category-normalizer";
 import { sortProducts, SortOption } from "@/lib/filters";
 import { useLanguage } from "@/context/LanguageContext";
 import type { Product } from "@/types/product";
@@ -78,10 +79,12 @@ export default function ShopPage({ searchParams }: Props) {
 
   const filteredProducts = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
+    const normalizedSelectedCategory = normalizeCategory(selectedCategory);
 
     return products.filter((product) => {
       const matchesCategory =
-        selectedCategory === "all" || product.category === selectedCategory;
+        selectedCategory === "all" ||
+        normalizeCategory(product.category) === normalizedSelectedCategory;
 
       const matchesSearch =
         normalizedQuery.length === 0 ||
@@ -98,7 +101,8 @@ export default function ShopPage({ searchParams }: Props) {
   );
 
   const currentCategory = visibleCategories.find(
-    (category) => category.category === selectedCategory
+    (category) =>
+      normalizeCategory(category.category) === normalizeCategory(selectedCategory)
   );
   const categoryTitle = currentCategory
     ? isAr
