@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
@@ -16,8 +16,14 @@ export default function SyncContent() {
   const params = useSearchParams();
   const redirectParam = params.get("redirect");
   const oauthError = params.get("error");
+  const authCode = params.get("code");
+  const exchangeError = params.get("exchange_error");
+  const hasRun = useRef(false);
 
   useEffect(() => {
+    if (hasRun.current) return;
+    hasRun.current = true;
+
     const run = async () => {
       const supabase = createClient();
       const storedRedirect =
@@ -33,6 +39,19 @@ export default function SyncContent() {
       if (oauthError) {
         router.replace(`/auth/login?redirect=${encodeURIComponent(redirect)}`);
         return;
+      }
+
+      if (authCode) {
+        const { error } = await supabase.auth.exchangeCodeForSession(authCode);
+
+        if (error) {
+          console.error(
+            "OAuth client session exchange failed:",
+            exchangeError || error.message
+          );
+          router.replace(`/auth/login?redirect=${encodeURIComponent(redirect)}`);
+          return;
+        }
       }
 
       let hasSession = false;
@@ -66,7 +85,7 @@ export default function SyncContent() {
     };
 
     run();
-  }, [oauthError, redirectParam, router]);
+  }, [authCode, exchangeError, oauthError, redirectParam, router]);
 
   return <div className="p-10 text-center">جاري تسجيل الدخول...</div>;
 }

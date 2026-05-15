@@ -25,7 +25,8 @@ export async function GET(request: Request) {
     );
 
     if (exchangeError) {
-      finalUrl.searchParams.set("error", exchangeError.message);
+      finalUrl.searchParams.set("code", code);
+      finalUrl.searchParams.set("exchange_error", exchangeError.message);
     }
   }
 
