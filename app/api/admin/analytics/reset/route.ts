@@ -217,13 +217,16 @@ console.log("RESET START", {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 }   
 
-const supabase = createServerClient();
+const authSupabase = createServerClient();
 
 const {
   data: { user },
-} = await supabase.auth.getUser();
+} = await authSupabase.auth.getUser();
 
-if (!user || user.email !== process.env.SUPER_ADMIN_EMAIL) {
+const currentEmail = user?.email?.toLowerCase();
+const allowedEmail = process.env.SUPER_ADMIN_EMAIL?.toLowerCase();
+
+if (!currentEmail || !allowedEmail || currentEmail !== allowedEmail) {
   return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 }
 console.log("RESET AUTHORIZED", {

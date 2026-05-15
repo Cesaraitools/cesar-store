@@ -101,7 +101,7 @@ const EMPTY_FILTERS: FiltersState = {
   productId: "",
 };
 
-const RESET_ALLOWED_EMAIL = "mohamed.seeikng@gmail.com";
+const RESET_ALLOWED_EMAIL = "mohamed.seeking@gmail.com";
 
 const STATUS_OPTIONS = [
   { value: "", label: "كل الحالات" },

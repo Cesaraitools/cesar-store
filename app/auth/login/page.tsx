@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
+import { isValidEmail, normalizeEmail } from "@/lib/formValidation";
 
 function getSafeRedirectPath(redirect: string | null, fallback = "/") {
   if (!redirect) return fallback;
@@ -36,8 +37,15 @@ function LoginContent() {
     e.preventDefault();
     setError(null);
 
-    if (!email || !password) {
+    const cleanEmail = normalizeEmail(email);
+
+    if (!cleanEmail || !password) {
       setError("يرجى إدخال البيانات");
+      return;
+    }
+
+    if (!isValidEmail(cleanEmail)) {
+      setError("البريد الإلكتروني غير صحيح");
       return;
     }
 
@@ -46,7 +54,7 @@ function LoginContent() {
 
       const { error: signInError } =
         await supabase.auth.signInWithPassword({
-          email,
+          email: cleanEmail,
           password,
         });
 
@@ -89,7 +97,10 @@ function LoginContent() {
             type="email"
             placeholder="البريد الإلكتروني"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => setEmail(e.target.value.replace(/\s/g, ""))}
+            inputMode="email"
+            autoComplete="email"
+            required
             className="w-full p-3 border rounded-lg"
           />
 

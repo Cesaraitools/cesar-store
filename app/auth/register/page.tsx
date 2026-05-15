@@ -3,6 +3,11 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
+import {
+  isValidEmail,
+  normalizeEmail,
+  normalizePhoneDigits,
+} from "@/lib/formValidation";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
@@ -16,8 +21,16 @@ export default function RegisterPage() {
     e.preventDefault();
     setError(null);
 
-    if (!email || !phone || !password) {
+    const cleanEmail = normalizeEmail(email);
+    const cleanPhone = normalizePhoneDigits(phone);
+
+    if (!cleanEmail || !cleanPhone || !password) {
       setError("يجب إكمال الحقول");
+      return;
+    }
+
+    if (!isValidEmail(cleanEmail)) {
+      setError("البريد الإلكتروني غير صحيح");
       return;
     }
 
@@ -25,11 +38,11 @@ export default function RegisterPage() {
       setLoading(true);
 
       const { data, error: signUpError } = await supabase.auth.signUp({
-        email,
+        email: cleanEmail,
         password,
         options: {
           data: {
-            phone,
+            phone: cleanPhone,
           },
         },
       });
@@ -108,7 +121,9 @@ export default function RegisterPage() {
               placeholder="البريد الإلكتروني"
               className="w-full bg-white border border-gray-200 px-6 py-4 rounded-2xl text-right focus:border-orange-500 transition-all outline-none shadow-sm"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => setEmail(e.target.value.replace(/\s/g, ""))}
+              inputMode="email"
+              autoComplete="email"
               required
             />
 
@@ -117,7 +132,10 @@ export default function RegisterPage() {
               placeholder="رقم الهاتف"
               className="w-full bg-white border border-gray-200 px-6 py-4 rounded-2xl text-right focus:border-orange-500 transition-all outline-none shadow-sm"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => setPhone(normalizePhoneDigits(e.target.value))}
+              inputMode="numeric"
+              pattern="[0-9]*"
+              autoComplete="tel"
               required
             />
 
