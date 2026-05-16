@@ -119,7 +119,7 @@ export default function ConfirmClient() {
           {/* تذييل الصفحة - الدعم الفني */}
           <div className="mt-10 pt-8 border-t border-slate-50">
             <a 
-              href="https://wa.me/your-number" 
+              href="https://wa.me/201211120208" 
               className="inline-flex items-center gap-2 px-6 py-3 bg-green-50 text-green-700 rounded-full text-sm font-bold hover:bg-green-100 transition-colors"
             >
               <MessageCircle size={18} className="fill-green-700/10" />
