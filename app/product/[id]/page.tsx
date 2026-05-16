@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Product } from "@/types/product";
+import { useCart } from "@/context/CartContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { getSafeImage } from "@/lib/image-safe";
 
@@ -34,12 +35,14 @@ type Props = {
 /* ---------------- Component ---------------- */
 
 export default function ProductPage({ params }: Props) {
+  const { addToCart } = useCart();
   const { lang } = useLanguage();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [mainImage, setMainImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAdding, setIsAdding] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -102,6 +105,25 @@ export default function ProductPage({ params }: Props) {
   const productImages = product.images.length
     ? product.images.map((image) => getSafeImage(image))
     : [getSafeImage()];
+  const isOutOfStock = product.stock <= 0;
+
+  const handleAddToCart = () => {
+    if (isAdding || isOutOfStock) return;
+
+    setIsAdding(true);
+
+    addToCart({
+      id: String(product.id),
+      name,
+      price: product.price,
+      image: product.images?.[0] || "/placeholder.png",
+      stock: product.stock,
+    });
+
+    setTimeout(() => {
+      setIsAdding(false);
+    }, 300);
+  };
 
   /* ---------------- Render ---------------- */
 
@@ -189,6 +211,25 @@ export default function ProductPage({ params }: Props) {
               {lang === "ar" ? "وحدة" : "units"}
             </p>
           </div>
+
+          <button
+            type="button"
+            onClick={handleAddToCart}
+            disabled={isAdding || isOutOfStock}
+            className="w-full rounded-lg bg-black px-5 py-3 text-sm font-bold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isOutOfStock
+              ? lang === "ar"
+                ? "نفد المخزون"
+                : "Out of stock"
+              : isAdding
+              ? lang === "ar"
+                ? "جاري الإضافة..."
+                : "Adding..."
+              : lang === "ar"
+              ? "أضف إلى السلة"
+              : "Add to Cart"}
+          </button>
         </div>
       </div>
     </div>
