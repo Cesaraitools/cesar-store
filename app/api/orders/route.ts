@@ -83,11 +83,7 @@ function mergeDuplicateItems(items: FinalOrderItem[]) {
 export async function GET(request: Request) {
   try {
     const user = await resolveUser(request);
-    console.log("ORDER USER", {
-  userId: user?.id,
-  email: user?.email,
-});
-
+   
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -124,19 +120,12 @@ if (!await rateLimit(ip, 10, 60000)) {
     { status: 429 }
   );
 }
-console.log("ORDER REQUEST START", {
-  ip,
-  time: new Date().toISOString(),
-});
+
 let order_token: string | null = null;
 let activeCartIds: string[] = [];
   try {
     const user = await resolveUser(request);
-    console.log("ORDER USER", {
-  userId: user?.id,
-  email: user?.email,
-});
-
+   
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -240,24 +229,8 @@ finalItems = mergeDuplicateItems(finalItems);
   phone: customer?.phone ?? "",
   address: customer?.address ?? "",
 };
-console.log("ORDER CREATE ATTEMPT", {
-  userId: user.id,
-  email: user.email,
-  itemsCount: finalItems.length,
-  currency,
-  order_token,
-  customer: {
-    name: customer_snapshot.name,
-    phone: customer_snapshot.phone,
-  },
-  items: finalItems.map(i => ({
-    product_id: i.product_id,
-    qty: i.quantity,
-    price: i.price,
-  })),
-  timestamp: new Date().toISOString(),
-});
-       // ===== RPC MODE (SAFE TEST) =====
+
+// ===== RPC MODE (SAFE TEST) =====
     try {
 let data, error;
 let attempts = 0;
@@ -325,12 +298,7 @@ if (createdOrder.reused) {
     reused: true,
   });
 }
-
-      console.log("ORDER SUCCESS", {
-        orderId: createdOrder.order_id,
-        orderNumber: createdOrder.order_number,
-      });
-
+   
       return NextResponse.json({
         success: true,
         orderId: createdOrder.order_id,
