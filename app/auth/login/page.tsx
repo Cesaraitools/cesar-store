@@ -68,15 +68,6 @@ function LoginContent() {
     }
   };
 
-  const handleAppleLogin = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: "apple",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(target)}`,
-      },
-    });
-  };
-
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-[#f4f4f4] p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
@@ -132,13 +123,6 @@ function LoginContent() {
           className="w-full border p-3 rounded-lg mb-3"
         >
           Google Login
-        </button>
-
-        <button
-          onClick={handleAppleLogin}
-          className="w-full bg-black text-white p-3 rounded-lg"
-        >
-          Apple Login
         </button>
 
         <p className="text-center text-sm mt-6">
