@@ -10,11 +10,11 @@ export function isValidEmail(value: string) {
 
 export function normalizePhoneDigits(value: string) {
   return value
-    .replace(/[٠-٩]/g, (digit) =>
-      String(digit.charCodeAt(0) - "٠".charCodeAt(0))
+    .replace(/[\u0660-\u0669]/g, (digit) =>
+      String(digit.charCodeAt(0) - 0x0660)
     )
-    .replace(/[۰-۹]/g, (digit) =>
-      String(digit.charCodeAt(0) - "۰".charCodeAt(0))
+    .replace(/[\u06f0-\u06f9]/g, (digit) =>
+      String(digit.charCodeAt(0) - 0x06f0)
     )
     .replace(/\D/g, "");
 }

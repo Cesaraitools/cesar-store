@@ -16,13 +16,14 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const cleanEmail = normalizeEmail(email);
+  const cleanPhone = normalizePhoneDigits(phone);
+  const canSubmit =
+    isValidEmail(cleanEmail) && cleanPhone.length > 0 && password.length > 0;
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-
-    const cleanEmail = normalizeEmail(email);
-    const cleanPhone = normalizePhoneDigits(phone);
 
     if (!cleanEmail || !cleanPhone || !password) {
       setError("يجب إكمال الحقول");
@@ -124,6 +125,7 @@ export default function RegisterPage() {
               onChange={(e) => setEmail(e.target.value.replace(/\s/g, ""))}
               inputMode="email"
               autoComplete="email"
+              aria-invalid={email.length > 0 && !isValidEmail(cleanEmail)}
               required
             />
 
@@ -150,7 +152,7 @@ export default function RegisterPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !canSubmit}
               className="w-full bg-black text-white font-bold py-5 rounded-2xl shadow-xl hover:bg-orange-600 transition-all active:scale-95 disabled:opacity-50 mt-6"
             >
               {loading ? "جار الإنشاء..." : "إنشاء الحساب الآن"}

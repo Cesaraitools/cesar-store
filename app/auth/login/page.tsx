@@ -24,6 +24,8 @@ function LoginContent() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const cleanEmail = normalizeEmail(email);
+  const canSubmit = isValidEmail(cleanEmail) && password.length > 0;
 
   const target = getSafeRedirectPath(redirectParam);
 
@@ -36,8 +38,6 @@ function LoginContent() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-
-    const cleanEmail = normalizeEmail(email);
 
     if (!cleanEmail || !password) {
       setError("يرجى إدخال البيانات");
@@ -61,8 +61,8 @@ function LoginContent() {
       if (signInError) throw signInError;
 
       router.push(target);
-    } catch (err: any) {
-      setError(err.message || "حدث خطأ");
+    } catch {
+      setError("تعذر تسجيل الدخول. تأكد من البريد الإلكتروني وكلمة المرور ثم حاول مرة أخرى.");
     } finally {
       setLoading(false);
     }
@@ -100,6 +100,7 @@ function LoginContent() {
             onChange={(e) => setEmail(e.target.value.replace(/\s/g, ""))}
             inputMode="email"
             autoComplete="email"
+            aria-invalid={email.length > 0 && !isValidEmail(cleanEmail)}
             required
             className="w-full p-3 border rounded-lg"
           />
@@ -114,7 +115,7 @@ function LoginContent() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !canSubmit}
             className="w-full bg-black text-white p-3 rounded-lg"
           >
             {loading ? "جارٍ التحقق..." : "تسجيل الدخول"}
