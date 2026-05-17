@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@capacitor/core": "^8.3.4",
     "@lottiefiles/lottie-player": "^2.0.12",
     "@react-pdf/renderer": "^4.3.2",
     "@sentry/nextjs": "^10.51.0",
