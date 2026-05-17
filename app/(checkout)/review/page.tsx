@@ -168,7 +168,7 @@ export default function ReviewPage() {
 
       if (!response.ok) {
         if (typeof result?.available === "number") {
-          toast.error(`الكمية المتاحة حاليًا هي ${result.available} فقط`);
+          toast.error(result?.error || `الكمية المتاحة حاليًا هي ${result.available} فقط`);
           return;
         }
 

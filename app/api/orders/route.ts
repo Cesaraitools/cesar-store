@@ -28,6 +28,92 @@ type DbCartItem = {
   image?: string | null;
 };
 
+type StockConflict = {
+  productId: string;
+  requested: number;
+  available: number;
+  productName?: string;
+};
+
+function getErrorText(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && error && "message" in error) {
+    return String((error as { message?: unknown }).message ?? "");
+  }
+  return String(error ?? "");
+}
+
+function getInsufficientStockProductId(error: unknown) {
+  const match = getErrorText(error).match(
+    /Insufficient stock for product ([0-9a-f-]{36})/i
+  );
+
+  return match?.[1] ?? null;
+}
+
+function stockConflictPayload(conflict: StockConflict) {
+  const productLabel = conflict.productName
+    ? ` من "${conflict.productName}"`
+    : "";
+  const availableText =
+    conflict.available > 0
+      ? `المتاح حاليا ${conflict.available} فقط.`
+      : "المنتج نفد من المخزون حاليا.";
+
+  return {
+    error: `تعذر إتمام الطلب لأن الكمية المطلوبة${productLabel} لم تعد متاحة. ${availableText}`,
+    code: "INSUFFICIENT_STOCK",
+    productId: conflict.productId,
+    available: conflict.available,
+    requested: conflict.requested,
+  };
+}
+
+async function findStockConflict(
+  items: FinalOrderItem[],
+  productId?: string | null
+): Promise<StockConflict | null> {
+  const wantedItems = productId
+    ? items.filter((item) => item.product_id === productId)
+    : items;
+
+  if (!wantedItems.length) return null;
+
+  const productIds = wantedItems.map((item) => item.product_id);
+  const { data: products } = await serviceSupabase
+    .from("products")
+    .select("id, name_ar, name_en, stock, is_active")
+    .in("id", productIds);
+
+  const productsById = new Map(
+    (products ?? []).map((product) => [String(product.id), product])
+  );
+
+  for (const item of wantedItems) {
+    const product = productsById.get(item.product_id);
+    const available =
+      product && product.is_active
+        ? Math.max(0, Math.floor(Number(product.stock) || 0))
+        : 0;
+
+    if (!product || available < item.quantity) {
+      return {
+        productId: item.product_id,
+        requested: item.quantity,
+        available,
+        productName:
+          item.name_ar ||
+          item.name_en ||
+          product?.name_ar ||
+          product?.name_en ||
+          undefined,
+      };
+    }
+  }
+
+  return null;
+}
+
 async function resolveUser(request: Request) {
   try {
     const authHeader = request.headers.get("authorization");
@@ -249,6 +335,7 @@ while (attempts <= maxRetries) {
   error = response.error;
 
   if (!error) break;
+  if (getInsufficientStockProductId(error)) break;
 
   console.warn(`RPC attempt ${attempts + 1} failed`, error);
 
@@ -261,6 +348,15 @@ if (error) throw error;
 const createdOrder = Array.isArray(data) ? data[0] : data;
 
 if (!createdOrder?.order_id) {
+  const stockConflict = await findStockConflict(finalItems);
+
+  if (stockConflict) {
+    return NextResponse.json(
+      stockConflictPayload(stockConflict),
+      { status: 409 }
+    );
+  }
+
   throw new Error("Order RPC returned no order id");
 }
 
@@ -306,6 +402,25 @@ if (createdOrder.reused) {
       });
 
         } catch (err) {
+      const stockProductId = getInsufficientStockProductId(err);
+
+      if (stockProductId) {
+        const stockConflict = await findStockConflict(finalItems, stockProductId);
+
+        return NextResponse.json(
+          stockConflictPayload(
+            stockConflict ?? {
+              productId: stockProductId,
+              requested:
+                finalItems.find((item) => item.product_id === stockProductId)
+                  ?.quantity ?? 0,
+              available: 0,
+            }
+          ),
+          { status: 409 }
+        );
+      }
+
       Sentry.captureException(err, {
         extra: {
           userId: user ? user.id : null,
