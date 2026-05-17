@@ -42,6 +42,7 @@ type CartContextType = {
 };
 
 const CART_STORAGE_KEY = "cesar_store_cart_v2";
+const OAUTH_GUEST_CART_STORAGE_KEY = "cesar_store_oauth_guest_cart";
 
 function generateUUID() {
   return crypto.randomUUID();
@@ -97,6 +98,41 @@ function saveCartToStorage(cart: LocalCart) {
   try {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
   } catch {}
+}
+
+function loadOauthGuestCartBackup(): LocalCart | null {
+  try {
+    const raw = sessionStorage.getItem(OAUTH_GUEST_CART_STORAGE_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as Partial<LocalCart>;
+    return {
+      id: typeof parsed.id === "string" && parsed.id ? parsed.id : generateUUID(),
+      ownerUserId:
+        typeof parsed.ownerUserId === "string" ? parsed.ownerUserId : null,
+      items: Array.isArray(parsed.items) ? (parsed.items as CartItem[]) : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+function clearOauthGuestCartBackup() {
+  try {
+    sessionStorage.removeItem(OAUTH_GUEST_CART_STORAGE_KEY);
+  } catch {}
+}
+
+function getGuestCartForMerge(currentCart: LocalCart): LocalCart {
+  if (currentCart.items.length > 0) return currentCart;
+
+  const oauthBackup = loadOauthGuestCartBackup();
+  if (oauthBackup && oauthBackup.items.length > 0) return oauthBackup;
+
+  const storedCart = loadCartFromStorage();
+  if (storedCart.items.length > 0) return storedCart;
+
+  return currentCart;
 }
 
 function mapDbCartItems(dbItems: any[]): CartItem[] {
@@ -226,9 +262,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (isMerging.current) return;
     if (mergedForUserId.current === user.id) return;
 
+    const guestCartForMerge = getGuestCartForMerge(cart);
     const itemsToMerge =
-      shouldMergeGuestCart.current && cart.items.length > 0
-        ? cart.items.map((item) => ({
+      shouldMergeGuestCart.current && guestCartForMerge.items.length > 0
+        ? guestCartForMerge.items.map((item) => ({
             product_id: item.product_id,
             quantity: item.quantity,
           }))
@@ -258,6 +295,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }
 
         shouldMergeGuestCart.current = false;
+        clearOauthGuestCartBackup();
 
         const itemsRes = await fetch("/api/cart/items", {
           headers: {
