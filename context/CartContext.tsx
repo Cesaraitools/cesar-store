@@ -321,6 +321,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
         mergedForUserId.current = null;
         if (itemsToMerge.length > 0) {
           shouldMergeGuestCart.current = true;
+          setCart((prev) => ({
+            ...prev,
+            ownerUserId: user.id,
+            items: guestCartForMerge.items,
+          }));
         }
       } finally {
         isMerging.current = false;
