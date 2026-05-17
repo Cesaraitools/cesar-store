@@ -35,22 +35,31 @@ export default function SyncContent() {
         getSafeRedirectPath(redirectParam) ||
         getSafeRedirectPath(storedRedirect) ||
         "/checkout";
+      const hasActiveSession = async () => {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        return Boolean(session?.user);
+      };
 
       if (oauthError) {
         router.replace(`/auth/login?redirect=${encodeURIComponent(redirect)}`);
         return;
       }
 
-      if (authCode) {
+      if (authCode && !(await hasActiveSession())) {
         const { error } = await supabase.auth.exchangeCodeForSession(authCode);
 
         if (error) {
-          console.error(
-            "OAuth client session exchange failed:",
-            exchangeError || error.message
-          );
-          router.replace(`/auth/login?redirect=${encodeURIComponent(redirect)}`);
-          return;
+          if (!(await hasActiveSession())) {
+            console.error(
+              "OAuth client session exchange failed:",
+              exchangeError || error.message
+            );
+            router.replace(`/auth/login?redirect=${encodeURIComponent(redirect)}`);
+            return;
+          }
         }
       }
 
