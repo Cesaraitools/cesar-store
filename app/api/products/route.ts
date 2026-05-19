@@ -1,4 +1,4 @@
-import { validateAdminSession } from "@/lib/admin/validateAdminSession";
+import { requireAdminRole } from "@/lib/admin/permissions";
 import { normalizeCategory } from "@/lib/category-normalizer";
 import { normalizeImagesArray } from "@/lib/image-normalizer";
 import { cleanupUnusedManagedImages } from "@/lib/server/media-assets";
@@ -68,9 +68,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  if (!(await validateAdminSession())) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await requireAdminRole(["full"]);
+  if (guard.response) return guard.response;
 
   try {
     const body = (await request.json()) as Partial<Product>;
@@ -182,9 +181,8 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  if (!(await validateAdminSession())) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await requireAdminRole(["full"]);
+  if (guard.response) return guard.response;
 
   try {
     const { id, ...updates } = (await request.json()) as Partial<Product> & {
@@ -267,9 +265,8 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  if (!(await validateAdminSession())) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await requireAdminRole(["full"]);
+  if (guard.response) return guard.response;
 
   try {
     const { id } = (await request.json()) as { id: string };

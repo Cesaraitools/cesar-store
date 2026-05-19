@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
+import { requireAdminRole } from "@/lib/admin/permissions";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
+    const guard = await requireAdminRole(["full"]);
+    if (guard.response) return guard.response;
+
     const org = "cesar-store";
     const project = "javascript-nextjs";
 

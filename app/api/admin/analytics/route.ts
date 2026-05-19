@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { normalizeCategory } from "@/lib/category-normalizer";
-import { validateAdminSession } from "@/lib/admin/validateAdminSession";
+import { requireAdminRole } from "@/lib/admin/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -119,9 +119,8 @@ function formatDuration(start?: string | null, end?: string | null) {
 
 export async function GET(req: NextRequest) {
   try {
-    if (!(await validateAdminSession())) {
-  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-}
+    const guard = await requireAdminRole(["full"]);
+    if (guard.response) return guard.response;
 
     const { searchParams } = new URL(req.url);
     const dateFrom = searchParams.get("from");

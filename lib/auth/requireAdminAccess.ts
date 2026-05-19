@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { validateAdminSession } from "@/lib/admin/validateAdminSession";
+import { requireAdminRole } from "@/lib/admin/permissions";
 
 export async function requireAdminAccess() {
-  const isValid = await validateAdminSession();
+  const guard = await requireAdminRole(["full"]);
 
-  if (!isValid) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (guard.response) {
+    return guard.response;
   }
 
   return null;

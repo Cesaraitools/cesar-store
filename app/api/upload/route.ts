@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ensureMediaAssetForSource } from "@/lib/server/media-assets";
-import { validateAdminSession } from "@/lib/admin/validateAdminSession";
+import { requireAdminRole } from "@/lib/admin/permissions";
 
 function isSafeImageUrl(url: string) {
   try {
@@ -33,14 +33,8 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
-    const isAdmin = await validateAdminSession();
-
-    if (!isAdmin) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
+    const guard = await requireAdminRole(["full"]);
+    if (guard.response) return guard.response;
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const imageUrl = formData.get("image_url") as string | null;

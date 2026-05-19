@@ -6,7 +6,7 @@
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { validateAdminSession } from "@/lib/admin/validateAdminSession";
+import { requireAdminRole } from "@/lib/admin/permissions";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -43,9 +43,8 @@ export async function GET(
 ) {
   try {
     /* 🔒 Security */
-    if (!(await validateAdminSession())) {
-  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-}
+    const guard = await requireAdminRole(["full", "orders"]);
+    if (guard.response) return guard.response;
 
     const { orderId } = params;
 

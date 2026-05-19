@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 // ✅ NEW
-import { validateAdminSession } from "@/lib/admin/validateAdminSession";
+import { requireAdminRole } from "@/lib/admin/permissions";
 
 // ✅ Prevent static optimization
 export const dynamic = "force-dynamic";
@@ -10,9 +10,8 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
     // 🔒 NEW: UNIFIED ADMIN AUTH
-    if (!(await validateAdminSession())) {
-  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-}
+    const guard = await requireAdminRole(["full", "orders"]);
+    if (guard.response) return guard.response;
 
     // ✅ Safe ENV + Client
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

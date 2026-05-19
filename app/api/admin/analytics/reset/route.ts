@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { validateAdminSession } from "@/lib/admin/validateAdminSession";
+import { requireAdminRole } from "@/lib/admin/permissions";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { rateLimit } from "@/lib/rateLimit";
@@ -213,9 +213,8 @@ console.log("RESET START", {
 });
   try {
     /* 🔐 NEW: Secret check */
-    if (!(await validateAdminSession())) {
-  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-}   
+    const guard = await requireAdminRole(["full"]);
+    if (guard.response) return guard.response;
 
 const authSupabase = createServerClient();
 

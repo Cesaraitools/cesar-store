@@ -16,7 +16,7 @@ import {
   pdf,
 } from "@react-pdf/renderer";
 import { NextResponse } from "next/server";
-import { validateAdminSession } from "@/lib/admin/validateAdminSession";
+import { requireAdminRole } from "@/lib/admin/permissions";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
 
 Font.register({
@@ -214,9 +214,8 @@ export async function GET(
   { params }: { params: { orderId: string } }
 ) {
   try {
-    if (!(await validateAdminSession())) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const guard = await requireAdminRole(["full", "orders"]);
+    if (guard.response) return guard.response;
 
     const supabase = createServiceRoleClient();
     const { data: order, error } = await supabase

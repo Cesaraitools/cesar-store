@@ -2,7 +2,7 @@ const RATE_LIMIT = new Map<string, { count: number; last: number }>();
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { validateAdminSession } from "@/lib/admin/validateAdminSession";
+import { requireAdminRole } from "@/lib/admin/permissions";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,9 +27,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
 
-  if (!(await validateAdminSession())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await requireAdminRole(["full", "orders"]);
+  if (guard.response) return guard.response;
 
   try {
     const { ids } = await req.json();
