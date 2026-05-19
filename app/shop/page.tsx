@@ -77,6 +77,19 @@ export default function ShopPage({ searchParams }: Props) {
     [categories]
   );
 
+  const categoryOrder = useMemo(() => {
+    const order = new Map<string, number>();
+
+    visibleCategories.forEach((category, index) => {
+      order.set(
+        normalizeCategory(category.category),
+        typeof category.order === "number" ? category.order : index
+      );
+    });
+
+    return order;
+  }, [visibleCategories]);
+
   const filteredProducts = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
     const normalizedSelectedCategory = normalizeCategory(selectedCategory);
@@ -96,8 +109,8 @@ export default function ShopPage({ searchParams }: Props) {
   }, [products, searchQuery, selectedCategory]);
 
   const finalProducts = useMemo(
-    () => sortProducts(filteredProducts, sort),
-    [filteredProducts, sort]
+    () => sortProducts(filteredProducts, sort, categoryOrder),
+    [categoryOrder, filteredProducts, sort]
   );
 
   const currentCategory = visibleCategories.find(
