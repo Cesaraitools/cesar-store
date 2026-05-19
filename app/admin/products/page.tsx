@@ -8,12 +8,38 @@ import type { ProductImportJobSnapshot } from "@/types/product-import";
 import { normalizeImagesArray } from "@/lib/image-normalizer";
 import { getSafeImage } from "@/lib/image-safe";
 import { supabase } from "@/lib/supabaseClient";
-import { Search, Plus, Trash2, FileUp, Filter, Tag, LayoutGrid } from "lucide-react";
+import { Search, Plus, Trash2, FileUp, FileDown, Filter, Tag, LayoutGrid } from "lucide-react";
 
 const PLACEHOLDER_IMAGE = "/placeholder.png";
 
 type PreviewRow = Record<string, any>;
 type RowWarning = string[];
+
+const PRODUCT_EXPORT_COLUMNS = [
+  "name_ar",
+  "name_en",
+  "description_ar",
+  "description_en",
+  "price",
+  "stock",
+  "category",
+  "images",
+  "badge",
+  "active",
+];
+
+const PRODUCT_EXPORT_COLUMN_WIDTHS = [
+  { wch: 34 },
+  { wch: 34 },
+  { wch: 46 },
+  { wch: 46 },
+  { wch: 12 },
+  { wch: 12 },
+  { wch: 22 },
+  { wch: 70 },
+  { wch: 14 },
+  { wch: 12 },
+];
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -183,6 +209,34 @@ export default function AdminProductsPage() {
     fileInputRef.current?.click();
   }
 
+  function handleExportProducts() {
+    const rows = products.map((product) => ({
+      name_ar: product.name.ar,
+      name_en: product.name.en,
+      description_ar: product.description.ar,
+      description_en: product.description.en,
+      price: product.price,
+      stock: product.stock,
+      category: product.category,
+      images: product.images.join("; "),
+      badge: product.badge || "",
+      active: product.active,
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows, {
+      header: PRODUCT_EXPORT_COLUMNS,
+    });
+    worksheet["!cols"] = PRODUCT_EXPORT_COLUMN_WIDTHS;
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "products");
+
+    const exportedAt = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(workbook, `cesar-products-${exportedAt}.xlsx`, {
+      compression: true,
+    });
+  }
+
   function validateRow(row: PreviewRow): string[] {
     const warnings: string[] = [];
     if (!row.name_ar) warnings.push("اسم (عربي) مفقود");
@@ -329,6 +383,15 @@ export default function AdminProductsPage() {
           >
             <FileUp size={18} />
             استيراد Excel
+          </button>
+
+          <button
+            onClick={handleExportProducts}
+            disabled={!products.length}
+            className="flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-100 px-4 py-2.5 rounded-xl text-sm font-bold transition-all hover:bg-emerald-100 disabled:opacity-30"
+          >
+            <FileDown size={18} />
+            {"\u062a\u0635\u062f\u064a\u0631 Excel"}
           </button>
 
           <Link
