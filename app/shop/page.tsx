@@ -148,7 +148,7 @@ export default function ShopPage({ searchParams }: Props) {
   return (
     <div className="min-h-screen bg-[#FCFDFF] pb-20" dir={isAr ? "rtl" : "ltr"}>
       <div className="bg-white border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-6 py-8 md:py-12">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-5 sm:py-8 md:py-12">
           {selectedCategory !== "all" && (
             <Link
               href="/categories"
@@ -163,9 +163,9 @@ export default function ShopPage({ searchParams }: Props) {
             </Link>
           )}
 
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 sm:gap-6">
             <div>
-              <h1 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tight">
+              <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-gray-900 tracking-tight">
                 {categoryTitle}
               </h1>
               <div className="flex items-center gap-2 mt-3">
@@ -181,7 +181,7 @@ export default function ShopPage({ searchParams }: Props) {
       </div>
 
       <div className="sticky top-20 z-30 border-b border-gray-100 bg-white/92 backdrop-blur-md">
-        <div className="mx-auto max-w-[1500px] px-6 py-5">
+        <div className="mx-auto max-w-[1500px] px-3 sm:px-6 py-3 sm:py-5">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
             <div className="relative">
               <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
@@ -192,7 +192,7 @@ export default function ShopPage({ searchParams }: Props) {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={isAr ? "ابحث باسم المنتج" : "Search by product name"}
-                className="w-full bg-gray-50 border-none rounded-[1.5rem] px-6 py-4 pr-12 text-sm font-black text-gray-700 focus:ring-2 focus:ring-blue-600/10 transition-all hover:bg-gray-100 shadow-sm"
+                className="w-full bg-gray-50 border-none rounded-2xl sm:rounded-[1.5rem] px-4 sm:px-6 py-3 sm:py-4 pr-10 sm:pr-12 text-xs sm:text-sm font-black text-gray-700 focus:ring-2 focus:ring-blue-600/10 transition-all hover:bg-gray-100 shadow-sm"
               />
             </div>
 
@@ -203,7 +203,7 @@ export default function ShopPage({ searchParams }: Props) {
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full appearance-none bg-gray-50 border-none rounded-[1.5rem] px-6 py-4 pr-12 text-sm font-black text-gray-700 focus:ring-2 focus:ring-blue-600/10 cursor-pointer transition-all hover:bg-gray-100 shadow-sm"
+                className="w-full appearance-none bg-gray-50 border-none rounded-2xl sm:rounded-[1.5rem] px-4 sm:px-6 py-3 sm:py-4 pr-10 sm:pr-12 text-xs sm:text-sm font-black text-gray-700 focus:ring-2 focus:ring-blue-600/10 cursor-pointer transition-all hover:bg-gray-100 shadow-sm"
               >
                 <option value="all">
                   {isAr ? "كل الأقسام" : "All Categories"}
@@ -223,7 +223,7 @@ export default function ShopPage({ searchParams }: Props) {
               <select
                 value={sort}
                 onChange={(e) => setSort(e.target.value as SortOption)}
-                className="w-full appearance-none bg-gray-50 border-none rounded-[1.5rem] px-6 py-4 pr-12 text-sm font-black text-gray-700 focus:ring-2 focus:ring-blue-600/10 cursor-pointer transition-all hover:bg-gray-100 shadow-sm"
+                className="w-full appearance-none bg-gray-50 border-none rounded-2xl sm:rounded-[1.5rem] px-4 sm:px-6 py-3 sm:py-4 pr-10 sm:pr-12 text-xs sm:text-sm font-black text-gray-700 focus:ring-2 focus:ring-blue-600/10 cursor-pointer transition-all hover:bg-gray-100 shadow-sm"
               >
                 <option value="default">
                   {isAr ? "الترتيب الافتراضي" : "Default Sorting"}
@@ -256,7 +256,7 @@ export default function ShopPage({ searchParams }: Props) {
         </div>
       </div>
 
-      <div className="mx-auto mt-12 max-w-[1820px] px-6">
+      <div className="mx-auto mt-5 sm:mt-12 max-w-[1820px] px-3 sm:px-6">
         <div className="grid justify-center gap-6 xl:grid-cols-[220px_minmax(0,1fr)_220px] 2xl:grid-cols-[240px_minmax(0,1200px)_240px] items-start">
           <div className="order-1">
             {leftPromo ? (

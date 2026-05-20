@@ -7,7 +7,12 @@ import { AuthProvider } from "@/context/AuthContext";
 import Navbar from "@/components/Navbar";
 import { Toaster } from "react-hot-toast";
 import * as Sentry from "@sentry/nextjs";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
 
 export function generateMetadata(): Metadata {
   return {

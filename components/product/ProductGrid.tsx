@@ -6,9 +6,9 @@ export default function ProductGrid({ products }: { products: Product[] }) {
    <div
       className="
         grid
-        gap-8
+        gap-3 sm:gap-6 lg:gap-8
         justify-center
-        grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4
+        grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4
       "
     >
       {products.map((p) => (
