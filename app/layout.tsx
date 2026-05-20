@@ -12,10 +12,12 @@ import type { Metadata, Viewport } from "next";
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  themeColor: "#0F172A",
 };
 
 export function generateMetadata(): Metadata {
   return {
+    manifest: "/manifest.json",
     title: "متجر سيزر | Cesar Store",
     description: "الوجهة الأولى لمنتجات العناية بالسيارات والكماليات الأصلية",
     other: {
