@@ -24,10 +24,31 @@ function LoginContent() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isMobileApp, setIsMobileApp] = useState(false);
   const cleanEmail = normalizeEmail(email);
   const canSubmit = isValidEmail(cleanEmail) && password.length > 0;
 
   const target = getSafeRedirectPath(redirectParam);
+
+  useEffect(() => {
+    const detectMobileApp = () => {
+      const hasAppUserAgent = navigator.userAgent.includes("CesarStoreApp/Android");
+      const hasAppFlag = window.localStorage.getItem("cesar_store_mobile_app") === "android";
+
+      if (hasAppUserAgent || hasAppFlag) {
+        setIsMobileApp(true);
+      }
+    };
+
+    detectMobileApp();
+    const intervalId = window.setInterval(detectMobileApp, 250);
+    const timeoutId = window.setTimeout(() => window.clearInterval(intervalId), 3000);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.clearTimeout(timeoutId);
+    };
+  }, []);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -114,6 +135,8 @@ function LoginContent() {
 
         </form>
 
+        {!isMobileApp && (
+          <>
         <div className="my-6 text-center text-sm text-gray-400">
           أو عبر
         </div>
@@ -124,6 +147,8 @@ function LoginContent() {
         >
           Google Login
         </button>
+          </>
+        )}
 
         <p className="text-center text-sm mt-6">
           ليس لديك حساب؟{" "}
