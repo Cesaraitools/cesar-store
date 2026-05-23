@@ -63,7 +63,20 @@ async function ensurePublicUser(user: {
   });
 
   if (insertError) {
-    throw new Error(`Failed to create public user: ${insertError.message}`);
+    if (insertError.code === "23505") {
+      const { data: retryUser } = await serviceSupabase
+        .from("users")
+        .select("id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (retryUser) return;
+    }
+
+    console.warn("Public user sync failed during cart merge", {
+      code: insertError.code,
+      userId: user.id,
+    });
   }
 }
 

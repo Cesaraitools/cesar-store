@@ -59,11 +59,11 @@ const isLowStock = product.stock > 0 && product.stock <= threshold;
   };
 
   return (
-    <div className="border border-gray-100 rounded-[2.5rem] bg-white shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col h-[520px] overflow-hidden">
+    <div className="border border-gray-100 rounded-2xl sm:rounded-[2.5rem] bg-white shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col h-[360px] sm:h-[500px] lg:h-[520px] overflow-hidden">
       <button
         type="button"
         onClick={() => setIsImageOpen(true)}
-        className="h-[240px] bg-gray-100 flex items-center justify-center rounded-t-2xl overflow-hidden cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+        className="h-[150px] sm:h-[220px] lg:h-[240px] bg-gray-100 flex items-center justify-center rounded-t-2xl overflow-hidden cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
         aria-label={lang === "ar" ? `عرض صورة ${name}` : `View ${name} image`}
       >
         <img
@@ -105,28 +105,28 @@ const isLowStock = product.stock > 0 && product.stock <= threshold;
         </div>
       )}
 
-      <div className="flex flex-col flex-1 p-4 gap-2">
+      <div className="flex flex-col flex-1 p-3 sm:p-4 gap-1.5 sm:gap-2">
         <Link href={`/product/${product.id}`}>
-          <h3 className="font-bold text-base text-gray-900 leading-tight">
+          <h3 className="font-bold text-[13px] sm:text-base text-gray-900 leading-snug line-clamp-2 min-h-[2.2rem] sm:min-h-0">
             {name}
           </h3>
         </Link>
 
-        <p className="text-sm text-gray-400 line-clamp-2 text-ellipsis overflow-hidden">{description}</p>
+        <p className="text-[11px] sm:text-sm text-gray-400 line-clamp-2 text-ellipsis overflow-hidden">{description}</p>
 
         <div className="mt-auto">
-          <p className="text-green-600 font-bold text-base mb-2">
+          <p className="text-green-600 font-bold text-sm sm:text-base mb-1 sm:mb-2">
             {product.price} جنيه
           </p>
 
-          <p className="text-xs font-semibold mb-1 text-slate-500">
+          <p className="text-[11px] sm:text-xs font-semibold mb-1 text-slate-500">
   {lang === "ar"
     ? `المتاح: ${product.stock}`
     : `Available: ${product.stock}`}
 </p>
 
 {isLowStock && (
-  <p className="text-xs font-bold text-red-600 mb-3">
+  <p className="text-[11px] sm:text-xs font-bold text-red-600 mb-2 sm:mb-3">
     {lang === "ar" ? "قارب على النفاذ" : "Low stock"}
   </p>
 )}
@@ -134,7 +134,7 @@ const isLowStock = product.stock > 0 && product.stock <= threshold;
           <button
             onClick={handleAddToCart}
             disabled={isAdding || isOutOfStock}
-            className="w-full bg-black text-white py-2 text-sm rounded-lg hover:opacity-90 transition disabled:opacity-50"
+            className="w-full bg-black text-white py-2 text-[12px] sm:text-sm rounded-lg hover:opacity-90 transition disabled:opacity-50"
           >
             {isOutOfStock
               ? lang === "ar"

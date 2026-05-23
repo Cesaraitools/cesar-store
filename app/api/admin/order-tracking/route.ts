@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
-import { validateAdminSession } from "@/lib/admin/validateAdminSession";
+import { requireAdminRole } from "@/lib/admin/permissions";
 import * as Sentry from "@sentry/nextjs";
 export const runtime = "nodejs";
 
@@ -251,9 +251,8 @@ async function restoreOrderInventory(items: OrderSnapshotItem[]) {
 
 export async function POST(req: NextRequest) {
   try {
-    if (!(await validateAdminSession())) {
-  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-}
+    const guard = await requireAdminRole(["full", "orders"]);
+    if (guard.response) return guard.response;
 
     const ip =
       req.headers.get("x-forwarded-for") ||

@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { validateAdminSession } from "@/lib/admin/validateAdminSession";
+import { requireAdminRole } from "@/lib/admin/permissions";
 
 type Category = {
   id: string;
@@ -49,9 +49,8 @@ export async function GET() {
 /* ---------------- POST ---------------- */
 
 export async function POST(request: Request) {
-  if (!(await validateAdminSession())) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await requireAdminRole(["full"]);
+  if (guard.response) return guard.response;
 
   try {
     const body = await request.json();
@@ -92,9 +91,8 @@ export async function POST(request: Request) {
 /* ---------------- PUT ---------------- */
 
 export async function PUT(request: Request) {
-  if (!(await validateAdminSession())) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await requireAdminRole(["full"]);
+  if (guard.response) return guard.response;
 
   try {
     const { id, ...updates } = await request.json();
@@ -132,9 +130,8 @@ export async function PUT(request: Request) {
 /* ---------------- DELETE ---------------- */
 
 export async function DELETE(request: Request) {
-  if (!(await validateAdminSession())) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await requireAdminRole(["full"]);
+  if (guard.response) return guard.response;
 
   try {
     const { id } = await request.json();

@@ -22,6 +22,8 @@ type AuthContextType = {
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const CART_STORAGE_KEY = "cesar_store_cart_v2";
+const OAUTH_GUEST_CART_STORAGE_KEY = "cesar_store_oauth_guest_cart";
 
 function getSafeRedirectPath(redirect?: string) {
   if (!redirect) return "/checkout";
@@ -93,6 +95,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   if (typeof window !== "undefined") {
     sessionStorage.setItem("oauth_redirect", redirectPath);
     sessionStorage.setItem("last_redirect", redirectPath);
+
+    const guestCart = localStorage.getItem(CART_STORAGE_KEY);
+    if (guestCart) {
+      sessionStorage.setItem(OAUTH_GUEST_CART_STORAGE_KEY, guestCart);
+    } else {
+      sessionStorage.removeItem(OAUTH_GUEST_CART_STORAGE_KEY);
+    }
   }
 
   const { error } = await supabase.auth.signInWithOAuth({

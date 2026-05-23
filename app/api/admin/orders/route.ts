@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { validateAdminSession } from "@/lib/admin/validateAdminSession";
+import { getAdminAccess } from "@/lib/admin/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +42,9 @@ function resolveOrderStatus(orderStatus?: string | null, trackingStatus?: string
 export async function GET(req: NextRequest) {
   try {
     /* 🔒 Security */
-    if (!(await validateAdminSession())) {
+    const access = await getAdminAccess();
+
+    if (!access.hasAdminSession) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -50,6 +52,15 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const archived = searchParams.get("archived");
     const limit = Number(searchParams.get("limit") || 100);
+
+    if (
+      !access.role ||
+      (archived === "true"
+        ? access.role !== "full"
+        : !["full", "orders"].includes(access.role))
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     /* -------- Orders Query -------- */
     const query = supabase

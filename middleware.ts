@@ -49,6 +49,8 @@ async function verifySignature(token: string, signature: string) {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-admin-pathname", pathname);
 
   // ✅ Allow login routes
   if (pathname.startsWith("/admin-login")) {
@@ -93,7 +95,11 @@ const { token, signature } = parsed;
     }
   }
 
-  return NextResponse.next();
+  return NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
 }
 
 export const config = {

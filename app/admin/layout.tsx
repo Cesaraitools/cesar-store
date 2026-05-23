@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import AdminClientLayout from "./AdminClientLayout";
-import { validateAdminSession } from "@/lib/admin/validateAdminSession";
+import { headers } from "next/headers";
+import { canAccessAdminPath, getAdminAccess } from "@/lib/admin/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -10,12 +11,28 @@ export default async function AdminLayout({
 }: {
   children: ReactNode;
 }) {
-  // Keep page protection aligned with the same Redis-backed contract used by admin APIs.
-  const isValidSession = await validateAdminSession();
+  const pathname = headers().get("x-admin-pathname") || "/admin";
+  const access = await getAdminAccess();
 
-  if (!isValidSession) {
+  if (!access.hasAdminSession) {
     redirect("/admin-login");
   }
 
-  return <AdminClientLayout>{children}</AdminClientLayout>;
+  if (!access.userEmail) {
+    redirect(`/auth/login?redirect=${encodeURIComponent(pathname)}`);
+  }
+
+  if (!access.role) {
+    redirect("/");
+  }
+
+  if (!canAccessAdminPath(pathname, access.role)) {
+    redirect("/admin/orders");
+  }
+
+  return (
+    <AdminClientLayout role={access.role} userEmail={access.userEmail}>
+      {children}
+    </AdminClientLayout>
+  );
 }

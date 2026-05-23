@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Product } from "@/types/product";
 import { useCart } from "@/context/CartContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { normalizeCategory } from "@/lib/category-normalizer";
 import { getSafeImage } from "@/lib/image-safe";
 
 /* ---------------- Types ---------------- */
@@ -92,7 +93,7 @@ export default function ProductPage({ params }: Props) {
   }
 
   const category = categories.find(
-    (c) => c.category === product.category
+    (c) => normalizeCategory(c.category) === normalizeCategory(product.category)
   );
 
   const name =

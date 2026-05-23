@@ -44,6 +44,7 @@ type OrderDetails = {
     name?: string;
     email?: string;
     phone?: string;
+    address?: string;
   };
   items?: {
     name: string;
@@ -161,13 +162,23 @@ export default function AdminOrderDetailsPage() {
       <div className="max-w-5xl mx-auto">
 
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-wrap justify-between items-center gap-3 mb-8">
           <Link
             href="/admin/orders"
             className="text-blue-600 flex items-center gap-1 text-sm font-bold hover:underline"
           >
             <ChevronRight size={16} /> العودة للطلبات
           </Link>
+
+          <a
+            href={`/api/admin/orders/${order.id}/report`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-4 py-2 text-sm font-bold text-blue-700 transition-colors hover:bg-blue-100"
+          >
+            <Printer size={16} />
+            {"\u062a\u0642\u0631\u064a\u0631 PDF"}
+          </a>
 
           <h1 className="text-2xl font-black text-slate-900">
             طلب #{order.id.slice(0, 8)}

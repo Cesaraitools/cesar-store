@@ -14,10 +14,19 @@ import {
   UserCircle,
   ShieldAlert, // ✅ أضف ده
 } from "lucide-react";
+import type { AdminRole } from "@/lib/admin/permissions";
 
 export const dynamic = "force-dynamic";
 
-export default function AdminClientLayout({ children }: { children: ReactNode }) {
+export default function AdminClientLayout({
+  children,
+  role,
+  userEmail,
+}: {
+  children: ReactNode;
+  role: AdminRole;
+  userEmail: string;
+}) {
   const pathname = usePathname();
 
   async function handleLogout() {
@@ -44,7 +53,13 @@ export default function AdminClientLayout({ children }: { children: ReactNode })
     { name: "Archive", href: "/admin/orders/archive", icon: Package },
     { name: "Products", href: "/admin/products", icon: Package },
     { name: "Promos", href: "/admin/promos", icon: TicketPercent },
-  ];
+  ].filter((item) => {
+    if (role === "full") {
+      return true;
+    }
+
+    return item.href === "/admin/orders";
+  });
 
   return (
     <div className="flex min-h-screen bg-[#F8FAFC]">
@@ -88,7 +103,12 @@ export default function AdminClientLayout({ children }: { children: ReactNode })
         <header className="h-20 bg-white/80 backdrop-blur-md border-b border-gray-100 flex items-center justify-between px-10 sticky top-0 z-30">
           <div className="flex items-center gap-2 text-gray-400">
             <UserCircle className="w-5 h-5 text-blue-600" />
-            <span className="text-sm font-medium">مدير النظام</span>
+            <span className="text-sm font-medium">
+              {role === "full" ? "مدير النظام" : "متابعة الطلبات"}
+            </span>
+            <span className="text-xs font-bold text-gray-400" dir="ltr">
+              {userEmail}
+            </span>
           </div>
 
           <button

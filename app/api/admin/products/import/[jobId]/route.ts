@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { validateAdminSession } from "@/lib/admin/validateAdminSession";
+import { requireAdminRole } from "@/lib/admin/permissions";
 import {
   getProductImportJob,
   processProductImportJob,
@@ -13,9 +13,8 @@ export async function GET(
   { params }: { params: { jobId: string } }
 ) {
   try {
-    if (!(await validateAdminSession())) {
-  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-}
+    const guard = await requireAdminRole(["full"]);
+    if (guard.response) return guard.response;
 
     const job = await getProductImportJob(params.jobId);
     return NextResponse.json({ job });
@@ -35,9 +34,8 @@ export async function POST(
   { params }: { params: { jobId: string } }
 ) {
   try {
-    if (!(await validateAdminSession())) {
-  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-}
+    const guard = await requireAdminRole(["full"]);
+    if (guard.response) return guard.response;
 
     const job = await processProductImportJob(params.jobId, req.nextUrl.origin);
     return NextResponse.json({ job });
