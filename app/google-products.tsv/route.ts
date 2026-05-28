@@ -16,6 +16,7 @@ const HEADERS = [
   "identifier_exists",
   "mpn",
   "product_type",
+  "google_product_category",
 ];
 
 function cleanCell(value: unknown) {
@@ -36,13 +37,37 @@ function formatPrice(price: number) {
   return `${Number(price || 0).toFixed(2)} EGP`;
 }
 
+function isScaleModel(product: Awaited<ReturnType<typeof getActiveProducts>>[number]) {
+  const title = `${product.name.ar} ${product.name.en}`.toLowerCase();
+
+  return title.includes("ماكت") || title.includes("model car") || title.includes("scale model");
+}
+
+function merchantTitle(product: Awaited<ReturnType<typeof getActiveProducts>>[number]) {
+  const title = product.name.ar || product.name.en || `Cesar Store product ${product.id}`;
+
+  if (isScaleModel(product) && !title.includes("مجسم")) {
+    return `مجسم ${title}`;
+  }
+
+  return title;
+}
+
+function googleProductCategory(product: Awaited<ReturnType<typeof getActiveProducts>>[number]) {
+  if (isScaleModel(product)) {
+    return "Toys & Games > Toys > Toy Vehicles";
+  }
+
+  return "Vehicles & Parts > Vehicle Parts & Accessories";
+}
+
 export async function GET() {
   const products = await getActiveProducts(10000);
   const rows = products
     .filter((product) => product.images[0] && product.price > 0)
     .map((product) => [
       product.id,
-      product.name.ar || product.name.en || `Cesar Store product ${product.id}`,
+      merchantTitle(product),
       pickDescription(product),
       absoluteUrl(`/product/${product.id}`),
       absoluteUrl(product.images[0]),
@@ -53,6 +78,7 @@ export async function GET() {
       "no",
       product.id,
       product.category,
+      googleProductCategory(product),
     ]);
 
   const body = [HEADERS, ...rows]
