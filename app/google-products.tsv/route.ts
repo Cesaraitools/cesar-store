@@ -87,7 +87,7 @@ export async function GET() {
 
   return new Response(body, {
     headers: {
-      "Cache-Control": "public, max-age=3600, s-maxage=3600",
+      "Cache-Control": "no-store",
       "Content-Disposition": 'inline; filename="google-products.tsv"',
       "Content-Type": "text/tab-separated-values; charset=utf-8",
     },
