@@ -19,6 +19,11 @@ const HEADERS = [
   "google_product_category",
 ];
 
+const MERCHANT_EXCLUDED_PRODUCT_IDS = new Set([
+  // Google Merchant may classify this scale truck model as a real public-transport vehicle.
+  "8b0b6c0f-082b-4b9f-90fd-c8e1af1419f4",
+]);
+
 function cleanCell(value: unknown) {
   return String(value ?? "")
     .replace(/[\t\r\n]+/g, " ")
@@ -64,7 +69,12 @@ function googleProductCategory(product: Awaited<ReturnType<typeof getActiveProdu
 export async function GET() {
   const products = await getActiveProducts(10000);
   const rows = products
-    .filter((product) => product.images[0] && product.price > 0)
+    .filter(
+      (product) =>
+        product.images[0] &&
+        product.price > 0 &&
+        !MERCHANT_EXCLUDED_PRODUCT_IDS.has(product.id)
+    )
     .map((product) => [
       product.id,
       merchantTitle(product),
