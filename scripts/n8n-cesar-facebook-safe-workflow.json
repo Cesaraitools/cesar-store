@@ -1,0 +1,311 @@
+{
+  "name": "Cesar Store - Meta Messenger Safe Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "multipleMethods": true,
+        "path": "meta-messenger",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-900, -20],
+      "id": "84bd86d9-7dac-48ee-85d0-cdd156a9dae8",
+      "name": "Meta Webhook",
+      "webhookId": "7642a079-d51a-4ba7-b69b-12a7bc3d1710"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "verify-token-match",
+              "leftValue": "={{ $json.query[\"hub.verify_token\"] }}",
+              "rightValue": "cesar_verify_2026",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "subscribe-mode-match",
+              "leftValue": "={{ $json.query[\"hub.mode\"] }}",
+              "rightValue": "subscribe",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-640, -180],
+      "id": "check-meta-verification",
+      "name": "Check Meta Verification"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.query[\"hub.challenge\"] }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [-360, -260],
+      "id": "respond-meta-challenge",
+      "name": "Respond Meta Challenge"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "VERIFICATION_FAILED",
+        "options": {
+          "responseCode": 403
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [-360, -100],
+      "id": "respond-verification-failed",
+      "name": "Respond Verification Failed"
+    },
+    {
+      "parameters": {
+        "jsCode": "const PAGE_ID = '733722713158762';\nconst event = $json.body?.entry?.[0]?.messaging?.[0] || {};\nconst message = event.message || {};\nconst messageText = typeof message.text === 'string' ? message.text.trim() : '';\nconst senderId = event.sender?.id || '';\nconst recipientId = event.recipient?.id || '';\nconst messageId = message.mid || `${senderId}:${event.timestamp || ''}:${messageText}`;\nlet shouldProcess = true;\nlet reason = 'ok';\n\nif ($json.body?.object !== 'page') {\n  shouldProcess = false;\n  reason = 'not_page_object';\n} else if (!senderId || !recipientId) {\n  shouldProcess = false;\n  reason = 'missing_sender_or_recipient';\n} else if (!messageText) {\n  shouldProcess = false;\n  reason = 'empty_or_non_text_message';\n} else if (message.is_echo) {\n  shouldProcess = false;\n  reason = 'echo_message';\n} else if (senderId === PAGE_ID) {\n  shouldProcess = false;\n  reason = 'page_sent_message';\n}\n\nconst now = Date.now();\nconst staticData = $getWorkflowStaticData('global');\nstaticData.seenMessages = staticData.seenMessages || {};\nstaticData.senderRate = staticData.senderRate || {};\nstaticData.pageRate = staticData.pageRate || [];\n\nfor (const [key, seenAt] of Object.entries(staticData.seenMessages)) {\n  if (now - Number(seenAt) > 24 * 60 * 60 * 1000) {\n    delete staticData.seenMessages[key];\n  }\n}\n\nif (shouldProcess && staticData.seenMessages[messageId]) {\n  shouldProcess = false;\n  reason = 'duplicate_message';\n}\n\nif (shouldProcess) {\n  staticData.seenMessages[messageId] = now;\n}\n\nif (shouldProcess) {\n  const senderWindowMs = 10 * 60 * 1000;\n  const senderEvents = (staticData.senderRate[senderId] || []).filter((time) => now - time < senderWindowMs);\n  senderEvents.push(now);\n  staticData.senderRate[senderId] = senderEvents;\n\n  if (senderEvents.length > 5) {\n    shouldProcess = false;\n    reason = 'sender_rate_limited';\n  }\n}\n\nif (shouldProcess) {\n  const pageWindowMs = 60 * 1000;\n  const pageEvents = (staticData.pageRate || []).filter((time) => now - time < pageWindowMs);\n  pageEvents.push(now);\n  staticData.pageRate = pageEvents;\n\n  if (pageEvents.length > 30) {\n    shouldProcess = false;\n    reason = 'page_rate_limited';\n  }\n}\n\nreturn [\n  {\n    json: {\n      shouldProcess,\n      reason,\n      senderId,\n      recipientId,\n      messageId,\n      messageText,\n      lang: /[\\u0600-\\u06ff]/.test(messageText) ? 'ar' : 'en'\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-640, 80],
+      "id": "normalize-and-guard-message",
+      "name": "Normalize and Guard Message"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "should-process-is-true",
+              "leftValue": "={{ $json.shouldProcess }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-380, 80],
+      "id": "should-process-message",
+      "name": "Should Process Message"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "EVENT_RECEIVED",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [-120, 220],
+      "id": "respond-ignored-event",
+      "name": "Respond Ignored Event"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cesareshop.com/api/automation/products/search",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-automation-secret",
+              "value": "PASTE_N8N_AUTOMATION_SECRET_HERE"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "={{ $json.messageText }}"
+            },
+            {
+              "name": "lang",
+              "value": "={{ $json.lang }}"
+            },
+            {
+              "name": "limit",
+              "value": "3"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [-120, -20],
+      "id": "search-cesar-store-products",
+      "name": "Search Cesar Store Products"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v20.0/me/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer PASTE_META_PAGE_ACCESS_TOKEN_HERE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"recipient\": { \"id\": $(\"Normalize and Guard Message\").item.json.senderId }, \"messaging_type\": \"RESPONSE\", \"message\": { \"text\": $json.reply || $json.suggestedReply || \"من فضلك ارسل اسم المنتج او صورة له.\" } } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [150, -20],
+      "id": "send-facebook-message",
+      "name": "Send Facebook Message"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "EVENT_RECEIVED",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [410, -20],
+      "id": "respond-event-received",
+      "name": "Respond Event Received"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Meta Webhook": {
+      "main": [
+        [
+          {
+            "node": "Check Meta Verification",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Normalize and Guard Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Meta Verification": {
+      "main": [
+        [
+          {
+            "node": "Respond Meta Challenge",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Verification Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize and Guard Message": {
+      "main": [
+        [
+          {
+            "node": "Should Process Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Process Message": {
+      "main": [
+        [
+          {
+            "node": "Search Cesar Store Products",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Ignored Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Cesar Store Products": {
+      "main": [
+        [
+          {
+            "node": "Send Facebook Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Facebook Message": {
+      "main": [
+        [
+          {
+            "node": "Respond Event Received",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "tags": []
+}
