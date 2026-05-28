@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { ReactNode } from "react";
 import type { Metadata, Viewport } from "next";
+import Link from "next/link";
 import * as Sentry from "@sentry/nextjs";
 import { Toaster } from "react-hot-toast";
 
@@ -128,6 +129,14 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                   <Navbar />
 
                   <main className="flex-grow pt-5 md:pt-7">{children}</main>
+                  <div className="bg-white border-t border-slate-100 py-4 text-center text-sm font-medium">
+                    <Link
+                      href="/return-policy"
+                      className="text-slate-600 transition hover:text-blue-700"
+                    >
+                      سياسة الإرجاع والاستبدال
+                    </Link>
+                  </div>
                   <Toaster position="top-center" />
                   <footer className="bg-white border-t border-slate-100 py-8 text-center text-slate-400 text-sm font-medium">
                     © {new Date().getFullYear()} متجر سيزر. جميع الحقوق محفوظة.
