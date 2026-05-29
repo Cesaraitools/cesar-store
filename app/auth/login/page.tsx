@@ -14,6 +14,34 @@ function getSafeRedirectPath(redirect: string | null, fallback = "/") {
   return redirect;
 }
 
+function isAndroidAppEnvironment() {
+  if (typeof window === "undefined") return false;
+
+  const userAgent = navigator.userAgent || "";
+  const url = new URL(window.location.href);
+  const hasAppQuery =
+    url.searchParams.get("app") === "android" ||
+    url.searchParams.get("platform") === "android" ||
+    url.searchParams.get("mobile_app") === "android";
+  const hasAppUserAgent = userAgent.includes("CesarStoreApp/Android");
+  const hasAppFlag = window.localStorage.getItem("cesar_store_mobile_app") === "android";
+  const isCapacitorNative = Boolean(
+    (window as typeof window & {
+      Capacitor?: { isNativePlatform?: () => boolean };
+    }).Capacitor?.isNativePlatform?.()
+  );
+  const isAndroidWebView =
+    /\bAndroid\b/i.test(userAgent) &&
+    (/\bwv\b/i.test(userAgent) || /Version\/\d+\.\d+/i.test(userAgent));
+
+  if (hasAppQuery || hasAppUserAgent || hasAppFlag || isCapacitorNative || isAndroidWebView) {
+    window.localStorage.setItem("cesar_store_mobile_app", "android");
+    return true;
+  }
+
+  return false;
+}
+
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -25,7 +53,8 @@ function LoginContent() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isMobileApp, setIsMobileApp] = useState(false);
+  const [isMobileApp, setIsMobileApp] = useState(true);
+  const [appDetectionReady, setAppDetectionReady] = useState(false);
   const cleanEmail = normalizeEmail(email);
   const canSubmit = isValidEmail(cleanEmail) && password.length > 0;
 
@@ -33,12 +62,8 @@ function LoginContent() {
 
   useEffect(() => {
     const detectMobileApp = () => {
-      const hasAppUserAgent = navigator.userAgent.includes("CesarStoreApp/Android");
-      const hasAppFlag = window.localStorage.getItem("cesar_store_mobile_app") === "android";
-
-      if (hasAppUserAgent || hasAppFlag) {
-        setIsMobileApp(true);
-      }
+      setIsMobileApp(isAndroidAppEnvironment());
+      setAppDetectionReady(true);
     };
 
     detectMobileApp();
@@ -137,7 +162,7 @@ function LoginContent() {
 
         </form>
 
-        {!isMobileApp && (
+        {appDetectionReady && !isMobileApp && (
           <>
         <div className="my-6 text-center text-sm text-gray-400">
           أو عبر
