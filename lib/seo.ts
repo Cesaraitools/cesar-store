@@ -13,11 +13,19 @@ export const DEFAULT_SEO_DESCRIPTION =
 
 export const DEFAULT_OG_IMAGE = "/logo-v2.png";
 
-export const SOCIAL_LINKS = [
-  "https://www.tiktok.com/@cesarstore365",
-  "https://www.instagram.com/cesarstore3652026/",
-  "https://www.facebook.com/share/18xg7Rwgfu/",
-];
+export const CONTACT_PHONE_DISPLAY = "01211120208";
+export const CONTACT_PHONE_E164 = "+201211120208";
+export const CONTACT_EMAIL = "Cesarstore365@gmail.com";
+export const CONTACT_WHATSAPP_URL = "https://wa.me/201211120208";
+
+export const SOCIAL_PROFILES = {
+  facebook: "https://www.facebook.com/share/18xg7Rwgfu/",
+  instagram: "https://www.instagram.com/cesarstore3652026/",
+  tiktok: "https://www.tiktok.com/@cesarstore365",
+  youtube: "",
+} as const;
+
+export const SOCIAL_LINKS = Object.values(SOCIAL_PROFILES).filter(Boolean);
 
 export function absoluteUrl(pathOrUrl = "/") {
   if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")) {

@@ -14,6 +14,7 @@ import {
 } from "@react-pdf/renderer";
 import path from "path";
 import arabicReshaper from "arabic-reshaper";
+import { CONTACT_EMAIL } from "@/lib/seo";
 
 /* ================= تسجيل الخطوط ================= */
 Font.register({
@@ -258,7 +259,7 @@ try {
   React.createElement(
     Text,
     { style: { marginTop: 4 } },
-    "support@cesarstore.com"
+    CONTACT_EMAIL
   )
 )
       )

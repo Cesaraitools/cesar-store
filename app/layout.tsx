@@ -11,6 +11,10 @@ import { CartProvider } from "@/context/CartContext";
 import { CheckoutProvider } from "@/context/CheckoutContext";
 import { LanguageProvider } from "@/context/LanguageContext";
 import {
+  CONTACT_EMAIL,
+  CONTACT_PHONE_DISPLAY,
+  CONTACT_PHONE_E164,
+  CONTACT_WHATSAPP_URL,
   DEFAULT_OG_IMAGE,
   DEFAULT_SEO_DESCRIPTION,
   DEFAULT_SEO_TITLE,
@@ -18,6 +22,7 @@ import {
   SITE_NAME_AR,
   SITE_URL,
   SOCIAL_LINKS,
+  SOCIAL_PROFILES,
   absoluteUrl,
 } from "@/lib/seo";
 
@@ -104,7 +109,17 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     logo: absoluteUrl(DEFAULT_OG_IMAGE),
     image: absoluteUrl(DEFAULT_OG_IMAGE),
     description: DEFAULT_SEO_DESCRIPTION,
+    telephone: CONTACT_PHONE_E164,
+    email: CONTACT_EMAIL,
     sameAs: SOCIAL_LINKS,
+    contactPoint: {
+      "@type": "ContactPoint",
+      telephone: CONTACT_PHONE_E164,
+      email: CONTACT_EMAIL,
+      contactType: "customer support",
+      areaServed: "EG",
+      availableLanguage: ["ar", "en"],
+    },
     areaServed: {
       "@type": "Country",
       name: "Egypt",
@@ -129,14 +144,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                   <Navbar />
 
                   <main className="flex-grow pt-5 md:pt-7">{children}</main>
-                  <div className="bg-white border-t border-slate-100 py-4 text-center text-sm font-medium">
-                    <Link
-                      href="/return-policy"
-                      className="text-slate-600 transition hover:text-blue-700"
-                    >
-                      سياسة الإرجاع والاستبدال
-                    </Link>
-                  </div>
                   <Toaster
                     position="top-center"
                     containerStyle={{ zIndex: 2147483647 }}
@@ -144,8 +151,69 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                       duration: 3000,
                     }}
                   />
-                  <footer className="bg-white border-t border-slate-100 py-8 text-center text-slate-400 text-sm font-medium">
-                    © {new Date().getFullYear()} متجر سيزر. جميع الحقوق محفوظة.
+                  <footer className="bg-white border-t border-slate-100 py-8 text-center text-sm font-medium text-slate-500">
+                    <div className="mx-auto flex max-w-5xl flex-col items-center gap-5 px-4">
+                      <Link
+                        href="/return-policy"
+                        className="text-slate-700 transition hover:text-blue-700"
+                      >
+                        سياسة الإرجاع والاستبدال
+                      </Link>
+
+                      <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+                        <a
+                          href={`tel:${CONTACT_PHONE_E164}`}
+                          className="transition hover:text-blue-700"
+                        >
+                          {CONTACT_PHONE_DISPLAY}
+                        </a>
+                        <a
+                          href={`mailto:${CONTACT_EMAIL}`}
+                          className="transition hover:text-blue-700"
+                        >
+                          {CONTACT_EMAIL}
+                        </a>
+                        <a
+                          href={CONTACT_WHATSAPP_URL}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="transition hover:text-blue-700"
+                        >
+                          WhatsApp
+                        </a>
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+                        <a
+                          href={SOCIAL_PROFILES.facebook}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="transition hover:text-blue-700"
+                        >
+                          Facebook
+                        </a>
+                        <a
+                          href={SOCIAL_PROFILES.instagram}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="transition hover:text-blue-700"
+                        >
+                          Instagram
+                        </a>
+                        <a
+                          href={SOCIAL_PROFILES.tiktok}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="transition hover:text-blue-700"
+                        >
+                          TikTok
+                        </a>
+                      </div>
+
+                      <div className="text-slate-400">
+                        © {new Date().getFullYear()} متجر سيزر. جميع الحقوق محفوظة.
+                      </div>
+                    </div>
                   </footer>
                 </div>
               </CheckoutProvider>

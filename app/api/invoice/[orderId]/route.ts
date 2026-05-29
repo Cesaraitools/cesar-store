@@ -2,6 +2,10 @@
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import {
+  CONTACT_EMAIL,
+  CONTACT_PHONE_DISPLAY,
+} from "@/lib/seo";
 
 /* ================= Supabase Service Client ================= */
 
@@ -64,9 +68,9 @@ export async function GET(
       company: {
         name: "Cesar Store",
         logo_url: "/logo.png", // placeholder – يتعدل لاحقًا
-        phone: "01211120208",
+        phone: CONTACT_PHONE_DISPLAY,
         address: "Egypt",
-        email: null,
+        email: CONTACT_EMAIL,
       },
 
       customer: {
