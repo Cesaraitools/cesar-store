@@ -3,6 +3,8 @@ import type { MetadataRoute } from "next";
 import { getActiveProducts } from "@/lib/server/catalog";
 import { SITE_URL, absoluteUrl } from "@/lib/seo";
 
+export const dynamic = "force-dynamic";
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
   const staticRoutes: MetadataRoute.Sitemap = [
