@@ -92,7 +92,10 @@ export default function LandingPage() {
             <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
         </div>
       </div>
-      <p className="mt-6 font-bold text-slate-400 tracking-widest uppercase text-xs">
+      <h1 className="mt-6 text-lg font-black text-slate-700">
+        Cesar Store
+      </h1>
+      <p className="mt-2 font-bold text-slate-400 tracking-widest uppercase text-xs">
         {isAr ? "سيزر ستور..." : "Cesar Store..."}
       </p>
     </div>

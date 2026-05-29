@@ -4,6 +4,21 @@ const nextConfig = {
   images: {
     domains: ["bdmumdbykzbozgkxtsmk.supabase.co"],
   },
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [
+          {
+            type: "host",
+            value: "cesareshop.com",
+          },
+        ],
+        destination: "https://www.cesareshop.com/:path*",
+        permanent: true,
+      },
+    ];
+  },
   outputFileTracingExcludes: {
     "/api/upload": ["./.git/**/*", "./.next/cache/**/*", "./public/**/*"],
     "/api/products": ["./.git/**/*", "./.next/cache/**/*", "./public/**/*"],

@@ -1,6 +1,20 @@
-export const SITE_URL = (
-  process.env.NEXT_PUBLIC_SITE_URL || "https://cesareshop.com"
-).replace(/\/+$/, "");
+function normalizeSiteUrl(rawUrl: string) {
+  try {
+    const url = new URL(rawUrl.replace(/\/+$/, ""));
+
+    if (url.hostname === "cesareshop.com") {
+      url.hostname = "www.cesareshop.com";
+    }
+
+    return url.toString().replace(/\/+$/, "");
+  } catch {
+    return "https://www.cesareshop.com";
+  }
+}
+
+export const SITE_URL = normalizeSiteUrl(
+  process.env.NEXT_PUBLIC_SITE_URL || "https://www.cesareshop.com"
+);
 
 export const SITE_NAME = "Cesar Store";
 export const SITE_NAME_AR = "متجر سيزر";
