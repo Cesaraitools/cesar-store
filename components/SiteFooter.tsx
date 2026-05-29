@@ -115,19 +115,12 @@ export default function SiteFooter() {
           </a>
         </div>
 
-        <div className="flex max-w-xl flex-col items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/50 p-3 text-slate-500 shadow-sm sm:flex-row sm:text-start">
-          <img
-            src="/credits/mohamed-adel-mahmoud.jpg"
-            alt={isAr ? "محمد عادل محمود" : "Mohamed Adel Mahmoud"}
-            className="h-16 w-16 shrink-0 rounded-2xl object-cover ring-1 ring-slate-200"
-            loading="lazy"
-          />
-          <p className="text-xs font-semibold leading-relaxed">{creditText}</p>
-        </div>
-
-        <div className="text-xs text-slate-400">
-          © {new Date().getFullYear()}{" "}
-          {isAr ? "متجر سيزر. جميع الحقوق محفوظة." : "Cesar Store. All rights reserved."}
+        <div className="space-y-1 text-xs text-slate-400">
+          <p>
+            © {new Date().getFullYear()}{" "}
+            {isAr ? "متجر سيزر. جميع الحقوق محفوظة." : "Cesar Store. All rights reserved."}
+          </p>
+          <p>{creditText}</p>
         </div>
       </div>
     </footer>
