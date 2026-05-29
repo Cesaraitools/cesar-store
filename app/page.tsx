@@ -40,12 +40,17 @@ const content = {
   },
 };
 
+const heroSlide: HeroSlide = {
+  type: "hero",
+  id: "hero",
+  image: "/slides/hero.jpg",
+};
+
 export default function LandingPage() {
   const { lang } = useLanguage();
   const isAr = lang === "ar";
   const [index, setIndex] = useState(0);
-  const [slides, setSlides] = useState<Slide[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [slides, setSlides] = useState<Slide[]>([heroSlide]);
   
   useEffect(() => {
   if (typeof window === "undefined") return;
@@ -71,11 +76,9 @@ export default function LandingPage() {
     fetch("/api/categories")
       .then((r) => r.json())
       .then((categories) => {
-        const heroSlide: HeroSlide = { type: "hero", id: "hero", image: "/slides/hero.jpg" };
         setSlides([heroSlide, ...categories]);
       })
       .catch(() => setSlides([{ type: "hero", id: "hero", image: "/slides/hero.jpg" }]))
-      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -83,23 +86,6 @@ export default function LandingPage() {
     const timer = setInterval(() => setIndex((prev) => (prev + 1) % slides.length), 7000);
     return () => clearInterval(timer);
   }, [slides.length]);
-
-  if (loading) return (
-    <div className="min-h-[80vh] flex flex-col items-center justify-center bg-white">
-      <div className="relative">
-        <div className="w-16 h-16 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin"></div>
-        <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
-        </div>
-      </div>
-      <h1 className="mt-6 text-lg font-black text-slate-700">
-        Cesar Store
-      </h1>
-      <p className="mt-2 font-bold text-slate-400 tracking-widest uppercase text-xs">
-        {isAr ? "سيزر ستور..." : "Cesar Store..."}
-      </p>
-    </div>
-  );
 
   const t = content[lang];
 
