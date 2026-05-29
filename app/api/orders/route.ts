@@ -17,6 +17,8 @@ type FinalOrderItem = {
   name_en?: string;
   price: number;
   image?: string | null;
+  variant_key?: string;
+  variant?: any;
 };
 
 type DbCartItem = {
@@ -26,6 +28,8 @@ type DbCartItem = {
   name_en?: string | null;
   price: number | string;
   image?: string | null;
+  variant_key?: string | null;
+  variant_snapshot?: any;
 };
 
 type StockConflict = {
@@ -82,7 +86,7 @@ async function findStockConflict(
   const productIds = wantedItems.map((item) => item.product_id);
   const { data: products } = await serviceSupabase
     .from("products")
-    .select("id, name_ar, name_en, stock, is_active")
+    .select("id, name_ar, name_en, stock, is_active, variants_json")
     .in("id", productIds);
 
   const productsById = new Map(
@@ -91,9 +95,32 @@ async function findStockConflict(
 
   for (const item of wantedItems) {
     const product = productsById.get(item.product_id);
+    const hasVariantRows =
+      product &&
+      Array.isArray(product.variants_json) &&
+      product.variants_json.length > 0;
+    const variantStock =
+      hasVariantRows && item.variant_key
+        ? product.variants_json.find(
+            (variant: any) =>
+              (variant?.key || variant?.id || "") === item.variant_key &&
+              variant?.active !== false
+          )?.stock
+        : undefined;
     const available =
       product && product.is_active
-        ? Math.max(0, Math.floor(Number(product.stock) || 0))
+        ? Math.max(
+            0,
+            Math.floor(
+              Number(
+                hasVariantRows
+                  ? typeof variantStock === "number" && variantStock > 0
+                    ? variantStock
+                    : product.stock
+                  : product.stock
+              ) || 0
+            )
+          )
         : 0;
 
     if (!product || available < item.quantity) {
@@ -153,10 +180,11 @@ function mergeDuplicateItems(items: FinalOrderItem[]) {
   const uniqueMap = new Map<string, FinalOrderItem>();
 
   for (const item of items) {
-    const existing = uniqueMap.get(item.product_id);
+    const itemKey = `${item.product_id}::${item.variant_key || ""}`;
+    const existing = uniqueMap.get(itemKey);
 
     if (!existing) {
-      uniqueMap.set(item.product_id, { ...item });
+      uniqueMap.set(itemKey, { ...item });
       continue;
     }
 
@@ -251,7 +279,7 @@ let activeCartIds: string[] = [];
   if (activeCartIds.length > 0) {
    const { data: cartItems } = await serviceSupabase
       .from("cart_items")
-      .select("product_id, quantity, name_ar, name_en, price, image")
+      .select("product_id, quantity, name_ar, name_en, price, image, variant_key, variant_snapshot")
       .in("cart_id", activeCartIds);
 
     if (cartItems && cartItems.length > 0) {
@@ -262,6 +290,8 @@ let activeCartIds: string[] = [];
         name_en: ci.name_en ?? "",
         price: Number(ci.price),
         image: ci.image ?? null,
+        variant_key: ci.variant_key ?? "",
+        variant: ci.variant_snapshot ?? null,
       }));
     }
   }
@@ -278,6 +308,8 @@ if (!finalItems.length && Array.isArray(items)) {
     name_en: item.name_en ?? "",
     price: Number(item.price),
     image: item.image ?? null,
+    variant_key: item.variant_key ?? "",
+    variant: item.variant ?? item.variant_snapshot ?? null,
   }));
 }
 

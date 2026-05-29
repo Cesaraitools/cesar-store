@@ -137,7 +137,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                       سياسة الإرجاع والاستبدال
                     </Link>
                   </div>
-                  <Toaster position="top-center" />
+                  <Toaster
+                    position="top-center"
+                    containerStyle={{ zIndex: 2147483647 }}
+                    toastOptions={{
+                      duration: 3000,
+                    }}
+                  />
                   <footer className="bg-white border-t border-slate-100 py-8 text-center text-slate-400 text-sm font-medium">
                     © {new Date().getFullYear()} متجر سيزر. جميع الحقوق محفوظة.
                   </footer>

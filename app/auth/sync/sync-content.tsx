@@ -16,7 +16,6 @@ export default function SyncContent() {
   const params = useSearchParams();
   const redirectParam = params.get("redirect");
   const oauthError = params.get("error");
-  const authCode = params.get("code");
   const exchangeError = params.get("exchange_error");
   const hasRun = useRef(false);
 
@@ -48,19 +47,10 @@ export default function SyncContent() {
         return;
       }
 
-      if (authCode && !(await hasActiveSession())) {
-        const { error } = await supabase.auth.exchangeCodeForSession(authCode);
-
-        if (error) {
-          if (!(await hasActiveSession())) {
-            console.error(
-              "OAuth client session exchange failed:",
-              exchangeError || error.message
-            );
-            router.replace(`/auth/login?redirect=${encodeURIComponent(redirect)}`);
-            return;
-          }
-        }
+      if (exchangeError && !(await hasActiveSession())) {
+        console.error("OAuth server session exchange failed:", exchangeError);
+        router.replace(`/auth/login?redirect=${encodeURIComponent(redirect)}`);
+        return;
       }
 
       let hasSession = false;
@@ -94,7 +84,7 @@ export default function SyncContent() {
     };
 
     run();
-  }, [authCode, exchangeError, oauthError, redirectParam, router]);
+  }, [exchangeError, oauthError, redirectParam, router]);
 
   return <div className="p-10 text-center">جاري تسجيل الدخول...</div>;
 }

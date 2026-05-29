@@ -1,7 +1,7 @@
 "use client";
 import { formatCurrency } from "@/lib/formatCurrency";
 import Link from "next/link";
-import { useCart } from "@/context/CartContext";
+import { preserveGuestCartForAuth, useCart } from "@/context/CartContext";
 import {
   Trash2,
   Plus,
@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { formatVariantSnapshot } from "@/lib/product-variants";
 
 export default function CartPage() {
   const { cartItems, updateQuantity, removeFromCart } = useCart();
@@ -93,6 +94,11 @@ export default function CartPage() {
                       <p className="text-blue-600 font-black text-sm mb-2">
                         {formatCurrency(item.price)}
                       </p>
+                      {formatVariantSnapshot(item.variant, "ar") && (
+                        <p className="text-xs text-slate-500 font-bold mb-2">
+                          {formatVariantSnapshot(item.variant, "ar")}
+                        </p>
+                      )}
                       <p className="text-xs text-slate-500 font-semibold mb-4">
                         المتاح: {typeof stock === "number" ? stock : "-"}
                       </p>
@@ -157,6 +163,11 @@ export default function CartPage() {
                       <p className="text-gray-400 font-bold text-xs mt-1">
                         {item.quantity} × {formatCurrency(item.price)}
                       </p>
+                      {formatVariantSnapshot(item.variant, "ar") && (
+                        <p className="text-gray-400 font-bold text-xs mt-1">
+                          {formatVariantSnapshot(item.variant, "ar")}
+                        </p>
+                      )}
                     </div>
                     <span className="font-black text-gray-900 whitespace-nowrap">
                       {formatCurrency(item.price * item.quantity)}
@@ -183,6 +194,7 @@ export default function CartPage() {
                   if (user) {
                     router.push("/checkout");
                   } else {
+                    preserveGuestCartForAuth();
                     router.push("/auth/login?redirect=/checkout");
                   }
                 }}

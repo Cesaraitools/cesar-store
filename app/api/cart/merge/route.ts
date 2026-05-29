@@ -8,17 +8,25 @@ const serviceSupabase = createClient(
 );
 
 function mergeRequestedItems(items: any[]) {
-  const merged = new Map<string, { product_id: string; quantity: number }>();
+  const merged = new Map<
+    string,
+    { product_id: string; quantity: number; variant_key: string; variant: any }
+  >();
 
   for (const item of items) {
     const productId = item?.product_id ? String(item.product_id) : "";
+    const variantKey =
+      typeof item?.variant_key === "string" ? item.variant_key : "";
     const quantity = Math.max(0, Math.floor(Number(item?.quantity) || 0));
 
     if (!productId || quantity <= 0) continue;
 
-    const existing = merged.get(productId);
-    merged.set(productId, {
+    const itemKey = `${productId}::${variantKey}`;
+    const existing = merged.get(itemKey);
+    merged.set(itemKey, {
       product_id: productId,
+      variant_key: variantKey,
+      variant: item?.variant ?? null,
       quantity: (existing?.quantity ?? 0) + quantity,
     });
   }
@@ -178,7 +186,7 @@ export async function POST(req: Request) {
     const { data: existingItems, error: existingItemsError } =
       await serviceSupabase
         .from("cart_items")
-        .select("id, product_id, quantity")
+        .select("id, product_id, quantity, variant_key")
         .in("cart_id", cartIds);
 
     if (existingItemsError) {
@@ -200,7 +208,7 @@ export async function POST(req: Request) {
 
       const { data: product, error: productError } = await serviceSupabase
         .from("products")
-        .select("name_ar, name_en, price, image_url, stock, is_active")
+        .select("name_ar, name_en, price, image_url, stock, is_active, variants_json")
         .eq("id", productId)
         .single();
 
@@ -209,32 +217,55 @@ export async function POST(req: Request) {
       }
 
       const productStock = Math.max(0, Math.floor(Number(product.stock) || 0));
-      const allowedQuantity = Math.min(requestedQuantity, productStock);
-      const existing = existingItems?.find((ei) => ei.product_id === productId);
+      const hasVariantRows =
+        Array.isArray(product.variants_json) && product.variants_json.length > 0;
+      const variantKey = hasVariantRows ? item.variant_key : "";
+      const variantSnapshot = hasVariantRows ? item.variant ?? {} : {};
+      const variant = hasVariantRows
+        ? product.variants_json.find(
+            (entry: any) =>
+              (entry?.key || entry?.id || "") === variantKey &&
+              entry?.active !== false
+          )
+        : null;
+      const availableStock =
+        variantKey || hasVariantRows
+          ? variant
+            ? Math.max(
+                0,
+                Math.floor(
+                  Number(
+                    typeof variant.stock === "number"
+                      ? variant.stock
+                      : productStock
+                  ) || 0
+                )
+              )
+            : 0
+          : productStock;
+      const itemPrice =
+        variant && typeof variant.price === "number" && variant.price > 0
+          ? Number(variant.price)
+          : Number(product.price ?? 0);
+      const allowedQuantity = Math.min(requestedQuantity, availableStock);
+      const existing = existingItems?.find(
+        (ei) =>
+          ei.product_id === productId &&
+          (ei.variant_key || "") === variantKey
+      );
+
+      if (hasVariantRows && !variant) {
+        continue;
+      }
+
+      if (availableStock <= 0) {
+        continue;
+      }
 
       if (existing) {
-        const existingQuantity = Math.max(
-          0,
-          Math.floor(Number(existing.quantity) || 0)
-        );
-        const mergedQuantity = Math.min(
-          existingQuantity + requestedQuantity,
-          productStock
-        );
-
-        const { error: updateError } = await serviceSupabase
-          .from("cart_items")
-          .update({
-            quantity: mergedQuantity,
-          })
-          .eq("id", existing.id);
-
-        if (updateError) {
-          throw new Error(`Failed to update cart item: ${updateError.message}`);
-        }
-
         const duplicateIds = existingItems
           ?.filter((ei) => ei.product_id === productId && ei.id !== existing.id)
+          ?.filter((ei) => (ei.variant_key || "") === variantKey)
           .map((ei) => ei.id);
 
         if (duplicateIds && duplicateIds.length > 0) {
@@ -258,7 +289,9 @@ export async function POST(req: Request) {
             quantity: allowedQuantity,
             name_ar: product.name_ar ?? "",
             name_en: product.name_en ?? "",
-            price: product.price ?? 0,
+            price: itemPrice,
+            variant_key: variantKey,
+            variant_snapshot: variantSnapshot,
             image: product.image_url ?? null,
           });
 

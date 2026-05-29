@@ -1,5 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 import { normalizeImagesArray } from "@/lib/image-normalizer";
+import {
+  normalizeProductVariantOptions,
+  normalizeProductVariants,
+} from "@/lib/product-variants";
 import type { Product } from "@/types/product";
 
 const supabase = createClient(
@@ -26,6 +30,10 @@ export async function GET(
       );
     }
 
+    const variantOptions = normalizeProductVariantOptions(
+      product.variant_options_json
+    );
+
     return Response.json({
       id: product.id,
       name: {
@@ -51,6 +59,8 @@ export async function GET(
         typeof product.low_stock_threshold === "number"
           ? product.low_stock_threshold
           : 10,
+      variantOptions,
+      variants: normalizeProductVariants(product.variants_json, variantOptions),
       createdAt: product.created_at,
       updatedAt: product.updated_at,
     });

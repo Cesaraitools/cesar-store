@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { CheckCircle2, Circle, Clock, Package, Truck, Check, AlertCircle } from "lucide-react";
+import { formatVariantSnapshot } from "@/lib/product-variants";
 
 /* ================================
 Types
@@ -14,6 +15,7 @@ type OrderItemDTO = {
   name_en: string;
   quantity: number;
   price: number;
+  variant?: any;
 };
 
 type OrderDetails = {
@@ -331,6 +333,11 @@ export default function OrderDetailsPage() {
                 <div key={`${item.name_ar || item.name_en || "—"}-${item.price}`} className="p-5 flex justify-between items-center group">
                   <div className="space-y-1">
                     <p className="text-sm font-bold group-hover:text-blue-600 transition-colors">{item.name_ar || item.name_en || "—"}</p>
+                    {formatVariantSnapshot(item.variant, "ar") && (
+                      <p className="text-xs text-muted-foreground">
+                        {formatVariantSnapshot(item.variant, "ar")}
+                      </p>
+                    )}
                     <p className="text-xs text-muted-foreground italic">الكمية: {item.quantity}</p>
                   </div>
                   <div className="text-sm font-semibold text-gray-900">

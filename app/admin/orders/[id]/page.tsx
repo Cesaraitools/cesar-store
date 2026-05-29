@@ -7,6 +7,7 @@ import {
   subscribeToOrderTrackingEvents,
   unsubscribeFromChannel,
 } from "@/lib/supabaseClient";
+import { formatVariantSnapshot } from "@/lib/product-variants";
 import {
   ChevronRight,
   Printer,
@@ -50,6 +51,7 @@ type OrderDetails = {
     name: string;
     price: number;
     quantity: number;
+    variant?: any;
   }[];
   tracking?: TrackingEvent[];
 };
@@ -354,6 +356,11 @@ export default function AdminOrderDetailsPage() {
                         <p className="font-bold text-slate-900">
                           {item.name}
                         </p>
+                        {formatVariantSnapshot(item.variant, "ar") && (
+                          <p className="text-xs text-slate-400">
+                            {formatVariantSnapshot(item.variant, "ar")}
+                          </p>
+                        )}
                         <p className="text-xs text-slate-400">
                           الكمية: {item.quantity}
                         </p>

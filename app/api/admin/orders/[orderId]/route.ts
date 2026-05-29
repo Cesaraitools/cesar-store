@@ -82,6 +82,7 @@ export async function GET(
   "—",
       price: Number(item?.price || 0),
       quantity: Number(item?.quantity || 0),
+      variant: item?.variant || null,
     }));
 
     /* -------- Tracking -------- */

@@ -7,6 +7,7 @@ import { Product } from "@/types/product";
 import { useCart } from "@/context/CartContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { getSafeImage } from "@/lib/image-safe";
+import { getProductVariants, productHasVariants } from "@/lib/product-variants";
 
 type Props = {
   product: Product;
@@ -18,9 +19,20 @@ export default function ProductCard({ product }: Props) {
 
   const [isAdding, setIsAdding] = useState(false);
   const [isImageOpen, setIsImageOpen] = useState(false);
-  const isOutOfStock = product.stock <= 0;
+  const hasVariants = productHasVariants(product);
+  const variantStock = hasVariants
+    ? getProductVariants(product).reduce((total, variant) => {
+        if (typeof variant.stock !== "number" || !Number.isFinite(variant.stock)) {
+          return total;
+        }
+
+        return total + Math.max(0, Math.floor(variant.stock));
+      }, 0)
+    : null;
+  const displayStock = variantStock ?? product.stock;
+  const isOutOfStock = displayStock <= 0;
   const threshold = product.low_stock_threshold ?? 10;
-const isLowStock = product.stock > 0 && product.stock <= threshold;
+const isLowStock = displayStock > 0 && displayStock <= threshold;
 
   const name = lang === "ar" ? product.name.ar : product.name.en;
   const description =
@@ -41,7 +53,7 @@ const isLowStock = product.stock > 0 && product.stock <= threshold;
   }, [isImageOpen]);
 
   const handleAddToCart = () => {
-    if (isAdding || isOutOfStock) return;
+    if (isAdding || isOutOfStock || hasVariants) return;
 
     setIsAdding(true);
 
@@ -121,8 +133,12 @@ const isLowStock = product.stock > 0 && product.stock <= threshold;
 
           <p className="text-[11px] sm:text-xs font-semibold mb-1 text-slate-500">
   {lang === "ar"
-    ? `المتاح: ${product.stock}`
-    : `Available: ${product.stock}`}
+    ? hasVariants
+      ? `إجمالي المتغيرات: ${displayStock}`
+      : `المتاح: ${displayStock}`
+    : hasVariants
+    ? `Options total: ${displayStock}`
+    : `Available: ${displayStock}`}
 </p>
 
 {isLowStock && (
@@ -131,23 +147,32 @@ const isLowStock = product.stock > 0 && product.stock <= threshold;
   </p>
 )}
 
-          <button
-            onClick={handleAddToCart}
-            disabled={isAdding || isOutOfStock}
-            className="w-full bg-black text-white py-2 text-[12px] sm:text-sm rounded-lg hover:opacity-90 transition disabled:opacity-50"
-          >
-            {isOutOfStock
-              ? lang === "ar"
-                ? "نفد المخزون"
-                : "Out of stock"
-              : isAdding
-              ? lang === "ar"
-                ? "جاري الإضافة..."
-                : "Adding..."
-              : lang === "ar"
-              ? "أضف إلى السلة"
-              : "Add to Cart"}
-          </button>
+          {hasVariants ? (
+            <Link
+              href={`/product/${product.id}`}
+              className="block w-full bg-black text-center text-white py-2 text-[12px] sm:text-sm rounded-lg hover:opacity-90 transition"
+            >
+              {lang === "ar" ? "اختيار المواصفات" : "Choose options"}
+            </Link>
+          ) : (
+            <button
+              onClick={handleAddToCart}
+              disabled={isAdding || isOutOfStock}
+              className="w-full bg-black text-white py-2 text-[12px] sm:text-sm rounded-lg hover:opacity-90 transition disabled:opacity-50"
+            >
+              {isOutOfStock
+                ? lang === "ar"
+                  ? "نفد المخزون"
+                  : "Out of stock"
+                : isAdding
+                ? lang === "ar"
+                  ? "جاري الإضافة..."
+                  : "Adding..."
+                : lang === "ar"
+                ? "أضف إلى السلة"
+                : "Add to Cart"}
+            </button>
+          )}
         </div>
       </div>
     </div>

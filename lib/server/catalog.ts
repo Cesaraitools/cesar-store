@@ -1,5 +1,10 @@
 import { normalizeCategory } from "@/lib/category-normalizer";
 import { normalizeImagesArray } from "@/lib/image-normalizer";
+import { unstable_noStore as noStore } from "next/cache";
+import {
+  normalizeProductVariantOptions,
+  normalizeProductVariants,
+} from "@/lib/product-variants";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
 import type { Product } from "@/types/product";
 
@@ -34,6 +39,8 @@ type ProductRow = {
   category: string | null;
   is_active: boolean | null;
   low_stock_threshold: number | null;
+  variant_options_json?: unknown;
+  variants_json?: unknown;
   created_at: string | null;
   updated_at: string | null;
 };
@@ -63,18 +70,22 @@ function toProduct(row: ProductRow): Product {
     active: Boolean(row.is_active ?? true),
     low_stock_threshold:
       typeof row.low_stock_threshold === "number" ? row.low_stock_threshold : 10,
+    variantOptions: normalizeProductVariantOptions(row.variant_options_json),
+    variants: normalizeProductVariants(
+      row.variants_json,
+      normalizeProductVariantOptions(row.variant_options_json)
+    ),
     createdAt: row.created_at || new Date().toISOString(),
     updatedAt: row.updated_at || new Date().toISOString(),
   };
 }
 
 export async function getActiveProducts(limit = 1000) {
+  noStore();
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
     .from("products")
-    .select(
-      "id,name_ar,name_en,description_ar,description_en,price,image_url,images_json,stock,category,is_active,low_stock_threshold,created_at,updated_at"
-    )
+    .select("*")
     .eq("is_active", true)
     .gt("stock", 0)
     .order("updated_at", { ascending: false })
@@ -86,12 +97,11 @@ export async function getActiveProducts(limit = 1000) {
 }
 
 export async function getActiveProductById(id: string) {
+  noStore();
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
     .from("products")
-    .select(
-      "id,name_ar,name_en,description_ar,description_en,price,image_url,images_json,stock,category,is_active,low_stock_threshold,created_at,updated_at"
-    )
+    .select("*")
     .eq("id", id)
     .eq("is_active", true)
     .gt("stock", 0)
@@ -103,6 +113,7 @@ export async function getActiveProductById(id: string) {
 }
 
 export async function getActiveCategories() {
+  noStore();
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
     .from("categories")

@@ -3,7 +3,7 @@ import { formatCurrency } from "@/lib/formatCurrency";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCheckout } from "@/context/CheckoutContext";
-import { useCart } from "@/context/CartContext";
+import { preserveGuestCartForAuth, useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 
 import {
@@ -22,7 +22,7 @@ export default function CheckoutPage() {
 
   const { user, loading } = useAuth();
   const { setCheckoutData } = useCheckout();
-  const { cartItems } = useCart();
+  const { cartItems, cartSyncing } = useCart();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -40,11 +40,12 @@ export default function CheckoutPage() {
     if (!loading && !user) {
       const current = window.location.pathname;
       sessionStorage.setItem("last_redirect", window.location.pathname);
+      preserveGuestCartForAuth();
       router.push(`/auth/login?redirect=${encodeURIComponent(current)}`);
     }
   }, [user, loading, router]);
 
-  if (loading) {
+  if (loading || cartSyncing) {
     return null;
   }
 

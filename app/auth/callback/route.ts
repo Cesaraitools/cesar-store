@@ -20,12 +20,9 @@ export async function GET(request: Request) {
 
   if (code) {
     const supabase = createClient();
-    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(
-      code
-    );
+    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
 
     if (exchangeError) {
-      finalUrl.searchParams.set("code", code);
       finalUrl.searchParams.set("exchange_error", exchangeError.message);
     }
   }

@@ -1,6 +1,10 @@
 import { requireAdminRole } from "@/lib/admin/permissions";
 import { normalizeCategory } from "@/lib/category-normalizer";
 import { normalizeImagesArray } from "@/lib/image-normalizer";
+import {
+  normalizeProductVariantOptions,
+  normalizeProductVariants,
+} from "@/lib/product-variants";
 import { cleanupUnusedManagedImages } from "@/lib/server/media-assets";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
 import type { Product } from "@/types/product";
@@ -18,6 +22,10 @@ function toProductResponse(product: any): Product {
       : product?.image_url
       ? [product.image_url]
       : [];
+
+  const variantOptions = normalizeProductVariantOptions(
+    product?.variant_options_json
+  );
 
   return {
     id: String(product.id),
@@ -40,9 +48,28 @@ low_stock_threshold:
     ? product.low_stock_threshold
     : 10,
 
+variantOptions,
+variants: normalizeProductVariants(product?.variants_json, variantOptions),
+
 createdAt: product?.created_at || new Date().toISOString(),
 updatedAt: product?.updated_at || new Date().toISOString(),
   };
+}
+
+function resolveProductStock(baseStock: unknown, variants: Product["variants"]) {
+  const normalizedBaseStock =
+    typeof baseStock === "number" && !Number.isNaN(baseStock)
+      ? Math.max(0, Math.floor(baseStock))
+      : 0;
+  const variantStockTotal = (variants || []).reduce((total, variant) => {
+    if (typeof variant.stock !== "number" || Number.isNaN(variant.stock)) {
+      return total;
+    }
+
+    return total + Math.max(0, Math.floor(variant.stock));
+  }, 0);
+
+  return variantStockTotal > 0 ? variantStockTotal : normalizedBaseStock;
 }
 
 export async function GET() {
@@ -124,6 +151,9 @@ export async function POST(request: Request) {
     }
 
     const now = new Date().toISOString();
+    const variantOptions = normalizeProductVariantOptions(body.variantOptions);
+    const variants = normalizeProductVariants(body.variants, variantOptions);
+    const stock = resolveProductStock(body.stock, variants);
     const productToSave: Product = {
       id: crypto.randomUUID(),
       name: body.name,
@@ -131,7 +161,7 @@ export async function POST(request: Request) {
       price: body.price,
       category: normalizedCategory,
       images,
-      stock: body.stock ?? 0,
+      stock,
       active: body.active ?? true,
       createdAt: now,
       updatedAt: now,
@@ -140,6 +170,8 @@ export async function POST(request: Request) {
   !Number.isNaN(body.low_stock_threshold)
     ? body.low_stock_threshold
     : 10,
+      variantOptions,
+      variants,
     };
 
     const { error: insertError } = await supabase.from("products").insert([
@@ -159,6 +191,8 @@ export async function POST(request: Request) {
         created_at: now,
         updated_at: now,
         low_stock_threshold: productToSave.low_stock_threshold,
+        variant_options_json: productToSave.variantOptions || [],
+        variants_json: productToSave.variants || [],
       },
     ]);
 
@@ -196,20 +230,6 @@ export async function PUT(request: Request) {
       );
     }
 
-    const normalizedStock =
-      typeof updates.stock === "number" && !Number.isNaN(updates.stock)
-        ? updates.stock
-        : undefined;
-
-    const nextIsActive =
-      normalizedStock !== undefined && normalizedStock <= 0
-        ? false
-        : typeof updates.active === "boolean"
-        ? updates.active
-        : normalizedStock !== undefined && normalizedStock > 0
-        ? true
-        : undefined;
-
     const { data: oldProduct, error: oldProductError } = await supabase
       .from("products")
       .select("images_json")
@@ -224,6 +244,9 @@ export async function PUT(request: Request) {
       ? oldProduct.images_json
       : [];
     const images = normalizeImagesArray(updates.images || []);
+    const variantOptions = normalizeProductVariantOptions(updates.variantOptions);
+    const variants = normalizeProductVariants(updates.variants, variantOptions);
+    const stock = resolveProductStock(updates.stock, variants);
 
     const { error: updateError } = await supabase
       .from("products")
@@ -233,12 +256,19 @@ export async function PUT(request: Request) {
         description_ar: updates.description?.ar,
         description_en: updates.description?.en || updates.description?.ar,
         price: updates.price,
-        stock: normalizedStock,
-        is_active: nextIsActive,
+        stock,
+        is_active:
+          stock <= 0
+            ? false
+            : typeof updates.active === "boolean"
+            ? updates.active
+            : true,
         image_url: images[0] || null,
         images_json: images,
         category: normalizeCategory(updates.category),
          low_stock_threshold: updates.low_stock_threshold,
+        variant_options_json: variantOptions,
+        variants_json: variants,
         updated_at: new Date().toISOString(),
       })
       .eq("id", id);

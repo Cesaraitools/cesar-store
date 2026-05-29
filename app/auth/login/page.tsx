@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
+import { preserveGuestCartForAuth } from "@/context/CartContext";
 import { isValidEmail, normalizeEmail } from "@/lib/formValidation";
 
 function getSafeRedirectPath(redirect: string | null, fallback = "/") {
@@ -72,6 +73,7 @@ function LoginContent() {
 
     try {
       setLoading(true);
+      preserveGuestCartForAuth();
 
       const { error: signInError } =
         await supabase.auth.signInWithPassword({

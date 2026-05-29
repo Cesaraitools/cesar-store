@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ProductVariantsEditor } from "@/components/admin/ProductVariantsEditor";
+import type { ProductVariant, ProductVariantOption } from "@/types/product";
 
 export default function AddProductPage() {
   const router = useRouter();
@@ -28,6 +30,8 @@ export default function AddProductPage() {
     images: [] as string[],
     active: true,
     low_stock_threshold: "",
+    variantOptions: [] as ProductVariantOption[],
+    variants: [] as ProductVariant[],
   });
 
   const [previews, setPreviews] = useState<string[]>([]);
@@ -192,6 +196,8 @@ export default function AddProductPage() {
         category: form.category,
         images: form.images,
         active: form.active,
+        variantOptions: form.variantOptions,
+        variants: form.variants,
       };
 
       // ✅ FIX 3: Debug
@@ -397,6 +403,18 @@ export default function AddProductPage() {
           )}
           {uploadError && <p className="text-red-500 text-xs font-bold">{uploadError}</p>}
         </div>
+
+        <ProductVariantsEditor
+          options={form.variantOptions}
+          variants={form.variants}
+          onChange={({ options, variants }) =>
+            setForm((prev) => ({
+              ...prev,
+              variantOptions: options,
+              variants,
+            }))
+          }
+        />
 
         <div className="flex items-center gap-2">
           <input

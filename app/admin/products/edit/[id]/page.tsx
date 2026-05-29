@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { Product } from "@/types/product";
+import type { ProductVariant, ProductVariantOption } from "@/types/product";
+import { ProductVariantsEditor } from "@/components/admin/ProductVariantsEditor";
 import { normalizeCategory } from "@/lib/category-normalizer";
 
 type Category = {
@@ -13,6 +15,13 @@ type Category = {
 type Props = {
   params: { id: string };
 };
+
+function getVariantStockTotal(variants: ProductVariant[]) {
+  return variants.reduce((total, variant) => {
+    const stock = Number(variant.stock);
+    return total + (Number.isFinite(stock) ? Math.max(0, Math.floor(stock)) : 0);
+  }, 0);
+}
 
 export default function EditProductPage({ params }: Props) {
   const router = useRouter();
@@ -38,7 +47,15 @@ export default function EditProductPage({ params }: Props) {
     category: "",
     images: [] as string[], // URLs ONLY
     active: true,
+    variantOptions: [] as ProductVariantOption[],
+    variants: [] as ProductVariant[],
   });
+
+  const hasVariants = Boolean(form.variantOptions.length && form.variants.length);
+  const variantStockTotal = useMemo(
+    () => getVariantStockTotal(form.variants),
+    [form.variants]
+  );
   /* ---------------- Load Product + Categories ---------------- */
 
   useEffect(() => {
@@ -70,6 +87,8 @@ export default function EditProductPage({ params }: Props) {
   category: normalizeCategory(product.category), // ✅ FIX
   images: product.images || [],
   active: product.active,
+  variantOptions: product.variantOptions || [],
+  variants: product.variants || [],
 });
 
       const activeCategories = categoriesData
@@ -221,6 +240,8 @@ export default function EditProductPage({ params }: Props) {
       category: form.category,
       images: cleanImages,
       active: form.active,
+      variantOptions: form.variantOptions,
+      variants: form.variants,
     };
 
     try {
@@ -356,15 +377,23 @@ export default function EditProductPage({ params }: Props) {
 
           <div>
             <label className="block text-sm font-medium mb-1">
-              Stock
+              {hasVariants ? "إجمالي مخزون المتغيرات" : "Stock"}
             </label>
             <input
               type="number"
               name="stock"
-              value={form.stock}
+              value={hasVariants ? String(variantStockTotal) : form.stock}
               onChange={handleChange}
-              className="w-full rounded-md border p-2"
+              readOnly={hasVariants}
+              className={`w-full rounded-md border p-2 ${
+                hasVariants ? "bg-gray-100 text-gray-600" : ""
+              }`}
             />
+            {hasVariants && (
+              <p className="mt-1 text-xs text-gray-500">
+                يتم حساب هذا الرقم من مخزون الاختيارات بالأسفل. عدل المقاسات نفسها لتغيير المخزون.
+              </p>
+            )}
           </div>
 
           <label className="flex items-center gap-2">
@@ -490,6 +519,21 @@ export default function EditProductPage({ params }: Props) {
             />
           </div>
         </div>
+
+        <ProductVariantsEditor
+          options={form.variantOptions}
+          variants={form.variants}
+          onChange={({ options, variants }) =>
+            setForm((prev) => ({
+              ...prev,
+              variantOptions: options,
+              variants,
+              stock: variants.length
+                ? String(getVariantStockTotal(variants))
+                : prev.stock,
+            }))
+          }
+        />
 
         {/* -------- Actions -------- */}
         <div className="md:col-span-2 flex justify-between pt-4">

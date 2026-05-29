@@ -9,6 +9,7 @@ import {
   useRef,
 } from "react";
 import { useAuth } from "@/context/AuthContext";
+import type { ProductVariantSnapshot } from "@/types/product";
 import toast from "react-hot-toast";
 
 export type CartItem = {
@@ -21,6 +22,8 @@ export type CartItem = {
   name?: string;
   price: number;
   image: string | null;
+  variant_key?: string;
+  variant?: ProductVariantSnapshot | null;
   quantity: number;
   created_at: string;
 };
@@ -61,6 +64,10 @@ function normalizeStockValue(stock?: number): number | null {
   return Math.max(0, Math.floor(stock));
 }
 
+function normalizeVariantKey(value?: unknown) {
+  return typeof value === "string" ? value : "";
+}
+
 function createEmptyCart(ownerUserId: string | null): LocalCart {
   return {
     id: generateUUID(),
@@ -74,6 +81,26 @@ function getStockExceededMessage(available?: number) {
     return `الكمية المتاحة حاليًا هي ${available} فقط`;
   }
   return "الكمية المطلوبة غير متاحة في المخزون";
+}
+
+function showAddedToCartToast() {
+  return toast.success("تم إضافة الصنف إلى السلة بنجاح", {
+    duration: 3000,
+    style: {
+      direction: "rtl",
+      background: "rgba(15, 23, 42, 0.96)",
+      color: "#fff",
+      border: "1px solid rgba(255, 255, 255, 0.14)",
+      borderRadius: "18px",
+      boxShadow: "0 22px 60px rgba(15, 23, 42, 0.28)",
+      fontWeight: 800,
+      padding: "14px 18px",
+    },
+    iconTheme: {
+      primary: "#22c55e",
+      secondary: "#ffffff",
+    },
+  });
 }
 
 function loadCartFromStorage(): LocalCart {
@@ -97,6 +124,21 @@ function loadCartFromStorage(): LocalCart {
 function saveCartToStorage(cart: LocalCart) {
   try {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+    if (cart.ownerUserId === null && cart.items.length > 0) {
+      sessionStorage.setItem(OAUTH_GUEST_CART_STORAGE_KEY, JSON.stringify(cart));
+    }
+  } catch {}
+}
+
+export function preserveGuestCartForAuth() {
+  try {
+    const raw = localStorage.getItem(CART_STORAGE_KEY);
+    if (!raw) return;
+
+    const parsed = JSON.parse(raw) as Partial<LocalCart>;
+    if (Array.isArray(parsed.items) && parsed.items.length > 0) {
+      sessionStorage.setItem(OAUTH_GUEST_CART_STORAGE_KEY, raw);
+    }
   } catch {}
 }
 
@@ -145,6 +187,8 @@ function mapDbCartItems(dbItems: any[]): CartItem[] {
     name: item.name || item.name_en || item.name_ar || "Product",
     price: Number(item.price || 0),
     image: item.image || null,
+    variant_key: normalizeVariantKey(item.variant_key),
+    variant: item.variant_snapshot || item.variant || null,
     quantity: item.quantity,
     stock: normalizeStockValue(item.stock) ?? 0,
     created_at: item.created_at,
@@ -268,6 +312,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         ? guestCartForMerge.items.map((item) => ({
             product_id: item.product_id,
             quantity: item.quantity,
+            variant_key: normalizeVariantKey(item.variant_key),
+            variant: item.variant ?? null,
           }))
         : [];
 
@@ -346,7 +392,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const existing = cart.items.find((item) => item.product_id === product.id);
+    const variantKey = normalizeVariantKey(product.variant_key);
+    const existing = cart.items.find(
+      (item) =>
+        item.product_id === product.id &&
+        normalizeVariantKey(item.variant_key) === variantKey
+    );
     if (existing) {
       toast.error("المنتج موجود بالفعل في السلة");
       return;
@@ -361,6 +412,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       name: product.name || product.name_en || product.name_ar || "Product",
       price: Number(product.price),
       image: sanitizeImage(product.image),
+      variant_key: variantKey,
+      variant: product.variant ?? null,
       quantity: 1,
       stock: productStock ?? undefined,
       created_at: new Date().toISOString(),
@@ -373,6 +426,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }));
 
     if (user && session) {
+      const successToastId = showAddedToCartToast();
+
       const syncWithDb = async () => {
         try {
           const response = await fetch("/api/cart/items", {
@@ -384,17 +439,26 @@ export function CartProvider({ children }: { children: ReactNode }) {
             body: JSON.stringify({
               product_id: product.id,
               quantity: 1,
+              variant_key: variantKey,
+              variant: product.variant ?? null,
             }),
           });
           const payload = await response.json().catch(() => null);
 
           if (!response.ok) {
-            toast.error(getStockExceededMessage(payload?.available));
+            toast.dismiss(successToastId);
+
+            if (response.status === 409 || payload?.code === "ALREADY_IN_CART") {
+              toast.error("المنتج موجود بالفعل في السلة");
+            } else {
+              toast.error(getStockExceededMessage(payload?.available));
+            }
 
             setCart((current) => ({
               ...current,
               items: current.items.filter(
                 (item) => item.product_id !== product.id
+                  || normalizeVariantKey(item.variant_key) !== variantKey
               ),
             }));
             return;
@@ -416,10 +480,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
           }
         } catch {
           console.warn("Cart sync failed (POST)");
+          toast.dismiss(successToastId);
+          toast.error("تعذرت مزامنة السلة، حاول مرة أخرى");
+          setCart((current) => ({
+            ...current,
+            items: current.items.filter(
+              (item) => item.product_id !== product.id
+                || normalizeVariantKey(item.variant_key) !== variantKey
+            ),
+          }));
         }
       };
 
       void syncWithDb();
+    } else {
+      showAddedToCartToast();
     }
   };
 
@@ -471,6 +546,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             body: JSON.stringify({
               product_id: item.product_id,
               quantity: normalizedQuantity,
+              variant_key: normalizeVariantKey(item.variant_key),
             }),
           });
 
@@ -546,6 +622,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
               },
               body: JSON.stringify({
                 product_id: item.product_id,
+                variant_key: normalizeVariantKey(item.variant_key),
               }),
             });
           } catch {

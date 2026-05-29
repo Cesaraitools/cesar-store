@@ -148,14 +148,25 @@ function normalizeCartItems(items: any[]) {
 
   for (const item of items || []) {
     const productId = String(item.product_id);
-    const existing = merged.get(productId);
+    const variantKey =
+      typeof item.variant_key === "string" ? item.variant_key : "";
+    const itemKey = `${productId}::${variantKey}`;
+    const existing = merged.get(itemKey);
     const quantity = Number(item.quantity || 0);
+    const variant = Array.isArray(item.products?.variants_json)
+      ? item.products.variants_json.find(
+          (entry: any) => (entry?.key || entry?.id || "") === variantKey
+        )
+      : null;
 
     if (!existing) {
-      merged.set(productId, {
+      merged.set(itemKey, {
         ...item,
         quantity,
-        stock: item.products?.stock ?? 0,
+        stock:
+          variant && typeof variant.stock === "number"
+            ? variant.stock
+            : item.products?.stock ?? 0,
       });
       continue;
     }
@@ -198,7 +209,8 @@ if (!await rateLimit(`${ip}:cart-items:get`, 60, 60000)) {
       .select(`
         *,
         products (
-          stock
+          stock,
+          variants_json
         )
       `)
       .in("cart_id", cartIds);
@@ -243,6 +255,9 @@ if (!await rateLimit(`${ip}:cart-items:post`, 60, 60000)) {
 
   const body = await req.json();
   const { product_id, quantity = 1 } = body;
+  const rawVariantKey =
+    typeof body.variant_key === "string" ? body.variant_key : "";
+  const rawVariantSnapshot = body.variant ?? body.variant_snapshot ?? {};
   const requestedQuantity = Math.max(1, Math.floor(Number(quantity) || 1));
 
   if (!product_id || requestedQuantity <= 0) {
@@ -275,10 +290,47 @@ if (!await rateLimit(`${ip}:cart-items:post`, 60, 60000)) {
     }
 
     const productStock = Math.max(0, Math.floor(Number(product.stock) || 0));
+    const hasVariantRows =
+      Array.isArray(product.variants_json) && product.variants_json.length > 0;
+    const variantKey = hasVariantRows ? rawVariantKey : "";
+    const variantSnapshot = hasVariantRows ? rawVariantSnapshot : {};
+    const variant = hasVariantRows
+      ? product.variants_json.find(
+          (entry: any) =>
+            (entry?.key || entry?.id || "") === variantKey &&
+            entry?.active !== false
+        )
+      : null;
+    const availableStock =
+      variantKey || hasVariantRows
+        ? variant
+          ? Math.max(
+              0,
+              Math.floor(
+                Number(
+                  typeof variant.stock === "number"
+                    ? variant.stock
+                    : productStock
+                ) || 0
+              )
+            )
+          : 0
+        : productStock;
+    const itemPrice =
+      variant && typeof variant.price === "number" && variant.price > 0
+        ? Number(variant.price)
+        : Number(product?.price ?? 0);
 
-    if (productStock < requestedQuantity) {
+    if (hasVariantRows && !variant) {
       return NextResponse.json(
-        { error: "Insufficient stock", available: productStock },
+        { error: "Please choose a valid product option" },
+        { status: 400 }
+      );
+    }
+
+    if (availableStock < requestedQuantity) {
+      return NextResponse.json(
+        { error: "Insufficient stock", available: availableStock },
         { status: 400 }
       );
     }
@@ -289,33 +341,12 @@ if (!await rateLimit(`${ip}:cart-items:post`, 60, 60000)) {
       .select("id, cart_id, product_id, quantity")
       .in("cart_id", cartIds)
       .eq("product_id", product_id)
+      .eq("variant_key", variantKey)
       .order("created_at", { ascending: true });
 
     const existingItem = existingItems?.[0] ?? null;
 
     if (existingItem) {
-      const existingQuantity = Math.max(
-        0,
-        Math.floor(Number(existingItem.quantity) || 0)
-      );
-      const nextQuantity = Math.min(
-        existingQuantity + requestedQuantity,
-        productStock
-      );
-
-      // Add to the existing server-side quantity without exceeding stock.
-      const { error: updateError } = await serviceSupabase
-        .from("cart_items")
-        .update({ quantity: nextQuantity })
-        .eq("id", existingItem.id);
-
-      if (updateError) {
-        return NextResponse.json(
-          { error: "Failed to update item quantity" },
-          { status: 500 }
-        );
-      }
-
       const duplicateIds = (existingItems ?? [])
         .slice(1)
         .map((item) => item.id);
@@ -327,11 +358,15 @@ if (!await rateLimit(`${ip}:cart-items:post`, 60, 60000)) {
           .in("id", duplicateIds);
       }
 
-      return NextResponse.json({
-        success: true,
-        available: productStock,
-        quantity: nextQuantity,
-      });
+      return NextResponse.json(
+        {
+          error: "Item already in cart",
+          code: "ALREADY_IN_CART",
+          available: availableStock,
+          quantity: existingItem.quantity,
+        },
+        { status: 409 }
+      );
     }
 
     // INSERT WITH SNAPSHOT
@@ -343,7 +378,9 @@ if (!await rateLimit(`${ip}:cart-items:post`, 60, 60000)) {
         quantity: requestedQuantity,
         name_ar: product?.name_ar ?? "",
         name_en: product?.name_en ?? "",
-        price: Number(product?.price ?? 0),
+        price: itemPrice,
+        variant_key: variantKey,
+        variant_snapshot: variantSnapshot,
         image: product?.image ?? product?.image_url ?? null,
       });
 
@@ -353,29 +390,21 @@ if (!await rateLimit(`${ip}:cart-items:post`, 60, 60000)) {
         .select("id, quantity")
         .in("cart_id", cartIds)
         .eq("product_id", product_id)
+        .eq("variant_key", variantKey)
         .order("created_at", { ascending: true })
         .limit(1)
         .maybeSingle();
 
       if (!raceFetchError && raceItem) {
-        const nextQuantity = Math.min(
-          Math.max(0, Math.floor(Number(raceItem.quantity) || 0)) +
-            requestedQuantity,
-          productStock
+        return NextResponse.json(
+          {
+            error: "Item already in cart",
+            code: "ALREADY_IN_CART",
+            available: availableStock,
+            quantity: raceItem.quantity,
+          },
+          { status: 409 }
         );
-
-        const { error: raceUpdateError } = await serviceSupabase
-          .from("cart_items")
-          .update({ quantity: nextQuantity })
-          .eq("id", raceItem.id);
-
-        if (!raceUpdateError) {
-          return NextResponse.json({
-            success: true,
-            available: productStock,
-            quantity: nextQuantity,
-          });
-        }
       }
     }
 
@@ -387,7 +416,7 @@ if (!await rateLimit(`${ip}:cart-items:post`, 60, 60000)) {
     }
 
     return NextResponse.json(
-      { success: true, available: productStock, quantity: requestedQuantity },
+      { success: true, available: availableStock, quantity: requestedQuantity },
       { status: 201 }
     );
 
@@ -421,6 +450,8 @@ if (!await rateLimit(`${ip}:cart-items:patch`, 120, 60000)) {
 
   const body = await req.json();
   const { product_id, quantity } = body;
+  const rawVariantKey =
+    typeof body.variant_key === "string" ? body.variant_key : "";
   const requestedQuantity = Math.max(1, Math.floor(Number(quantity) || 1));
 
   if (!product_id || requestedQuantity <= 0) {
@@ -434,7 +465,7 @@ if (!await rateLimit(`${ip}:cart-items:patch`, 120, 60000)) {
     // ✅ Stock check عند تغيير الكمية من الكارت
     const { data: product } = await serviceSupabase
       .from("products")
-      .select("stock, is_active")
+      .select("stock, is_active, variants_json")
       .eq("id", product_id)
       .single();
 
@@ -446,10 +477,42 @@ if (!await rateLimit(`${ip}:cart-items:patch`, 120, 60000)) {
     }
 
     const productStock = Math.max(0, Math.floor(Number(product.stock) || 0));
+    const hasVariantRows =
+      Array.isArray(product.variants_json) && product.variants_json.length > 0;
+    const variantKey = hasVariantRows ? rawVariantKey : "";
+    const variant = hasVariantRows
+      ? product.variants_json.find(
+          (entry: any) =>
+            (entry?.key || entry?.id || "") === variantKey &&
+            entry?.active !== false
+        )
+      : null;
+    const availableStock =
+      variantKey || hasVariantRows
+        ? variant
+          ? Math.max(
+              0,
+              Math.floor(
+                Number(
+                  typeof variant.stock === "number"
+                    ? variant.stock
+                    : productStock
+                ) || 0
+              )
+            )
+          : 0
+        : productStock;
 
-    if (productStock < requestedQuantity) {
+    if (hasVariantRows && !variant) {
       return NextResponse.json(
-        { error: "Insufficient stock", available: productStock },
+        { error: "Please choose a valid product option", stale: true },
+        { status: 404 }
+      );
+    }
+
+    if (availableStock < requestedQuantity) {
+      return NextResponse.json(
+        { error: "Insufficient stock", available: availableStock },
         { status: 400 }
       );
     }
@@ -468,6 +531,7 @@ if (!await rateLimit(`${ip}:cart-items:patch`, 120, 60000)) {
       .select("id")
       .in("cart_id", cartIds)
       .eq("product_id", product_id)
+      .eq("variant_key", variantKey)
       .order("created_at", { ascending: true });
 
     if (fetchItemsError) {
@@ -509,7 +573,7 @@ if (!await rateLimit(`${ip}:cart-items:patch`, 120, 60000)) {
         .in("id", duplicateIds);
     }
 
-    return NextResponse.json({ success: true, available: productStock });
+    return NextResponse.json({ success: true, available: availableStock });
   } catch {
     return NextResponse.json(
       { error: "Unexpected error" },
@@ -540,6 +604,8 @@ if (!await rateLimit(`${ip}:cart-items:delete`, 60, 60000)) {
 
   const body = await req.json();
   const { product_id, clear } = body;
+  const variantKey =
+    typeof body.variant_key === "string" ? body.variant_key : "";
 
   if (!clear && !product_id) {
     return NextResponse.json(
@@ -563,7 +629,8 @@ if (!await rateLimit(`${ip}:cart-items:delete`, 60, 60000)) {
       ? await deleteQuery.in("cart_id", cartIds)
       : await deleteQuery
           .in("cart_id", cartIds)
-          .eq("product_id", product_id);
+          .eq("product_id", product_id)
+          .eq("variant_key", variantKey);
 
     if (error) {
       return NextResponse.json(

@@ -118,6 +118,8 @@ export function CheckoutProvider({ children }: { children: ReactNode }) {
         price: item.price,
         image: item.image,
         quantity: item.quantity,
+        variant_key: item.variant_key || "",
+        variant: item.variant ?? null,
       }));
 
       const response = await fetch("/api/orders", {

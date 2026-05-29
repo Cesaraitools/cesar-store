@@ -143,6 +143,8 @@ export async function GET(
           price: item.price ?? 0,
           quantity: item.quantity ?? 0,
           image: item.image ?? null,
+          variant_key: item.variant_key ?? "",
+          variant: item.variant ?? null,
         })),
         subtotal: order.subtotal ?? 0,
         shipping_fee: 0,

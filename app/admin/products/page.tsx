@@ -83,6 +83,21 @@ async function processImportJob(jobId: string) {
   return payload.job as ProductImportJobSnapshot;
 }
 
+function hasProductVariants(product: Product) {
+  return Boolean(product.variantOptions?.length && product.variants?.length);
+}
+
+function getDisplayStock(product: Product) {
+  const variantStockTotal = (product.variants || []).reduce((total, variant) => {
+    const stock = Number(variant.stock);
+    return total + (Number.isFinite(stock) ? Math.max(0, Math.floor(stock)) : 0);
+  }, 0);
+
+  return hasProductVariants(product) && variantStockTotal > 0
+    ? variantStockTotal
+    : product.stock;
+}
+
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -319,17 +334,20 @@ export default function AdminProductsPage() {
                              (product.name.en?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
         const matchesCategory = categoryFilter === "all" || product.category === categoryFilter;
         
+        const displayStock = getDisplayStock(product);
         let matchesStock = true;
-        if (stockFilter === "out") matchesStock = product.stock <= 0;
-        else if (stockFilter === "low") matchesStock = product.stock > 0 && product.stock <= (product.low_stock_threshold ?? 10);
-        else if (stockFilter === "in") matchesStock = product.stock > (product.low_stock_threshold ?? 10);
+        if (stockFilter === "out") matchesStock = displayStock <= 0;
+        else if (stockFilter === "low") matchesStock = displayStock > 0 && displayStock <= (product.low_stock_threshold ?? 10);
+        else if (stockFilter === "in") matchesStock = displayStock > (product.low_stock_threshold ?? 10);
 
         return matchesSearch && matchesCategory && matchesStock;
       })
       .sort((a, b) => {
         // ترتيب المنتجات: نافذ المخزون أولاً ثم المنخفض ثم الأحدث
-        const aStatus = a.stock <= 0 ? 2 : a.stock <= (a.low_stock_threshold ?? 10) ? 1 : 0;
-        const bStatus = b.stock <= 0 ? 2 : b.stock <= (b.low_stock_threshold ?? 10) ? 1 : 0;
+        const aStock = getDisplayStock(a);
+        const bStock = getDisplayStock(b);
+        const aStatus = aStock <= 0 ? 2 : aStock <= (a.low_stock_threshold ?? 10) ? 1 : 0;
+        const bStatus = bStock <= 0 ? 2 : bStock <= (b.low_stock_threshold ?? 10) ? 1 : 0;
         if (aStatus !== bStatus) return bStatus - aStatus;
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       });
@@ -337,9 +355,12 @@ export default function AdminProductsPage() {
 
   const stats = useMemo(() => ({
     total: products.length,
-    outOfStock: products.filter(p => p.stock <= 0).length,
-    lowStock: products.filter(p => p.stock > 0 && p.stock <= (p.low_stock_threshold ?? 10)).length,
-    available: products.filter(p => p.stock > 0).length
+    outOfStock: products.filter(p => getDisplayStock(p) <= 0).length,
+    lowStock: products.filter(p => {
+      const displayStock = getDisplayStock(p);
+      return displayStock > 0 && displayStock <= (p.low_stock_threshold ?? 10);
+    }).length,
+    available: products.filter(p => getDisplayStock(p) > 0).length
   }), [products]);
 
   if (loading) return (
@@ -545,12 +566,23 @@ export default function AdminProductsPage() {
                       <span className="font-black text-blue-700">{product.price} ج.م</span>
                     </td>
                     <td className="p-4">
-                      {product.stock <= 0 ? (
+                      {getDisplayStock(product) <= 0 ? (
                         <span className="px-2.5 py-1 rounded-md bg-red-100 text-red-700 text-xs font-bold">منتهي</span>
-                      ) : product.stock <= (product.low_stock_threshold ?? 10) ? (
-                        <span className="px-2.5 py-1 rounded-md bg-orange-100 text-orange-700 text-xs font-bold">منخفض ({product.stock})</span>
+                      ) : getDisplayStock(product) <= (product.low_stock_threshold ?? 10) ? (
+                        <span className="px-2.5 py-1 rounded-md bg-orange-100 text-orange-700 text-xs font-bold">
+                          {hasProductVariants(product)
+                            ? `إجمالي المتغيرات: ${getDisplayStock(product)}`
+                            : `منخفض (${getDisplayStock(product)})`}
+                        </span>
+                      ) : hasProductVariants(product) ? (
+                        <span
+                          className="px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 text-xs font-bold"
+                          title="هذا الرقم هو مجموع مخزون الاختيارات داخل تفاصيل المنتج"
+                        >
+                          إجمالي المتغيرات: {getDisplayStock(product)}
+                        </span>
                       ) : (
-                        <span className="px-2.5 py-1 rounded-md bg-green-100 text-green-700 text-xs font-bold">{product.stock} قطعة</span>
+                        <span className="px-2.5 py-1 rounded-md bg-green-100 text-green-700 text-xs font-bold">{getDisplayStock(product)} قطعة</span>
                       )}
                     </td>
                     <td className="p-4">

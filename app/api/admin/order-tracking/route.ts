@@ -26,20 +26,24 @@ type TrackingStatus =
 type OrderSnapshotItem = {
   product_id: string;
   quantity: number;
+  variant_key?: string;
 };
 
 type ProductStockRow = {
   id: string;
   stock: number;
   is_active: boolean;
+  variants_json?: any[];
 };
 
 type InventoryUpdate = {
   id: string;
   previousStock: number;
   previousActive: boolean;
+  previousVariants: any[];
   nextStock: number;
   nextActive: boolean;
+  nextVariants: any[];
 };
 
 const VALID_STATUSES: TrackingStatus[] = [
@@ -131,19 +135,22 @@ function extractOrderItems(itemsSnapshot: any[]): OrderSnapshotItem[] {
 
   for (const item of itemsSnapshot || []) {
     const productId = String(item?.product_id || "");
+    const variantKey = String(item?.variant_key || item?.variant?.key || "");
     const quantity = Math.max(0, Math.floor(Number(item?.quantity) || 0));
 
     if (!productId || quantity <= 0) continue;
 
-    const existing = merged.get(productId);
+    const itemKey = `${productId}::${variantKey}`;
+    const existing = merged.get(itemKey);
     if (existing) {
       existing.quantity += quantity;
       continue;
     }
 
-    merged.set(productId, {
+    merged.set(itemKey, {
       product_id: productId,
       quantity,
+      variant_key: variantKey,
     });
   }
 
@@ -157,6 +164,7 @@ async function rollbackInventory(updates: InventoryUpdate[]) {
       .update({
         stock: update.previousStock,
         is_active: update.previousActive,
+        variants_json: update.previousVariants,
       })
       .eq("id", update.id);
   }
@@ -164,12 +172,13 @@ async function rollbackInventory(updates: InventoryUpdate[]) {
 
 async function restoreProductInventory(
   productId: string,
-  quantity: number
+  quantity: number,
+  variantKey?: string
 ): Promise<InventoryUpdate> {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const { data: product, error: productError } = await supabase
       .from("products")
-      .select("id, stock, is_active")
+      .select("id, stock, is_active, variants_json")
       .eq("id", productId)
       .maybeSingle();
 
@@ -186,8 +195,10 @@ async function restoreProductInventory(
     id: productId,
     previousStock: 0,
     previousActive: false,
+    previousVariants: [],
     nextStock: 0,
     nextActive: false,
+    nextVariants: [],
   };
 }
 
@@ -195,16 +206,36 @@ async function restoreProductInventory(
       id: String(product.id),
       stock: Number(product.stock ?? 0),
       is_active: Boolean(product.is_active),
+      variants_json: Array.isArray(product.variants_json)
+        ? product.variants_json
+        : [],
     };
 
     const nextStock = currentProduct.stock + quantity;
     const nextActive = nextStock > 0;
+    let nextVariants = currentProduct.variants_json;
+
+    if (variantKey && currentProduct.variants_json?.length) {
+      nextVariants = currentProduct.variants_json.map((variant) => {
+        const key = String(variant?.key || variant?.id || "");
+        if (key !== variantKey || typeof variant?.stock !== "number") {
+          return variant;
+        }
+
+        return {
+          ...variant,
+          stock: Math.max(0, Math.floor(Number(variant.stock) || 0)) + quantity,
+          active: variant.active === false ? nextActive : variant.active,
+        };
+      });
+    }
 
     const { data: updatedProduct, error: updateError } = await supabase
       .from("products")
       .update({
         stock: nextStock,
         is_active: nextActive,
+        variants_json: nextVariants,
       })
       .eq("id", currentProduct.id)
       .eq("stock", currentProduct.stock)
@@ -221,8 +252,10 @@ async function restoreProductInventory(
         id: currentProduct.id,
         previousStock: currentProduct.stock,
         previousActive: currentProduct.is_active,
+        previousVariants: currentProduct.variants_json || [],
         nextStock,
         nextActive,
+        nextVariants,
       };
     }
   }
@@ -237,7 +270,8 @@ async function restoreOrderInventory(items: OrderSnapshotItem[]) {
     for (const item of items) {
       const update = await restoreProductInventory(
         item.product_id,
-        item.quantity
+        item.quantity,
+        item.variant_key
       );
       appliedUpdates.push(update);
     }
