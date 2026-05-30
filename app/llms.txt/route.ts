@@ -19,6 +19,7 @@ export function GET() {
     `- Shop: ${absoluteUrl("/shop")}`,
     `- Categories: ${absoluteUrl("/categories")}`,
     `- Return policy: ${absoluteUrl("/return-policy")}`,
+    `- FAQ: ${absoluteUrl("/faq")}`,
     "",
     "Machine-readable resources:",
     `- Sitemap: ${absoluteUrl("/sitemap.xml")}`,

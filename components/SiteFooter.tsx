@@ -25,12 +25,20 @@ export default function SiteFooter() {
       className="bg-white border-t border-slate-100 py-10 text-center text-sm font-medium text-slate-500"
     >
       <div className="mx-auto flex max-w-5xl flex-col items-center gap-6 px-4">
-        <Link
-          href="/return-policy"
-          className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
-        >
-          {isAr ? "سياسة الإرجاع والاستبدال" : "Return and exchange policy"}
-        </Link>
+        <div className="flex flex-wrap items-center justify-center gap-4">
+          <Link
+            href="/return-policy"
+            className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
+          >
+            {isAr ? "سياسة الإرجاع والاستبدال" : "Return and exchange policy"}
+          </Link>
+          <Link
+            href="/faq"
+            className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
+          >
+            {isAr ? "الأسئلة الشائعة" : "FAQ"}
+          </Link>
+        </div>
 
         <div className="my-2 flex flex-wrap items-center justify-center gap-4">
           <a
