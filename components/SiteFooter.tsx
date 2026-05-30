@@ -45,6 +45,24 @@ export default function SiteFooter() {
             {isAr ? "معطرات السيارات" : "Air fresheners"}
           </Link>
           <Link
+            href="/car-cleaning-products"
+            className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
+          >
+            {isAr ? "تنظيف السيارات" : "Cleaning products"}
+          </Link>
+          <Link
+            href="/car-accessories"
+            className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
+          >
+            {isAr ? "إكسسوارات السيارات" : "Accessories"}
+          </Link>
+          <Link
+            href="/car-lighting-tools"
+            className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
+          >
+            {isAr ? "أدوات وإضاءة" : "Lighting and tools"}
+          </Link>
+          <Link
             href="/return-policy"
             className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
           >
