@@ -86,10 +86,12 @@ export default async function ProductPage({ params }: Props) {
   const productStructuredData = {
     "@context": "https://schema.org",
     "@type": "Product",
+    "@id": `${productUrl}#product`,
     name: title,
     description: compactText(description, 500),
     image: images,
     sku: product.id,
+    url: productUrl,
     category: product.category,
     brand: {
       "@type": "Brand",
@@ -107,13 +109,40 @@ export default async function ProductPage({ params }: Props) {
       itemCondition: "https://schema.org/NewCondition",
     },
   };
+  const breadcrumbStructuredData = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Cesar Store",
+        item: absoluteUrl("/"),
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Shop",
+        item: absoluteUrl("/shop"),
+      },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: title,
+        item: productUrl,
+      },
+    ],
+  };
 
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(productStructuredData).replace(/</g, "\\u003c"),
+          __html: JSON.stringify([productStructuredData, breadcrumbStructuredData]).replace(
+            /</g,
+            "\\u003c"
+          ),
         }}
       />
       <ProductPageClient product={product} categories={categories} />

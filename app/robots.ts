@@ -13,35 +13,30 @@ export default function robots(): MetadataRoute.Robots {
     "/orders",
     "/sentry-example-page",
   ];
+  const crawlerRules = [
+    "*",
+    "Googlebot",
+    "Bingbot",
+    "OAI-SearchBot",
+    "ChatGPT-User",
+    "GPTBot",
+    "OAI-AdsBot",
+    "PerplexityBot",
+    "Perplexity-User",
+    "ClaudeBot",
+    "Claude-SearchBot",
+    "Claude-User",
+    "Applebot",
+    "Applebot-Extended",
+    "Google-Extended",
+  ].map((userAgent) => ({
+    userAgent,
+    allow: "/",
+    disallow: privatePaths,
+  }));
 
   return {
-    rules: [
-      {
-        userAgent: "*",
-        allow: "/",
-        disallow: privatePaths,
-      },
-      {
-        userAgent: "Googlebot",
-        allow: "/",
-        disallow: privatePaths,
-      },
-      {
-        userAgent: "Bingbot",
-        allow: "/",
-        disallow: privatePaths,
-      },
-      {
-        userAgent: "OAI-SearchBot",
-        allow: "/",
-        disallow: privatePaths,
-      },
-      {
-        userAgent: "ChatGPT-User",
-        allow: "/",
-        disallow: privatePaths,
-      },
-    ],
+    rules: crawlerRules,
     sitemap: `${SITE_URL}/sitemap.xml`,
     host: SITE_URL,
   };

@@ -123,6 +123,21 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     },
     inLanguage: ["ar-EG", "en"],
   };
+  const websiteStructuredData = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: SITE_NAME,
+    alternateName: SITE_NAME_AR,
+    url: SITE_URL,
+    inLanguage: ["ar-EG", "en"],
+    publisher: {
+      "@type": "Organization",
+      name: SITE_NAME,
+      url: SITE_URL,
+      logo: absoluteUrl(DEFAULT_OG_IMAGE),
+      sameAs: SOCIAL_LINKS,
+    },
+  };
 
   return (
     <html lang="ar" className="scroll-smooth">
@@ -130,7 +145,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify(storeStructuredData).replace(/</g, "\\u003c"),
+            __html: JSON.stringify([storeStructuredData, websiteStructuredData]).replace(
+              /</g,
+              "\\u003c"
+            ),
           }}
         />
         <AuthProvider>
