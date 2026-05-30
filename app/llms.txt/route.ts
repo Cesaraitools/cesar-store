@@ -26,6 +26,8 @@ export function GET() {
     `- Car cleaning products guide: ${absoluteUrl("/car-cleaning-products")}`,
     `- Car accessories guide: ${absoluteUrl("/car-accessories")}`,
     `- Car lighting and tools guide: ${absoluteUrl("/car-lighting-tools")}`,
+    `- Car tools and equipment guide: ${absoluteUrl("/car-tools-equipment")}`,
+    `- Car fluids and additives guide: ${absoluteUrl("/car-fluids-additives")}`,
     "",
     "Machine-readable resources:",
     `- Sitemap: ${absoluteUrl("/sitemap.xml")}`,

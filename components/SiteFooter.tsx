@@ -63,6 +63,18 @@ export default function SiteFooter() {
             {isAr ? "أدوات وإضاءة" : "Lighting and tools"}
           </Link>
           <Link
+            href="/car-tools-equipment"
+            className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
+          >
+            {isAr ? "أدوات ومعدات" : "Tools and equipment"}
+          </Link>
+          <Link
+            href="/car-fluids-additives"
+            className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
+          >
+            {isAr ? "سوائل وإضافات" : "Fluids and additives"}
+          </Link>
+          <Link
             href="/return-policy"
             className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
           >

@@ -17,6 +17,8 @@ Last updated: 2026-05-30
 - Car cleaning products guide is live at `/car-cleaning-products` with CollectionPage and FAQPage structured data.
 - Car accessories guide is live at `/car-accessories` with CollectionPage and FAQPage structured data.
 - Car lighting and tools guide is live at `/car-lighting-tools` with CollectionPage and FAQPage structured data.
+- Car tools and equipment guide is live at `/car-tools-equipment` with CollectionPage and FAQPage structured data.
+- Car fluids and additives guide is live at `/car-fluids-additives` with CollectionPage and FAQPage structured data.
 
 ## Level 1: Entity and answer readiness
 
@@ -37,6 +39,8 @@ Recommended pages:
 - Done: `/car-cleaning-products` - car cleaning products.
 - Done: `/car-accessories` - car accessories.
 - Done: `/car-lighting-tools` - lighting and tools.
+- Done: `/car-tools-equipment` - tools and emergency equipment.
+- Done: `/car-fluids-additives` - fluids and additives.
 
 Each page should include:
 
