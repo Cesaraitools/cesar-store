@@ -21,6 +21,7 @@ export function GET() {
     `- About: ${absoluteUrl("/about")}`,
     `- Return policy: ${absoluteUrl("/return-policy")}`,
     `- FAQ: ${absoluteUrl("/faq")}`,
+    `- Car care guide: ${absoluteUrl("/car-care")}`,
     "",
     "Machine-readable resources:",
     `- Sitemap: ${absoluteUrl("/sitemap.xml")}`,
