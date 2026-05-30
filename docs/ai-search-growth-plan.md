@@ -12,6 +12,7 @@ Last updated: 2026-05-30
 - Product pages include Product structured data and breadcrumb data.
 - FAQ page is live at `/faq` with FAQPage structured data.
 - About page is live at `/about` with AboutPage and Organization structured data.
+- Car care guide is live at `/car-care` with CollectionPage and FAQPage structured data.
 
 ## Level 1: Entity and answer readiness
 
@@ -72,4 +73,4 @@ Goal: improve based on real search behavior.
 
 ## Current next task
 
-Start Level 2 with `/car-care` because it is broad, commercially relevant, and naturally links to many product types.
+Continue Level 2 with `/car-air-fresheners` because car air fresheners are a clear product intent and a strong fit for AI answer pages.

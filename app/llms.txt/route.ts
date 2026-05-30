@@ -22,6 +22,7 @@ export function GET() {
     `- Return policy: ${absoluteUrl("/return-policy")}`,
     `- FAQ: ${absoluteUrl("/faq")}`,
     `- Car care guide: ${absoluteUrl("/car-care")}`,
+    `- Car air fresheners guide: ${absoluteUrl("/car-air-fresheners")}`,
     "",
     "Machine-readable resources:",
     `- Sitemap: ${absoluteUrl("/sitemap.xml")}`,

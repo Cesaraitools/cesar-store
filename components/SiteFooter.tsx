@@ -39,6 +39,12 @@ export default function SiteFooter() {
             {isAr ? "العناية بالسيارات" : "Car care"}
           </Link>
           <Link
+            href="/car-air-fresheners"
+            className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
+          >
+            {isAr ? "معطرات السيارات" : "Air fresheners"}
+          </Link>
+          <Link
             href="/return-policy"
             className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
           >
