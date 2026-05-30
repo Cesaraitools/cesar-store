@@ -27,6 +27,12 @@ export default function SiteFooter() {
       <div className="mx-auto flex max-w-5xl flex-col items-center gap-6 px-4">
         <div className="flex flex-wrap items-center justify-center gap-4">
           <Link
+            href="/about"
+            className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
+          >
+            {isAr ? "من نحن" : "About"}
+          </Link>
+          <Link
             href="/return-policy"
             className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
           >

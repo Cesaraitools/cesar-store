@@ -18,6 +18,7 @@ export function GET() {
     `- Homepage: ${SITE_URL}`,
     `- Shop: ${absoluteUrl("/shop")}`,
     `- Categories: ${absoluteUrl("/categories")}`,
+    `- About: ${absoluteUrl("/about")}`,
     `- Return policy: ${absoluteUrl("/return-policy")}`,
     `- FAQ: ${absoluteUrl("/faq")}`,
     "",
