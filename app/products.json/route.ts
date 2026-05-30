@@ -72,7 +72,7 @@ function productType(category: string, title: string) {
   return "car product";
 }
 
-function useCase(category: string, type: string) {
+function productUseCase(category: string, type: string) {
   if (type.includes("air freshener")) return "improve car interior scent";
   if (type.includes("towel")) return "drying or wiping car surfaces";
   if (type.includes("shampoo")) return "washing car exterior surfaces";
@@ -163,7 +163,7 @@ function productAttributes(category: string, title: string) {
 
   return {
     productType: type,
-    useCase: useCase(category, type),
+    useCase: productUseCase(category, type),
     volume,
     weight: weightG ? `${weightG} g` : null,
     size: size ? `${size[1]}x${size[2]}` : null,
