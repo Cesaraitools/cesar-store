@@ -265,6 +265,9 @@ export default function ShopPage({ searchParams }: Props) {
   if (loading) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
+        <h1 className="text-2xl sm:text-4xl font-black text-gray-900">
+          تسوق منتجات السيارات من متجر سيزر | Cesar Store car products
+        </h1>
         <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
         <p className="font-black text-gray-400 animate-pulse">
           {isAr ? "جاري تجهيز المنتجات..." : "Preparing products..."}
