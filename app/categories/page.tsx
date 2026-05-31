@@ -42,6 +42,9 @@ export default function CategoriesPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-white">
+        <h1 className="text-3xl sm:text-5xl font-black text-slate-900">
+          أقسام متجر سيزر | Cesar Store categories
+        </h1>
         <div className="w-12 h-12 border-4 border-blue-50 border-t-blue-600 rounded-full animate-spin"></div>
         <p className="mt-4 font-black text-slate-400 animate-pulse">
           {isAr ? "نجهز الأقسام..." : "Loading Categories..."}
