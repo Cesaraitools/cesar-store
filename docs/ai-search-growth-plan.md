@@ -56,10 +56,19 @@ Each page should include:
 
 Goal: make individual products easier to understand and compare.
 
-- Improve product descriptions where they are short or duplicated.
-- Add clearer product attributes where available: size, scent, color, use case, compatible area, and package quantity.
+- Done: improved product descriptions where they were short or duplicated.
+- Done: added clearer product attributes where available: size, scent, color, use case, compatible area, and package quantity.
 - Ensure variant choices are clear on-page and in structured data where practical.
 - Consider exposing selected category/product summaries in machine-readable JSON if needed.
+
+## Level 6: Keyword and intent mapping
+
+Goal: make every important brand, category, and product-use query point to one clear target page.
+
+- Done: created `docs/keyword-target-map-2026-05-31.md`.
+- Use the map to decide which page should be strengthened for each keyword.
+- Monitor Google Search Console and Bing Webmaster Tools weekly for impressions, clicks, and indexed pages.
+- Avoid keyword stuffing; improve pages with useful explanations, real product examples, internal links, and structured data.
 
 ## Level 4: Trust and commerce signals
 
@@ -81,4 +90,4 @@ Goal: improve based on real search behavior.
 
 ## Current next task
 
-Move to Level 3: enrich product answer quality by reviewing product descriptions, attributes, variants, and category-specific product summaries.
+Move to measurement and keyword iteration: request indexing for the public HTML guide pages, then review Google/Bing queries weekly against the keyword target map.
