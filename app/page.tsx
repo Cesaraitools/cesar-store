@@ -29,6 +29,8 @@ const content = {
     shopNow: "Shop Now",
     explore: "Explore Collection",
     about: "Cesar Store delivers high-end automotive care and accessories, designed to elevate your driving experience with refined details.",
+    searchHint:
+      "Customers can find us as Cesar Store, Cesar Shop, cesareshop.com, or by searching for car care products, air fresheners, accessories, lighting, tools, and car cleaning products in Egypt.",
     banner: "Experience Excellence – Your Car Deserves the Best",
   },
   ar: {
@@ -36,6 +38,8 @@ const content = {
     shopNow: "تسوق الآن",
     explore: "استكشف المجموعة",
     about: "يقدم متجر سيزر أرقى منتجات العناية بالسيارات والكماليات، المصممة لرفع مستوى تجربة القيادة الخاصة بك بلمسات راقية وأصلية.",
+    searchHint:
+      "يمكن الوصول إلى المتجر بصيغ مثل متجر سيزر، سيزر ستور، سيزر شوب، Cesar Store، Cesar Shop، أو عند البحث عن منتجات العناية بالسيارات والمعطرات والإكسسوارات والمنظفات.",
     banner: "اختبر التميز – سيارتك تستحق الأفضل دائماً",
   },
 };
@@ -180,6 +184,15 @@ export default function LandingPage() {
           <p className="text-2xl md:text-4xl font-bold text-slate-800 leading-tight tracking-tight">
             {t.about}
           </p>
+          <p className="mx-auto mt-6 max-w-3xl text-base font-semibold leading-8 text-slate-500 md:text-lg">
+            {t.searchHint}
+          </p>
+          <Link
+            href="/search-guide"
+            className="mt-8 inline-flex rounded-2xl bg-slate-900 px-6 py-3 text-sm font-black text-white transition hover:bg-blue-700"
+          >
+            {isAr ? "دليل البحث عن سيزر" : "Cesar search guide"}
+          </Link>
         </div>
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-slate-50/50 font-black text-[15rem] -z-0 select-none">
           CESAR

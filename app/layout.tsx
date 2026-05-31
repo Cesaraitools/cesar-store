@@ -11,11 +11,14 @@ import { CartProvider } from "@/context/CartContext";
 import { CheckoutProvider } from "@/context/CheckoutContext";
 import { LanguageProvider } from "@/context/LanguageContext";
 import {
+  BRAND_SEARCH_TERMS,
   CONTACT_EMAIL,
   CONTACT_PHONE_E164,
   DEFAULT_OG_IMAGE,
   DEFAULT_SEO_DESCRIPTION,
   DEFAULT_SEO_TITLE,
+  PRODUCT_SEARCH_TERMS,
+  SITE_ALTERNATE_NAMES,
   SITE_NAME,
   SITE_NAME_AR,
   SITE_URL,
@@ -39,16 +42,7 @@ export function generateMetadata(): Metadata {
       template: `%s | ${SITE_NAME}`,
     },
     description: DEFAULT_SEO_DESCRIPTION,
-    keywords: [
-      "Cesar Store",
-      "متجر سيزر",
-      "منتجات السيارات",
-      "اكسسوارات سيارات",
-      "معطرات سيارات",
-      "عناية بالسيارات",
-      "car accessories Egypt",
-      "car care products Egypt",
-    ],
+    keywords: [...BRAND_SEARCH_TERMS, ...PRODUCT_SEARCH_TERMS],
     alternates: {
       canonical: "/",
       languages: {
@@ -101,7 +95,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     "@context": "https://schema.org",
     "@type": "AutoPartsStore",
     name: SITE_NAME,
-    alternateName: SITE_NAME_AR,
+    alternateName: SITE_ALTERNATE_NAMES,
     url: SITE_URL,
     logo: absoluteUrl(DEFAULT_OG_IMAGE),
     image: absoluteUrl(DEFAULT_OG_IMAGE),
@@ -127,9 +121,14 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: SITE_NAME,
-    alternateName: SITE_NAME_AR,
+    alternateName: SITE_ALTERNATE_NAMES,
     url: SITE_URL,
     inLanguage: ["ar-EG", "en"],
+    potentialAction: {
+      "@type": "SearchAction",
+      target: `${absoluteUrl("/shop")}?search={search_term_string}`,
+      "query-input": "required name=search_term_string",
+    },
     publisher: {
       "@type": "Organization",
       name: SITE_NAME,

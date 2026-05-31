@@ -9,6 +9,7 @@ import {
   DEFAULT_OG_IMAGE,
   SITE_NAME,
   SITE_NAME_AR,
+  SITE_ALTERNATE_NAMES,
   SITE_URL,
   SOCIAL_LINKS,
   absoluteUrl,
@@ -48,6 +49,16 @@ const categories = [
   "منتجات مختارة للاستخدام اليومي داخل السيارة",
 ];
 
+const brandAliases = [
+  "متجر سيزر",
+  "سيزر ستور",
+  "سيزر شوب",
+  "موقع سيزر",
+  "Cesar Store",
+  "Cesar Shop",
+  "cesareshop.com",
+];
+
 export default function AboutPage() {
   const aboutStructuredData = [
     {
@@ -59,7 +70,7 @@ export default function AboutPage() {
       about: {
         "@type": "AutoPartsStore",
         name: SITE_NAME,
-        alternateName: SITE_NAME_AR,
+        alternateName: SITE_ALTERNATE_NAMES,
         url: SITE_URL,
       },
     },
@@ -67,7 +78,7 @@ export default function AboutPage() {
       "@context": "https://schema.org",
       "@type": "Organization",
       name: SITE_NAME,
-      alternateName: SITE_NAME_AR,
+      alternateName: SITE_ALTERNATE_NAMES,
       url: SITE_URL,
       logo: absoluteUrl(DEFAULT_OG_IMAGE),
       image: absoluteUrl(DEFAULT_OG_IMAGE),
@@ -126,6 +137,27 @@ export default function AboutPage() {
               <li key={category}>{category}</li>
             ))}
           </ul>
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-xl font-bold text-slate-950">
+            أسماء ومفردات يستخدمها العملاء للوصول إلى المتجر
+          </h2>
+          <p className="leading-8 text-slate-600">
+            قد يبحث العملاء عن المتجر بأكثر من صيغة عربية أو إنجليزية. لذلك يوضح
+            الموقع أن متجر سيزر هو نفسه Cesar Store وCesar Shop وموقع سيزر لمنتجات
+            وإكسسوارات السيارات داخل مصر.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {brandAliases.map((alias) => (
+              <span
+                key={alias}
+                className="rounded-md bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700"
+              >
+                {alias}
+              </span>
+            ))}
+          </div>
         </section>
 
         <section className="space-y-4">

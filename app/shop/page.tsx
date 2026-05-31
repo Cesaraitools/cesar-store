@@ -30,7 +30,7 @@ type Category = {
 };
 
 type Props = {
-  searchParams: { category?: string };
+  searchParams: { category?: string; search?: string };
 };
 
 export default function ShopPage({ searchParams }: Props) {
@@ -38,7 +38,7 @@ export default function ShopPage({ searchParams }: Props) {
   const isAr = lang === "ar";
 
   const [sort, setSort] = useState<SortOption>("default");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(searchParams.search || "");
   const [selectedCategory, setSelectedCategory] = useState(
     searchParams.category || "all"
   );

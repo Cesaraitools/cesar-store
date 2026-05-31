@@ -18,12 +18,69 @@ export const SITE_URL = normalizeSiteUrl(
 
 export const SITE_NAME = "Cesar Store";
 export const SITE_NAME_AR = "متجر سيزر";
+export const SITE_ALTERNATE_NAMES = [
+  SITE_NAME,
+  SITE_NAME_AR,
+  "Cesar Shop",
+  "Cesar Store Egypt",
+  "Cesar Car Store",
+  "cesareshop",
+  "cesareshop.com",
+  "سيزر ستور",
+  "سيزر شوب",
+  "موقع سيزر",
+  "متجر Cesar",
+  "متجر سيزر للسيارات",
+];
+
+export const BRAND_SEARCH_TERMS = [
+  "Cesar Store",
+  "Cesar Shop",
+  "Cesar Store Egypt",
+  "Cesar car accessories",
+  "cesareshop",
+  "cesareshop.com",
+  "متجر سيزر",
+  "سيزر ستور",
+  "سيزر شوب",
+  "موقع سيزر",
+  "محل سيزر",
+  "متجر سيزر للسيارات",
+];
+
+export const PRODUCT_SEARCH_TERMS = [
+  "منتجات عناية بالسيارات",
+  "منظفات سيارات",
+  "معطرات سيارات",
+  "إكسسوارات سيارات",
+  "أدوات سيارات",
+  "إضاءة سيارات",
+  "سوائل سيارات",
+  "إضافات وقود",
+  "شامبو سيارات",
+  "شامبو واكس",
+  "فوط ميكروفايبر للسيارات",
+  "مياه مساحات",
+  "كمبريسور سيارة",
+  "كابل بطارية",
+  "مساحات سيارة",
+  "car accessories Egypt",
+  "car care products Egypt",
+  "car cleaning products Egypt",
+  "car air fresheners Egypt",
+  "car LED lights Egypt",
+  "car tools Egypt",
+  "windshield washer fluid Egypt",
+  "microfiber towel car",
+  "battery jumper cable",
+  "tire air compressor",
+];
 
 export const DEFAULT_SEO_TITLE =
   "Cesar Store | متجر سيزر لمنتجات وإكسسوارات السيارات في مصر";
 
 export const DEFAULT_SEO_DESCRIPTION =
-  "متجر سيزر يوفر منتجات العناية بالسيارات، معطرات، إكسسوارات، أدوات، ومنظفات سيارات مختارة بعناية داخل مصر.";
+  "متجر سيزر، Cesar Store أو Cesar Shop، يوفر منتجات العناية بالسيارات، معطرات، إكسسوارات، أدوات، إضاءة، سوائل، ومنظفات سيارات مختارة داخل مصر.";
 
 export const DEFAULT_OG_IMAGE = "/logo-v2.png";
 

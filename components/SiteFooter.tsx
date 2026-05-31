@@ -86,6 +86,12 @@ export default function SiteFooter() {
           >
             {isAr ? "الأسئلة الشائعة" : "FAQ"}
           </Link>
+          <Link
+            href="/search-guide"
+            className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
+          >
+            {isAr ? "دليل البحث" : "Search guide"}
+          </Link>
         </div>
 
         <div className="my-2 flex flex-wrap items-center justify-center gap-4">
