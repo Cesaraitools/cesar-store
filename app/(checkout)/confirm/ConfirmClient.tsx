@@ -1,16 +1,16 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import Script from "next/script";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useAuth } from "@/context/AuthContext";
 import {
   CheckCircle2,
-  FileText,
   Truck,
   Home,
   MessageCircle,
   Download,
-  ArrowRight
 } from "lucide-react";
 
 type InvoiceData = {
@@ -29,9 +29,86 @@ type InvoiceData = {
   };
 };
 
+type GoogleSurveyOptInPayload = {
+  merchant_id: number;
+  order_id: string;
+  email: string;
+  delivery_country: string;
+  estimated_delivery_date: string;
+};
+
+declare global {
+  interface Window {
+    gapi?: {
+      load: (api: string, callback: () => void) => void;
+      surveyoptin?: {
+        render: (payload: GoogleSurveyOptInPayload) => void;
+      };
+    };
+  }
+}
+
+const GOOGLE_CUSTOMER_REVIEWS_MERCHANT_ID = 5797640748;
+const GOOGLE_CUSTOMER_REVIEWS_DELIVERY_COUNTRY = "EG";
+const ESTIMATED_DELIVERY_DAYS = 5;
+
+function getEstimatedDeliveryDate() {
+  const date = new Date();
+  date.setDate(date.getDate() + ESTIMATED_DELIVERY_DAYS);
+  return date.toISOString().slice(0, 10);
+}
+
+function GoogleCustomerReviewsOptIn({
+  orderId,
+  email,
+}: {
+  orderId: string;
+  email: string;
+}) {
+  const hasRendered = useRef(false);
+  const customerEmail = email.trim();
+
+  const renderOptIn = useCallback(() => {
+    if (hasRendered.current || !customerEmail || !orderId) return;
+
+    try {
+      window.gapi?.load("surveyoptin", () => {
+        if (hasRendered.current || !window.gapi?.surveyoptin?.render) return;
+
+        window.gapi.surveyoptin.render({
+          merchant_id: GOOGLE_CUSTOMER_REVIEWS_MERCHANT_ID,
+          order_id: orderId,
+          email: customerEmail,
+          delivery_country: GOOGLE_CUSTOMER_REVIEWS_DELIVERY_COUNTRY,
+          estimated_delivery_date: getEstimatedDeliveryDate(),
+        });
+
+        hasRendered.current = true;
+      });
+    } catch (error) {
+      console.warn("Google Customer Reviews opt-in failed to render", error);
+    }
+  }, [customerEmail, orderId]);
+
+  useEffect(() => {
+    renderOptIn();
+  }, [renderOptIn]);
+
+  if (!customerEmail || !orderId) return null;
+
+  return (
+    <Script
+      src="https://apis.google.com/js/platform.js"
+      strategy="afterInteractive"
+      onLoad={renderOptIn}
+    />
+  );
+}
+
 export default function ConfirmClient() {
   const params = useSearchParams();
   const orderId = params.get("orderId");
+  const { user } = useAuth();
 
   const [invoice, setInvoice] = useState<InvoiceData | null>(null);
 
@@ -54,7 +131,12 @@ export default function ConfirmClient() {
   }, [orderId]);
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-6 text-right font-sans" dir="rtl">
+    <>
+      {invoice && orderId && user?.email && (
+        <GoogleCustomerReviewsOptIn orderId={orderId} email={user.email} />
+      )}
+
+      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-6 text-right font-sans" dir="rtl">
       {/* الخلفية التجميلية */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-[10%] -right-[10%] w-[40%] h-[40%] bg-blue-50 rounded-full blur-3xl opacity-50" />
@@ -129,6 +211,7 @@ export default function ConfirmClient() {
 
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
