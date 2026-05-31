@@ -8,3 +8,5 @@ node_modules
 ~$*.xlsx
 supabase/.temp
 backups/*.
+docs/search-indexing-batches-*.md
+docs/search-indexing-urls-*.txt
