@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { InternalSearchLinks } from "@/components/InternalSearchLinks";
 import { DEFAULT_OG_IMAGE, SITE_NAME, SITE_URL, absoluteUrl } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -159,6 +160,20 @@ export default function CarCleaningProductsPage() {
             </Link>
           </div>
         </section>
+
+        <InternalSearchLinks
+          title="ابحث عن منتجات تنظيف محددة"
+          description="هذه الروابط توجه إلى نتائج بحث جاهزة داخل المتجر لكلمات تنظيف السيارات الأكثر أهمية."
+          links={[
+            { label: "شامبو سيارات" },
+            { label: "شامبو واكس" },
+            { label: "واكس سيارات" },
+            { label: "ملمع تابلوه" },
+            { label: "منظف فوم سيارات" },
+            { label: "فوطة ميكروفايبر" },
+            { label: "فرشة تنظيف سيارة" },
+          ]}
+        />
 
         <section className="space-y-5">
           <h2 className="text-xl font-bold text-slate-950">أسئلة شائعة عن تنظيف السيارات</h2>

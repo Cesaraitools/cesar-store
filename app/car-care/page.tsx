@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { InternalSearchLinks } from "@/components/InternalSearchLinks";
 import { DEFAULT_OG_IMAGE, SITE_NAME, SITE_URL, absoluteUrl } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -163,6 +164,19 @@ export default function CarCarePage() {
             </Link>
           </div>
         </section>
+
+        <InternalSearchLinks
+          title="روابط بحث مفيدة داخل المتجر"
+          description="استخدم هذه الروابط للوصول مباشرة إلى مجموعات المنتجات الأكثر ارتباطا بالعناية بالسيارات داخل متجر سيزر."
+          links={[
+            { label: "منتجات العناية بالسيارات" },
+            { label: "منظفات سيارات" },
+            { label: "معطرات سيارات" },
+            { label: "إكسسوارات سيارات" },
+            { label: "أدوات سيارات" },
+            { label: "سوائل سيارات" },
+          ]}
+        />
 
         <section className="space-y-5">
           <h2 className="text-xl font-bold text-slate-950">أسئلة شائعة عن العناية بالسيارات</h2>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { InternalSearchLinks } from "@/components/InternalSearchLinks";
 import { DEFAULT_OG_IMAGE, SITE_NAME, SITE_URL, absoluteUrl } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -179,6 +180,22 @@ export default function CarToolsEquipmentPage() {
             </Link>
           </div>
         </section>
+
+        <InternalSearchLinks
+          title="ابحث عن أدوات ومعدات السيارة"
+          description="روابط مباشرة لأهم كلمات البحث المرتبطة بكمبريسور السيارة وكابلات البطارية ووايرات الجر."
+          links={[
+            { label: "كمبريسور سيارة" },
+            { label: "كمبروسر سيارة" },
+            { label: "منفاخ سيارة" },
+            { label: "منفاخ اطارات سيارة" },
+            { label: "كابل بطارية" },
+            { label: "كابل بطارية سيارة" },
+            { label: "كابل بطارية 400 امبير" },
+            { label: "كابل بطارية 800 امبير" },
+            { label: "واير جر سيارة" },
+          ]}
+        />
 
         <section className="space-y-5">
           <h2 className="text-xl font-bold text-slate-950">أسئلة شائعة عن أدوات ومعدات السيارات</h2>

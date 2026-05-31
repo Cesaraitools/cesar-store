@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { InternalSearchLinks } from "@/components/InternalSearchLinks";
 import { DEFAULT_OG_IMAGE, SITE_NAME, SITE_URL, absoluteUrl } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -163,6 +164,20 @@ export default function CarAirFreshenersPage() {
             </Link>
           </div>
         </section>
+
+        <InternalSearchLinks
+          title="ابحث عن معطر السيارة المناسب"
+          description="روابط داخلية تساعدك على الوصول إلى المعطرات حسب نوع الاستخدام أو الرائحة المتوقعة."
+          links={[
+            { label: "معطر سيارة" },
+            { label: "معطر جو للسيارة" },
+            { label: "معطر تكييف سيارة" },
+            { label: "مبخرة سيارة" },
+            { label: "معطر سيارة توت بري" },
+            { label: "معطر سيارة فانيليا" },
+            { label: "معطر سيارة بلاك ايس" },
+          ]}
+        />
 
         <section className="space-y-5">
           <h2 className="text-xl font-bold text-slate-950">أسئلة شائعة عن معطرات السيارات</h2>

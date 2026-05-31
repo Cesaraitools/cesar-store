@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { InternalSearchLinks } from "@/components/InternalSearchLinks";
 import { DEFAULT_OG_IMAGE, SITE_NAME, SITE_URL, absoluteUrl } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -160,6 +161,20 @@ export default function CarLightingToolsPage() {
             </Link>
           </div>
         </section>
+
+        <InternalSearchLinks
+          title="ابحث عن إضاءة السيارة"
+          description="هذه الروابط توجه إلى نتائج بحث داخلية لكلمات الإضاءة والمقاسات الشائعة في منتجات السيارات."
+          links={[
+            { label: "ليد سيارة" },
+            { label: "طقم ليد سيارة" },
+            { label: "طقم ليد تيسلا" },
+            { label: "لمبات ليد سيارة" },
+            { label: "ليد H7" },
+            { label: "ليد H8" },
+            { label: "ليد H11" },
+          ]}
+        />
 
         <section className="space-y-5">
           <h2 className="text-xl font-bold text-slate-950">أسئلة شائعة عن الأدوات والإضاءة</h2>

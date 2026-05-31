@@ -171,7 +171,7 @@ Review weekly after deployment and indexing:
 
 ## Next improvement levels
 
-1. Add a small internal-link block from each category guide to the most relevant products once product prioritization is known.
+1. Done: add internal-link blocks from category guides to relevant search-intent results inside the shop.
 2. Keep contact, shipping, and ordering guide pages indexed and internally linked.
 3. Build a monthly query review report from Google Search Console and Bing data.
 4. For keywords that get impressions but low clicks, improve title, description, FAQ, and on-page examples for the mapped page.

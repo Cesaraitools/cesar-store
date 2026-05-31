@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { InternalSearchLinks } from "@/components/InternalSearchLinks";
 import { DEFAULT_OG_IMAGE, SITE_NAME, SITE_URL, absoluteUrl } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -160,6 +161,21 @@ export default function CarAccessoriesPage() {
             </Link>
           </div>
         </section>
+
+        <InternalSearchLinks
+          title="روابط بحث للإكسسوارات الأكثر طلبا"
+          description="استخدم هذه الروابط للانتقال إلى نتائج بحث داخلية لمنتجات الإكسسوارات والمساحات والراحة والتنظيم."
+          links={[
+            { label: "مساحات سيارة" },
+            { label: "مساحات سيزر" },
+            { label: "مساحات عظم" },
+            { label: "رقبة سفر للسيارة" },
+            { label: "مخدة رقبة سيارة" },
+            { label: "باسكت قمامة سيارة" },
+            { label: "ماكت سيارة" },
+            { label: "مجسم سيارة" },
+          ]}
+        />
 
         <section className="space-y-5">
           <h2 className="text-xl font-bold text-slate-950">أسئلة شائعة عن إكسسوارات السيارات</h2>

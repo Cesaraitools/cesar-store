@@ -66,6 +66,7 @@ Goal: make individual products easier to understand and compare.
 Goal: make every important brand, category, and product-use query point to one clear target page.
 
 - Done: created `docs/keyword-target-map-2026-05-31.md`.
+- Done: added internal search-intent links from category guide pages to relevant `/shop?search=...` results.
 - Use the map to decide which page should be strengthened for each keyword.
 - Monitor Google Search Console and Bing Webmaster Tools weekly for impressions, clicks, and indexed pages.
 - Avoid keyword stuffing; improve pages with useful explanations, real product examples, internal links, and structured data.
