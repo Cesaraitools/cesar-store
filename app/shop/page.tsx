@@ -33,6 +33,116 @@ type Props = {
   searchParams: { category?: string; search?: string };
 };
 
+const GENERIC_SEARCH_TOKENS = new Set([
+  "سياره",
+  "سيارات",
+  "السياره",
+  "السيارات",
+  "للسياره",
+  "للسيارات",
+  "منتج",
+  "منتجات",
+  "متجر",
+  "سيزر",
+  "ستور",
+  "شوب",
+  "car",
+  "cars",
+  "auto",
+  "vehicle",
+  "vehicles",
+  "product",
+  "products",
+  "store",
+  "shop",
+  "egypt",
+]);
+
+function normalizeSearchText(input: string) {
+  return input
+    .toLowerCase()
+    .replace(/[\u064b-\u065f\u0670]/g, "")
+    .replace(/[\u0625\u0623\u0622\u0627]/g, "\u0627")
+    .replace(/\u0649/g, "\u064a")
+    .replace(/\u0629/g, "\u0647")
+    .replace(/[^\p{L}\p{N}\s-]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function tokenizeSearch(input: string) {
+  const tokens = normalizeSearchText(input)
+    .split(" ")
+    .map((token) => token.trim())
+    .filter((token) => token.length > 1);
+
+  const specificTokens = tokens.filter((token) => !GENERIC_SEARCH_TOKENS.has(token));
+
+  return specificTokens.length > 0 ? specificTokens : tokens;
+}
+
+function getProductSearchText(product: Product) {
+  const variantText =
+    product.variantOptions
+      ?.flatMap((option) => [
+        option.name.ar,
+        option.name.en,
+        ...option.values.flatMap((value) => [value.label.ar, value.label.en]),
+      ])
+      .join(" ") || "";
+
+  return {
+    name: normalizeSearchText(`${product.name.ar} ${product.name.en}`),
+    description: normalizeSearchText(
+      `${product.description.ar} ${product.description.en}`
+    ),
+    category: normalizeSearchText(normalizeCategory(product.category)),
+    variants: normalizeSearchText(variantText),
+  };
+}
+
+function scoreProductSearch(product: Product, query: string, tokens: string[]) {
+  const normalizedQuery = normalizeSearchText(query);
+  if (!normalizedQuery) return 1;
+
+  const searchable = getProductSearchText(product);
+  const haystack = [
+    searchable.name,
+    searchable.description,
+    searchable.category,
+    searchable.variants,
+  ].join(" ");
+
+  let score = 0;
+
+  if (searchable.name.includes(normalizedQuery)) score += 30;
+  else if (haystack.includes(normalizedQuery)) score += 18;
+
+  let matchedTokens = 0;
+
+  for (const token of tokens) {
+    if (searchable.name.includes(token)) {
+      score += 8;
+      matchedTokens += 1;
+    } else if (searchable.description.includes(token)) {
+      score += 4;
+      matchedTokens += 1;
+    } else if (searchable.category.includes(token)) {
+      score += 3;
+      matchedTokens += 1;
+    } else if (searchable.variants.includes(token)) {
+      score += 3;
+      matchedTokens += 1;
+    }
+  }
+
+  if (tokens.length > 0 && matchedTokens === tokens.length) score += 12;
+  if (tokens.length > 1 && matchedTokens > 0) score += matchedTokens / tokens.length;
+  if (score > 0 && product.stock > 0) score += 1;
+
+  return score;
+}
+
 export default function ShopPage({ searchParams }: Props) {
   const { lang } = useLanguage();
   const isAr = lang === "ar";
@@ -91,27 +201,45 @@ export default function ShopPage({ searchParams }: Props) {
   }, [visibleCategories]);
 
   const filteredProducts = useMemo(() => {
-    const normalizedQuery = searchQuery.trim().toLowerCase();
+    const normalizedQuery = normalizeSearchText(searchQuery);
+    const queryTokens = tokenizeSearch(searchQuery);
     const normalizedSelectedCategory = normalizeCategory(selectedCategory);
 
-    return products.filter((product) => {
+    const matches = products.flatMap((product) => {
       const matchesCategory =
         selectedCategory === "all" ||
         normalizeCategory(product.category) === normalizedSelectedCategory;
 
-      const matchesSearch =
-        normalizedQuery.length === 0 ||
-        product.name.ar.toLowerCase().includes(normalizedQuery) ||
-        product.name.en.toLowerCase().includes(normalizedQuery);
+      if (!matchesCategory) return [];
 
-      return matchesCategory && matchesSearch;
+      const searchScore = scoreProductSearch(product, normalizedQuery, queryTokens);
+
+      if (normalizedQuery.length > 0 && searchScore <= 0) return [];
+
+      return [{ product, searchScore }];
     });
+
+    if (normalizedQuery.length === 0) {
+      return matches.map((item) => item.product);
+    }
+
+    return matches
+      .sort((a, b) => {
+        if (b.searchScore !== a.searchScore) return b.searchScore - a.searchScore;
+
+        return a.product.name.ar.localeCompare(b.product.name.ar, ["ar", "en"], {
+          numeric: true,
+          sensitivity: "base",
+        });
+      })
+      .map((item) => item.product);
   }, [products, searchQuery, selectedCategory]);
 
-  const finalProducts = useMemo(
-    () => sortProducts(filteredProducts, sort, categoryOrder),
-    [categoryOrder, filteredProducts, sort]
-  );
+  const finalProducts = useMemo(() => {
+    if (searchQuery.trim().length > 0 && sort === "default") return filteredProducts;
+
+    return sortProducts(filteredProducts, sort, categoryOrder);
+  }, [categoryOrder, filteredProducts, searchQuery, sort]);
 
   const currentCategory = visibleCategories.find(
     (category) =>
