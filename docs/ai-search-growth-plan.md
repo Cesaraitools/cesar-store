@@ -74,9 +74,9 @@ Goal: make every important brand, category, and product-use query point to one c
 
 Goal: make the store safer to cite and easier to trust.
 
-- Add shipping/delivery information page if policies are stable.
-- Add contact/support page if it can contain richer contact details.
-- Add concise ordering guide page.
+- Done: add shipping/delivery information page.
+- Done: add contact/support page with official contact methods.
+- Done: add concise ordering guide page.
 - Keep return policy indexed and linked.
 
 ## Level 5: Measurement and iteration

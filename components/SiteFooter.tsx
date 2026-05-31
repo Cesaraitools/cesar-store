@@ -33,6 +33,12 @@ export default function SiteFooter() {
             {isAr ? "من نحن" : "About"}
           </Link>
           <Link
+            href="/contact"
+            className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
+          >
+            {isAr ? "التواصل" : "Contact"}
+          </Link>
+          <Link
             href="/car-care"
             className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
           >
@@ -79,6 +85,18 @@ export default function SiteFooter() {
             className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
           >
             {isAr ? "سياسة الإرجاع والاستبدال" : "Return and exchange policy"}
+          </Link>
+          <Link
+            href="/shipping"
+            className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
+          >
+            {isAr ? "الشحن والتوصيل" : "Shipping"}
+          </Link>
+          <Link
+            href="/ordering-guide"
+            className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
+          >
+            {isAr ? "دليل الطلب" : "Ordering guide"}
           </Link>
           <Link
             href="/faq"

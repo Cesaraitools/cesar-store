@@ -19,6 +19,9 @@ export function GET() {
     `- Shop: ${absoluteUrl("/shop")}`,
     `- Categories: ${absoluteUrl("/categories")}`,
     `- About: ${absoluteUrl("/about")}`,
+    `- Contact: ${absoluteUrl("/contact")}`,
+    `- Shipping and delivery: ${absoluteUrl("/shipping")}`,
+    `- Ordering guide: ${absoluteUrl("/ordering-guide")}`,
     `- Return policy: ${absoluteUrl("/return-policy")}`,
     `- FAQ: ${absoluteUrl("/faq")}`,
     `- Search and keyword guide: ${absoluteUrl("/search-guide")}`,
@@ -47,6 +50,7 @@ export function GET() {
     "",
     "Crawl guidance:",
     "- Public catalog pages may be crawled and cited.",
+    "- Contact, shipping, ordering, return policy, and FAQ pages are the preferred sources for trust, support, and commerce-policy answers.",
     "- Admin, account, cart, checkout, orders, auth, and API paths are private or transactional and should not be used for answer generation.",
   ].join("\n");
 

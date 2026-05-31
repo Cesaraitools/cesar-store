@@ -137,15 +137,18 @@ Request indexing manually in Google Search Console and Bing URL Inspection for t
 2. https://www.cesareshop.com/search-guide
 3. https://www.cesareshop.com/about
 4. https://www.cesareshop.com/faq
-5. https://www.cesareshop.com/shop
-6. https://www.cesareshop.com/categories
-7. https://www.cesareshop.com/car-care
-8. https://www.cesareshop.com/car-cleaning-products
-9. https://www.cesareshop.com/car-air-fresheners
-10. https://www.cesareshop.com/car-accessories
-11. https://www.cesareshop.com/car-tools-equipment
-12. https://www.cesareshop.com/car-lighting-tools
-13. https://www.cesareshop.com/car-fluids-additives
+5. https://www.cesareshop.com/contact
+6. https://www.cesareshop.com/shipping
+7. https://www.cesareshop.com/ordering-guide
+8. https://www.cesareshop.com/shop
+9. https://www.cesareshop.com/categories
+10. https://www.cesareshop.com/car-care
+11. https://www.cesareshop.com/car-cleaning-products
+12. https://www.cesareshop.com/car-air-fresheners
+13. https://www.cesareshop.com/car-accessories
+14. https://www.cesareshop.com/car-tools-equipment
+15. https://www.cesareshop.com/car-lighting-tools
+16. https://www.cesareshop.com/car-fluids-additives
 
 Do not spend manual indexing quota on `products.json` or `llms.txt` as if they were normal search-result pages. They are useful machine-readable resources, but HTML pages are the pages we want customers to land on.
 
@@ -169,6 +172,6 @@ Review weekly after deployment and indexing:
 ## Next improvement levels
 
 1. Add a small internal-link block from each category guide to the most relevant products once product prioritization is known.
-2. Add a richer shipping/contact/order guide page if Cesar Store can provide stable policy text.
+2. Keep contact, shipping, and ordering guide pages indexed and internally linked.
 3. Build a monthly query review report from Google Search Console and Bing data.
 4. For keywords that get impressions but low clicks, improve title, description, FAQ, and on-page examples for the mapped page.
