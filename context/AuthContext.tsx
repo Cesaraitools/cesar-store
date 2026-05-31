@@ -45,15 +45,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let isMounted = true;
 
     const init = async () => {
-      const { data } = await supabase.auth.getSession();
+      try {
+        const { data } = await supabase.auth.getSession();
 
-      if (!isMounted) return;
+        if (!isMounted) return;
 
-      const currentSession = data.session;
+        const currentSession = data.session;
 
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
-      setLoading(false);
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+      } catch (error) {
+        console.warn("Unable to initialize auth session", error);
+
+        if (!isMounted) return;
+
+        setSession(null);
+        setUser(null);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
     };
 
     init();

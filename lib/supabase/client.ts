@@ -1,6 +1,7 @@
 // /lib/supabase/client.ts
 
 import { createBrowserClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
  * Browser Supabase Client
@@ -8,6 +9,8 @@ import { createBrowserClient } from "@supabase/ssr";
  * - Handles cookie-based sessions correctly
  * - Used in Client Components (AuthContext, Login, etc.)
  */
+
+let browserClient: SupabaseClient | null = null;
 
 export function createClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -19,9 +22,19 @@ export function createClient() {
     );
   }
 
-  return createBrowserClient(supabaseUrl, supabaseAnonKey, {
+  if (typeof window !== "undefined" && browserClient) {
+    return browserClient;
+  }
+
+  const client = createBrowserClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       detectSessionInUrl: false,
     },
   });
+
+  if (typeof window !== "undefined") {
+    browserClient = client;
+  }
+
+  return client;
 }
