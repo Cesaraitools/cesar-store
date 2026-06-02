@@ -6,11 +6,67 @@ import { useEffect, useState } from "react";
 import { Product } from "@/types/product";
 import { useCart } from "@/context/CartContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { normalizeCategory } from "@/lib/category-normalizer";
 import { getSafeImage } from "@/lib/image-safe";
 import { getProductVariants, productHasVariants } from "@/lib/product-variants";
 
 type Props = {
   product: Product;
+};
+
+const productThemes: Record<
+  string,
+  { shell: string; media: string; price: string; button: string }
+> = {
+  "additives-fluids": {
+    shell: "hover:shadow-cyan-200/60",
+    media: "from-cyan-50 via-emerald-50 to-blue-100",
+    price: "text-cyan-700",
+    button: "bg-cyan-600 hover:bg-cyan-700",
+  },
+  detergent: {
+    shell: "hover:shadow-sky-200/60",
+    media: "from-sky-50 via-teal-50 to-slate-100",
+    price: "text-sky-700",
+    button: "bg-sky-600 hover:bg-sky-700",
+  },
+  "cars-accessories": {
+    shell: "hover:shadow-amber-200/60",
+    media: "from-amber-50 via-orange-50 to-yellow-100",
+    price: "text-amber-700",
+    button: "bg-amber-500 text-slate-950 hover:bg-amber-600",
+  },
+  "air-fresheners": {
+    shell: "hover:shadow-lime-200/60",
+    media: "from-lime-50 via-emerald-50 to-green-100",
+    price: "text-lime-700",
+    button: "bg-lime-500 text-slate-950 hover:bg-lime-600",
+  },
+  equipment: {
+    shell: "hover:shadow-violet-200/60",
+    media: "from-violet-50 via-fuchsia-50 to-slate-100",
+    price: "text-violet-700",
+    button: "bg-violet-600 hover:bg-violet-700",
+  },
+  "cars-lights": {
+    shell: "hover:shadow-rose-200/60",
+    media: "from-rose-50 via-red-50 to-slate-100",
+    price: "text-rose-700",
+    button: "bg-rose-600 hover:bg-rose-700",
+  },
+};
+
+const fallbackTheme = {
+  shell: "hover:shadow-slate-200/70",
+  media: "from-slate-50 via-blue-50 to-cyan-50",
+  price: "text-emerald-700",
+  button: "bg-slate-900 hover:bg-black",
+};
+
+const badgeStyles = {
+  new: { label: "New", className: "bg-emerald-500 text-white" },
+  sale: { label: "Sale", className: "bg-rose-500 text-white" },
+  best: { label: "Top Seller", className: "bg-amber-400 text-slate-950" },
 };
 
 export default function ProductCard({ product }: Props) {
@@ -38,6 +94,8 @@ const isLowStock = displayStock > 0 && displayStock <= threshold;
   const description =
     lang === "ar" ? product.description.ar : product.description.en;
   const imageSrc = getSafeImage(product.images?.[0]);
+  const theme = productThemes[normalizeCategory(product.category)] ?? fallbackTheme;
+  const badge = product.badge ? badgeStyles[product.badge] : null;
 
   useEffect(() => {
     if (!isImageOpen) return;
@@ -71,17 +129,30 @@ const isLowStock = displayStock > 0 && displayStock <= threshold;
   };
 
   return (
-    <div className="border border-gray-100 rounded-2xl sm:rounded-[2.5rem] bg-white shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col h-[360px] sm:h-[500px] lg:h-[520px] overflow-hidden">
+    <div
+      className={`group relative flex h-[390px] flex-col overflow-hidden rounded-[1.6rem] border border-slate-100 bg-white shadow-md shadow-slate-200/55 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl sm:h-[510px] lg:h-[530px] ${theme.shell}`}
+    >
+      {badge && (
+        <div
+          className={`absolute left-3 top-3 z-10 rounded-full px-3 py-1 text-[10px] font-black shadow-lg shadow-black/10 sm:text-xs ${badge.className}`}
+        >
+          {badge.label}
+        </div>
+      )}
       <button
         type="button"
         onClick={() => setIsImageOpen(true)}
-        className="h-[150px] sm:h-[220px] lg:h-[240px] bg-gray-100 flex items-center justify-center rounded-t-2xl overflow-hidden cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+        className="relative m-3 mb-1 flex h-[160px] cursor-zoom-in items-center justify-center overflow-hidden rounded-[1.25rem] bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 sm:m-4 sm:h-[230px] lg:h-[245px]"
         aria-label={lang === "ar" ? `عرض صورة ${name}` : `View ${name} image`}
       >
+        <span
+          className={`absolute h-[124px] w-[124px] rounded-full bg-gradient-to-br ${theme.media} shadow-inner shadow-white/80 transition duration-500 group-hover:scale-105 sm:h-[188px] sm:w-[188px] lg:h-[204px] lg:w-[204px]`}
+          aria-hidden="true"
+        />
         <img
           src={imageSrc}
           alt={name}
-          className="h-full w-full object-cover"
+          className="relative z-10 h-[132px] w-[132px] object-contain p-3 mix-blend-multiply transition duration-500 group-hover:scale-105 sm:h-[204px] sm:w-[204px] sm:p-5 lg:h-[220px] lg:w-[220px]"
           onError={(e) => {
             (e.currentTarget as HTMLImageElement).src = "/placeholder.png";
           }}
@@ -117,17 +188,19 @@ const isLowStock = displayStock > 0 && displayStock <= threshold;
         </div>
       )}
 
-      <div className="flex flex-col flex-1 p-3 sm:p-4 gap-1.5 sm:gap-2">
+      <div className="flex flex-1 flex-col gap-1.5 p-3 pt-2 sm:gap-2 sm:p-4 sm:pt-2">
         <Link href={`/product/${product.id}`}>
-          <h3 className="font-bold text-[13px] sm:text-base text-gray-900 leading-snug line-clamp-2 min-h-[2.2rem] sm:min-h-0">
+          <h3 className="min-h-[2.2rem] text-[13px] font-black leading-snug text-slate-950 line-clamp-2 transition group-hover:text-slate-700 sm:min-h-0 sm:text-base">
             {name}
           </h3>
         </Link>
 
-        <p className="text-[11px] sm:text-sm text-gray-400 line-clamp-2 text-ellipsis overflow-hidden">{description}</p>
+        <p className="overflow-hidden text-ellipsis text-[11px] font-semibold leading-relaxed text-slate-400 line-clamp-2 sm:text-sm">
+          {description}
+        </p>
 
         <div className="mt-auto">
-          <p className="text-green-600 font-bold text-sm sm:text-base mb-1 sm:mb-2">
+          <p className={`mb-1 text-sm font-black sm:mb-2 sm:text-base ${theme.price}`}>
             {product.price} جنيه
           </p>
 
@@ -150,7 +223,7 @@ const isLowStock = displayStock > 0 && displayStock <= threshold;
           {hasVariants ? (
             <Link
               href={`/product/${product.id}`}
-              className="block w-full bg-black text-center text-white py-2 text-[12px] sm:text-sm rounded-lg hover:opacity-90 transition"
+              className={`block w-full rounded-xl py-2.5 text-center text-[12px] font-black text-white shadow-lg shadow-slate-200 transition active:scale-95 sm:text-sm ${theme.button}`}
             >
               {lang === "ar" ? "اختيار المواصفات" : "Choose options"}
             </Link>
@@ -158,7 +231,7 @@ const isLowStock = displayStock > 0 && displayStock <= threshold;
             <button
               onClick={handleAddToCart}
               disabled={isAdding || isOutOfStock}
-              className="w-full bg-black text-white py-2 text-[12px] sm:text-sm rounded-lg hover:opacity-90 transition disabled:opacity-50"
+              className={`w-full rounded-xl py-2.5 text-[12px] font-black text-white shadow-lg shadow-slate-200 transition active:scale-95 disabled:bg-slate-300 disabled:text-slate-500 disabled:shadow-none sm:text-sm ${theme.button}`}
             >
               {isOutOfStock
                 ? lang === "ar"

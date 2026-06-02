@@ -16,6 +16,7 @@ import {
   PackageSearch,
   Search,
   Tag,
+  Sparkles,
 } from "lucide-react";
 
 type Category = {
@@ -277,13 +278,16 @@ export default function ShopPage({ searchParams }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-[#FCFDFF] pb-20" dir={isAr ? "rtl" : "ltr"}>
-      <div className="bg-white border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-5 sm:py-8 md:py-12">
+    <div
+      className="min-h-screen bg-[linear-gradient(135deg,#f0fbff_0%,#fbfffc_42%,#fff7ed_100%)] pb-20"
+      dir={isAr ? "rtl" : "ltr"}
+    >
+      <div className="border-b border-white/70 bg-white/72 backdrop-blur-xl">
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-10 md:py-12">
           {selectedCategory !== "all" && (
             <Link
               href="/categories"
-              className="inline-flex items-center gap-2 mb-6 text-xs font-black text-blue-600 bg-blue-50 px-4 py-2 rounded-full hover:bg-blue-100 transition-all shadow-sm shadow-blue-50"
+              className="mb-6 inline-flex items-center gap-2 rounded-full bg-blue-50 px-5 py-2.5 text-xs font-black text-blue-600 shadow-sm shadow-blue-50 transition-all hover:bg-blue-100"
             >
               {isAr ? (
                 <ArrowRight size={14} />
@@ -294,14 +298,15 @@ export default function ShopPage({ searchParams }: Props) {
             </Link>
           )}
 
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 sm:gap-6">
+          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
             <div>
-              <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-gray-900 tracking-tight">
+              <h1 className="flex items-center gap-3 text-3xl font-black text-slate-950 sm:text-4xl md:text-5xl">
                 {categoryTitle}
+                <Sparkles className="h-6 w-6 text-amber-500 sm:h-8 sm:w-8" />
               </h1>
-              <div className="flex items-center gap-2 mt-3">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <p className="text-sm font-bold text-gray-400">
+              <div className="mt-3 flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <p className="text-sm font-bold text-slate-400">
                   {finalProducts.length}{" "}
                   {isAr ? "منتج متاح في المتجر" : "products available now"}
                 </p>
@@ -311,30 +316,30 @@ export default function ShopPage({ searchParams }: Props) {
         </div>
       </div>
 
-      <div className="sticky top-20 z-30 border-b border-gray-100 bg-white/92 backdrop-blur-md">
-        <div className="mx-auto max-w-[1500px] px-3 sm:px-6 py-3 sm:py-5">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
+      <div className="sticky top-20 z-30 border-b border-white/60 bg-white/82 shadow-[0_14px_50px_rgba(15,23,42,0.04)] backdrop-blur-xl">
+        <div className="mx-auto max-w-[1500px] px-4 py-4 sm:px-6">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
             <div className="relative">
-              <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
-                <Search size={16} />
+              <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-400">
+                <Search size={18} />
               </div>
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={isAr ? "ابحث باسم المنتج" : "Search by product name"}
-                className="w-full bg-gray-50 border-none rounded-2xl sm:rounded-[1.5rem] px-4 sm:px-6 py-3 sm:py-4 pr-10 sm:pr-12 text-xs sm:text-sm font-black text-gray-700 focus:ring-2 focus:ring-blue-600/10 transition-all hover:bg-gray-100 shadow-sm"
+                className="w-full rounded-full border border-slate-100 bg-slate-50 px-5 py-3.5 pr-12 text-xs font-bold text-slate-700 shadow-inner transition-all hover:bg-slate-100 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 sm:text-sm"
               />
             </div>
 
             <div className="relative">
-              <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
-                <Tag size={16} />
+              <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-400">
+                <Tag size={17} />
               </div>
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full appearance-none bg-gray-50 border-none rounded-2xl sm:rounded-[1.5rem] px-4 sm:px-6 py-3 sm:py-4 pr-10 sm:pr-12 text-xs sm:text-sm font-black text-gray-700 focus:ring-2 focus:ring-blue-600/10 cursor-pointer transition-all hover:bg-gray-100 shadow-sm"
+                className="w-full cursor-pointer appearance-none rounded-full border border-slate-100 bg-slate-50 px-5 py-3.5 pr-12 text-xs font-bold text-slate-700 shadow-inner transition-all hover:bg-slate-100 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 sm:text-sm"
               >
                 <option value="all">
                   {isAr ? "كل الأقسام" : "All Categories"}
@@ -348,13 +353,13 @@ export default function ShopPage({ searchParams }: Props) {
             </div>
 
             <div className="relative">
-              <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
-                <SlidersHorizontal size={16} />
+              <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-400">
+                <SlidersHorizontal size={17} />
               </div>
               <select
                 value={sort}
                 onChange={(e) => setSort(e.target.value as SortOption)}
-                className="w-full appearance-none bg-gray-50 border-none rounded-2xl sm:rounded-[1.5rem] px-4 sm:px-6 py-3 sm:py-4 pr-10 sm:pr-12 text-xs sm:text-sm font-black text-gray-700 focus:ring-2 focus:ring-blue-600/10 cursor-pointer transition-all hover:bg-gray-100 shadow-sm"
+                className="w-full cursor-pointer appearance-none rounded-full border border-slate-100 bg-slate-50 px-5 py-3.5 pr-12 text-xs font-bold text-slate-700 shadow-inner transition-all hover:bg-slate-100 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 sm:text-sm"
               >
                 <option value="default">
                   {isAr ? "الترتيب الافتراضي" : "Default Sorting"}
@@ -378,7 +383,7 @@ export default function ShopPage({ searchParams }: Props) {
                   setSearchQuery("");
                   setSelectedCategory("all");
                 }}
-                className="rounded-full border border-gray-200 px-4 py-2 text-xs font-black text-gray-600 hover:bg-gray-50 md:self-center"
+                className="rounded-full border-2 border-dashed border-rose-200 bg-rose-50/70 px-6 py-2 text-xs font-black text-rose-500 transition-all hover:border-rose-300 hover:bg-rose-50 md:self-center"
               >
                 {isAr ? "مسح الفلاتر" : "Clear filters"}
               </button>
@@ -387,28 +392,28 @@ export default function ShopPage({ searchParams }: Props) {
         </div>
       </div>
 
-      <div className="mx-auto mt-5 sm:mt-12 max-w-[1820px] px-3 sm:px-6">
-        <div className="grid justify-center gap-6 xl:grid-cols-[220px_minmax(0,1fr)_220px] 2xl:grid-cols-[240px_minmax(0,1200px)_240px] items-start">
-          <div className="order-1">
+      <div className="mx-auto mt-8 max-w-[1820px] px-4 sm:mt-12 sm:px-6">
+        <div className="grid items-start justify-center gap-8 xl:grid-cols-[220px_minmax(0,1fr)_220px] 2xl:grid-cols-[240px_minmax(0,1200px)_240px]">
+          <div className="hidden xl:order-1 xl:block">
             {leftPromo ? (
               <ShopSidePromoSlider promo={leftPromo} lang={lang} />
             ) : (
-              <aside className="hidden xl:flex xl:sticky xl:top-32 min-h-[560px] rounded-[2.5rem] border border-dashed border-gray-200 bg-white items-center justify-center p-8 text-center text-sm font-bold text-gray-300">
+              <aside className="hidden min-h-[580px] items-center justify-center rounded-[2.5rem] border border-dashed border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-300 shadow-sm xl:sticky xl:top-40 xl:flex">
                 {isAr ? "مكان بلوك العرض الترويجي الأيسر" : "Left promo block"}
               </aside>
             )}
           </div>
 
-          <div className="order-3 xl:order-2 mx-auto w-full max-w-[1200px]">
+          <div className="order-1 mx-auto w-full max-w-[1200px] xl:order-2">
             {finalProducts.length === 0 ? (
-              <div className="bg-white rounded-[3rem] border border-dashed border-gray-200 py-24 flex flex-col items-center justify-center text-center">
-                <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6">
-                  <PackageSearch size={40} className="text-gray-300" />
+              <div className="flex flex-col items-center justify-center rounded-[2.5rem] border border-dashed border-slate-200 bg-white py-24 text-center shadow-sm">
+                <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-slate-50 shadow-inner">
+                  <PackageSearch size={40} className="text-slate-300" />
                 </div>
-                <h3 className="text-xl font-black text-gray-900 mb-2">
+                <h3 className="mb-2 text-xl font-black text-slate-900">
                   {isAr ? "لم نجد أي منتجات هنا" : "No products found"}
                 </h3>
-                <p className="text-gray-400 max-w-xs mx-auto text-sm font-bold">
+                <p className="mx-auto max-w-xs text-sm font-bold text-slate-400">
                   {isAr
                     ? "جرّب اسم منتج آخر أو اختر قسمًا مختلفًا."
                     : "Try another product name or a different category."}
@@ -420,23 +425,23 @@ export default function ShopPage({ searchParams }: Props) {
                     setSelectedCategory("all");
                     setSort("default");
                   }}
-                  className="mt-8 bg-gray-900 text-white px-8 py-3 rounded-2xl font-black text-sm active:scale-95 transition-all"
+                  className="mt-8 rounded-full bg-slate-900 px-8 py-3.5 text-sm font-black text-white shadow-md transition-all hover:bg-slate-800 active:scale-95"
                 >
                   {isAr ? "عرض كل المنتجات" : "View All Products"}
                 </button>
               </div>
             ) : (
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+              <div className="animate-in fade-in slide-in-from-bottom-6 duration-700">
                 <ProductGrid products={finalProducts} />
               </div>
             )}
           </div>
 
-          <div className="order-2 xl:order-3">
+          <div className="hidden xl:order-3 xl:block">
             {rightPromo ? (
               <ShopSidePromoSlider promo={rightPromo} lang={lang} />
             ) : (
-              <aside className="hidden xl:flex xl:sticky xl:top-32 min-h-[560px] rounded-[2.5rem] border border-dashed border-gray-200 bg-white items-center justify-center p-8 text-center text-sm font-bold text-gray-300">
+              <aside className="hidden min-h-[580px] items-center justify-center rounded-[2.5rem] border border-dashed border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-300 shadow-sm xl:sticky xl:top-40 xl:flex">
                 {isAr ? "مكان بلوك العرض الترويجي الأيمن" : "Right promo block"}
               </aside>
             )}
