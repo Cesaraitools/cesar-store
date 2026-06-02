@@ -129,9 +129,10 @@ const isLowStock = displayStock > 0 && displayStock <= threshold;
   };
 
   return (
-    <div
-      className={`group relative flex h-[390px] flex-col overflow-hidden rounded-[1.6rem] border border-slate-100 bg-white shadow-md shadow-slate-200/55 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl sm:h-[510px] lg:h-[530px] ${theme.shell}`}
-    >
+    <>
+      <div
+        className={`group relative flex h-[390px] flex-col overflow-hidden rounded-[1.6rem] border border-slate-100 bg-white shadow-md shadow-slate-200/55 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl sm:h-[510px] lg:h-[530px] ${theme.shell}`}
+      >
       {badge && (
         <div
           className={`absolute left-3 top-3 z-10 rounded-full px-3 py-1 text-[10px] font-black shadow-lg shadow-black/10 sm:text-xs ${badge.className}`}
@@ -158,35 +159,6 @@ const isLowStock = displayStock > 0 && displayStock <= threshold;
           }}
         />
       </button>
-
-      {isImageOpen && (
-        <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label={lang === "ar" ? `صورة ${name}` : `${name} image`}
-          onClick={() => setIsImageOpen(false)}
-        >
-          <button
-            type="button"
-            onClick={() => setIsImageOpen(false)}
-            className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-900 shadow-lg transition hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-            aria-label={lang === "ar" ? "إغلاق الصورة" : "Close image"}
-          >
-            <X className="h-5 w-5" aria-hidden="true" />
-          </button>
-
-          <img
-            src={imageSrc}
-            alt={name}
-            className="max-h-[92vh] max-w-[94vw] rounded-lg object-contain shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-            onError={(e) => {
-              (e.currentTarget as HTMLImageElement).src = "/placeholder.png";
-            }}
-          />
-        </div>
-      )}
 
       <div className="flex flex-1 flex-col gap-1.5 p-3 pt-2 sm:gap-2 sm:p-4 sm:pt-2">
         <Link href={`/product/${product.id}`}>
@@ -248,6 +220,36 @@ const isLowStock = displayStock > 0 && displayStock <= threshold;
           )}
         </div>
       </div>
-    </div>
+      </div>
+
+      {isImageOpen && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label={lang === "ar" ? `صورة ${name}` : `${name} image`}
+          onClick={() => setIsImageOpen(false)}
+        >
+          <button
+            type="button"
+            onClick={() => setIsImageOpen(false)}
+            className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-900 shadow-lg transition hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            aria-label={lang === "ar" ? "إغلاق الصورة" : "Close image"}
+          >
+            <X className="h-5 w-5" aria-hidden="true" />
+          </button>
+
+          <img
+            src={imageSrc}
+            alt={name}
+            className="max-h-[92vh] max-w-[94vw] rounded-lg object-contain shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src = "/placeholder.png";
+            }}
+          />
+        </div>
+      )}
+    </>
   );
 }
