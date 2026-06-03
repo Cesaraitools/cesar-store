@@ -46,6 +46,31 @@ const supabase = createClient(
   { auth: { persistSession: false } }
 );
 
+function getItemVariantText(item: any) {
+  const variant = item?.variant || item?.variant_snapshot || null;
+  if (!variant || typeof variant !== "object") return "";
+
+  const labelAr = typeof variant.label_ar === "string" ? variant.label_ar.trim() : "";
+  const labelEn = typeof variant.label_en === "string" ? variant.label_en.trim() : "";
+  if (labelAr || labelEn) return labelAr || labelEn;
+
+  if (!Array.isArray(variant.selected_options)) return "";
+
+  return variant.selected_options
+    .map((option: any) => {
+      const optionName =
+        (typeof option?.option_name_ar === "string" && option.option_name_ar.trim()) ||
+        (typeof option?.option_name_en === "string" && option.option_name_en.trim());
+      const value =
+        (typeof option?.value_ar === "string" && option.value_ar.trim()) ||
+        (typeof option?.value_en === "string" && option.value_en.trim());
+
+      return optionName && value ? `${optionName}: ${value}` : "";
+    })
+    .filter(Boolean)
+    .join(" - ");
+}
+
 /* ================= Styles ================= */
 const styles = StyleSheet.create({
   page: {
@@ -98,6 +123,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   colDescription: { width: "50%", textAlign: "left" },
+  itemVariant: {
+    marginTop: 3,
+    color: "#64748B",
+    fontSize: 8,
+  },
   colQty: { width: "15%", textAlign: "center" },
   colPrice: { width: "15%", textAlign: "right" },
   colAmount: { width: "20%", textAlign: "right" },
@@ -159,6 +189,7 @@ try {
 ].find((v) => typeof v === "string" && v.trim().length > 0) || "—",
   price: Number(item?.price || 0),
   quantity: Number(item?.quantity || 0),
+  variantText: getItemVariantText(item),
 }));
   /* ===================================================== */
 
@@ -221,7 +252,14 @@ try {
           React.createElement(
   View,
   { style: styles.tableRow },
-  React.createElement(Text, { style: styles.colDescription }, smartText(item.name)),
+  React.createElement(
+    View,
+    { style: styles.colDescription },
+    React.createElement(Text, null, smartText(item.name)),
+    item.variantText
+      ? React.createElement(Text, { style: styles.itemVariant }, smartText(item.variantText))
+      : null
+  ),
   React.createElement(Text, { style: styles.colQty }, String(item.quantity)),
   React.createElement(Text, { style: styles.colPrice }, `${item.price}`),
   React.createElement(Text, { style: styles.colAmount }, `${(item.price * item.quantity).toFixed(2)}`)

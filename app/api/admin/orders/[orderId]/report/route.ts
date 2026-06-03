@@ -82,6 +82,31 @@ function getItemName(item: any) {
   );
 }
 
+function getItemVariantText(item: any) {
+  const variant = item?.variant || item?.variant_snapshot || null;
+  if (!variant || typeof variant !== "object") return "";
+
+  const labelAr = typeof variant.label_ar === "string" ? variant.label_ar.trim() : "";
+  const labelEn = typeof variant.label_en === "string" ? variant.label_en.trim() : "";
+  if (labelAr || labelEn) return labelAr || labelEn;
+
+  if (!Array.isArray(variant.selected_options)) return "";
+
+  return variant.selected_options
+    .map((option: any) => {
+      const optionName =
+        (typeof option?.option_name_ar === "string" && option.option_name_ar.trim()) ||
+        (typeof option?.option_name_en === "string" && option.option_name_en.trim());
+      const value =
+        (typeof option?.value_ar === "string" && option.value_ar.trim()) ||
+        (typeof option?.value_en === "string" && option.value_en.trim());
+
+      return optionName && value ? `${optionName}: ${value}` : "";
+    })
+    .filter(Boolean)
+    .join(" - ");
+}
+
 const styles = StyleSheet.create({
   page: {
     padding: 36,
@@ -170,6 +195,16 @@ const styles = StyleSheet.create({
   colName: {
     width: "46%",
     padding: 8,
+    textAlign: "right",
+  },
+  colNameStack: {
+    width: "46%",
+    padding: 8,
+  },
+  itemVariant: {
+    marginTop: 3,
+    color: "#475569",
+    fontSize: 8,
     textAlign: "right",
   },
   colQty: {
@@ -298,10 +333,18 @@ export async function GET(
           ...items.map((item: any, index: number) => {
             const price = Number(item?.price || 0);
             const quantity = Number(item?.quantity || 0);
+            const variantText = getItemVariantText(item);
             return React.createElement(
               View,
               { key: `${index}-${getItemName(item)}`, style: styles.row },
-              React.createElement(Text, { style: styles.colName }, smartText(getItemName(item))),
+              React.createElement(
+                View,
+                { style: styles.colNameStack },
+                React.createElement(Text, { style: { textAlign: "right" } }, smartText(getItemName(item))),
+                variantText
+                  ? React.createElement(Text, { style: styles.itemVariant }, smartText(variantText))
+                  : null
+              ),
               React.createElement(Text, { style: styles.colQty }, String(quantity)),
               React.createElement(Text, { style: styles.colPrice }, `${price} ${order.currency || "EGP"}`),
               React.createElement(Text, { style: styles.colTotal }, `${price * quantity} ${order.currency || "EGP"}`)
