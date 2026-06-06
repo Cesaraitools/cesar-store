@@ -104,6 +104,21 @@ function extractFeedChanges(body: any): MetaFeedChange[] {
   );
 }
 
+function summarizeWebhookBody(body: any, eventsCount: number, feedChangesCount: number) {
+  return {
+    object: typeof body?.object === "string" ? body.object : "unknown",
+    entriesCount: Array.isArray(body?.entry) ? body.entry.length : 0,
+    messagingEventsCount: eventsCount,
+    feedChangesCount,
+    changeFields: Array.isArray(body?.entry)
+      ? body.entry
+          .flatMap((entry: any) => (Array.isArray(entry?.changes) ? entry.changes : []))
+          .map((change: any) => change?.field)
+          .filter(Boolean)
+      : [],
+  };
+}
+
 function normalizeEvent(event: MetaMessagingEvent) {
   const messageText =
     typeof event.message?.text === "string" ? event.message.text.trim() : "";
@@ -490,6 +505,11 @@ export async function POST(request: Request) {
     const events = extractMessagingEvents(body);
     const feedChanges = extractFeedChanges(body);
 
+    console.info(
+      "META WEBHOOK POST RECEIVED:",
+      summarizeWebhookBody(body, events.length, feedChanges.length)
+    );
+
     for (const event of events) {
       try {
         await processEvent(event, request);
@@ -500,7 +520,8 @@ export async function POST(request: Request) {
 
     for (const change of feedChanges) {
       try {
-        await processCommentChange(change, request);
+        const result = await processCommentChange(change, request);
+        console.info("META WEBHOOK COMMENT RESULT:", result);
       } catch (error) {
         console.error("META WEBHOOK COMMENT ERROR:", error);
       }
