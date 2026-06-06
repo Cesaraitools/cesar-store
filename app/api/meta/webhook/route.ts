@@ -70,10 +70,6 @@ function verifyMetaSignature(request: Request, rawBody: string) {
   );
 }
 
-function detectLanguage(text: string) {
-  return /[\u0600-\u06ff]/.test(text) ? "ar" : "en";
-}
-
 function extractMessagingEvents(body: any): MetaMessagingEvent[] {
   if (body?.object !== "page" || !Array.isArray(body.entry)) return [];
 
@@ -114,7 +110,6 @@ function normalizeEvent(event: MetaMessagingEvent) {
     recipientId,
     messageId,
     messageText,
-    lang: detectLanguage(messageText),
   };
 }
 
@@ -207,7 +202,7 @@ async function processEvent(event: MetaMessagingEvent, request: Request) {
 
   const result = await searchAutomationProducts({
     query: normalized.messageText,
-    requestedLanguage: normalized.lang,
+    requestedLanguage: "ar",
     limit: 3,
     baseUrl: getBaseUrl(request),
   });
