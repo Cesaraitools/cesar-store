@@ -46,6 +46,8 @@ export type AutomationProductSearchResult = {
   meta: {
     source: "cesar-store";
     count: number;
+    bestScore: number;
+    confidence: "high" | "medium" | "low";
     generatedAt: string;
   };
 };
@@ -190,6 +192,13 @@ export function buildAutomationSuggestedReply(
     : `${first.name} is available for EGP ${first.price}. You can view it and complete your order here: ${first.productUrl}`;
 }
 
+function getSearchConfidence(bestScore: number): "high" | "medium" | "low" {
+  if (bestScore >= 10) return "high";
+  if (bestScore >= 6) return "medium";
+
+  return "low";
+}
+
 export async function searchAutomationProducts(input: {
   query: string;
   requestedLanguage?: string | null;
@@ -210,6 +219,8 @@ export async function searchAutomationProducts(input: {
       meta: {
         source: "cesar-store",
         count: 0,
+        bestScore: 0,
+        confidence: "low",
         generatedAt: new Date().toISOString(),
       },
     };
@@ -231,7 +242,7 @@ export async function searchAutomationProducts(input: {
     throw error;
   }
 
-  const products = ((data || []) as ProductRow[])
+  const scoredProducts = ((data || []) as ProductRow[])
     .map((product) => ({
       product,
       score: scoreProduct(product, query, tokens),
@@ -241,7 +252,9 @@ export async function searchAutomationProducts(input: {
       if (b.score !== a.score) return b.score - a.score;
 
       return Number(b.product.stock || 0) - Number(a.product.stock || 0);
-    })
+    });
+  const bestScore = scoredProducts[0]?.score || 0;
+  const products = scoredProducts
     .slice(0, limit)
     .map((item) => toAutomationProduct(item.product, language, input.baseUrl));
 
@@ -254,6 +267,8 @@ export async function searchAutomationProducts(input: {
     meta: {
       source: "cesar-store",
       count: products.length,
+      bestScore,
+      confidence: getSearchConfidence(bestScore),
       generatedAt: new Date().toISOString(),
     },
   };

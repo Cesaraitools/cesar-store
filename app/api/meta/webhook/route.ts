@@ -16,6 +16,22 @@ type MetaMessagingEvent = {
   };
 };
 
+type MetaFeedChange = {
+  field?: string;
+  value?: {
+    item?: string;
+    verb?: string;
+    comment_id?: string;
+    post_id?: string;
+    parent_id?: string;
+    sender_id?: string;
+    from?: { id?: string; name?: string };
+    message?: string;
+    created_time?: number;
+    permalink_url?: string;
+  };
+};
+
 function textResponse(body: string, init?: ResponseInit) {
   const headers = new Headers(init?.headers);
   headers.set("Cache-Control", "no-store");
@@ -78,6 +94,16 @@ function extractMessagingEvents(body: any): MetaMessagingEvent[] {
   );
 }
 
+function extractFeedChanges(body: any): MetaFeedChange[] {
+  if (body?.object !== "page" || !Array.isArray(body.entry)) return [];
+
+  return body.entry.flatMap((entry: any) =>
+    Array.isArray(entry?.changes)
+      ? entry.changes.filter((change: MetaFeedChange) => change?.field === "feed")
+      : []
+  );
+}
+
 function normalizeEvent(event: MetaMessagingEvent) {
   const messageText =
     typeof event.message?.text === "string" ? event.message.text.trim() : "";
@@ -113,6 +139,48 @@ function normalizeEvent(event: MetaMessagingEvent) {
   };
 }
 
+function normalizeCommentChange(change: MetaFeedChange) {
+  const value = change.value || {};
+  const messageText = typeof value.message === "string" ? value.message.trim() : "";
+  const actorId = value.from?.id || value.sender_id || "";
+  const pageId = getPageId();
+  const commentId = value.comment_id || "";
+  const postId = value.post_id || value.parent_id || "";
+  const eventId =
+    commentId || `${postId}:${value.created_time || ""}:${messageText.slice(0, 80)}`;
+
+  if (value.item !== "comment") {
+    return { shouldProcess: false, reason: "not_a_comment" };
+  }
+
+  if (value.verb && value.verb !== "add") {
+    return { shouldProcess: false, reason: "unsupported_comment_verb" };
+  }
+
+  if (!commentId || !postId) {
+    return { shouldProcess: false, reason: "missing_comment_or_post_id" };
+  }
+
+  if (!messageText) {
+    return { shouldProcess: false, reason: "empty_comment" };
+  }
+
+  if (pageId && actorId === pageId) {
+    return { shouldProcess: false, reason: "page_comment" };
+  }
+
+  return {
+    shouldProcess: true,
+    reason: "ok",
+    actorId,
+    commentId,
+    postId,
+    eventId,
+    messageText,
+    permalinkUrl: value.permalink_url || "",
+  };
+}
+
 async function markMessageSeen(messageId: string) {
   try {
     const redis = getRedis();
@@ -124,6 +192,21 @@ async function markMessageSeen(messageId: string) {
     return result !== null;
   } catch (error) {
     console.warn("META WEBHOOK DEDUPE FAIL-OPEN:", error);
+    return true;
+  }
+}
+
+async function markCommentSeen(eventId: string) {
+  try {
+    const redis = getRedis();
+    const result = await redis.set(`meta:comment:seen:${eventId}`, "1", {
+      nx: true,
+      ex: 7 * 24 * 60 * 60,
+    });
+
+    return result !== null;
+  } catch (error) {
+    console.warn("META COMMENT DEDUPE FAIL-OPEN:", error);
     return true;
   }
 }
@@ -150,6 +233,39 @@ async function checkRateLimit(senderId: string) {
     console.warn("META WEBHOOK RATE LIMIT FAIL-OPEN:", error);
     return { ok: true, senderCount: 0, pageCount: 0, checkedAt: Date.now() };
   }
+}
+
+async function checkCommentRateLimit(postId: string) {
+  try {
+    const redis = getRedis();
+    const postKey = `meta:comment:rate:post:${postId}`;
+    const pageKey = "meta:comment:rate:page";
+    const postCount = await redis.incr(postKey);
+    const pageCount = await redis.incr(pageKey);
+
+    if (postCount === 1) await redis.pexpire(postKey, 10 * 60 * 1000);
+    if (pageCount === 1) await redis.pexpire(pageKey, 60 * 1000);
+
+    return {
+      ok: postCount <= 5 && pageCount <= 20,
+      postCount,
+      pageCount,
+      checkedAt: Date.now(),
+    };
+  } catch (error) {
+    console.warn("META COMMENT RATE LIMIT FAIL-OPEN:", error);
+    return { ok: true, postCount: 0, pageCount: 0, checkedAt: Date.now() };
+  }
+}
+
+function isCommentAutoReplyEnabled() {
+  return /^(1|true|yes)$/i.test(process.env.META_COMMENTS_AUTO_REPLY || "");
+}
+
+function getCommentMinimumScore() {
+  const value = Number(process.env.META_COMMENTS_MIN_SCORE || 10);
+
+  return Number.isFinite(value) ? Math.max(value, 1) : 10;
 }
 
 async function sendFacebookMessage(recipientId: string, text: string) {
@@ -184,6 +300,61 @@ async function sendFacebookMessage(recipientId: string, text: string) {
   return { ok: true, status: response.status };
 }
 
+async function sendFacebookCommentReply(commentId: string, text: string) {
+  const pageAccessToken = getPageAccessToken();
+
+  if (!pageAccessToken) {
+    console.warn("META COMMENT SKIPPED SEND: META_PAGE_ACCESS_TOKEN is missing");
+    return { ok: false, skipped: true, status: 503 };
+  }
+
+  const response = await fetch(
+    `https://graph.facebook.com/${getGraphApiVersion()}/${commentId}/comments`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${pageAccessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: text.slice(0, 1900),
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const responseText = await response.text();
+    throw new Error(
+      `Meta comment reply failed ${response.status}: ${responseText.slice(0, 500)}`
+    );
+  }
+
+  return { ok: true, status: response.status };
+}
+
+async function recordCommentHandoff(input: {
+  reason: string;
+  commentId: string;
+  postId: string;
+  messageText: string;
+  permalinkUrl: string;
+}) {
+  const handoff = {
+    ...input,
+    createdAt: new Date().toISOString(),
+  };
+
+  console.warn("META COMMENT HUMAN HANDOFF:", handoff);
+
+  try {
+    const redis = getRedis();
+    await redis.lpush("meta:comment:handoffs", JSON.stringify(handoff));
+    await redis.ltrim("meta:comment:handoffs", 0, 99);
+  } catch (error) {
+    console.warn("META COMMENT HANDOFF STORE FAILED:", error);
+  }
+}
+
 async function processEvent(event: MetaMessagingEvent, request: Request) {
   const normalized = normalizeEvent(event);
 
@@ -216,6 +387,84 @@ async function processEvent(event: MetaMessagingEvent, request: Request) {
   };
 }
 
+async function processCommentChange(change: MetaFeedChange, request: Request) {
+  const normalized = normalizeCommentChange(change);
+
+  if (!normalized.shouldProcess) {
+    return { processed: false, reason: normalized.reason };
+  }
+
+  if (!(await markCommentSeen(normalized.eventId))) {
+    return { processed: false, reason: "duplicate_comment" };
+  }
+
+  const rate = await checkCommentRateLimit(normalized.postId);
+  if (!rate.ok) {
+    await recordCommentHandoff({
+      reason: "rate_limited",
+      commentId: normalized.commentId,
+      postId: normalized.postId,
+      messageText: normalized.messageText,
+      permalinkUrl: normalized.permalinkUrl,
+    });
+
+    return { processed: false, reason: "rate_limited" };
+  }
+
+  const result = await searchAutomationProducts({
+    query: normalized.messageText,
+    requestedLanguage: "ar",
+    limit: 3,
+    baseUrl: getBaseUrl(request),
+  });
+
+  if (!isCommentAutoReplyEnabled()) {
+    await recordCommentHandoff({
+      reason: "comment_auto_reply_disabled",
+      commentId: normalized.commentId,
+      postId: normalized.postId,
+      messageText: normalized.messageText,
+      permalinkUrl: normalized.permalinkUrl,
+    });
+
+    return {
+      processed: false,
+      reason: "comment_auto_reply_disabled",
+      productsCount: result.products.length,
+      bestScore: result.meta.bestScore,
+    };
+  }
+
+  if (!result.products.length || result.meta.bestScore < getCommentMinimumScore()) {
+    await recordCommentHandoff({
+      reason: "low_confidence_product_match",
+      commentId: normalized.commentId,
+      postId: normalized.postId,
+      messageText: normalized.messageText,
+      permalinkUrl: normalized.permalinkUrl,
+    });
+
+    return {
+      processed: false,
+      reason: "low_confidence_product_match",
+      productsCount: result.products.length,
+      bestScore: result.meta.bestScore,
+    };
+  }
+
+  await sendFacebookCommentReply(
+    normalized.commentId,
+    `${result.suggestedReply}\n\nلو تحب تفاصيل أكتر ابعتلنا رسالة.`
+  );
+
+  return {
+    processed: true,
+    reason: "comment_reply_sent",
+    productsCount: result.products.length,
+    bestScore: result.meta.bestScore,
+  };
+}
+
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const mode = requestUrl.searchParams.get("hub.mode") || "";
@@ -239,12 +488,21 @@ export async function POST(request: Request) {
   try {
     const body = rawBody.trim() ? JSON.parse(rawBody) : {};
     const events = extractMessagingEvents(body);
+    const feedChanges = extractFeedChanges(body);
 
     for (const event of events) {
       try {
         await processEvent(event, request);
       } catch (error) {
         console.error("META WEBHOOK EVENT ERROR:", error);
+      }
+    }
+
+    for (const change of feedChanges) {
+      try {
+        await processCommentChange(change, request);
+      } catch (error) {
+        console.error("META WEBHOOK COMMENT ERROR:", error);
       }
     }
 
