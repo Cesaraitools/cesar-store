@@ -25,6 +25,7 @@ META_APP_SECRET=<Meta app secret, optional but recommended>
 META_GRAPH_API_VERSION=v20.0
 META_COMMENTS_AUTO_REPLY=false
 META_COMMENTS_MIN_SCORE=10
+META_COMMENTS_ALLOWED_POST_IDS=
 ```
 
 The endpoint:
@@ -46,6 +47,9 @@ Comment automation safety:
 - If enabled, the endpoint only replies to comments when the catalog search has
   at least one product and `meta.bestScore` is greater than or equal to
   `META_COMMENTS_MIN_SCORE`.
+- To limit auto replies to controlled test posts, set
+  `META_COMMENTS_ALLOWED_POST_IDS` to one or more comma-separated Facebook post
+  ids. Leave it empty to allow all posts once the automation is ready.
 - Ambiguous comments, rate-limited posts, and comments with no confident product
   match are sent to human handoff instead of receiving an automatic public
   reply.

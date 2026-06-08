@@ -283,6 +283,19 @@ function getCommentMinimumScore() {
   return Number.isFinite(value) ? Math.max(value, 1) : 10;
 }
 
+function getAllowedCommentPostIds() {
+  return (process.env.META_COMMENTS_ALLOWED_POST_IDS || "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
+}
+
+function isCommentPostAllowed(postId: string) {
+  const allowedPostIds = getAllowedCommentPostIds();
+
+  return !allowedPostIds.length || allowedPostIds.includes(postId);
+}
+
 async function sendFacebookMessage(recipientId: string, text: string) {
   const pageAccessToken = getPageAccessToken();
 
@@ -424,6 +437,18 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     });
 
     return { processed: false, reason: "rate_limited" };
+  }
+
+  if (!isCommentPostAllowed(normalized.postId)) {
+    await recordCommentHandoff({
+      reason: "comment_post_not_allowed",
+      commentId: normalized.commentId,
+      postId: normalized.postId,
+      messageText: normalized.messageText,
+      permalinkUrl: normalized.permalinkUrl,
+    });
+
+    return { processed: false, reason: "comment_post_not_allowed" };
   }
 
   const result = await searchAutomationProducts({
