@@ -87,6 +87,18 @@ export default function SiteFooter() {
             {isAr ? "سياسة الإرجاع والاستبدال" : "Return and exchange policy"}
           </Link>
           <Link
+            href="/privacy-policy"
+            className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
+          >
+            {isAr ? "سياسة الخصوصية" : "Privacy policy"}
+          </Link>
+          <Link
+            href="/data-deletion"
+            className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
+          >
+            {isAr ? "حذف البيانات" : "Data deletion"}
+          </Link>
+          <Link
             href="/shipping"
             className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
           >
