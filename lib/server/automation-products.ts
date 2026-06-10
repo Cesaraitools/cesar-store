@@ -1,8 +1,10 @@
 import { normalizeCategory } from "@/lib/category-normalizer";
 import { normalizeImagesArray } from "@/lib/image-normalizer";
+import { normalizeProductVariantOptions } from "@/lib/product-variants";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
 
 export type AutomationLanguage = "ar" | "en";
+type AutomationSearchIntent = "product" | "category" | "clarify";
 
 type ProductRow = {
   id: string;
@@ -17,6 +19,8 @@ type ProductRow = {
   category: string | null;
   is_active: boolean | null;
   low_stock_threshold: number | null;
+  variant_options_json?: unknown;
+  variants_json?: unknown;
 };
 
 export type AutomationProduct = {
@@ -35,6 +39,7 @@ export type AutomationProduct = {
   stockStatus: "in_stock" | "low_stock" | "out_of_stock";
   stock: number;
   lowStockThreshold: number;
+  variantSummary: string;
 };
 
 export type AutomationProductSearchResult = {
@@ -48,9 +53,198 @@ export type AutomationProductSearchResult = {
     count: number;
     bestScore: number;
     confidence: "high" | "medium" | "low";
+    intent: AutomationSearchIntent;
+    matchedCategory: string | null;
     generatedAt: string;
   };
 };
+
+type CategoryIntent = {
+  category: string;
+  labelAr: string;
+  labelEn: string;
+  examplesAr: string;
+  examplesEn: string;
+  variantNoteAr: string;
+  variantNoteEn: string;
+  keywords: string[];
+};
+
+const CATEGORY_INTENTS: CategoryIntent[] = [
+  {
+    category: "air-fresheners",
+    labelAr: "معطرات السيارات",
+    labelEn: "car air fresheners",
+    examplesAr: "معطرات ورق، فواحات، ومباخر بروائح مختلفة",
+    examplesEn: "hanging fresheners, diffusers, and burners in different scents",
+    variantNoteAr: "الروائح بتختلف حسب كل منتج وبراند، فافتح المنتج لاختيار الرائحة المتاحة.",
+    variantNoteEn: "Scents vary by product and brand, so open the product to choose the available scent.",
+    keywords: [
+      "معطر",
+      "معطرات",
+      "معطرات سيارات",
+      "معطر سياره",
+      "معطر سيارة",
+      "فواحه",
+      "فواحة",
+      "فواحات",
+      "مبخره",
+      "مبخرة",
+      "مباخر",
+      "رائحه",
+      "ريحة",
+      "روائح",
+      "freshener",
+      "air freshener",
+      "perfume",
+      "scent",
+    ],
+  },
+  {
+    category: "detergent",
+    labelAr: "منظفات السيارات",
+    labelEn: "car cleaning products",
+    examplesAr: "شامبو، فوم، واكس، ومنظفات داخلية وخارجية",
+    examplesEn: "shampoo, foam, wax, and interior or exterior cleaners",
+    variantNoteAr: "اختيار المنظف المناسب بيختلف حسب الاستخدام والسطح المطلوب تنظيفه.",
+    variantNoteEn: "The right cleaner depends on the surface and use case.",
+    keywords: [
+      "منظف",
+      "منظفات",
+      "تنظيف",
+      "شامبو",
+      "فوم",
+      "واكس",
+      "بولش",
+      "تلميع",
+      "تابلوه",
+      "cleaner",
+      "detergent",
+      "shampoo",
+      "foam",
+      "wax",
+      "polish",
+    ],
+  },
+  {
+    category: "cars-accessories",
+    labelAr: "إكسسوارات السيارات",
+    labelEn: "car accessories",
+    examplesAr: "باسكت، حوامل، منظمات، مخدات سفر، وإكسسوارات داخلية",
+    examplesEn: "bins, holders, organizers, travel pillows, and interior accessories",
+    variantNoteAr: "الألوان والمقاسات بتختلف حسب المنتج، فافتح المنتج لاختيار المتاح.",
+    variantNoteEn: "Colors and sizes vary by product, so open the product to choose what is available.",
+    keywords: [
+      "اكسسوار",
+      "اكسسوارات",
+      "إكسسوار",
+      "إكسسوارات",
+      "باسكت",
+      "سله",
+      "سلة",
+      "قمامه",
+      "قمامة",
+      "حامل",
+      "منظم",
+      "مخده",
+      "مخدة",
+      "رقبه",
+      "رقبة",
+      "accessory",
+      "accessories",
+      "bin",
+      "holder",
+      "organizer",
+    ],
+  },
+  {
+    category: "cars-lights",
+    labelAr: "إضاءات السيارات",
+    labelEn: "car lights",
+    examplesAr: "لمبات وليدات وإضاءات للسيارة",
+    examplesEn: "bulbs, LEDs, and car lighting kits",
+    variantNoteAr: "راجع نوع السوكت والمقاس المناسب لعربيتك قبل الطلب.",
+    variantNoteEn: "Check the socket type and fitment for your car before ordering.",
+    keywords: [
+      "لمبه",
+      "لمبة",
+      "لمبات",
+      "ليد",
+      "إضاءة",
+      "اضاءه",
+      "اضاءة",
+      "نور",
+      "كشاف",
+      "زينون",
+      "led",
+      "light",
+      "lights",
+      "bulb",
+    ],
+  },
+  {
+    category: "equipment",
+    labelAr: "عدد وأدوات السيارة",
+    labelEn: "car tools and equipment",
+    examplesAr: "كمبروسر، كابلات بطارية، واير جر، وعدد للطوارئ",
+    examplesEn: "compressors, jumper cables, tow cables, and emergency tools",
+    variantNoteAr: "استخدم أدوات الطوارئ حسب تعليمات المنتج والعربية.",
+    variantNoteEn: "Use emergency tools according to the product and vehicle instructions.",
+    keywords: [
+      "عده",
+      "عدة",
+      "اداه",
+      "أداة",
+      "ادوات",
+      "أدوات",
+      "معدات",
+      "كمبروسر",
+      "كومبروسر",
+      "منفاخ",
+      "كابل",
+      "بطاريه",
+      "بطارية",
+      "واير",
+      "جر",
+      "tool",
+      "tools",
+      "equipment",
+      "compressor",
+      "jumper",
+      "tow",
+    ],
+  },
+  {
+    category: "additives-fluids",
+    labelAr: "سوائل وإضافات السيارة",
+    labelEn: "car fluids and additives",
+    examplesAr: "إضافات بنزين، منظفات رشاشات، مياه مساحات، وسوائل عناية",
+    examplesEn: "fuel additives, injector cleaners, washer fluids, and care fluids",
+    variantNoteAr: "راجع تعليمات المنتج ومتطلبات العربية قبل استخدام أي سائل أو إضافة.",
+    variantNoteEn: "Check product instructions and vehicle requirements before using any fluid or additive.",
+    keywords: [
+      "سائل",
+      "سوائل",
+      "اضافه",
+      "إضافة",
+      "اضافات",
+      "إضافات",
+      "زيت",
+      "بنزين",
+      "اوكتان",
+      "أوكتان",
+      "رشاشات",
+      "مساحات",
+      "ردياتير",
+      "fluid",
+      "fluids",
+      "additive",
+      "additives",
+      "octane",
+      "injector",
+    ],
+  },
+];
 
 export function detectAutomationLanguage(
   input: string,
@@ -80,7 +274,55 @@ function tokenize(input: string) {
     .filter((token) => token.length > 1);
 }
 
-function scoreProduct(product: ProductRow, query: string, tokens: string[]) {
+function detectCategoryIntent(query: string) {
+  const normalizedQuery = normalizeSearchText(query);
+  const tokens = tokenize(query);
+  const tokenSet = new Set(tokens);
+
+  const scored = CATEGORY_INTENTS.map((intent) => {
+    const score = intent.keywords.reduce((total, keyword) => {
+      const normalizedKeyword = normalizeSearchText(keyword);
+      if (!normalizedKeyword) return total;
+
+      if (normalizedQuery === normalizedKeyword) return total + 6;
+      if (tokenSet.has(normalizedKeyword)) return total + 4;
+      if (normalizedQuery.includes(normalizedKeyword)) return total + 3;
+
+      return total;
+    }, 0);
+
+    return { intent, score };
+  }).sort((a, b) => b.score - a.score);
+
+  return scored[0]?.score ? scored[0] : null;
+}
+
+function isBroadCategoryQuery(query: string, categoryIntent: CategoryIntent | null) {
+  if (!categoryIntent) return false;
+
+  const tokens = tokenize(query);
+  if (tokens.length <= 4) return true;
+
+  const normalizedQuery = normalizeSearchText(query);
+  return categoryIntent.keywords.some((keyword) => {
+    const normalizedKeyword = normalizeSearchText(keyword);
+    return normalizedQuery === normalizedKeyword;
+  });
+}
+
+function categoryUrl(category: string, baseUrl: string) {
+  const path = `/shop?category=${encodeURIComponent(category)}`;
+  if (!baseUrl) return path;
+
+  return absoluteUrl(path, baseUrl);
+}
+
+function scoreProduct(
+  product: ProductRow,
+  query: string,
+  tokens: string[],
+  categoryIntent: CategoryIntent | null
+) {
   const normalizedQuery = normalizeSearchText(query);
   const nameText = normalizeSearchText(
     `${product.name_ar || ""} ${product.name_en || ""}`
@@ -90,11 +332,13 @@ function scoreProduct(product: ProductRow, query: string, tokens: string[]) {
   );
   const categoryText = normalizeSearchText(normalizeCategory(product.category || ""));
   const haystack = `${nameText} ${descriptionText} ${categoryText}`;
+  const category = normalizeCategory(product.category || "");
 
   let score = 0;
 
   if (normalizedQuery && nameText.includes(normalizedQuery)) score += 12;
   if (normalizedQuery && haystack.includes(normalizedQuery)) score += 4;
+  if (categoryIntent?.category === category) score += 10;
 
   for (const token of tokens) {
     if (nameText.includes(token)) score += 4;
@@ -109,6 +353,48 @@ function scoreProduct(product: ProductRow, query: string, tokens: string[]) {
   if (Number(product.stock || 0) > 0) score += 1;
 
   return score;
+}
+
+function variantSummary(product: ProductRow, language: AutomationLanguage) {
+  const options = normalizeProductVariantOptions(product.variant_options_json);
+  if (!options.length) return "";
+
+  return options
+    .slice(0, 2)
+    .map((option) => {
+      const optionName = language === "ar" ? option.name.ar : option.name.en;
+      const values = option.values
+        .slice(0, 4)
+        .map((value) => (language === "ar" ? value.label.ar : value.label.en))
+        .filter(Boolean)
+        .join(", ");
+
+      return values ? `${optionName}: ${values}` : optionName;
+    })
+    .filter(Boolean)
+    .join(" | ");
+}
+
+function uniqueRepresentativeProducts(products: AutomationProduct[], limit: number) {
+  const seen = new Set<string>();
+  const unique: AutomationProduct[] = [];
+
+  for (const product of products) {
+    const normalizedName = normalizeSearchText(product.name)
+      .split(" ")
+      .filter((token) => token.length > 2)
+      .slice(0, 3)
+      .join(" ");
+    const key = normalizedName || product.id;
+
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(product);
+
+    if (unique.length >= limit) break;
+  }
+
+  return unique;
 }
 
 function absoluteUrl(pathOrUrl: string, baseUrl: string) {
@@ -166,14 +452,55 @@ function toAutomationProduct(
     stockStatus,
     stock,
     lowStockThreshold,
+    variantSummary: variantSummary(product, language),
   };
 }
 
 export function buildAutomationSuggestedReply(
   products: AutomationProduct[],
-  language: AutomationLanguage
+  language: AutomationLanguage,
+  context?: {
+    intent?: AutomationSearchIntent;
+    categoryIntent?: CategoryIntent | null;
+    baseUrl?: string;
+  }
 ) {
   const first = products[0];
+  const categoryIntent = context?.categoryIntent || null;
+
+  if (context?.intent === "category" && categoryIntent && products.length) {
+    const examples = uniqueRepresentativeProducts(products, 3);
+
+    if (language === "ar") {
+      const lines = [
+        `متوفر عندنا ${categoryIntent.labelAr}: ${categoryIntent.examplesAr}.`,
+        "أمثلة متاحة:",
+        ...examples.map(
+          (product) =>
+            `- ${product.name} - ${product.price} جنيه: ${product.productUrl}`
+        ),
+        `شوف كل القسم من هنا: ${categoryUrl(categoryIntent.category, context.baseUrl || "")}`,
+        categoryIntent.variantNoteAr,
+      ];
+
+      return lines.join("\n");
+    }
+
+    const lines = [
+      `We have ${categoryIntent.labelEn}: ${categoryIntent.examplesEn}.`,
+      "Available examples:",
+      ...examples.map(
+        (product) => `- ${product.name} - EGP ${product.price}: ${product.productUrl}`
+      ),
+      `Browse the full section here: ${categoryUrl(
+        categoryIntent.category,
+        context.baseUrl || ""
+      )}`,
+      categoryIntent.variantNoteEn,
+    ];
+
+    return lines.join("\n");
+  }
 
   if (!first) {
     return language === "ar"
@@ -187,9 +514,19 @@ export function buildAutomationSuggestedReply(
       : `${first.name} is currently out of stock. Would you like an alternative?`;
   }
 
-  return language === "ar"
-    ? `${first.name} \u0645\u062a\u0648\u0641\u0631 \u062d\u0627\u0644\u064a\u0627 \u0628\u0633\u0639\u0631 ${first.price} \u062c\u0646\u064a\u0647. \u0627\u0644\u0637\u0644\u0628 \u0645\u0646 \u0647\u0646\u0627: ${first.productUrl}`
-    : `${first.name} is available for EGP ${first.price}. You can view it and complete your order here: ${first.productUrl}`;
+  if (language === "ar") {
+    const variantText = first.variantSummary
+      ? `\nالمتاح منه: ${first.variantSummary}.`
+      : "";
+
+    return `${first.name} متوفر حاليا بسعر ${first.price} جنيه.${variantText}\nالطلب من هنا: ${first.productUrl}`;
+  }
+
+  const variantText = first.variantSummary
+    ? `\nAvailable options: ${first.variantSummary}.`
+    : "";
+
+  return `${first.name} is available for EGP ${first.price}.${variantText}\nYou can view it and complete your order here: ${first.productUrl}`;
 }
 
 function getSearchConfidence(bestScore: number): "high" | "medium" | "low" {
@@ -221,17 +558,20 @@ export async function searchAutomationProducts(input: {
         count: 0,
         bestScore: 0,
         confidence: "low",
+        intent: "clarify",
+        matchedCategory: null,
         generatedAt: new Date().toISOString(),
       },
     };
   }
 
   const tokens = tokenize(query);
+  const detectedCategory = detectCategoryIntent(query)?.intent || null;
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
     .from("products")
     .select(
-      "id,name_ar,name_en,description_ar,description_en,price,image_url,images_json,stock,category,is_active,low_stock_threshold"
+      "id,name_ar,name_en,description_ar,description_en,price,image_url,images_json,stock,category,is_active,low_stock_threshold,variant_options_json,variants_json"
     )
     .eq("is_active", true)
     .order("category", { ascending: true })
@@ -245,30 +585,48 @@ export async function searchAutomationProducts(input: {
   const scoredProducts = ((data || []) as ProductRow[])
     .map((product) => ({
       product,
-      score: scoreProduct(product, query, tokens),
+      score: scoreProduct(product, query, tokens, detectedCategory),
     }))
     .filter((item) => item.score > 0)
     .sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
 
       return Number(b.product.stock || 0) - Number(a.product.stock || 0);
-    });
+  });
   const bestScore = scoredProducts[0]?.score || 0;
+  const broadCategoryQuery = isBroadCategoryQuery(query, detectedCategory);
+  const categoryMode =
+    Boolean(detectedCategory) &&
+    Boolean(scoredProducts.length) &&
+    (bestScore < 16 || (broadCategoryQuery && bestScore < 20));
+  const intent: AutomationSearchIntent = categoryMode
+    ? "category"
+    : scoredProducts.length
+    ? "product"
+    : "clarify";
   const products = scoredProducts
     .slice(0, limit)
     .map((item) => toAutomationProduct(item.product, language, input.baseUrl));
+  const effectiveBestScore =
+    intent === "category" && products.length ? Math.max(bestScore, 12) : bestScore;
 
   return {
     schemaVersion: 1,
     query,
     language,
     products,
-    suggestedReply: buildAutomationSuggestedReply(products, language),
+    suggestedReply: buildAutomationSuggestedReply(products, language, {
+      intent,
+      categoryIntent: detectedCategory,
+      baseUrl: input.baseUrl,
+    }),
     meta: {
       source: "cesar-store",
       count: products.length,
-      bestScore,
-      confidence: getSearchConfidence(bestScore),
+      bestScore: effectiveBestScore,
+      confidence: getSearchConfidence(effectiveBestScore),
+      intent,
+      matchedCategory: detectedCategory?.category || null,
       generatedAt: new Date().toISOString(),
     },
   };
