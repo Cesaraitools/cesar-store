@@ -1,0 +1,288 @@
+import {
+  AutomationProduct,
+  AutomationProductSearchResult,
+  searchAutomationProducts,
+} from "@/lib/server/automation-products";
+
+type AgentAction = "answer" | "clarify" | "handoff";
+type AgentConfidence = "high" | "medium" | "low";
+
+type AgentReply = {
+  action: AgentAction;
+  confidence: AgentConfidence;
+  reply: string;
+  productIds: string[];
+  category: string | null;
+  needsHuman: boolean;
+};
+
+type AgentMeta = {
+  used: boolean;
+  model: string | null;
+  action?: AgentAction;
+  confidence?: AgentConfidence;
+  productIds?: string[];
+  reason?: string;
+  generatedAt: string;
+};
+
+export type AutomationAgentResult = AutomationProductSearchResult & {
+  meta: AutomationProductSearchResult["meta"] & {
+    ai: AgentMeta;
+  };
+};
+
+type AgentInput = {
+  query: string;
+  requestedLanguage?: string | null;
+  limit?: number;
+  baseUrl: string;
+};
+
+type OpenAIResponse = {
+  output_text?: unknown;
+  output?: Array<{
+    content?: Array<{
+      type?: string;
+      text?: unknown;
+    }>;
+  }>;
+};
+
+const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
+const DEFAULT_MODEL = "gpt-4o-mini";
+
+function isAiEnabled() {
+  if (!process.env.OPENAI_API_KEY) return false;
+
+  return !/^(0|false|no|off)$/i.test(process.env.AUTOMATION_AI_ENABLED || "");
+}
+
+function getAiModel() {
+  return (process.env.OPENAI_MODEL || DEFAULT_MODEL).trim();
+}
+
+function limitText(value: string, maxLength: number) {
+  const text = value.trim();
+  if (text.length <= maxLength) return text;
+
+  return `${text.slice(0, maxLength - 1).trim()}...`;
+}
+
+function compactProduct(product: AutomationProduct) {
+  return {
+    id: product.id,
+    name: product.name,
+    nameAr: product.nameAr,
+    nameEn: product.nameEn,
+    description: limitText(product.description || "", 260),
+    price: product.price,
+    currency: product.currency,
+    category: product.category,
+    productUrl: product.productUrl,
+    isAvailable: product.isAvailable,
+    stockStatus: product.stockStatus,
+    variantSummary: product.variantSummary,
+  };
+}
+
+function extractResponseText(data: OpenAIResponse) {
+  if (typeof data.output_text === "string") {
+    return data.output_text;
+  }
+
+  const content = data.output
+    ?.flatMap((item) => item.content || [])
+    .find((item) => item.type === "output_text" && typeof item.text === "string");
+
+  return typeof content?.text === "string" ? content.text : "";
+}
+
+function parseAgentReply(text: string): AgentReply | null {
+  try {
+    const parsed = JSON.parse(text) as Partial<AgentReply>;
+    const action = parsed.action;
+    const confidence = parsed.confidence;
+    const reply = typeof parsed.reply === "string" ? parsed.reply.trim() : "";
+
+    if (!action || !["answer", "clarify", "handoff"].includes(action)) return null;
+    if (!confidence || !["high", "medium", "low"].includes(confidence)) return null;
+    if (!reply) return null;
+
+    return {
+      action,
+      confidence,
+      reply: limitText(reply, 1400),
+      productIds: Array.isArray(parsed.productIds)
+        ? parsed.productIds.filter((item): item is string => typeof item === "string")
+        : [],
+      category: typeof parsed.category === "string" ? parsed.category : null,
+      needsHuman: Boolean(parsed.needsHuman),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function buildFallbackMeta(reason: string): AgentMeta {
+  return {
+    used: false,
+    model: null,
+    reason,
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+function withAgentMeta(
+  result: AutomationProductSearchResult,
+  ai: AgentMeta,
+  suggestedReply = result.suggestedReply
+): AutomationAgentResult {
+  return {
+    ...result,
+    suggestedReply,
+    meta: {
+      ...result.meta,
+      ai,
+    },
+  };
+}
+
+async function generateAiReply(result: AutomationProductSearchResult) {
+  const apiKey = process.env.OPENAI_API_KEY || "";
+  const model = getAiModel();
+  const response = await fetch(OPENAI_RESPONSES_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      input: [
+        {
+          role: "system",
+          content:
+            "You are Cesar Store's Arabic commerce assistant. Answer customers using only the provided store products and links. Do not invent products, prices, stock, scents, colors, sizes, or policies. If the query is broad, show representative options and explain that more variants are available in the linked products or category. If the query is unclear, ask one short clarification question. Keep Arabic replies friendly, direct, and concise.",
+        },
+        {
+          role: "user",
+          content: JSON.stringify({
+            customerMessage: result.query,
+            language: result.language,
+            searchMeta: {
+              intent: result.meta.intent,
+              bestScore: result.meta.bestScore,
+              confidence: result.meta.confidence,
+              matchedCategory: result.meta.matchedCategory,
+            },
+            candidateProducts: result.products.map(compactProduct),
+            deterministicReply: result.suggestedReply,
+            outputRules: [
+              "Return valid JSON only.",
+              "Use productUrl values only from candidateProducts.",
+              "For broad category questions, include 2-3 useful examples if available.",
+              "For unavailable products, offer alternatives from candidateProducts.",
+              "Never mention internal scoring, tokens, webhooks, or automation settings.",
+            ],
+          }),
+        },
+      ],
+      max_output_tokens: 700,
+      store: false,
+      temperature: 0.2,
+      text: {
+        format: {
+          type: "json_schema",
+          name: "cesar_store_automation_reply",
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            required: ["action", "confidence", "reply", "productIds", "category", "needsHuman"],
+            properties: {
+              action: {
+                type: "string",
+                enum: ["answer", "clarify", "handoff"],
+              },
+              confidence: {
+                type: "string",
+                enum: ["high", "medium", "low"],
+              },
+              reply: {
+                type: "string",
+              },
+              productIds: {
+                type: "array",
+                items: {
+                  type: "string",
+                },
+              },
+              category: {
+                type: ["string", "null"],
+              },
+              needsHuman: {
+                type: "boolean",
+              },
+            },
+          },
+        },
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenAI request failed with status ${response.status}`);
+  }
+
+  const data = (await response.json()) as OpenAIResponse;
+  const agentReply = parseAgentReply(extractResponseText(data));
+
+  if (!agentReply) {
+    throw new Error("OpenAI returned an invalid automation reply");
+  }
+
+  return {
+    model,
+    agentReply,
+  };
+}
+
+export async function answerAutomationQuestion(input: AgentInput): Promise<AutomationAgentResult> {
+  const result = await searchAutomationProducts(input);
+
+  if (!isAiEnabled()) {
+    return withAgentMeta(result, buildFallbackMeta("ai_disabled_or_missing_key"));
+  }
+
+  if (!result.products.length && result.meta.intent !== "clarify") {
+    return withAgentMeta(result, buildFallbackMeta("no_candidate_products"));
+  }
+
+  try {
+    const { model, agentReply } = await generateAiReply(result);
+
+    return withAgentMeta(
+      {
+        ...result,
+        meta: {
+          ...result.meta,
+          confidence: agentReply.confidence,
+        },
+      },
+      {
+        used: true,
+        model,
+        action: agentReply.action,
+        confidence: agentReply.confidence,
+        productIds: agentReply.productIds,
+        generatedAt: new Date().toISOString(),
+      },
+      agentReply.reply
+    );
+  } catch (error) {
+    console.warn("AUTOMATION AI FALLBACK:", error);
+
+    return withAgentMeta(result, buildFallbackMeta("ai_generation_failed"));
+  }
+}

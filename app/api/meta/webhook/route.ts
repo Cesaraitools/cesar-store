@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { getRedis } from "@/lib/infra/redis";
-import { searchAutomationProducts } from "@/lib/server/automation-products";
+import { answerAutomationQuestion } from "@/lib/server/automation-agent";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -399,7 +399,7 @@ async function processEvent(event: MetaMessagingEvent, request: Request) {
     return { processed: false, reason: "rate_limited" };
   }
 
-  const result = await searchAutomationProducts({
+  const result = await answerAutomationQuestion({
     query: normalized.messageText,
     requestedLanguage: "ar",
     limit: 3,
@@ -451,7 +451,7 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     return { processed: false, reason: "comment_post_not_allowed" };
   }
 
-  const result = await searchAutomationProducts({
+  const result = await answerAutomationQuestion({
     query: normalized.messageText,
     requestedLanguage: "ar",
     limit: 3,

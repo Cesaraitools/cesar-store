@@ -1,4 +1,4 @@
-import { searchAutomationProducts } from "@/lib/server/automation-products";
+import { answerAutomationQuestion } from "@/lib/server/automation-agent";
 
 export const dynamic = "force-dynamic";
 
@@ -52,7 +52,7 @@ function readLimit(value: unknown, fallback: number) {
   return Math.min(Math.max(Number.isFinite(parsed) ? parsed : fallback, 1), 10);
 }
 
-function withAutomationAliases(result: Awaited<ReturnType<typeof searchAutomationProducts>>) {
+function withAutomationAliases(result: Awaited<ReturnType<typeof answerAutomationQuestion>>) {
   return {
     ...result,
     reply: result.suggestedReply,
@@ -110,7 +110,7 @@ async function searchProducts(request: Request, input: SearchInput = {}) {
   ).replace(/\/+$/, "");
 
   try {
-    const result = await searchAutomationProducts({
+    const result = await answerAutomationQuestion({
       query,
       requestedLanguage,
       limit: readLimit(input.limit ?? requestUrl.searchParams.get("limit"), 5),

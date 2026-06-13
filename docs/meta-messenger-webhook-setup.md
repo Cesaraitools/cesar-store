@@ -26,6 +26,9 @@ META_GRAPH_API_VERSION=v20.0
 META_COMMENTS_AUTO_REPLY=false
 META_COMMENTS_MIN_SCORE=10
 META_COMMENTS_ALLOWED_POST_IDS=
+OPENAI_API_KEY=<OpenAI API key, optional for AI replies>
+OPENAI_MODEL=gpt-4o-mini
+AUTOMATION_AI_ENABLED=true
 ```
 
 The endpoint:
@@ -33,12 +36,28 @@ The endpoint:
 1. Responds to Meta webhook verification.
 2. Ignores non-page events, empty messages, echoes, duplicates, and rate-limited
    senders.
-3. Reuses the existing Cesar Store product automation search.
-4. Sends a text reply through the Facebook Graph API.
-5. Receives Page feed comment events when the page is subscribed to the `feed`
+3. Searches the Cesar Store catalog for grounded product candidates.
+4. Uses the optional AI automation agent to write a natural reply from those
+   candidates. If `OPENAI_API_KEY` is missing or the AI request fails, it falls
+   back to the deterministic catalog reply.
+5. Sends a text reply through the Facebook Graph API.
+6. Receives Page feed comment events when the page is subscribed to the `feed`
    webhook field.
-6. Stores unclear or disabled comment replies as handoff records in Redis under
+7. Stores unclear or disabled comment replies as handoff records in Redis under
    `meta:comment:handoffs` and logs them in Vercel.
+
+AI automation:
+
+- `OPENAI_API_KEY` enables AI-written replies for Messenger, comments, and the
+  secured product automation search endpoint.
+- `OPENAI_MODEL` is optional. Keep it configurable so the model can be changed
+  in Vercel without code changes.
+- Set `AUTOMATION_AI_ENABLED=false` to temporarily disable AI and keep using the
+  deterministic catalog search.
+- The AI agent only sees products returned from the store catalog search. It is
+  instructed not to invent products, prices, stock, variants, links, or policies.
+- The secured endpoint `/api/automation/products/search` keeps the old response
+  fields and adds `meta.ai` so n8n or other callers can tell whether AI was used.
 
 Comment automation safety:
 
@@ -62,6 +81,19 @@ Meta subscriptions:
 - Public comment replies may require Meta App Review permissions such as
   `pages_manage_engagement` and `pages_read_engagement`, depending on app mode
   and the audience being served.
+
+If the Meta app is deleted and recreated:
+
+- Copy the current webhook URL and verify token first.
+- Create the new app, add Messenger/Facebook Login use cases as needed, and add
+  the same webhook callback URL.
+- Replace `META_APP_SECRET`, `META_PAGE_ACCESS_TOKEN`, and any changed page/app
+  values in Vercel.
+- Subscribe the page to `messages`, `messaging_postbacks`, and `feed`.
+- Redeploy or trigger a fresh Vercel deployment after changing environment
+  variables.
+- Test Messenger first, then test a controlled post comment while
+  `META_COMMENTS_ALLOWED_POST_IDS` is set to that post id.
 
 Important:
 
