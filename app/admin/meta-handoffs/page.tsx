@@ -25,6 +25,8 @@ function reasonLabel(reason: string) {
       return "المنشور غير مسموح له بالرد التلقائي";
     case "rate_limited":
       return "تم إيقاف الرد بسبب كثرة التعليقات";
+    case "human_sensitive_request":
+      return "طلب حساس يحتاج خدمة العملاء";
     default:
       return reason;
   }

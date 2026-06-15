@@ -385,6 +385,17 @@ async function recordCommentHandoff(input: {
   }
 }
 
+type AutomationAnswer = Awaited<ReturnType<typeof answerAutomationQuestion>>;
+
+function buildFacebookCommentReply(result: AutomationAnswer) {
+  const suffix =
+    result.meta.autoReply === "clarify"
+      ? "\n\nÙ„Ùˆ ØªØ­Ø¨ Ø§Ø¨Ø¹ØªÙ„Ù†Ø§ Ø±Ø³Ø§Ù„Ø© Ø¨ØµÙˆØ±Ø© Ø§Ù„Ù…Ù†ØªØ¬ Ø£Ùˆ ØªÙØ§ØµÙŠÙ„ Ø£ÙƒØªØ±."
+      : "\n\nÙ„Ùˆ ØªØ­Ø¨ ØªÙØ§ØµÙŠÙ„ Ø£ÙƒØªØ± Ø§Ø¨Ø¹ØªÙ„Ù†Ø§ Ø±Ø³Ø§Ù„Ø©.";
+
+  return `${result.suggestedReply}${suffix}`;
+}
+
 async function processEvent(event: MetaMessagingEvent, request: Request) {
   const normalized = normalizeEvent(event);
 
@@ -479,9 +490,17 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     };
   }
 
-  if (!result.products.length || result.meta.bestScore < getCommentMinimumScore()) {
+  const shouldHandoff =
+    result.meta.autoReply === "handoff" ||
+    (result.meta.autoReply === "answer" &&
+      (!result.products.length || result.meta.bestScore < getCommentMinimumScore()));
+
+  if (shouldHandoff) {
+    const handoffReason =
+      result.meta.handoffReason || "low_confidence_product_match";
+
     await recordCommentHandoff({
-      reason: "low_confidence_product_match",
+      reason: handoffReason,
       commentId: normalized.commentId,
       postId: normalized.postId,
       messageText: normalized.messageText,
@@ -492,23 +511,24 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
 
     return {
       processed: false,
-      reason: "low_confidence_product_match",
+      reason: handoffReason,
       productsCount: result.products.length,
       bestScore: result.meta.bestScore,
     };
   }
 
-  await sendFacebookCommentReply(
-    normalized.commentId,
-    `${result.suggestedReply}\n\nلو تحب تفاصيل أكتر ابعتلنا رسالة.`
-  );
+  await sendFacebookCommentReply(normalized.commentId, buildFacebookCommentReply(result));
 
   return {
     processed: true,
-    reason: "comment_reply_sent",
+    reason:
+      result.meta.autoReply === "clarify"
+        ? "comment_clarification_sent"
+        : "comment_reply_sent",
     productsCount: result.products.length,
     bestScore: result.meta.bestScore,
   };
+
 }
 
 export async function GET(request: Request) {

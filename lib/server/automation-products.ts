@@ -5,6 +5,7 @@ import { createServiceRoleClient } from "@/lib/supabase/runtime";
 
 export type AutomationLanguage = "ar" | "en";
 type AutomationSearchIntent = "product" | "category" | "clarify";
+type AutomationReplyAction = "answer" | "clarify" | "handoff";
 
 type ProductRow = {
   id: string;
@@ -54,6 +55,8 @@ export type AutomationProductSearchResult = {
     bestScore: number;
     confidence: "high" | "medium" | "low";
     intent: AutomationSearchIntent;
+    autoReply: AutomationReplyAction;
+    handoffReason: string | null;
     matchedCategory: string | null;
     generatedAt: string;
   };
@@ -151,6 +154,62 @@ const CLARIFY_INTENTS: ClarifyIntent[] = [
     replyEn:
       "I cannot see leather seat covers in the currently available products. If you mean a cleaning brush or an interior accessory, send the exact type and I will find the closest match.",
   },
+];
+
+const HUMAN_HANDOFF_PHRASES = [
+  "طلب",
+  "طلبي",
+  "اوردر",
+  "اوردري",
+  "الشحن",
+  "شحن",
+  "اتأخر",
+  "اتاخرت",
+  "استبدال",
+  "استرجاع",
+  "ارجاع",
+  "مرتجع",
+  "الغاء",
+  "إلغاء",
+  "الدفع",
+  "دفعت",
+  "فلوسي",
+  "رقم",
+  "تليفون",
+  "موبايل",
+  "واتساب",
+  "whatsapp",
+  "phone",
+  "order",
+  "shipping",
+  "delivery",
+  "refund",
+  "return",
+  "exchange",
+  "cancel",
+  "complaint",
+];
+
+const PRODUCT_REQUEST_PHRASES = [
+  "عايز",
+  "عاوز",
+  "اريد",
+  "محتاج",
+  "عندكم",
+  "عندك",
+  "متوفر",
+  "موجود",
+  "بكام",
+  "سعر",
+  "كام",
+  "ايه المتاح",
+  "ما هي",
+  "what",
+  "price",
+  "available",
+  "need",
+  "want",
+  "have",
 ];
 
 const CATEGORY_INTENTS: CategoryIntent[] = [
@@ -378,6 +437,24 @@ function detectClarifyIntent(query: string) {
   );
 }
 
+function includesAnyPhrase(query: string, phrases: string[]) {
+  const normalizedQuery = normalizeSearchText(query);
+
+  return phrases.some((phrase) => {
+    const normalizedPhrase = normalizeSearchText(phrase);
+
+    return Boolean(normalizedPhrase) && normalizedQuery.includes(normalizedPhrase);
+  });
+}
+
+function shouldHumanHandle(query: string) {
+  return includesAnyPhrase(query, HUMAN_HANDOFF_PHRASES);
+}
+
+function looksLikeProductRequest(query: string) {
+  return includesAnyPhrase(query, PRODUCT_REQUEST_PHRASES) || meaningfulTokens(query).length > 0;
+}
+
 function detectCategoryIntent(query: string) {
   const normalizedQuery = normalizeSearchText(query);
   const tokens = tokenize(query);
@@ -421,6 +498,19 @@ function categoryUrl(category: string, baseUrl: string) {
   return absoluteUrl(path, baseUrl);
 }
 
+function getProductVariantSearchText(product: ProductRow) {
+  const options = normalizeProductVariantOptions(product.variant_options_json);
+
+  return options
+    .flatMap((option) => [
+      option.name.ar,
+      option.name.en,
+      ...option.values.flatMap((value) => [value.label.ar, value.label.en]),
+    ])
+    .filter(Boolean)
+    .join(" ");
+}
+
 function scoreProduct(
   product: ProductRow,
   query: string,
@@ -434,8 +524,9 @@ function scoreProduct(
   const descriptionText = normalizeSearchText(
     `${product.description_ar || ""} ${product.description_en || ""}`
   );
+  const variantText = normalizeSearchText(getProductVariantSearchText(product));
   const categoryText = normalizeSearchText(normalizeCategory(product.category || ""));
-  const haystack = `${nameText} ${descriptionText} ${categoryText}`;
+  const haystack = `${nameText} ${descriptionText} ${variantText} ${categoryText}`;
   const category = normalizeCategory(product.category || "");
 
   let score = 0;
@@ -451,6 +542,9 @@ function scoreProduct(
       score += 4;
       matchedTokens += 1;
     } else if (descriptionText.includes(token)) {
+      score += 2;
+      matchedTokens += 1;
+    } else if (variantText.includes(token)) {
       score += 2;
       matchedTokens += 1;
     } else if (categoryText.includes(token)) {
@@ -658,6 +752,28 @@ function getSearchConfidence(bestScore: number): "high" | "medium" | "low" {
   return "low";
 }
 
+function buildSafeClarifyReply(language: AutomationLanguage, categoryIntent?: CategoryIntent | null) {
+  if (language === "ar") {
+    if (categoryIntent) {
+      return `ممكن توضح النوع المطلوب من ${categoryIntent.labelAr}؟ ابعت الاسم أو صورة المنتج أو الاستخدام، وهدور لك على أقرب اختيار متاح.`;
+    }
+
+    return "مش ظاهر عندي تطابق مؤكد للمنتج المطلوب. ممكن تبعت اسم المنتج بشكل أوضح أو صورة له، وهنرشح لك الأقرب من المتاح.";
+  }
+
+  if (categoryIntent) {
+    return `Could you clarify which ${categoryIntent.labelEn} you need? Send the product name, a photo, or the use case and I will find the closest available option.`;
+  }
+
+  return "I could not find a confident product match. Please send the product name more clearly or share a photo, and I will suggest the closest available option.";
+}
+
+function buildHumanHandoffReply(language: AutomationLanguage) {
+  return language === "ar"
+    ? "طلبك يحتاج متابعة من خدمة العملاء. ابعتلنا تفاصيل أكتر أو رقم الطلب في رسالة، وفريق Cesar Store هيراجعها معاك."
+    : "Your request needs customer service follow-up. Please send more details or your order number in a message and the Cesar Store team will review it with you.";
+}
+
 export async function searchAutomationProducts(input: {
   query: string;
   requestedLanguage?: string | null;
@@ -681,6 +797,8 @@ export async function searchAutomationProducts(input: {
         bestScore: 0,
         confidence: "low",
         intent: "clarify",
+        autoReply: "clarify",
+        handoffReason: null,
         matchedCategory: null,
         generatedAt: new Date().toISOString(),
       },
@@ -690,6 +808,8 @@ export async function searchAutomationProducts(input: {
   const tokens = meaningfulTokens(query);
   const clarifyIntent = detectClarifyIntent(query);
   const detectedCategory = detectCategoryIntent(query)?.intent || null;
+  const humanHandoff = shouldHumanHandle(query);
+  const productRequest = looksLikeProductRequest(query);
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
     .from("products")
@@ -723,26 +843,43 @@ export async function searchAutomationProducts(input: {
     Boolean(scoredProducts.length) &&
     (bestScore < 16 || (broadCategoryQuery && bestScore < 20));
   const shouldClarify =
-    Boolean(clarifyIntent && bestScore < 16) ||
-    (!categoryMode && bestScore > 0 && bestScore < MIN_DIRECT_PRODUCT_SCORE);
-  const intent: AutomationSearchIntent = shouldClarify
+    !humanHandoff &&
+    (Boolean(clarifyIntent && bestScore < 16) ||
+      (!categoryMode && bestScore > 0 && bestScore < MIN_DIRECT_PRODUCT_SCORE) ||
+      (!scoredProducts.length && productRequest));
+  const intent: AutomationSearchIntent = humanHandoff
+    ? "clarify"
+    : shouldClarify
     ? "clarify"
     : categoryMode
     ? "category"
     : scoredProducts.length
     ? "product"
     : "clarify";
-  const products = (shouldClarify ? [] : scoredProducts)
+  const products = (shouldClarify || humanHandoff ? [] : scoredProducts)
     .slice(0, limit)
     .map((item) => toAutomationProduct(item.product, language, input.baseUrl));
   const effectiveBestScore =
-    intent === "category" && products.length ? Math.max(bestScore, 12) : bestScore;
+    intent === "category" && products.length
+      ? Math.max(bestScore, 12)
+      : clarifyIntent && shouldClarify
+      ? Math.max(bestScore, 10)
+      : bestScore;
   const clarifyReply =
-    clarifyIntent && language === "ar"
+    humanHandoff
+      ? buildHumanHandoffReply(language)
+      : clarifyIntent && language === "ar"
       ? clarifyIntent.replyAr
       : clarifyIntent
       ? clarifyIntent.replyEn
+      : shouldClarify
+      ? buildSafeClarifyReply(language, detectedCategory)
       : undefined;
+  const autoReply: AutomationReplyAction = humanHandoff
+    ? "handoff"
+    : intent === "clarify"
+    ? "clarify"
+    : "answer";
 
   return {
     schemaVersion: 1,
@@ -761,6 +898,8 @@ export async function searchAutomationProducts(input: {
       bestScore: effectiveBestScore,
       confidence: getSearchConfidence(effectiveBestScore),
       intent,
+      autoReply,
+      handoffReason: humanHandoff ? "human_sensitive_request" : null,
       matchedCategory: detectedCategory?.category || null,
       generatedAt: new Date().toISOString(),
     },
