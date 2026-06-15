@@ -366,6 +366,8 @@ async function recordCommentHandoff(input: {
   postId: string;
   messageText: string;
   permalinkUrl: string;
+  productsCount?: number;
+  bestScore?: number;
 }) {
   const handoff = {
     ...input,
@@ -465,6 +467,8 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
       postId: normalized.postId,
       messageText: normalized.messageText,
       permalinkUrl: normalized.permalinkUrl,
+      productsCount: result.products.length,
+      bestScore: result.meta.bestScore,
     });
 
     return {
@@ -482,6 +486,8 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
       postId: normalized.postId,
       messageText: normalized.messageText,
       permalinkUrl: normalized.permalinkUrl,
+      productsCount: result.products.length,
+      bestScore: result.meta.bestScore,
     });
 
     return {
