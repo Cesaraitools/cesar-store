@@ -70,6 +70,89 @@ type CategoryIntent = {
   keywords: string[];
 };
 
+type ClarifyIntent = {
+  label: string;
+  keywords: string[];
+  replyAr: string;
+  replyEn: string;
+};
+
+const MIN_DIRECT_PRODUCT_SCORE = 6;
+
+const QUERY_STOP_WORDS = new Set([
+  "عايز",
+  "عايزه",
+  "عاوز",
+  "عاوزه",
+  "اريد",
+  "محتاج",
+  "محتاجه",
+  "ممكن",
+  "لو",
+  "سمحت",
+  "من",
+  "فضلك",
+  "هل",
+  "في",
+  "فيه",
+  "عندكم",
+  "عندكو",
+  "عندك",
+  "للبيع",
+  "موجود",
+  "متوفر",
+  "السياره",
+  "سياره",
+  "للسياره",
+  "العربيه",
+  "عربيه",
+  "للعربيه",
+  "car",
+  "cars",
+  "auto",
+  "vehicle",
+  "for",
+  "the",
+  "a",
+  "an",
+  "do",
+  "you",
+  "have",
+  "need",
+  "want",
+]);
+
+const CLARIFY_INTENTS: ClarifyIntent[] = [
+  {
+    label: "seat-covers",
+    keywords: [
+      "فرش جلد",
+      "فرش كراسي",
+      "فرش مقاعد",
+      "كسوه كراسي",
+      "كسوه مقاعد",
+      "كسوة كراسي",
+      "كسوة مقاعد",
+      "تلبيسه كراسي",
+      "تلبيسة كراسي",
+      "تلبيسات كراسي",
+      "غطاء كرسي",
+      "اغطيه كراسي",
+      "اغطية كراسي",
+      "seat cover",
+      "seat covers",
+      "leather seat",
+      "leather seats",
+      "leather cover",
+      "upholstery",
+    ],
+    replyAr:
+      "حاليا مش ظاهر عندنا فرش جلد او كسوة كراسي ضمن المنتجات المتاحة على الموقع. لو تقصد فرشة تنظيف او اكسسوار داخلي للسيارة، ابعتلي النوع المطلوب وهدور لك على الاقرب.",
+    replyEn:
+      "I cannot see leather seat covers in the currently available products. If you mean a cleaning brush or an interior accessory, send the exact type and I will find the closest match.",
+  },
+];
+
 const CATEGORY_INTENTS: CategoryIntent[] = [
   {
     category: "air-fresheners",
@@ -274,6 +357,27 @@ function tokenize(input: string) {
     .filter((token) => token.length > 1);
 }
 
+function meaningfulTokens(input: string) {
+  return tokenize(input).filter((token) => !QUERY_STOP_WORDS.has(token));
+}
+
+function detectClarifyIntent(query: string) {
+  const normalizedQuery = normalizeSearchText(query);
+
+  return (
+    CLARIFY_INTENTS.find((intent) =>
+      intent.keywords.some((keyword) => {
+        const normalizedKeyword = normalizeSearchText(keyword);
+
+        return (
+          normalizedQuery === normalizedKeyword ||
+          normalizedQuery.includes(normalizedKeyword)
+        );
+      })
+    ) || null
+  );
+}
+
 function detectCategoryIntent(query: string) {
   const normalizedQuery = normalizeSearchText(query);
   const tokens = tokenize(query);
@@ -340,19 +444,32 @@ function scoreProduct(
   if (normalizedQuery && haystack.includes(normalizedQuery)) score += 4;
   if (categoryIntent?.category === category) score += 10;
 
+  let matchedTokens = 0;
+
   for (const token of tokens) {
-    if (nameText.includes(token)) score += 4;
-    else if (descriptionText.includes(token)) score += 2;
-    else if (categoryText.includes(token)) score += 1;
+    if (nameText.includes(token)) {
+      score += 4;
+      matchedTokens += 1;
+    } else if (descriptionText.includes(token)) {
+      score += 2;
+      matchedTokens += 1;
+    } else if (categoryText.includes(token)) {
+      score += 1;
+      matchedTokens += 1;
+    }
   }
 
   if (tokens.length && tokens.every((token) => haystack.includes(token))) {
     score += 3;
   }
 
+  if (tokens.length >= 2 && matchedTokens < tokens.length) {
+    score -= (tokens.length - matchedTokens) * 4;
+  }
+
   if (Number(product.stock || 0) > 0) score += 1;
 
-  return score;
+  return Math.max(score, 0);
 }
 
 function variantSummary(product: ProductRow, language: AutomationLanguage) {
@@ -462,6 +579,7 @@ export function buildAutomationSuggestedReply(
   context?: {
     intent?: AutomationSearchIntent;
     categoryIntent?: CategoryIntent | null;
+    clarifyReply?: string;
     baseUrl?: string;
   }
 ) {
@@ -503,6 +621,10 @@ export function buildAutomationSuggestedReply(
   }
 
   if (!first) {
+    if (context?.clarifyReply) {
+      return context.clarifyReply;
+    }
+
     return language === "ar"
       ? "\u0645\u0646 \u0641\u0636\u0644\u0643 \u0627\u0631\u0633\u0644 \u0627\u0633\u0645 \u0627\u0644\u0645\u0646\u062a\u062c \u0627\u0648 \u0635\u0648\u0631\u0629 \u0644\u0647."
       : "Could you share the product name or send a photo?";
@@ -565,7 +687,8 @@ export async function searchAutomationProducts(input: {
     };
   }
 
-  const tokens = tokenize(query);
+  const tokens = meaningfulTokens(query);
+  const clarifyIntent = detectClarifyIntent(query);
   const detectedCategory = detectCategoryIntent(query)?.intent || null;
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
@@ -599,16 +722,27 @@ export async function searchAutomationProducts(input: {
     Boolean(detectedCategory) &&
     Boolean(scoredProducts.length) &&
     (bestScore < 16 || (broadCategoryQuery && bestScore < 20));
-  const intent: AutomationSearchIntent = categoryMode
+  const shouldClarify =
+    Boolean(clarifyIntent && bestScore < 16) ||
+    (!categoryMode && bestScore > 0 && bestScore < MIN_DIRECT_PRODUCT_SCORE);
+  const intent: AutomationSearchIntent = shouldClarify
+    ? "clarify"
+    : categoryMode
     ? "category"
     : scoredProducts.length
     ? "product"
     : "clarify";
-  const products = scoredProducts
+  const products = (shouldClarify ? [] : scoredProducts)
     .slice(0, limit)
     .map((item) => toAutomationProduct(item.product, language, input.baseUrl));
   const effectiveBestScore =
     intent === "category" && products.length ? Math.max(bestScore, 12) : bestScore;
+  const clarifyReply =
+    clarifyIntent && language === "ar"
+      ? clarifyIntent.replyAr
+      : clarifyIntent
+      ? clarifyIntent.replyEn
+      : undefined;
 
   return {
     schemaVersion: 1,
@@ -618,6 +752,7 @@ export async function searchAutomationProducts(input: {
     suggestedReply: buildAutomationSuggestedReply(products, language, {
       intent,
       categoryIntent: detectedCategory,
+      clarifyReply,
       baseUrl: input.baseUrl,
     }),
     meta: {
