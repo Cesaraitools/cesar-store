@@ -28,6 +28,7 @@ META_COMMENTS_MIN_SCORE=10
 META_COMMENTS_ALLOWED_POST_IDS=
 OPENAI_API_KEY=<OpenAI API key, optional for AI replies>
 OPENAI_MODEL=gpt-4o-mini
+OPENAI_MAX_OUTPUT_TOKENS=450
 AUTOMATION_AI_ENABLED=true
 ```
 
@@ -52,10 +53,14 @@ AI automation:
   secured product automation search endpoint.
 - `OPENAI_MODEL` is optional. Keep it configurable so the model can be changed
   in Vercel without code changes.
+- `OPENAI_MAX_OUTPUT_TOKENS` is optional. Keep it around `450` for concise,
+  low-cost store replies.
 - Set `AUTOMATION_AI_ENABLED=false` to temporarily disable AI and keep using the
   deterministic catalog search.
 - The AI agent only sees products returned from the store catalog search. It is
   instructed not to invent products, prices, stock, variants, links, or policies.
+- If deterministic matching decides a comment needs human handoff, AI is skipped
+  so it cannot override safety and guess publicly.
 - The secured endpoint `/api/automation/products/search` keeps the old response
   fields and adds `meta.ai` so n8n or other callers can tell whether AI was used.
 

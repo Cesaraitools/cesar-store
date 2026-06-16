@@ -52,6 +52,7 @@ type OpenAIResponse = {
 
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 const DEFAULT_MODEL = "gpt-4o-mini";
+const DEFAULT_MAX_OUTPUT_TOKENS = 450;
 
 function isAiEnabled() {
   if (!process.env.OPENAI_API_KEY) return false;
@@ -61,6 +62,13 @@ function isAiEnabled() {
 
 function getAiModel() {
   return (process.env.OPENAI_MODEL || DEFAULT_MODEL).trim();
+}
+
+function getAiMaxOutputTokens() {
+  const configured = Number(process.env.OPENAI_MAX_OUTPUT_TOKENS);
+  if (!Number.isFinite(configured) || configured <= 0) return DEFAULT_MAX_OUTPUT_TOKENS;
+
+  return Math.min(Math.max(Math.floor(configured), 120), 900);
 }
 
 function limitText(value: string, maxLength: number) {
@@ -134,6 +142,75 @@ function buildFallbackMeta(reason: string): AgentMeta {
   };
 }
 
+function shouldUseAi(result: AutomationProductSearchResult) {
+  if (result.meta.autoReply === "handoff") {
+    return {
+      ok: false,
+      reason: result.meta.handoffReason || "deterministic_handoff",
+    };
+  }
+
+  if (!result.products.length && result.meta.autoReply === "answer") {
+    return {
+      ok: false,
+      reason: "no_candidate_products",
+    };
+  }
+
+  if (!result.products.length && result.meta.intent !== "clarify") {
+    return {
+      ok: false,
+      reason: "no_candidate_products",
+    };
+  }
+
+  return {
+    ok: true,
+    reason: null,
+  };
+}
+
+function validateAgentReply(result: AutomationProductSearchResult, agentReply: AgentReply) {
+  if (agentReply.action === "answer" && !result.products.length) {
+    return "ai_answer_without_products";
+  }
+
+  if (agentReply.action === "answer" && agentReply.needsHuman) {
+    return "ai_conflicting_handoff_signal";
+  }
+
+  if (agentReply.action === "answer" && agentReply.confidence === "low") {
+    return "ai_low_confidence_answer";
+  }
+
+  return null;
+}
+
+function applyAgentDecision(
+  result: AutomationProductSearchResult,
+  agentReply: AgentReply
+): AutomationProductSearchResult {
+  const needsHuman = agentReply.needsHuman || agentReply.action === "handoff";
+  const autoReply = needsHuman
+    ? "handoff"
+    : agentReply.action === "clarify"
+    ? "clarify"
+    : "answer";
+
+  return {
+    ...result,
+    meta: {
+      ...result.meta,
+      confidence: agentReply.confidence,
+      intent: autoReply === "answer" ? result.meta.intent : "clarify",
+      autoReply,
+      handoffReason: needsHuman
+        ? result.meta.handoffReason || "ai_requested_handoff"
+        : result.meta.handoffReason,
+    },
+  };
+}
+
 function withAgentMeta(
   result: AutomationProductSearchResult,
   ai: AgentMeta,
@@ -164,7 +241,7 @@ async function generateAiReply(result: AutomationProductSearchResult) {
         {
           role: "system",
           content:
-            "You are Cesar Store's Arabic commerce assistant. Answer customers using only the provided store products and links. Do not invent products, prices, stock, scents, colors, sizes, or policies. If the query is broad, show representative options and explain that more variants are available in the linked products or category. If the query is unclear, ask one short clarification question. Keep Arabic replies friendly, direct, and concise.",
+            "You are Cesar Store's Arabic commerce assistant. Answer customers using only the provided store products and links. Do not invent products, prices, stock, scents, colors, sizes, or policies. If the query is broad, show representative options and explain that more variants are available in the linked products or category. If the query is unclear, ask one short clarification question. If the search result asks for handoff or you are not confident, choose handoff instead of guessing. Keep Arabic replies friendly, direct, and concise.",
         },
         {
           role: "user",
@@ -176,12 +253,16 @@ async function generateAiReply(result: AutomationProductSearchResult) {
               bestScore: result.meta.bestScore,
               confidence: result.meta.confidence,
               matchedCategory: result.meta.matchedCategory,
+              autoReply: result.meta.autoReply,
+              handoffReason: result.meta.handoffReason,
             },
             candidateProducts: result.products.map(compactProduct),
             deterministicReply: result.suggestedReply,
             outputRules: [
               "Return valid JSON only.",
               "Use productUrl values only from candidateProducts.",
+              "If searchMeta.autoReply is handoff, return action handoff.",
+              "If candidateProducts is empty, do not answer with a product, price, stock, variant, or link.",
               "For broad category questions, include 2-3 useful examples if available.",
               "For unavailable products, offer alternatives from candidateProducts.",
               "Never mention internal scoring, tokens, webhooks, or automation settings.",
@@ -189,7 +270,7 @@ async function generateAiReply(result: AutomationProductSearchResult) {
           }),
         },
       ],
-      max_output_tokens: 700,
+      max_output_tokens: getAiMaxOutputTokens(),
       store: false,
       temperature: 0.2,
       text: {
@@ -256,21 +337,21 @@ export async function answerAutomationQuestion(input: AgentInput): Promise<Autom
     return withAgentMeta(result, buildFallbackMeta("ai_disabled_or_missing_key"));
   }
 
-  if (!result.products.length && result.meta.intent !== "clarify") {
-    return withAgentMeta(result, buildFallbackMeta("no_candidate_products"));
+  const aiGate = shouldUseAi(result);
+  if (!aiGate.ok) {
+    return withAgentMeta(result, buildFallbackMeta(aiGate.reason || "ai_skipped"));
   }
 
   try {
     const { model, agentReply } = await generateAiReply(result);
+    const validationReason = validateAgentReply(result, agentReply);
+
+    if (validationReason) {
+      return withAgentMeta(result, buildFallbackMeta(validationReason));
+    }
 
     return withAgentMeta(
-      {
-        ...result,
-        meta: {
-          ...result.meta,
-          confidence: agentReply.confidence,
-        },
-      },
+      applyAgentDecision(result, agentReply),
       {
         used: true,
         model,
