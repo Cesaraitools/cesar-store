@@ -220,6 +220,14 @@ function withAgentMeta(
 async function generateAiReply(result: AutomationProductSearchResult) {
   const apiKey = process.env.OPENAI_API_KEY || "";
   const model = getAiModel();
+  console.info("AUTOMATION AI REQUEST STARTED:", {
+    model,
+    productsCount: result.products.length,
+    bestScore: result.meta.bestScore,
+    autoReply: result.meta.autoReply,
+    handoffReason: result.meta.handoffReason,
+  });
+
   const response = await fetch(OPENAI_RESPONSES_URL, {
     method: "POST",
     headers: {
@@ -232,7 +240,7 @@ async function generateAiReply(result: AutomationProductSearchResult) {
         {
           role: "system",
           content:
-            "You are Cesar Store's Arabic commerce assistant. Use the local catalog search as product context, not as a final judge. Answer from the provided store products and links when they fit the customer's intent. Do not invent products, prices, stock, scents, colors, sizes, links, or policies. If candidateProducts is empty or does not match the request, ask one useful clarification question or direct the customer to send details in Messenger. For order, payment, refund, return, phone, or private-account issues, do not expose details publicly; write a short safe reply asking the customer to message the page. Keep Arabic replies friendly, direct, and concise.",
+            "You are Cesar Store's Arabic commerce assistant. Use the local catalog search as product context, not as a final judge. Answer from the provided store products and links when they fit the customer's intent. Do not invent products, prices, stock, scents, colors, sizes, links, or policies. If candidateProducts is empty or does not match the request, ask one useful clarification question or direct the customer to send details in Messenger. For order, payment, refund, return, phone, or private-account issues, do not expose details publicly; write a short safe reply asking the customer to message the page. For normal product, price, availability, scent, color, or option questions with candidateProducts, do not choose handoff; choose answer or clarify. Keep Arabic replies friendly, direct, and concise.",
         },
         {
           role: "user",
@@ -254,6 +262,7 @@ async function generateAiReply(result: AutomationProductSearchResult) {
               "Use productUrl values only from candidateProducts.",
               "Treat searchMeta scores and autoReply as hints, not blockers.",
               "If candidateProducts is empty, do not answer with a product, price, stock, variant, or link.",
+              "If candidateProducts exists and the customer asks about product details, prefer action answer or clarify, not handoff.",
               "If the request needs private customer-service handling, choose action clarify unless no public reply is safe.",
               "For broad category questions, include 2-3 useful examples if available.",
               "For unavailable products, offer alternatives from candidateProducts.",
@@ -315,6 +324,14 @@ async function generateAiReply(result: AutomationProductSearchResult) {
   if (!agentReply) {
     throw new Error("OpenAI returned an invalid automation reply");
   }
+
+  console.info("AUTOMATION AI REQUEST COMPLETED:", {
+    model,
+    action: agentReply.action,
+    confidence: agentReply.confidence,
+    needsHuman: agentReply.needsHuman,
+    productIds: agentReply.productIds,
+  });
 
   return {
     model,

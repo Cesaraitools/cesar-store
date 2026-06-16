@@ -336,6 +336,11 @@ async function sendFacebookCommentReply(commentId: string, text: string) {
     return { ok: false, skipped: true, status: 503 };
   }
 
+  console.info("META COMMENT SEND STARTED:", {
+    commentId,
+    textLength: text.length,
+  });
+
   const response = await fetch(
     `https://graph.facebook.com/${getGraphApiVersion()}/${commentId}/comments`,
     {
@@ -352,10 +357,20 @@ async function sendFacebookCommentReply(commentId: string, text: string) {
 
   if (!response.ok) {
     const responseText = await response.text();
+    console.error("META COMMENT SEND FAILED:", {
+      commentId,
+      status: response.status,
+      body: responseText.slice(0, 500),
+    });
     throw new Error(
       `Meta comment reply failed ${response.status}: ${responseText.slice(0, 500)}`
     );
   }
+
+  console.info("META COMMENT SEND COMPLETED:", {
+    commentId,
+    status: response.status,
+  });
 
   return { ok: true, status: response.status };
 }
@@ -634,6 +649,19 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     requestedLanguage: "ar",
     limit: 3,
     baseUrl: getBaseUrl(request),
+  });
+
+  console.info("META COMMENT AUTOMATION DECISION:", {
+    commentId: normalized.commentId,
+    postId: normalized.postId,
+    productsCount: result.products.length,
+    bestScore: result.meta.bestScore,
+    autoReply: result.meta.autoReply,
+    handoffReason: result.meta.handoffReason,
+    postContextUsed,
+    aiUsed: result.meta.ai.used,
+    aiAction: result.meta.ai.action,
+    aiReason: result.meta.ai.reason,
   });
 
   if (!isCommentAutoReplyEnabled()) {
