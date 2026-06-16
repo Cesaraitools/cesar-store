@@ -59,8 +59,6 @@ export async function GET(
         typeof product.low_stock_threshold === "number"
           ? product.low_stock_threshold
           : 10,
-      facebookPostId: product.facebook_post_id || null,
-      facebookPostPermalinkUrl: product.facebook_post_permalink_url || null,
       variantOptions,
       variants: normalizeProductVariants(product.variants_json, variantOptions),
       createdAt: product.created_at,

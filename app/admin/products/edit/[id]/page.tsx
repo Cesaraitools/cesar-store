@@ -45,8 +45,6 @@ export default function EditProductPage({ params }: Props) {
     price: "",
     stock: "",
     category: "",
-    facebookPostId: "",
-    facebookPostPermalinkUrl: "",
     images: [] as string[], // URLs ONLY
     active: true,
     variantOptions: [] as ProductVariantOption[],
@@ -87,8 +85,6 @@ export default function EditProductPage({ params }: Props) {
   price: String(product.price),
   stock: String(product.stock),
   category: normalizeCategory(product.category), // âœ… FIX
-  facebookPostId: product.facebookPostId || "",
-  facebookPostPermalinkUrl: product.facebookPostPermalinkUrl || "",
   images: product.images || [],
   active: product.active,
   variantOptions: product.variantOptions || [],
@@ -242,8 +238,6 @@ export default function EditProductPage({ params }: Props) {
       price: Number(form.price),
       stock: Number(form.stock),
       category: form.category,
-      facebookPostId: form.facebookPostId.trim(),
-      facebookPostPermalinkUrl: form.facebookPostPermalinkUrl.trim(),
       images: cleanImages,
       active: form.active,
       variantOptions: form.variantOptions,
@@ -433,33 +427,6 @@ export default function EditProductPage({ params }: Props) {
                 </option>
               ))}
             </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Facebook Post ID
-            </label>
-            <input
-              name="facebookPostId"
-              value={form.facebookPostId}
-              onChange={handleChange}
-              placeholder="مثال: 122195738..."
-              className="w-full rounded-md border p-2"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Facebook Post Permalink URL
-            </label>
-            <input
-              type="url"
-              name="facebookPostPermalinkUrl"
-              value={form.facebookPostPermalinkUrl}
-              onChange={handleChange}
-              placeholder="https://www.facebook.com/..."
-              className="w-full rounded-md border p-2"
-            />
           </div>
 
           <div>

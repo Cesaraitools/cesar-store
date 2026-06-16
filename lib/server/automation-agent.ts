@@ -34,6 +34,7 @@ export type AutomationAgentResult = AutomationProductSearchResult & {
 
 type AgentInput = {
   query: string;
+  contextQuery?: string | null;
   handoffQuery?: string | null;
   requestedLanguage?: string | null;
   limit?: number;

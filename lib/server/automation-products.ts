@@ -751,7 +751,7 @@ function scoreProduct(
     score += 3;
   }
 
-  if (tokens.length >= 2 && matchedTokens < tokens.length) {
+  if (tokens.length >= 2 && tokens.length <= 8 && matchedTokens < tokens.length) {
     score -= (tokens.length - matchedTokens) * 4;
   }
 
@@ -970,17 +970,20 @@ function buildHumanHandoffReply(language: AutomationLanguage) {
 
 export async function searchAutomationProducts(input: {
   query: string;
+  contextQuery?: string | null;
   handoffQuery?: string | null;
   requestedLanguage?: string | null;
   limit?: number;
   baseUrl: string;
 }): Promise<AutomationProductSearchResult> {
   const query = input.query.trim();
+  const contextQuery = (input.contextQuery || "").trim();
+  const searchQuery = contextQuery ? `${query}\n${contextQuery}` : query;
   const handoffQuery = (input.handoffQuery || query).trim();
   const language = detectAutomationLanguage(query, input.requestedLanguage || null);
   const limit = Math.min(Math.max(Number(input.limit || 5), 1), 10);
 
-  if (query.length < 2) {
+  if (query.length < 2 && !contextQuery) {
     return {
       schemaVersion: 1,
       query,
@@ -1001,13 +1004,14 @@ export async function searchAutomationProducts(input: {
     };
   }
 
-  const understanding = understandQuery(query);
+  const understanding = understandQuery(searchQuery);
+  const commentUnderstanding = understandQuery(query);
   const handoffUnderstanding =
-    handoffQuery === query ? understanding : understandQuery(handoffQuery);
-  const clarifyIntent = detectClarifyIntent(query);
-  const detectedCategory = detectCategoryIntent(query)?.intent || null;
+    handoffQuery === query ? commentUnderstanding : understandQuery(handoffQuery);
+  const clarifyIntent = detectClarifyIntent(searchQuery);
+  const detectedCategory = detectCategoryIntent(searchQuery)?.intent || null;
   const humanHandoff = handoffUnderstanding.humanHandoff;
-  const productRequest = understanding.productRequest;
+  const productRequest = commentUnderstanding.productRequest || understanding.productRequest;
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
     .from("products")
@@ -1026,7 +1030,7 @@ export async function searchAutomationProducts(input: {
   const scoredProducts = ((data || []) as ProductRow[])
     .map((product) => ({
       product,
-      score: scoreProduct(product, query, understanding, detectedCategory),
+      score: scoreProduct(product, searchQuery, understanding, detectedCategory),
     }))
     .filter((item) => item.score > 0)
     .sort((a, b) => {
@@ -1041,7 +1045,7 @@ export async function searchAutomationProducts(input: {
     Boolean(scoredProducts.length) &&
     (bestScore < 16 || (broadCategoryQuery && bestScore < 20));
   const needsPostContext =
-    understanding.needsPostContext && !detectedCategory && bestScore < 10;
+    commentUnderstanding.needsPostContext && !contextQuery && !detectedCategory && bestScore < 10;
   const shouldClarify =
     !humanHandoff &&
     !needsPostContext &&

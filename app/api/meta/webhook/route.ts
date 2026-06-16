@@ -1,7 +1,6 @@
 import crypto from "crypto";
 import { getRedis } from "@/lib/infra/redis";
 import { answerAutomationQuestion } from "@/lib/server/automation-agent";
-import { createServiceRoleClient } from "@/lib/supabase/runtime";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -403,12 +402,6 @@ type MetaPostContext = {
   permalinkUrl: string;
 };
 
-type LinkedProductContext = {
-  productId: string;
-  permalinkUrl: string;
-  searchText: string;
-};
-
 function collectPostAttachmentText(attachment: MetaPostAttachment, output: string[]) {
   if (attachment.title) output.push(attachment.title);
   if (attachment.description) output.push(attachment.description);
@@ -430,61 +423,6 @@ function compactContextText(parts: string[]) {
   )
     .join("\n")
     .slice(0, 1800);
-}
-
-function buildLinkedProductContext(product: {
-  id: string;
-  name_ar?: string | null;
-  name_en?: string | null;
-  description_ar?: string | null;
-  description_en?: string | null;
-  price?: number | string | null;
-  category?: string | null;
-  facebook_post_permalink_url?: string | null;
-}) {
-  const parts = [
-    "Linked product context:",
-    `Product ID: ${product.id}`,
-    `Name: ${product.name_ar || product.name_en || ""}`,
-    `Category: ${product.category || ""}`,
-    `Price: ${Number(product.price ?? 0)}`,
-    `Description: ${product.description_ar || product.description_en || ""}`,
-    product.facebook_post_permalink_url
-      ? `Facebook permalink: ${product.facebook_post_permalink_url}`
-      : "",
-  ];
-
-  return compactContextText(parts);
-}
-
-async function fetchLinkedProductContext(postId: string): Promise<LinkedProductContext | null> {
-  const supabase = createServiceRoleClient();
-  const { data, error } = await supabase
-    .from("products")
-    .select(
-      "id,name_ar,name_en,description_ar,description_en,price,category,facebook_post_permalink_url"
-    )
-    .eq("facebook_post_id", postId)
-    .eq("is_active", true)
-    .order("updated_at", { ascending: false })
-    .limit(1);
-
-  if (error) {
-    console.warn("META COMMENT LINKED PRODUCT FETCH FAILED:", error);
-    return null;
-  }
-
-  const product = Array.isArray(data) ? data[0] : null;
-  if (!product) return null;
-
-  const searchText = buildLinkedProductContext(product);
-  if (!searchText) return null;
-
-  return {
-    productId: String(product.id),
-    permalinkUrl: product.facebook_post_permalink_url || "",
-    searchText,
-  };
 }
 
 async function fetchFacebookPostContext(postId: string): Promise<MetaPostContext | null> {
@@ -542,6 +480,16 @@ async function fetchFacebookPostContext(postId: string): Promise<MetaPostContext
     console.warn("META COMMENT POST CONTEXT FETCH ERROR:", error);
     return null;
   }
+}
+
+function shouldFetchPostContextForComment(messageText: string) {
+  const normalized = messageText.trim().toLowerCase();
+  if (!normalized) return false;
+  if (normalized.length <= 60) return true;
+
+  return /[?؟]|بكام|بكم|كام|السعر|سعر|متوفر|موجود|الوان|ألوان|روايح|روائح|ده|دا|دي|الصوره|الصورة|المنشور|البوست|hm|h\.m|how much|price|available/.test(
+    normalized
+  );
 }
 
 function buildFacebookCommentReply(result: AutomationAnswer) {
@@ -627,18 +575,12 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     limit: 3,
     baseUrl: getBaseUrl(request),
   };
-  const linkedProductContext = await fetchLinkedProductContext(normalized.postId);
   let result = await answerAutomationQuestion({
     ...baseAutomationInput,
     skipAi: true,
   });
-  let linkedProductUsed = Boolean(linkedProductContext?.searchText);
   let postContextUsed = false;
   let postContextSearchText = "";
-
-  if (linkedProductContext?.permalinkUrl) {
-    normalized.permalinkUrl = normalized.permalinkUrl || linkedProductContext.permalinkUrl;
-  }
 
   if (result.meta.handoffReason === "human_sensitive_request") {
     await recordCommentHandoff({
@@ -656,7 +598,6 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
       reason: result.meta.handoffReason,
       productsCount: result.products.length,
       bestScore: result.meta.bestScore,
-      linkedProductUsed,
       postContextUsed,
       aiUsed: result.meta.ai.used,
       aiAction: result.meta.ai.action,
@@ -664,7 +605,10 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     };
   }
 
-  if (result.meta.handoffReason === "post_context_required") {
+  if (
+    result.meta.handoffReason === "post_context_required" ||
+    shouldFetchPostContextForComment(normalized.messageText)
+  ) {
     const postContext = await fetchFacebookPostContext(normalized.postId);
 
     if (postContext?.searchText) {
@@ -683,17 +627,9 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     }
   }
 
-  const contextParts = [
-    linkedProductContext?.searchText || "",
-    postContextSearchText,
-  ].filter(Boolean);
-
-  const finalQuery = contextParts.length
-    ? `${normalized.messageText}\n${contextParts.join("\n")}`
-    : normalized.messageText;
-
   result = await answerAutomationQuestion({
-    query: finalQuery,
+    query: normalized.messageText,
+    contextQuery: postContextSearchText,
     handoffQuery: normalized.messageText,
     requestedLanguage: "ar",
     limit: 3,
@@ -716,7 +652,6 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
       reason: "comment_auto_reply_disabled",
       productsCount: result.products.length,
       bestScore: result.meta.bestScore,
-      linkedProductUsed,
       postContextUsed,
       aiUsed: result.meta.ai.used,
       aiAction: result.meta.ai.action,
@@ -749,7 +684,6 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
       reason: handoffReason,
       productsCount: result.products.length,
       bestScore: result.meta.bestScore,
-      linkedProductUsed,
       postContextUsed,
       aiUsed: result.meta.ai.used,
       aiAction: result.meta.ai.action,
@@ -767,7 +701,6 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
         : "comment_reply_sent",
     productsCount: result.products.length,
     bestScore: result.meta.bestScore,
-    linkedProductUsed,
     postContextUsed,
     aiUsed: result.meta.ai.used,
     aiAction: result.meta.ai.action,

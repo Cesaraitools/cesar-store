@@ -27,8 +27,6 @@ export default function AddProductPage() {
     price: "",
     stock: "",
     category: "",
-    facebookPostId: "",
-    facebookPostPermalinkUrl: "",
     images: [] as string[],
     active: true,
     low_stock_threshold: "",
@@ -196,8 +194,6 @@ export default function AddProductPage() {
     ? 10
     : parseInt(form.low_stock_threshold),
         category: form.category,
-        facebookPostId: form.facebookPostId.trim(),
-        facebookPostPermalinkUrl: form.facebookPostPermalinkUrl.trim(),
         images: form.images,
         active: form.active,
         variantOptions: form.variantOptions,
@@ -275,31 +271,6 @@ export default function AddProductPage() {
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
-        </div>
-        <div>
-          <label className="block text-sm mb-1 font-bold">Facebook Post ID</label>
-          <input
-            type="text"
-            name="facebookPostId"
-            value={form.facebookPostId}
-            onChange={handleChange}
-            placeholder="مثال: 122195738..."
-            className="w-full rounded border px-3 py-2"
-          />
-        </div>
-
-        <div className="md:col-span-2">
-          <label className="block text-sm mb-1 font-bold">
-            Facebook Post Permalink URL
-          </label>
-          <input
-            type="url"
-            name="facebookPostPermalinkUrl"
-            value={form.facebookPostPermalinkUrl}
-            onChange={handleChange}
-            placeholder="https://www.facebook.com/..."
-            className="w-full rounded border px-3 py-2"
-          />
         </div>
 
         <div>
