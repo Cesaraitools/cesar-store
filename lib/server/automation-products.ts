@@ -80,6 +80,17 @@ type ClarifyIntent = {
   replyEn: string;
 };
 
+type QueryUnderstanding = {
+  tokens: string[];
+  phrases: string[];
+  hasPriceIntent: boolean;
+  hasAvailabilityIntent: boolean;
+  hasOptionsIntent: boolean;
+  needsPostContext: boolean;
+  productRequest: boolean;
+  humanHandoff: boolean;
+};
+
 const MIN_DIRECT_PRODUCT_SCORE = 6;
 
 const QUERY_STOP_WORDS = new Set([
@@ -104,6 +115,21 @@ const QUERY_STOP_WORDS = new Set([
   "للبيع",
   "موجود",
   "متوفر",
+  "بكام",
+  "بكم",
+  "كام",
+  "كم",
+  "السعر",
+  "سعر",
+  "سعره",
+  "سعرها",
+  "ثمن",
+  "تكلفة",
+  "اختيارات",
+  "الوان",
+  "ألوان",
+  "مقاس",
+  "مقاسات",
   "السياره",
   "سياره",
   "للسياره",
@@ -123,6 +149,23 @@ const QUERY_STOP_WORDS = new Set([
   "have",
   "need",
   "want",
+  "how",
+  "much",
+  "hm",
+  "h",
+  "m",
+  "price",
+  "cost",
+  "available",
+  "availability",
+  "option",
+  "options",
+  "color",
+  "colors",
+  "scent",
+  "scents",
+  "size",
+  "sizes",
 ]);
 
 const CLARIFY_INTENTS: ClarifyIntent[] = [
@@ -210,6 +253,78 @@ const PRODUCT_REQUEST_PHRASES = [
   "need",
   "want",
   "have",
+];
+
+const PRICE_INTENT_PHRASES = [
+  "بكام",
+  "بكم",
+  "كام",
+  "كم",
+  "السعر",
+  "سعر",
+  "سعره",
+  "سعرها",
+  "سعرهم",
+  "ثمن",
+  "ثمنه",
+  "تكلفة",
+  "h.m",
+  "hm",
+  "how much",
+  "price",
+  "cost",
+];
+
+const AVAILABILITY_INTENT_PHRASES = [
+  "متوفر",
+  "موجود",
+  "في منه",
+  "فيه منه",
+  "لسه موجود",
+  "available",
+  "in stock",
+  "stock",
+];
+
+const OPTIONS_INTENT_PHRASES = [
+  "روايح",
+  "روائح",
+  "ريحة",
+  "رايحة",
+  "الوان",
+  "ألوان",
+  "لون",
+  "مقاس",
+  "مقاسات",
+  "اختيارات",
+  "options",
+  "option",
+  "colors",
+  "color",
+  "scents",
+  "scent",
+  "sizes",
+  "size",
+];
+
+const POST_CONTEXT_ONLY_PHRASES = [
+  "بكام",
+  "بكم",
+  "كام",
+  "كم",
+  "ده",
+  "دا",
+  "دي",
+  "دول",
+  "الصورة",
+  "الصور",
+  "المنشور",
+  "البوست",
+  "اللي في الصورة",
+  "h.m",
+  "hm",
+  "how much",
+  "this",
 ];
 
 const CATEGORY_INTENTS: CategoryIntent[] = [
@@ -416,8 +531,29 @@ function tokenize(input: string) {
     .filter((token) => token.length > 1);
 }
 
+function expandTokenForms(token: string) {
+  const forms = [token];
+
+  if (token.startsWith("ال") && token.length > 4) {
+    forms.push(token.slice(2));
+  }
+
+  if (token.endsWith("ات") && token.length > 4) {
+    forms.push(token.slice(0, -2));
+  }
+
+  if (token.endsWith("ه") && token.length > 3) {
+    forms.push(token.slice(0, -1));
+  }
+
+  return forms;
+}
+
 function meaningfulTokens(input: string) {
-  return tokenize(input).filter((token) => !QUERY_STOP_WORDS.has(token));
+  const tokens = tokenize(input).filter((token) => !QUERY_STOP_WORDS.has(token));
+  const expanded = tokens.flatMap(expandTokenForms);
+
+  return Array.from(new Set(expanded)).filter((token) => !QUERY_STOP_WORDS.has(token));
 }
 
 function detectClarifyIntent(query: string) {
@@ -447,12 +583,55 @@ function includesAnyPhrase(query: string, phrases: string[]) {
   });
 }
 
+function buildNgrams(tokens: string[], maxLength = 3) {
+  const phrases: string[] = [];
+
+  for (let size = 1; size <= maxLength; size += 1) {
+    for (let index = 0; index <= tokens.length - size; index += 1) {
+      phrases.push(tokens.slice(index, index + size).join(" "));
+    }
+  }
+
+  return Array.from(new Set(phrases)).filter(Boolean);
+}
+
 function shouldHumanHandle(query: string) {
   return includesAnyPhrase(query, HUMAN_HANDOFF_PHRASES);
 }
 
 function looksLikeProductRequest(query: string) {
   return includesAnyPhrase(query, PRODUCT_REQUEST_PHRASES) || meaningfulTokens(query).length > 0;
+}
+
+function understandQuery(query: string): QueryUnderstanding {
+  const tokens = meaningfulTokens(query);
+  const phrases = buildNgrams(tokens, 3);
+  const hasPriceIntent = includesAnyPhrase(query, PRICE_INTENT_PHRASES);
+  const hasAvailabilityIntent = includesAnyPhrase(query, AVAILABILITY_INTENT_PHRASES);
+  const hasOptionsIntent = includesAnyPhrase(query, OPTIONS_INTENT_PHRASES);
+  const humanHandoff = shouldHumanHandle(query);
+  const productRequest =
+    hasPriceIntent ||
+    hasAvailabilityIntent ||
+    hasOptionsIntent ||
+    looksLikeProductRequest(query);
+  const hasPostOnlyPhrase = includesAnyPhrase(query, POST_CONTEXT_ONLY_PHRASES);
+  const needsPostContext =
+    !humanHandoff &&
+    hasPostOnlyPhrase &&
+    tokens.length <= 1 &&
+    normalizeSearchText(query).length <= 24;
+
+  return {
+    tokens,
+    phrases,
+    hasPriceIntent,
+    hasAvailabilityIntent,
+    hasOptionsIntent,
+    needsPostContext,
+    productRequest,
+    humanHandoff,
+  };
 }
 
 function detectCategoryIntent(query: string) {
@@ -514,10 +693,11 @@ function getProductVariantSearchText(product: ProductRow) {
 function scoreProduct(
   product: ProductRow,
   query: string,
-  tokens: string[],
+  understanding: QueryUnderstanding,
   categoryIntent: CategoryIntent | null
 ) {
   const normalizedQuery = normalizeSearchText(query);
+  const { tokens, phrases } = understanding;
   const nameText = normalizeSearchText(
     `${product.name_ar || ""} ${product.name_en || ""}`
   );
@@ -534,6 +714,18 @@ function scoreProduct(
   if (normalizedQuery && nameText.includes(normalizedQuery)) score += 12;
   if (normalizedQuery && haystack.includes(normalizedQuery)) score += 4;
   if (categoryIntent?.category === category) score += 10;
+
+  for (const phrase of phrases.filter((item) => item.includes(" "))) {
+    if (nameText.includes(phrase)) {
+      score += 9;
+    } else if (variantText.includes(phrase)) {
+      score += 5;
+    } else if (descriptionText.includes(phrase)) {
+      score += 4;
+    } else if (categoryText.includes(phrase)) {
+      score += 3;
+    }
+  }
 
   let matchedTokens = 0;
 
@@ -805,11 +997,11 @@ export async function searchAutomationProducts(input: {
     };
   }
 
-  const tokens = meaningfulTokens(query);
+  const understanding = understandQuery(query);
   const clarifyIntent = detectClarifyIntent(query);
   const detectedCategory = detectCategoryIntent(query)?.intent || null;
-  const humanHandoff = shouldHumanHandle(query);
-  const productRequest = looksLikeProductRequest(query);
+  const humanHandoff = understanding.humanHandoff;
+  const productRequest = understanding.productRequest;
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
     .from("products")
@@ -828,7 +1020,7 @@ export async function searchAutomationProducts(input: {
   const scoredProducts = ((data || []) as ProductRow[])
     .map((product) => ({
       product,
-      score: scoreProduct(product, query, tokens, detectedCategory),
+      score: scoreProduct(product, query, understanding, detectedCategory),
     }))
     .filter((item) => item.score > 0)
     .sort((a, b) => {
@@ -842,12 +1034,15 @@ export async function searchAutomationProducts(input: {
     Boolean(detectedCategory) &&
     Boolean(scoredProducts.length) &&
     (bestScore < 16 || (broadCategoryQuery && bestScore < 20));
+  const needsPostContext =
+    understanding.needsPostContext && !detectedCategory && bestScore < 10;
   const shouldClarify =
     !humanHandoff &&
+    !needsPostContext &&
     (Boolean(clarifyIntent && bestScore < 16) ||
       (!categoryMode && bestScore > 0 && bestScore < MIN_DIRECT_PRODUCT_SCORE) ||
       (!scoredProducts.length && productRequest));
-  const intent: AutomationSearchIntent = humanHandoff
+  const intent: AutomationSearchIntent = humanHandoff || needsPostContext
     ? "clarify"
     : shouldClarify
     ? "clarify"
@@ -856,7 +1051,7 @@ export async function searchAutomationProducts(input: {
     : scoredProducts.length
     ? "product"
     : "clarify";
-  const products = (shouldClarify || humanHandoff ? [] : scoredProducts)
+  const products = (shouldClarify || humanHandoff || needsPostContext ? [] : scoredProducts)
     .slice(0, limit)
     .map((item) => toAutomationProduct(item.product, language, input.baseUrl));
   const effectiveBestScore =
@@ -868,6 +1063,8 @@ export async function searchAutomationProducts(input: {
   const clarifyReply =
     humanHandoff
       ? buildHumanHandoffReply(language)
+      : needsPostContext
+      ? buildSafeClarifyReply(language, detectedCategory)
       : clarifyIntent && language === "ar"
       ? clarifyIntent.replyAr
       : clarifyIntent
@@ -875,7 +1072,7 @@ export async function searchAutomationProducts(input: {
       : shouldClarify
       ? buildSafeClarifyReply(language, detectedCategory)
       : undefined;
-  const autoReply: AutomationReplyAction = humanHandoff
+  const autoReply: AutomationReplyAction = humanHandoff || needsPostContext
     ? "handoff"
     : intent === "clarify"
     ? "clarify"
@@ -899,7 +1096,11 @@ export async function searchAutomationProducts(input: {
       confidence: getSearchConfidence(effectiveBestScore),
       intent,
       autoReply,
-      handoffReason: humanHandoff ? "human_sensitive_request" : null,
+      handoffReason: humanHandoff
+        ? "human_sensitive_request"
+        : needsPostContext
+        ? "post_context_required"
+        : null,
       matchedCategory: detectedCategory?.category || null,
       generatedAt: new Date().toISOString(),
     },

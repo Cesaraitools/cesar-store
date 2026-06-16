@@ -27,6 +27,8 @@ function reasonLabel(reason: string) {
       return "تم إيقاف الرد بسبب كثرة التعليقات";
     case "human_sensitive_request":
       return "طلب حساس يحتاج خدمة العملاء";
+    case "post_context_required":
+      return "تعليق قصير يحتاج معرفة المنتج في المنشور";
     default:
       return reason;
   }
