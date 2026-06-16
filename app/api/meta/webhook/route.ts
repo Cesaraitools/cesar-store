@@ -634,6 +634,98 @@ function isPublicDetailQuestion(messageText: string) {
   );
 }
 
+function isPostDependentComment(messageText: string) {
+  const normalized = messageText.trim().toLowerCase();
+
+  return /تفاصيل|التفاصيل|وصف|الوصف|بكام|بكم|كام|السعر|سعر|سعره|سعرها|متوفر|موجود|ده|دا|دي|الصوره|الصورة|المنشور|البوست|\?|؟|hm|h\.m|how much|price|details|available/.test(
+    normalized
+  );
+}
+
+const POST_CONTEXT_MATCH_STOP_WORDS = new Set([
+  "المنتج",
+  "منتج",
+  "منتجات",
+  "السياره",
+  "سياره",
+  "السيارات",
+  "سيارات",
+  "العربيه",
+  "عربيه",
+  "اكسسوارات",
+  "اكسسوار",
+  "معدات",
+  "فئه",
+  "قسم",
+  "متاح",
+  "متوفر",
+  "سعر",
+  "السعر",
+  "تفاصيل",
+  "وصف",
+  "هنا",
+  "من",
+  "في",
+  "على",
+  "مع",
+  "هذا",
+  "هذه",
+  "ده",
+  "دا",
+  "دي",
+  "car",
+  "cars",
+  "auto",
+  "product",
+  "products",
+  "price",
+  "details",
+]);
+
+function normalizePostContextMatchText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[\u064b-\u065f\u0670]/g, "")
+    .replace(/[\u0625\u0623\u0622\u0627]/g, "\u0627")
+    .replace(/\u0649/g, "\u064a")
+    .replace(/\u0629/g, "\u0647")
+    .replace(/[^\p{L}\p{N}\s-]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function postContextTokens(value: string) {
+  return Array.from(
+    new Set(
+      normalizePostContextMatchText(value)
+        .split(" ")
+        .map((token) => token.trim())
+        .filter(
+          (token) =>
+            token.length > 2 && !POST_CONTEXT_MATCH_STOP_WORDS.has(token)
+        )
+    )
+  );
+}
+
+function hasConfidentPostProductMatch(result: AutomationAnswer, postContext: string) {
+  const firstProduct = result.products[0];
+  if (!firstProduct || !postContext.trim()) return false;
+
+  const normalizedContext = normalizePostContextMatchText(postContext);
+  const productTokens = postContextTokens(
+    `${firstProduct.name} ${firstProduct.nameAr} ${firstProduct.nameEn}`
+  );
+  const overlappingTokens = productTokens.filter((token) =>
+    normalizedContext.includes(token)
+  );
+
+  return (
+    overlappingTokens.length >= 2 ||
+    overlappingTokens.some((token) => token.length >= 6 || /\d/.test(token))
+  );
+}
+
 function shouldSendPrivatePriceReply(result: AutomationAnswer) {
   return (
     result.meta.autoReply === "answer" &&
@@ -684,6 +776,15 @@ function buildPublicProductFallback(result: AutomationAnswer) {
   if (!first) return result.suggestedReply.trim();
 
   return `${first.name} متوفر حاليا.\nالطلب من هنا: ${first.productUrl}`;
+}
+
+function buildFacebookUncertainPostReply(baseUrl: string) {
+  return [
+    "محتاجين تأكيد المنتج المقصود في المنشور عشان نرد عليك بدقة.",
+    "ابعتلنا رسالة بصورة المنتج أو اكتب اسمه، وهنبعتلك التفاصيل.",
+    "",
+    `الموقع: ${buildShopUrl(baseUrl)}`,
+  ].join("\n");
 }
 
 function buildFacebookCommentReply(
@@ -918,6 +1019,40 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     return {
       processed: false,
       reason: handoffReason,
+      productsCount: result.products.length,
+      bestScore: result.meta.bestScore,
+      postContextUsed,
+      aiUsed: result.meta.ai.used,
+      aiAction: result.meta.ai.action,
+      aiReason: result.meta.ai.reason,
+    };
+  }
+
+  if (
+    postContextUsed &&
+    isPostDependentComment(normalized.messageText) &&
+    result.meta.autoReply === "answer" &&
+    result.products.length &&
+    !hasConfidentPostProductMatch(result, postContextSearchText)
+  ) {
+    await recordCommentHandoff({
+      reason: "post_context_product_uncertain",
+      commentId: normalized.commentId,
+      postId: normalized.postId,
+      messageText: normalized.messageText,
+      permalinkUrl: normalized.permalinkUrl,
+      productsCount: result.products.length,
+      bestScore: result.meta.bestScore,
+    });
+
+    await sendFacebookCommentReply(
+      normalized.commentId,
+      buildFacebookUncertainPostReply(baseUrl)
+    );
+
+    return {
+      processed: true,
+      reason: "post_context_product_uncertain",
       productsCount: result.products.length,
       bestScore: result.meta.bestScore,
       postContextUsed,
