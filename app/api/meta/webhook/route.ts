@@ -617,12 +617,21 @@ function stripKnownProductPrices(text: string, result: AutomationAnswer) {
   }
 
   return output
+    .replace(/^\s*(?:[-*•]\s*)?(?:\*\*)?\s*(?:السعر|سعره|سعرها|price)\s*(?:\*\*)?\s*:?\s*[-–—.]?\s*$/gimu, "")
     .replace(/\s+([:،,؛.])/g, "$1")
     .replace(/-\s*:/g, ":")
     .replace(/\n[ \t]+/g, "\n")
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+function isPublicDetailQuestion(messageText: string) {
+  const normalized = messageText.trim().toLowerCase();
+
+  return /تفاصيل|التفاصيل|مواصفات|المواصفات|وصف|الوصف|لون|ألوان|الوان|نوع|النوع|موديل|مقاس|مقاسات|حجم|احجام|أحجام|ريحة|ريحه|رائحة|رائحه|روايح|روائح|خامة|خامه|استخدام|يستخدم|ينفع|يركب|مناسب|فرق|الفرق|color|colour|size|type|model|scent|details|description|specs/.test(
+    normalized
+  );
 }
 
 function shouldSendPrivatePriceReply(result: AutomationAnswer) {
@@ -655,6 +664,20 @@ function buildFacebookPrivatePriceReply(result: AutomationAnswer) {
   ].join("\n");
 }
 
+function buildConciseFacebookProductReply(result: AutomationAnswer) {
+  const products = result.products.slice(0, 3);
+  if (!products.length) return result.suggestedReply.trim();
+
+  if (products.length === 1) {
+    return `المنتج الأقرب لسؤالك: ${products[0].name}.\nاطلبه من هنا: ${products[0].productUrl}`;
+  }
+
+  return [
+    "أقرب المنتجات لسؤالك:",
+    ...products.map((product) => `- ${product.name}\n${product.productUrl}`),
+  ].join("\n");
+}
+
 function buildPublicProductFallback(result: AutomationAnswer) {
   const first = result.products[0];
 
@@ -666,16 +689,20 @@ function buildPublicProductFallback(result: AutomationAnswer) {
 function buildFacebookCommentReply(
   result: AutomationAnswer,
   baseUrl: string,
+  messageText: string,
   options?: { privatePriceSent?: boolean }
 ) {
   const shouldMovePricePrivate = shouldSendPrivatePriceReply(result);
+  const shouldUseDetailedPublicReply = isPublicDetailQuestion(messageText);
   const cleanSuffix =
     result.meta.autoReply === "clarify"
       ? "\n\nلو تحب ابعتلنا رسالة بصورة المنتج أو تفاصيل أكتر."
-      : "\n\nلو تحب تفاصيل أكتر ابعتلنا رسالة.";
+      : "";
 
   const publicReply = shouldMovePricePrivate
-    ? stripKnownProductPrices(result.suggestedReply, result)
+    ? shouldUseDetailedPublicReply
+      ? stripKnownProductPrices(result.suggestedReply, result)
+      : buildConciseFacebookProductReply(result)
     : result.suggestedReply.trim();
   const reply = publicReply || buildPublicProductFallback(result);
   const category = result.products[0]?.category || result.meta.matchedCategory || "";
@@ -687,8 +714,8 @@ function buildFacebookCommentReply(
   ].filter(Boolean);
   const priceNote = shouldMovePricePrivate
     ? options?.privatePriceSent
-      ? "تم إرسال السعر في الخاص."
-      : "للسعر ابعتلنا رسالة وهنبعتهولك في الخاص."
+      ? "بعتنالك التفاصيل في الخاص."
+      : "ابعتلنا رسالة وهنبعتلك التفاصيل في الخاص."
     : "";
 
   return `${reply}${links.length ? `\n\n${links.join("\n")}` : ""}${
@@ -923,7 +950,7 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
 
   await sendFacebookCommentReply(
     normalized.commentId,
-    buildFacebookCommentReply(result, baseUrl, {
+    buildFacebookCommentReply(result, baseUrl, normalized.messageText, {
       privatePriceSent,
     })
   );
