@@ -387,13 +387,108 @@ async function recordCommentHandoff(input: {
 
 type AutomationAnswer = Awaited<ReturnType<typeof answerAutomationQuestion>>;
 
-function buildFacebookCommentReply(result: AutomationAnswer) {
-  const suffix =
-    result.meta.autoReply === "clarify"
-      ? "\n\nÙ„Ùˆ ØªØ­Ø¨ Ø§Ø¨Ø¹ØªÙ„Ù†Ø§ Ø±Ø³Ø§Ù„Ø© Ø¨ØµÙˆØ±Ø© Ø§Ù„Ù…Ù†ØªØ¬ Ø£Ùˆ ØªÙØ§ØµÙŠÙ„ Ø£ÙƒØªØ±."
-      : "\n\nÙ„Ùˆ ØªØ­Ø¨ ØªÙØ§ØµÙŠÙ„ Ø£ÙƒØªØ± Ø§Ø¨Ø¹ØªÙ„Ù†Ø§ Ø±Ø³Ø§Ù„Ø©.";
+type MetaPostAttachment = {
+  title?: string;
+  description?: string;
+  url?: string;
+  type?: string;
+  subattachments?: {
+    data?: MetaPostAttachment[];
+  };
+};
 
-  return `${result.suggestedReply}${suffix}`;
+type MetaPostContext = {
+  searchText: string;
+  permalinkUrl: string;
+};
+
+function collectPostAttachmentText(attachment: MetaPostAttachment, output: string[]) {
+  if (attachment.title) output.push(attachment.title);
+  if (attachment.description) output.push(attachment.description);
+  if (attachment.url) output.push(attachment.url);
+
+  const children = attachment.subattachments?.data || [];
+  for (const child of children) {
+    collectPostAttachmentText(child, output);
+  }
+}
+
+function compactContextText(parts: string[]) {
+  return Array.from(
+    new Set(
+      parts
+        .map((part) => part.trim())
+        .filter(Boolean)
+    )
+  )
+    .join("\n")
+    .slice(0, 1800);
+}
+
+async function fetchFacebookPostContext(postId: string): Promise<MetaPostContext | null> {
+  const pageAccessToken = getPageAccessToken();
+  if (!pageAccessToken) return null;
+
+  const fields = [
+    "message",
+    "story",
+    "permalink_url",
+    "attachments{title,description,url,type,subattachments{title,description,url,type}}",
+  ].join(",");
+  const url = new URL(`https://graph.facebook.com/${getGraphApiVersion()}/${postId}`);
+  url.searchParams.set("fields", fields);
+
+  try {
+    const response = await fetch(url.toString(), {
+      headers: {
+        Authorization: `Bearer ${pageAccessToken}`,
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      const responseText = await response.text();
+      console.warn("META COMMENT POST CONTEXT FETCH FAILED:", {
+        status: response.status,
+        body: responseText.slice(0, 300),
+      });
+      return null;
+    }
+
+    const data = (await response.json()) as {
+      message?: string;
+      story?: string;
+      permalink_url?: string;
+      attachments?: {
+        data?: MetaPostAttachment[];
+      };
+    };
+    const parts = [data.message || "", data.story || ""];
+
+    for (const attachment of data.attachments?.data || []) {
+      collectPostAttachmentText(attachment, parts);
+    }
+
+    const searchText = compactContextText(parts);
+    if (!searchText) return null;
+
+    return {
+      searchText,
+      permalinkUrl: data.permalink_url || "",
+    };
+  } catch (error) {
+    console.warn("META COMMENT POST CONTEXT FETCH ERROR:", error);
+    return null;
+  }
+}
+
+function buildFacebookCommentReply(result: AutomationAnswer) {
+  const cleanSuffix =
+    result.meta.autoReply === "clarify"
+      ? "\n\nلو تحب ابعتلنا رسالة بصورة المنتج أو تفاصيل أكتر."
+      : "\n\nلو تحب تفاصيل أكتر ابعتلنا رسالة.";
+
+  return `${result.suggestedReply}${cleanSuffix}`;
 }
 
 async function processEvent(event: MetaMessagingEvent, request: Request) {
@@ -464,12 +559,38 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     return { processed: false, reason: "comment_post_not_allowed" };
   }
 
-  const result = await answerAutomationQuestion({
+  let result = await answerAutomationQuestion({
     query: normalized.messageText,
     requestedLanguage: "ar",
     limit: 3,
     baseUrl: getBaseUrl(request),
   });
+  let postContextUsed = false;
+
+  if (result.meta.handoffReason === "post_context_required") {
+    const postContext = await fetchFacebookPostContext(normalized.postId);
+
+    if (postContext?.searchText) {
+      postContextUsed = true;
+      result = await answerAutomationQuestion({
+        query: `${normalized.messageText}\n${postContext.searchText}`,
+        requestedLanguage: "ar",
+        limit: 3,
+        baseUrl: getBaseUrl(request),
+      });
+
+      normalized.permalinkUrl = normalized.permalinkUrl || postContext.permalinkUrl;
+
+      console.info("META COMMENT POST CONTEXT USED:", {
+        commentId: normalized.commentId,
+        postId: normalized.postId,
+        contextLength: postContext.searchText.length,
+        bestScore: result.meta.bestScore,
+        autoReply: result.meta.autoReply,
+        handoffReason: result.meta.handoffReason,
+      });
+    }
+  }
 
   if (!isCommentAutoReplyEnabled()) {
     await recordCommentHandoff({
@@ -487,6 +608,7 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
       reason: "comment_auto_reply_disabled",
       productsCount: result.products.length,
       bestScore: result.meta.bestScore,
+      postContextUsed,
     };
   }
 
@@ -527,6 +649,7 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
         : "comment_reply_sent",
     productsCount: result.products.length,
     bestScore: result.meta.bestScore,
+    postContextUsed,
   };
 
 }

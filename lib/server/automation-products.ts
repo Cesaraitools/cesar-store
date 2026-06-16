@@ -701,16 +701,18 @@ function scoreProduct(
   const nameText = normalizeSearchText(
     `${product.name_ar || ""} ${product.name_en || ""}`
   );
+  const idText = normalizeSearchText(product.id);
   const descriptionText = normalizeSearchText(
     `${product.description_ar || ""} ${product.description_en || ""}`
   );
   const variantText = normalizeSearchText(getProductVariantSearchText(product));
   const categoryText = normalizeSearchText(normalizeCategory(product.category || ""));
-  const haystack = `${nameText} ${descriptionText} ${variantText} ${categoryText}`;
+  const haystack = `${idText} ${nameText} ${descriptionText} ${variantText} ${categoryText}`;
   const category = normalizeCategory(product.category || "");
 
   let score = 0;
 
+  if (idText && normalizedQuery.includes(idText)) score += 20;
   if (normalizedQuery && nameText.includes(normalizedQuery)) score += 12;
   if (normalizedQuery && haystack.includes(normalizedQuery)) score += 4;
   if (categoryIntent?.category === category) score += 10;
