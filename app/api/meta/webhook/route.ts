@@ -682,6 +682,136 @@ const POST_CONTEXT_MATCH_STOP_WORDS = new Set([
   "details",
 ]);
 
+const POST_CONTEXT_CATEGORY_KEYWORDS: Record<string, string[]> = {
+  "air-fresheners": [
+    "معطر",
+    "معطرات",
+    "فواحه",
+    "فواحة",
+    "فواحات",
+    "مبخره",
+    "مبخرة",
+    "مباخر",
+    "رائحه",
+    "رائحة",
+    "ريحه",
+    "ريحة",
+    "روائح",
+    "freshener",
+    "air freshener",
+    "perfume",
+    "scent",
+  ],
+  detergent: [
+    "منظف",
+    "منظفات",
+    "تنظيف",
+    "شامبو",
+    "فوم",
+    "واكس",
+    "بولش",
+    "تلميع",
+    "تابلوه",
+    "cleaner",
+    "detergent",
+    "shampoo",
+    "foam",
+    "wax",
+    "polish",
+  ],
+  "cars-accessories": [
+    "اكسسوار",
+    "اكسسوارات",
+    "إكسسوار",
+    "إكسسوارات",
+    "حامل",
+    "منظم",
+    "مخده",
+    "مخدة",
+    "رقبه",
+    "رقبة",
+    "ماكت",
+    "ماكيت",
+    "مجسم",
+    "مجسمات",
+    "مصغر",
+    "مصغره",
+    "مصغرة",
+    "سيارات مصغره",
+    "سيارات مصغرة",
+    "طبق الاصل",
+    "طبق الأصل",
+    "model car",
+    "model cars",
+    "diecast",
+    "miniature",
+    "accessory",
+    "accessories",
+    "holder",
+    "organizer",
+  ],
+  "cars-lights": [
+    "لمبه",
+    "لمبة",
+    "لمبات",
+    "ليد",
+    "إضاءة",
+    "اضاءه",
+    "اضاءة",
+    "نور",
+    "كشاف",
+    "زينون",
+    "led",
+    "light",
+    "lights",
+    "bulb",
+  ],
+  equipment: [
+    "عده",
+    "عدة",
+    "اداه",
+    "أداة",
+    "ادوات",
+    "أدوات",
+    "معدات",
+    "كمبروسر",
+    "كومبروسر",
+    "منفاخ",
+    "كابل",
+    "بطاريه",
+    "بطارية",
+    "واير",
+    "جر",
+    "tool",
+    "tools",
+    "equipment",
+    "compressor",
+    "jumper",
+    "tow",
+  ],
+  "additives-fluids": [
+    "سائل",
+    "سوائل",
+    "اضافه",
+    "إضافة",
+    "اضافات",
+    "إضافات",
+    "زيت",
+    "بنزين",
+    "اوكتان",
+    "أوكتان",
+    "رشاشات",
+    "مساحات",
+    "ردياتير",
+    "fluid",
+    "fluids",
+    "additive",
+    "additives",
+    "octane",
+    "injector",
+  ],
+};
+
 function normalizePostContextMatchText(value: string) {
   return value
     .toLowerCase()
@@ -713,6 +843,11 @@ function hasConfidentPostProductMatch(result: AutomationAnswer, postContext: str
   if (!firstProduct || !postContext.trim()) return false;
 
   const normalizedContext = normalizePostContextMatchText(postContext);
+  const productUrl = normalizePostContextMatchText(firstProduct.productUrl || "");
+  const productId = normalizePostContextMatchText(firstProduct.id || "");
+  if (productUrl && normalizedContext.includes(productUrl)) return true;
+  if (productId && normalizedContext.includes(productId)) return true;
+
   const productTokens = postContextTokens(
     `${firstProduct.name} ${firstProduct.nameAr} ${firstProduct.nameEn}`
   );
@@ -723,6 +858,33 @@ function hasConfidentPostProductMatch(result: AutomationAnswer, postContext: str
   return (
     overlappingTokens.length >= 2 ||
     overlappingTokens.some((token) => token.length >= 6 || /\d/.test(token))
+  );
+}
+
+function hasConfidentPostCategoryMatch(result: AutomationAnswer, postContext: string) {
+  if (!postContext.trim() || !result.products.length) return false;
+
+  const category = result.meta.matchedCategory || result.products[0]?.category || "";
+  if (!category) return false;
+
+  const keywords = POST_CONTEXT_CATEGORY_KEYWORDS[category] || [];
+  if (!keywords.length) return false;
+
+  const normalizedContext = normalizePostContextMatchText(postContext);
+  const matchedKeyword = keywords.some((keyword) => {
+    const normalizedKeyword = normalizePostContextMatchText(keyword);
+    return Boolean(normalizedKeyword) && normalizedContext.includes(normalizedKeyword);
+  });
+
+  if (!matchedKeyword) return false;
+
+  return result.products.some((product) => product.category === category);
+}
+
+function hasConfidentPostContextMatch(result: AutomationAnswer, postContext: string) {
+  return (
+    hasConfidentPostProductMatch(result, postContext) ||
+    hasConfidentPostCategoryMatch(result, postContext)
   );
 }
 
@@ -1033,7 +1195,7 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     isPostDependentComment(normalized.messageText) &&
     result.meta.autoReply === "answer" &&
     result.products.length &&
-    !hasConfidentPostProductMatch(result, postContextSearchText)
+    !hasConfidentPostContextMatch(result, postContextSearchText)
   ) {
     await recordCommentHandoff({
       reason: "post_context_product_uncertain",
