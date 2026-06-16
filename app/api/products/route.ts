@@ -41,18 +41,17 @@ function toProductResponse(product: any): Product {
     category: normalizeCategory(product?.category || "equipment"),
     images: normalizeImagesArray(rawImages),
     stock: Number(product?.stock ?? 0),
-active: Boolean(product?.is_active ?? true),
-
-low_stock_threshold:
-  typeof product?.low_stock_threshold === "number"
-    ? product.low_stock_threshold
-    : 10,
-
-variantOptions,
-variants: normalizeProductVariants(product?.variants_json, variantOptions),
-
-createdAt: product?.created_at || new Date().toISOString(),
-updatedAt: product?.updated_at || new Date().toISOString(),
+    active: Boolean(product?.is_active ?? true),
+    low_stock_threshold:
+      typeof product?.low_stock_threshold === "number"
+        ? product.low_stock_threshold
+        : 10,
+    facebookPostId: product?.facebook_post_id || null,
+    facebookPostPermalinkUrl: product?.facebook_post_permalink_url || null,
+    variantOptions,
+    variants: normalizeProductVariants(product?.variants_json, variantOptions),
+    createdAt: product?.created_at || new Date().toISOString(),
+    updatedAt: product?.updated_at || new Date().toISOString(),
   };
 }
 
@@ -170,6 +169,8 @@ export async function POST(request: Request) {
   !Number.isNaN(body.low_stock_threshold)
     ? body.low_stock_threshold
     : 10,
+      facebookPostId: body.facebookPostId?.trim() || null,
+      facebookPostPermalinkUrl: body.facebookPostPermalinkUrl?.trim() || null,
       variantOptions,
       variants,
     };
@@ -191,6 +192,8 @@ export async function POST(request: Request) {
         created_at: now,
         updated_at: now,
         low_stock_threshold: productToSave.low_stock_threshold,
+        facebook_post_id: productToSave.facebookPostId,
+        facebook_post_permalink_url: productToSave.facebookPostPermalinkUrl,
         variant_options_json: productToSave.variantOptions || [],
         variants_json: productToSave.variants || [],
       },
@@ -266,7 +269,10 @@ export async function PUT(request: Request) {
         image_url: images[0] || null,
         images_json: images,
         category: normalizeCategory(updates.category),
-         low_stock_threshold: updates.low_stock_threshold,
+        low_stock_threshold: updates.low_stock_threshold,
+        facebook_post_id: updates.facebookPostId?.trim() || null,
+        facebook_post_permalink_url:
+          updates.facebookPostPermalinkUrl?.trim() || null,
         variant_options_json: variantOptions,
         variants_json: variants,
         updated_at: new Date().toISOString(),

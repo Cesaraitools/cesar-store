@@ -39,6 +39,8 @@ type ProductRow = {
   category: string | null;
   is_active: boolean | null;
   low_stock_threshold: number | null;
+  facebook_post_id?: string | null;
+  facebook_post_permalink_url?: string | null;
   variant_options_json?: unknown;
   variants_json?: unknown;
   created_at: string | null;
@@ -70,6 +72,8 @@ function toProduct(row: ProductRow): Product {
     active: Boolean(row.is_active ?? true),
     low_stock_threshold:
       typeof row.low_stock_threshold === "number" ? row.low_stock_threshold : 10,
+    facebookPostId: row.facebook_post_id || null,
+    facebookPostPermalinkUrl: row.facebook_post_permalink_url || null,
     variantOptions: normalizeProductVariantOptions(row.variant_options_json),
     variants: normalizeProductVariants(
       row.variants_json,

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -45,6 +45,8 @@ export default function EditProductPage({ params }: Props) {
     price: "",
     stock: "",
     category: "",
+    facebookPostId: "",
+    facebookPostPermalinkUrl: "",
     images: [] as string[], // URLs ONLY
     active: true,
     variantOptions: [] as ProductVariantOption[],
@@ -84,7 +86,9 @@ export default function EditProductPage({ params }: Props) {
   descriptionEn: product.description.en,
   price: String(product.price),
   stock: String(product.stock),
-  category: normalizeCategory(product.category), // ✅ FIX
+  category: normalizeCategory(product.category), // âœ… FIX
+  facebookPostId: product.facebookPostId || "",
+  facebookPostPermalinkUrl: product.facebookPostPermalinkUrl || "",
   images: product.images || [],
   active: product.active,
   variantOptions: product.variantOptions || [],
@@ -215,7 +219,7 @@ export default function EditProductPage({ params }: Props) {
     setError(null);
 
     // Hard guard: no blob allowed
-    // 🟢 Remove any accidental blob URLs (safety fix)
+    // ðŸŸ¢ Remove any accidental blob URLs (safety fix)
      const cleanImages = form.images.filter((img) => !img.startsWith("blob:"));
 
       if (cleanImages.length === 0) {
@@ -238,6 +242,8 @@ export default function EditProductPage({ params }: Props) {
       price: Number(form.price),
       stock: Number(form.stock),
       category: form.category,
+      facebookPostId: form.facebookPostId.trim(),
+      facebookPostPermalinkUrl: form.facebookPostPermalinkUrl.trim(),
       images: cleanImages,
       active: form.active,
       variantOptions: form.variantOptions,
@@ -377,7 +383,7 @@ export default function EditProductPage({ params }: Props) {
 
           <div>
             <label className="block text-sm font-medium mb-1">
-              {hasVariants ? "إجمالي مخزون المتغيرات" : "Stock"}
+              {hasVariants ? "Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ù…Ø®Ø²ÙˆÙ† Ø§Ù„Ù…ØªØºÙŠØ±Ø§Øª" : "Stock"}
             </label>
             <input
               type="number"
@@ -391,7 +397,7 @@ export default function EditProductPage({ params }: Props) {
             />
             {hasVariants && (
               <p className="mt-1 text-xs text-gray-500">
-                يتم حساب هذا الرقم من مخزون الاختيارات بالأسفل. عدل المقاسات نفسها لتغيير المخزون.
+                ÙŠØªÙ… Ø­Ø³Ø§Ø¨ Ù‡Ø°Ø§ Ø§Ù„Ø±Ù‚Ù… Ù…Ù† Ù…Ø®Ø²ÙˆÙ† Ø§Ù„Ø§Ø®ØªÙŠØ§Ø±Ø§Øª Ø¨Ø§Ù„Ø£Ø³ÙÙ„. Ø¹Ø¯Ù„ Ø§Ù„Ù…Ù‚Ø§Ø³Ø§Øª Ù†ÙØ³Ù‡Ø§ Ù„ØªØºÙŠÙŠØ± Ø§Ù„Ù…Ø®Ø²ÙˆÙ†.
               </p>
             )}
           </div>
@@ -427,6 +433,33 @@ export default function EditProductPage({ params }: Props) {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Facebook Post ID
+            </label>
+            <input
+              name="facebookPostId"
+              value={form.facebookPostId}
+              onChange={handleChange}
+              placeholder="مثال: 122195738..."
+              className="w-full rounded-md border p-2"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              Facebook Post Permalink URL
+            </label>
+            <input
+              type="url"
+              name="facebookPostPermalinkUrl"
+              value={form.facebookPostPermalinkUrl}
+              onChange={handleChange}
+              placeholder="https://www.facebook.com/..."
+              className="w-full rounded-md border p-2"
+            />
           </div>
 
           <div>
@@ -479,14 +512,14 @@ export default function EditProductPage({ params }: Props) {
                     onClick={() => removeImage(idx)}
                     className="absolute top-1 right-1 rounded bg-black/70 px-1 text-xs text-white"
                   >
-                    ×
+                    Ã—
                   </button>
                 </div>
               ))}
             </div>
             {form.images.length > 0 && (
               <p className="mt-2 text-xs text-gray-500">
-                أول صورة هي التي ستظهر كصورة رئيسية في المتجر. اضغط على أي صورة لإرسالها إلى البداية.
+                Ø£ÙˆÙ„ ØµÙˆØ±Ø© Ù‡ÙŠ Ø§Ù„ØªÙŠ Ø³ØªØ¸Ù‡Ø± ÙƒØµÙˆØ±Ø© Ø±Ø¦ÙŠØ³ÙŠØ© ÙÙŠ Ø§Ù„Ù…ØªØ¬Ø±. Ø§Ø¶ØºØ· Ø¹Ù„Ù‰ Ø£ÙŠ ØµÙˆØ±Ø© Ù„Ø¥Ø±Ø³Ø§Ù„Ù‡Ø§ Ø¥Ù„Ù‰ Ø§Ù„Ø¨Ø¯Ø§ÙŠØ©.
               </p>
             )}
           </div>

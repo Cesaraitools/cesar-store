@@ -236,6 +236,8 @@ export async function GET() {
         currency: "EGP",
         availability: product.stock > 0 ? "in_stock" : "out_of_stock",
         stockStatus: stockStatus(product.stock),
+        facebookPostId: product.facebookPostId || null,
+        facebookPostPermalinkUrl: product.facebookPostPermalinkUrl || null,
         attributes: productAttributes(product.category, title),
         productUrl: absoluteUrl(`/product/${product.id}`),
         imageUrl: images[0],

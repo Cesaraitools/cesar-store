@@ -23,7 +23,9 @@ export type Product = {
   stock: number;
   active: boolean;
 
-low_stock_threshold?: number;
+  low_stock_threshold?: number;
+  facebookPostId?: string | null;
+  facebookPostPermalinkUrl?: string | null;
 
   createdAt: string;
   updatedAt: string;
