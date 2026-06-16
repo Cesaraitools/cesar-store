@@ -559,11 +559,15 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     return { processed: false, reason: "comment_post_not_allowed" };
   }
 
-  let result = await answerAutomationQuestion({
+  const baseAutomationInput = {
     query: normalized.messageText,
     requestedLanguage: "ar",
     limit: 3,
     baseUrl: getBaseUrl(request),
+  };
+  let result = await answerAutomationQuestion({
+    ...baseAutomationInput,
+    skipAi: true,
   });
   let postContextUsed = false;
 
@@ -591,6 +595,8 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
         handoffReason: result.meta.handoffReason,
       });
     }
+  } else {
+    result = await answerAutomationQuestion(baseAutomationInput);
   }
 
   if (!isCommentAutoReplyEnabled()) {
@@ -610,6 +616,9 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
       productsCount: result.products.length,
       bestScore: result.meta.bestScore,
       postContextUsed,
+      aiUsed: result.meta.ai.used,
+      aiAction: result.meta.ai.action,
+      aiReason: result.meta.ai.reason,
     };
   }
 
@@ -638,6 +647,10 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
       reason: handoffReason,
       productsCount: result.products.length,
       bestScore: result.meta.bestScore,
+      postContextUsed,
+      aiUsed: result.meta.ai.used,
+      aiAction: result.meta.ai.action,
+      aiReason: result.meta.ai.reason,
     };
   }
 
@@ -652,6 +665,9 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     productsCount: result.products.length,
     bestScore: result.meta.bestScore,
     postContextUsed,
+    aiUsed: result.meta.ai.used,
+    aiAction: result.meta.ai.action,
+    aiReason: result.meta.ai.reason,
   };
 
 }

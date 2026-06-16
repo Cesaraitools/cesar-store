@@ -38,6 +38,7 @@ type AgentInput = {
   requestedLanguage?: string | null;
   limit?: number;
   baseUrl: string;
+  skipAi?: boolean;
 };
 
 type OpenAIResponse = {
@@ -325,6 +326,10 @@ export async function answerAutomationQuestion(input: AgentInput): Promise<Autom
 
   if (!isAiEnabled()) {
     return withAgentMeta(result, buildFallbackMeta("ai_disabled_or_missing_key"));
+  }
+
+  if (input.skipAi) {
+    return withAgentMeta(result, buildFallbackMeta("ai_skipped_by_request"));
   }
 
   const aiGate = shouldUseAi(result);
