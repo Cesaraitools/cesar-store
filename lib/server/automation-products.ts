@@ -970,11 +970,13 @@ function buildHumanHandoffReply(language: AutomationLanguage) {
 
 export async function searchAutomationProducts(input: {
   query: string;
+  handoffQuery?: string | null;
   requestedLanguage?: string | null;
   limit?: number;
   baseUrl: string;
 }): Promise<AutomationProductSearchResult> {
   const query = input.query.trim();
+  const handoffQuery = (input.handoffQuery || query).trim();
   const language = detectAutomationLanguage(query, input.requestedLanguage || null);
   const limit = Math.min(Math.max(Number(input.limit || 5), 1), 10);
 
@@ -1000,9 +1002,11 @@ export async function searchAutomationProducts(input: {
   }
 
   const understanding = understandQuery(query);
+  const handoffUnderstanding =
+    handoffQuery === query ? understanding : understandQuery(handoffQuery);
   const clarifyIntent = detectClarifyIntent(query);
   const detectedCategory = detectCategoryIntent(query)?.intent || null;
-  const humanHandoff = understanding.humanHandoff;
+  const humanHandoff = handoffUnderstanding.humanHandoff;
   const productRequest = understanding.productRequest;
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase

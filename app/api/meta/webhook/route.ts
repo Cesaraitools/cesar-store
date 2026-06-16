@@ -574,6 +574,7 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
       postContextUsed = true;
       result = await answerAutomationQuestion({
         query: `${normalized.messageText}\n${postContext.searchText}`,
+        handoffQuery: normalized.messageText,
         requestedLanguage: "ar",
         limit: 3,
         baseUrl: getBaseUrl(request),
