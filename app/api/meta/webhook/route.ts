@@ -507,13 +507,30 @@ function shouldFetchPostContextForComment(messageText: string) {
   );
 }
 
-function buildFacebookCommentReply(result: AutomationAnswer) {
+function buildShopUrl(baseUrl: string) {
+  return `${baseUrl}/shop`;
+}
+
+function buildCategoryUrl(category: string, baseUrl: string) {
+  return `${buildShopUrl(baseUrl)}?category=${encodeURIComponent(category)}`;
+}
+
+function buildFacebookCommentReply(result: AutomationAnswer, baseUrl: string) {
   const cleanSuffix =
     result.meta.autoReply === "clarify"
       ? "\n\nلو تحب ابعتلنا رسالة بصورة المنتج أو تفاصيل أكتر."
       : "\n\nلو تحب تفاصيل أكتر ابعتلنا رسالة.";
 
-  return `${result.suggestedReply}${cleanSuffix}`;
+  const reply = result.suggestedReply.trim();
+  const category = result.products[0]?.category || result.meta.matchedCategory || "";
+  const categoryUrl = category ? buildCategoryUrl(category, baseUrl) : "";
+  const shopUrl = buildShopUrl(baseUrl);
+  const links = [
+    categoryUrl && !reply.includes(categoryUrl) ? `شوف القسم من هنا: ${categoryUrl}` : "",
+    !reply.includes(shopUrl) ? `الموقع: ${shopUrl}` : "",
+  ].filter(Boolean);
+
+  return `${reply}${links.length ? `\n\n${links.join("\n")}` : ""}${cleanSuffix}`;
 }
 
 async function processEvent(event: MetaMessagingEvent, request: Request) {
@@ -584,11 +601,12 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     return { processed: false, reason: "comment_post_not_allowed" };
   }
 
+  const baseUrl = getBaseUrl(request);
   const baseAutomationInput = {
     query: normalized.messageText,
     requestedLanguage: "ar",
     limit: 3,
-    baseUrl: getBaseUrl(request),
+    baseUrl,
   };
   let result = await answerAutomationQuestion({
     ...baseAutomationInput,
@@ -648,7 +666,7 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     handoffQuery: normalized.messageText,
     requestedLanguage: "ar",
     limit: 3,
-    baseUrl: getBaseUrl(request),
+    baseUrl,
   });
 
   console.info("META COMMENT AUTOMATION DECISION:", {
@@ -719,7 +737,10 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     };
   }
 
-  await sendFacebookCommentReply(normalized.commentId, buildFacebookCommentReply(result));
+  await sendFacebookCommentReply(
+    normalized.commentId,
+    buildFacebookCommentReply(result, baseUrl)
+  );
 
   return {
     processed: true,
