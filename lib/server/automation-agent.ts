@@ -143,13 +143,6 @@ function buildFallbackMeta(reason: string): AgentMeta {
 }
 
 function shouldUseAi(result: AutomationProductSearchResult) {
-  if (result.meta.autoReply === "handoff") {
-    return {
-      ok: false,
-      reason: result.meta.handoffReason || "deterministic_handoff",
-    };
-  }
-
   if (!result.products.length && result.meta.autoReply === "answer") {
     return {
       ok: false,
@@ -177,10 +170,6 @@ function validateAgentReply(result: AutomationProductSearchResult, agentReply: A
 
   if (agentReply.action === "answer" && agentReply.needsHuman) {
     return "ai_conflicting_handoff_signal";
-  }
-
-  if (agentReply.action === "answer" && agentReply.confidence === "low") {
-    return "ai_low_confidence_answer";
   }
 
   return null;
@@ -241,7 +230,7 @@ async function generateAiReply(result: AutomationProductSearchResult) {
         {
           role: "system",
           content:
-            "You are Cesar Store's Arabic commerce assistant. Answer customers using only the provided store products and links. Do not invent products, prices, stock, scents, colors, sizes, or policies. If the query is broad, show representative options and explain that more variants are available in the linked products or category. If the query is unclear, ask one short clarification question. If the search result asks for handoff or you are not confident, choose handoff instead of guessing. Keep Arabic replies friendly, direct, and concise.",
+            "You are Cesar Store's Arabic commerce assistant. Use the local catalog search as product context, not as a final judge. Answer from the provided store products and links when they fit the customer's intent. Do not invent products, prices, stock, scents, colors, sizes, links, or policies. If candidateProducts is empty or does not match the request, ask one useful clarification question or direct the customer to send details in Messenger. For order, payment, refund, return, phone, or private-account issues, do not expose details publicly; write a short safe reply asking the customer to message the page. Keep Arabic replies friendly, direct, and concise.",
         },
         {
           role: "user",
@@ -261,8 +250,9 @@ async function generateAiReply(result: AutomationProductSearchResult) {
             outputRules: [
               "Return valid JSON only.",
               "Use productUrl values only from candidateProducts.",
-              "If searchMeta.autoReply is handoff, return action handoff.",
+              "Treat searchMeta scores and autoReply as hints, not blockers.",
               "If candidateProducts is empty, do not answer with a product, price, stock, variant, or link.",
+              "If the request needs private customer-service handling, choose action clarify unless no public reply is safe.",
               "For broad category questions, include 2-3 useful examples if available.",
               "For unavailable products, offer alternatives from candidateProducts.",
               "Never mention internal scoring, tokens, webhooks, or automation settings.",

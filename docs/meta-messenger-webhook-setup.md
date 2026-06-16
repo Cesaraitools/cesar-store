@@ -59,8 +59,9 @@ AI automation:
   deterministic catalog search.
 - The AI agent only sees products returned from the store catalog search. It is
   instructed not to invent products, prices, stock, variants, links, or policies.
-- If deterministic matching decides a comment needs human handoff, AI is skipped
-  so it cannot override safety and guess publicly.
+- AI treats deterministic scores and handoff hints as context, not as a final
+  blocker. It can answer, clarify, or safely ask the customer to message the
+  page, while still being restricted to catalog products and links.
 - The secured endpoint `/api/automation/products/search` keeps the old response
   fields and adds `meta.ai` so n8n or other callers can tell whether AI was used.
 
@@ -68,9 +69,10 @@ Comment automation safety:
 
 - `META_COMMENTS_AUTO_REPLY` is disabled by default. Keep it `false` until the
   comment flow is tested with controlled posts.
-- If enabled, the endpoint only replies to comments when the catalog search has
-  at least one product and `meta.bestScore` is greater than or equal to
-  `META_COMMENTS_MIN_SCORE`.
+- If AI is enabled and successfully writes a reply, the endpoint trusts the AI
+  action instead of blocking on `meta.bestScore`. If AI is disabled or fails,
+  deterministic replies still require at least one product and `meta.bestScore`
+  greater than or equal to `META_COMMENTS_MIN_SCORE`.
 - To limit auto replies to controlled test posts, set
   `META_COMMENTS_ALLOWED_POST_IDS` to one or more comma-separated Facebook post
   ids. Leave it empty to allow all posts once the automation is ready.

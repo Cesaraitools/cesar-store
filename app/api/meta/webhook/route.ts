@@ -615,7 +615,8 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
 
   const shouldHandoff =
     result.meta.autoReply === "handoff" ||
-    (result.meta.autoReply === "answer" &&
+    (!result.meta.ai.used &&
+      result.meta.autoReply === "answer" &&
       (!result.products.length || result.meta.bestScore < getCommentMinimumScore()));
 
   if (shouldHandoff) {
