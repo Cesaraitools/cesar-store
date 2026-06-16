@@ -375,6 +375,53 @@ async function sendFacebookCommentReply(commentId: string, text: string) {
   return { ok: true, status: response.status };
 }
 
+async function sendFacebookCommentPrivateReply(commentId: string, text: string) {
+  const pageAccessToken = getPageAccessToken();
+
+  if (!pageAccessToken) {
+    console.warn("META COMMENT PRIVATE REPLY SKIPPED: META_PAGE_ACCESS_TOKEN is missing");
+    return { ok: false, skipped: true, status: 503 };
+  }
+
+  console.info("META COMMENT PRIVATE REPLY STARTED:", {
+    commentId,
+    textLength: text.length,
+  });
+
+  const response = await fetch(
+    `https://graph.facebook.com/${getGraphApiVersion()}/${commentId}/private_replies`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${pageAccessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: text.slice(0, 1900),
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const responseText = await response.text();
+    console.error("META COMMENT PRIVATE REPLY FAILED:", {
+      commentId,
+      status: response.status,
+      body: responseText.slice(0, 500),
+    });
+    throw new Error(
+      `Meta comment private reply failed ${response.status}: ${responseText.slice(0, 500)}`
+    );
+  }
+
+  console.info("META COMMENT PRIVATE REPLY COMPLETED:", {
+    commentId,
+    status: response.status,
+  });
+
+  return { ok: true, status: response.status };
+}
+
 async function recordCommentHandoff(input: {
   reason: string;
   commentId: string;
@@ -515,13 +562,122 @@ function buildCategoryUrl(category: string, baseUrl: string) {
   return `${buildShopUrl(baseUrl)}?category=${encodeURIComponent(category)}`;
 }
 
-function buildFacebookCommentReply(result: AutomationAnswer, baseUrl: string) {
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function toArabicDigits(value: string) {
+  const digits = ["٠", "١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩"];
+
+  return value.replace(/\d/g, (digit) => digits[Number(digit)] || digit);
+}
+
+function getPriceTextVariants(price: number) {
+  const normalized = Number.isInteger(price)
+    ? String(price)
+    : price.toFixed(2).replace(/\.?0+$/, "");
+  const fixed = price.toFixed(2);
+
+  return Array.from(
+    new Set([normalized, fixed, toArabicDigits(normalized), toArabicDigits(fixed)])
+  ).map(escapeRegExp);
+}
+
+function stripKnownProductPrices(text: string, result: AutomationAnswer) {
+  const prices = Array.from(
+    new Set(
+      result.products
+        .map((product) => Number(product.price))
+        .filter((price) => Number.isFinite(price) && price > 0)
+    )
+  ).sort((a, b) => String(b).length - String(a).length);
+
+  let output = text;
+  const currencyPattern = "(?:جنيه|جنيها|جنيهًا|ج\\.م|جم|ج|EGP|egp|LE|le)";
+
+  for (const price of prices) {
+    const amountPattern = `(?:${getPriceTextVariants(price).join("|")})`;
+
+    output = output
+      .replace(
+        new RegExp(
+          `\\s*(?:بسعر|بالسعر|سعره|سعرها|السعر|سعر)\\s*(?:هو|حاليا|حالياً|حوالي)?\\s*${amountPattern}(?:\\s*${currencyPattern})?\\.?`,
+          "giu"
+        ),
+        ""
+      )
+      .replace(
+        new RegExp(`\\s*[-–—]\\s*${amountPattern}\\s*${currencyPattern}\\.?`, "giu"),
+        ""
+      )
+      .replace(
+        new RegExp(`${amountPattern}\\s*${currencyPattern}\\.?`, "giu"),
+        ""
+      );
+  }
+
+  return output
+    .replace(/\s+([:،,؛.])/g, "$1")
+    .replace(/-\s*:/g, ":")
+    .replace(/\n[ \t]+/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function shouldSendPrivatePriceReply(result: AutomationAnswer) {
+  return (
+    result.meta.autoReply === "answer" &&
+    result.products.some((product) => Number(product.price) > 0)
+  );
+}
+
+function buildFacebookPrivatePriceReply(result: AutomationAnswer) {
+  const products = result.products
+    .filter((product) => Number(product.price) > 0)
+    .slice(0, 3);
+
+  if (!products.length) return "";
+
+  if (products.length === 1) {
+    const product = products[0];
+
+    return `سعر ${product.name} حاليا ${product.price} جنيه.\nالطلب من هنا: ${product.productUrl}\n\nلو محتاج تفاصيل أكتر ابعتلنا رسالة.`;
+  }
+
+  return [
+    "أسعار أقرب المنتجات لسؤالك:",
+    ...products.map(
+      (product) => `- ${product.name}: ${product.price} جنيه\n${product.productUrl}`
+    ),
+    "",
+    "لو محتاج تفاصيل أكتر ابعتلنا رسالة.",
+  ].join("\n");
+}
+
+function buildPublicProductFallback(result: AutomationAnswer) {
+  const first = result.products[0];
+
+  if (!first) return result.suggestedReply.trim();
+
+  return `${first.name} متوفر حاليا.\nالطلب من هنا: ${first.productUrl}`;
+}
+
+function buildFacebookCommentReply(
+  result: AutomationAnswer,
+  baseUrl: string,
+  options?: { privatePriceSent?: boolean }
+) {
+  const shouldMovePricePrivate = shouldSendPrivatePriceReply(result);
   const cleanSuffix =
     result.meta.autoReply === "clarify"
       ? "\n\nلو تحب ابعتلنا رسالة بصورة المنتج أو تفاصيل أكتر."
       : "\n\nلو تحب تفاصيل أكتر ابعتلنا رسالة.";
 
-  const reply = result.suggestedReply.trim();
+  const publicReply = shouldMovePricePrivate
+    ? stripKnownProductPrices(result.suggestedReply, result)
+    : result.suggestedReply.trim();
+  const reply = publicReply || buildPublicProductFallback(result);
   const category = result.products[0]?.category || result.meta.matchedCategory || "";
   const categoryUrl = category ? buildCategoryUrl(category, baseUrl) : "";
   const shopUrl = buildShopUrl(baseUrl);
@@ -529,8 +685,15 @@ function buildFacebookCommentReply(result: AutomationAnswer, baseUrl: string) {
     categoryUrl && !reply.includes(categoryUrl) ? `شوف القسم من هنا: ${categoryUrl}` : "",
     !reply.includes(shopUrl) ? `الموقع: ${shopUrl}` : "",
   ].filter(Boolean);
+  const priceNote = shouldMovePricePrivate
+    ? options?.privatePriceSent
+      ? "تم إرسال السعر في الخاص."
+      : "للسعر ابعتلنا رسالة وهنبعتهولك في الخاص."
+    : "";
 
-  return `${reply}${links.length ? `\n\n${links.join("\n")}` : ""}${cleanSuffix}`;
+  return `${reply}${links.length ? `\n\n${links.join("\n")}` : ""}${
+    priceNote ? `\n\n${priceNote}` : ""
+  }${cleanSuffix}`;
 }
 
 async function processEvent(event: MetaMessagingEvent, request: Request) {
@@ -737,9 +900,32 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     };
   }
 
+  let privatePriceAttempted = false;
+  let privatePriceSent = false;
+  const privatePriceReply = shouldSendPrivatePriceReply(result)
+    ? buildFacebookPrivatePriceReply(result)
+    : "";
+
+  if (privatePriceReply) {
+    privatePriceAttempted = true;
+
+    try {
+      await sendFacebookCommentPrivateReply(normalized.commentId, privatePriceReply);
+      privatePriceSent = true;
+    } catch (error) {
+      console.error("META COMMENT PRIVATE PRICE SEND ERROR:", {
+        commentId: normalized.commentId,
+        postId: normalized.postId,
+        error,
+      });
+    }
+  }
+
   await sendFacebookCommentReply(
     normalized.commentId,
-    buildFacebookCommentReply(result, baseUrl)
+    buildFacebookCommentReply(result, baseUrl, {
+      privatePriceSent,
+    })
   );
 
   return {
@@ -754,6 +940,8 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     aiUsed: result.meta.ai.used,
     aiAction: result.meta.ai.action,
     aiReason: result.meta.ai.reason,
+    privatePriceAttempted,
+    privatePriceSent,
   };
 
 }
