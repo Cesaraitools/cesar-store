@@ -617,7 +617,9 @@ function stripKnownProductPrices(text: string, result: AutomationAnswer) {
   }
 
   return output
-    .replace(/^\s*(?:[-*•]\s*)?(?:\*\*)?\s*(?:السعر|سعره|سعرها|price)\s*(?:\*\*)?\s*:?\s*[-–—.]?\s*$/gimu, "")
+    .replace(/^\s*(?:[-*•]\s*)?(?:\*\*)?\s*(?:السعر|سعره|سعرها|price)\s*(?:\*\*)?\s*:?.*$/gimu, "")
+    .replace(/\s*(?:[-*•]\s*)?(?:\*\*)?\s*(?:السعر|سعره|سعرها|price)\s*(?:\*\*)?\s*:?\s*(?:اطلب(?:ه|ها)?\s*)?الآن\.?/gimu, "")
+    .replace(/\s*(?:[-*•]\s*)?(?:\*\*)?\s*(?:السعر|سعره|سعرها|price)\s*(?:\*\*)?\s*:?\s*$/gimu, "")
     .replace(/\s+([:،,؛.])/g, "$1")
     .replace(/-\s*:/g, ":")
     .replace(/\n[ \t]+/g, "\n")
@@ -940,6 +942,18 @@ function normalizePostContextMatchText(value: string) {
     .trim();
 }
 
+function formatErrorForLog(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack?.slice(0, 500),
+    };
+  }
+
+  return error;
+}
+
 function postContextTokens(value: string) {
   return Array.from(
     new Set(
@@ -1094,7 +1108,7 @@ function buildFacebookCommentReply(
   const priceNote = shouldMovePricePrivate
     ? options?.privatePriceSent
       ? "بعتنالك التفاصيل في الخاص."
-      : "ابعتلنا رسالة وهنبعتلك التفاصيل في الخاص."
+      : "لو رسالة الخاص ما ظهرتش عندك، ابعتلنا رسالة وهنبعتلك التفاصيل فوراً."
     : "";
 
   return `${reply}${links.length ? `\n\n${links.join("\n")}` : ""}${
@@ -1356,7 +1370,7 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
       console.error("META COMMENT PRIVATE PRICE SEND ERROR:", {
         commentId: normalized.commentId,
         postId: normalized.postId,
-        error,
+        error: formatErrorForLog(error),
       });
     }
   }
