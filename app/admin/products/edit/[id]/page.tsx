@@ -84,7 +84,7 @@ export default function EditProductPage({ params }: Props) {
   descriptionEn: product.description.en,
   price: String(product.price),
   stock: String(product.stock),
-  category: normalizeCategory(product.category), // âœ… FIX
+  category: normalizeCategory(product.category),
   images: product.images || [],
   active: product.active,
   variantOptions: product.variantOptions || [],
@@ -215,7 +215,7 @@ export default function EditProductPage({ params }: Props) {
     setError(null);
 
     // Hard guard: no blob allowed
-    // ðŸŸ¢ Remove any accidental blob URLs (safety fix)
+    // Remove any accidental blob URLs before saving.
      const cleanImages = form.images.filter((img) => !img.startsWith("blob:"));
 
       if (cleanImages.length === 0) {
@@ -377,7 +377,7 @@ export default function EditProductPage({ params }: Props) {
 
           <div>
             <label className="block text-sm font-medium mb-1">
-              {hasVariants ? "Ø¥Ø¬Ù…Ø§Ù„ÙŠ Ù…Ø®Ø²ÙˆÙ† Ø§Ù„Ù…ØªØºÙŠØ±Ø§Øª" : "Stock"}
+              {hasVariants ? "إجمالي مخزون المتغيرات" : "Stock"}
             </label>
             <input
               type="number"
@@ -391,7 +391,7 @@ export default function EditProductPage({ params }: Props) {
             />
             {hasVariants && (
               <p className="mt-1 text-xs text-gray-500">
-                ÙŠØªÙ… Ø­Ø³Ø§Ø¨ Ù‡Ø°Ø§ Ø§Ù„Ø±Ù‚Ù… Ù…Ù† Ù…Ø®Ø²ÙˆÙ† Ø§Ù„Ø§Ø®ØªÙŠØ§Ø±Ø§Øª Ø¨Ø§Ù„Ø£Ø³ÙÙ„. Ø¹Ø¯Ù„ Ø§Ù„Ù…Ù‚Ø§Ø³Ø§Øª Ù†ÙØ³Ù‡Ø§ Ù„ØªØºÙŠÙŠØ± Ø§Ù„Ù…Ø®Ø²ÙˆÙ†.
+                يتم حساب هذا الرقم من مخزون الاختيارات بالأسفل. عدل المقاسات نفسها لتغيير المخزون.
               </p>
             )}
           </div>
@@ -486,7 +486,7 @@ export default function EditProductPage({ params }: Props) {
             </div>
             {form.images.length > 0 && (
               <p className="mt-2 text-xs text-gray-500">
-                Ø£ÙˆÙ„ ØµÙˆØ±Ø© Ù‡ÙŠ Ø§Ù„ØªÙŠ Ø³ØªØ¸Ù‡Ø± ÙƒØµÙˆØ±Ø© Ø±Ø¦ÙŠØ³ÙŠØ© ÙÙŠ Ø§Ù„Ù…ØªØ¬Ø±. Ø§Ø¶ØºØ· Ø¹Ù„Ù‰ Ø£ÙŠ ØµÙˆØ±Ø© Ù„Ø¥Ø±Ø³Ø§Ù„Ù‡Ø§ Ø¥Ù„Ù‰ Ø§Ù„Ø¨Ø¯Ø§ÙŠØ©.
+                أول صورة هي التي ستظهر كصورة رئيسية في المتجر. اضغط على أي صورة لإرسالها إلى البداية.
               </p>
             )}
           </div>
