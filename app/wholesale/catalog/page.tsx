@@ -15,6 +15,7 @@ import {
   ShoppingCart,
   Store,
   Tag,
+  X,
 } from "lucide-react";
 import { useWholesaleCart } from "@/context/WholesaleDbCartContext";
 import type {
@@ -448,6 +449,7 @@ function ProductCard({
   const [orderedUnits, setOrderedUnits] = useState(String(minimumUnits));
   const [quantityWasEdited, setQuantityWasEdited] = useState(false);
   const [added, setAdded] = useState(false);
+  const [isImageOpen, setIsImageOpen] = useState(false);
   const variantOptions = product.variantOptions || [];
   const activeVariants = useMemo(
     () => (product.variants || []).filter((variant) => variant.active !== false),
@@ -477,6 +479,8 @@ function ProductCard({
     product.wholesalePrice > 0 &&
     !hasVariants &&
     hasValidQuantity;
+  const productName = product.name.ar || product.name.en;
+  const productDetailsHref = `/wholesale/product/${product.id}`;
 
   function handleQuantityChange(value: string) {
     const cleanedValue = value.replace(/[^\d\u0660-\u0669\u06f0-\u06f9]/g, "");
@@ -504,6 +508,19 @@ function ProductCard({
     quantityIssueMessage,
   ]);
 
+  useEffect(() => {
+    if (!isImageOpen) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsImageOpen(false);
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isImageOpen]);
+
   function addProduct() {
     if (!hasValidQuantity || parsedUnits === null) {
       onInvalidQuantity(quantityIssueMessage);
@@ -516,34 +533,49 @@ function ProductCard({
   }
 
   return (
+    <>
     <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-200/80">
-      <div className="relative aspect-square bg-slate-100">
+      <button
+        type="button"
+        onClick={() => product.image && setIsImageOpen(true)}
+        disabled={!product.image}
+        className="relative block aspect-square w-full bg-slate-100 disabled:cursor-default focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2"
+        aria-label={`عرض صورة ${productName}`}
+      >
         {product.image ? (
           <Image
             src={product.image}
-            alt={product.name.ar || product.name.en}
+            alt={productName}
             fill
             sizes="(min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-            className="object-cover"
+            className="object-cover transition duration-300 hover:scale-105"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center">
+          <span className="flex h-full w-full items-center justify-center">
             <Building2 className="h-14 w-14 text-slate-300" />
-          </div>
+          </span>
         )}
-      </div>
+      </button>
 
       <div className="space-y-4 p-5">
         <div>
           <div className="text-xs font-black text-orange-600">
             {formatCategory(product.category)}
           </div>
-          <h2 className="mt-2 line-clamp-2 min-h-14 text-lg font-black leading-7 text-slate-950">
-            {product.name.ar || product.name.en}
-          </h2>
+          <Link href={productDetailsHref}>
+            <h2 className="mt-2 line-clamp-2 min-h-14 text-lg font-black leading-7 text-slate-950 transition hover:text-orange-700">
+              {productName}
+            </h2>
+          </Link>
           <div className="mt-2 text-xs font-bold text-slate-400">
             متوفر: {new Intl.NumberFormat("ar-EG").format(product.stock)}
           </div>
+          <Link
+            href={productDetailsHref}
+            className="mt-3 inline-flex w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-black text-slate-700 transition hover:border-orange-300 hover:text-orange-700"
+          >
+            تفاصيل المنتج
+          </Link>
         </div>
 
         {canViewPrices ? (
@@ -572,7 +604,7 @@ function ProductCard({
                   هذا المنتج يحتوي على {new Intl.NumberFormat("ar-EG").format(activeVariants.length)} اختيار.
                 </div>
                 <Link
-                  href={`/wholesale/product/${product.id}`}
+                  href={productDetailsHref}
                   className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-xs font-black text-white transition hover:bg-emerald-800"
                 >
                   <ShoppingCart className="h-4 w-4" />
@@ -650,5 +682,38 @@ function ProductCard({
         )}
       </div>
     </article>
+
+      {isImageOpen && product.image ? (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`صورة ${productName}`}
+          onClick={() => setIsImageOpen(false)}
+        >
+          <button
+            type="button"
+            onClick={() => setIsImageOpen(false)}
+            className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-900 shadow-lg transition hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+            aria-label="إغلاق الصورة"
+          >
+            <X className="h-5 w-5" aria-hidden="true" />
+          </button>
+
+          <div
+            className="relative h-[92vh] w-[94vw]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <Image
+              src={product.image}
+              alt={productName}
+              fill
+              sizes="94vw"
+              className="object-contain"
+            />
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }
