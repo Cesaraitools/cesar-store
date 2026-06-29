@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -67,7 +67,7 @@ const statusContent: Record<
   },
 };
 
-export default function WholesaleStatusPage() {
+function WholesaleStatusContent() {
   const searchParams = useSearchParams();
   const initialId = searchParams.get("id") || "";
   const initialPhone = searchParams.get("phone") || "";
@@ -327,6 +327,23 @@ export default function WholesaleStatusPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function WholesaleStatusPage() {
+  return (
+    <Suspense
+      fallback={
+        <div dir="rtl" className="min-h-[75vh] bg-slate-50 px-4 py-10 text-slate-950 md:px-8">
+          <div className="mx-auto max-w-4xl rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-xl shadow-slate-200/60">
+            <Loader2 className="mx-auto h-8 w-8 animate-spin text-orange-600" />
+            <p className="mt-4 text-sm font-black text-slate-600">جاري تحميل متابعة طلب الجملة...</p>
+          </div>
+        </div>
+      }
+    >
+      <WholesaleStatusContent />
+    </Suspense>
   );
 }
 
