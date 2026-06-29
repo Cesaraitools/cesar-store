@@ -57,6 +57,7 @@ Last updated: 2026-06-29
 - Legacy browser localStorage wholesale-cart migration code has been removed; wholesale cart state now reads and writes through the Supabase-backed cart APIs only.
 - The global cart button now routes to the wholesale order review page and shows the wholesale cart item count only while browsing `/wholesale`; outside wholesale it keeps the existing retail cart behavior.
 - The global navbar now switches to wholesale navigation while browsing `/wholesale`, so it shows wholesale shop/orders links instead of sending wholesale users back to the retail shop.
+- The main landing page now includes a visible wholesale entry point linking to `/wholesale` and `/wholesale/apply`.
 - The wholesale catalog is gated to active wholesale customers only; non-active users see an access message instead of product listings.
 - Adding a wholesale product now shows a success toast and immediately updates the wholesale cart count.
 - Wholesale catalog and order review now block quantities above current stock before adding or submitting, with a clear customer-facing warning.

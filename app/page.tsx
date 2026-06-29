@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useLanguage } from "@/context/LanguageContext";
-import { ArrowLeft, ArrowRight, Sparkles, ShieldCheck, Zap, ChevronRight, ChevronLeft } from "lucide-react";
+import { ArrowLeft, ArrowRight, Sparkles, ShieldCheck, Zap, ChevronRight, ChevronLeft, Store, FileCheck2 } from "lucide-react";
 
 /* ---------------- Types (Unchanged) ---------------- */
 type CategorySlide = {
@@ -32,6 +32,12 @@ const content = {
     searchHint:
       "Customers can find us as Cesar Store, Cesar Shop, cesareshop.com, or by searching for car care products, air fresheners, accessories, lighting, tools, and car cleaning products in Egypt.",
     banner: "Experience Excellence – Your Car Deserves the Best",
+    wholesaleEyebrow: "Wholesale Partners",
+    wholesaleTitle: "Wholesale trade for shops, distributors, and companies",
+    wholesaleDescription:
+      "Apply as a wholesale partner, upload the required business documents, and after review you will get access to the wholesale catalog and private wholesale prices.",
+    wholesalePrimary: "Enter wholesale section",
+    wholesaleSecondary: "Apply as wholesale partner",
   },
   ar: {
     heroTitle: "حلول فاخرة لسيارتك",
@@ -41,6 +47,12 @@ const content = {
     searchHint:
       "يمكن الوصول إلى المتجر بصيغ مثل متجر سيزر، سيزر ستور، سيزر شوب، Cesar Store، Cesar Shop، أو عند البحث عن منتجات العناية بالسيارات والمعطرات والإكسسوارات والمنظفات.",
     banner: "اختبر التميز – سيارتك تستحق الأفضل دائماً",
+    wholesaleEyebrow: "شركاء الجملة",
+    wholesaleTitle: "قسم تجارة الجملة للمحلات والموزعين والشركات",
+    wholesaleDescription:
+      "قدّم طلب الانضمام كتاجر جملة، ارفع المستندات المطلوبة، وبعد المراجعة تظهر لك أسعار الجملة والكتالوج المخصص.",
+    wholesalePrimary: "دخول قسم الجملة",
+    wholesaleSecondary: "تقديم طلب تاجر جملة",
   },
 };
 
@@ -173,6 +185,40 @@ export default function LandingPage() {
             <p className="text-sm font-medium text-slate-500 leading-relaxed">{f.desc}</p>
           </div>
         ))}
+      </section>
+
+      <section className="px-6 pb-24">
+        <div className="mx-auto grid max-w-7xl items-center gap-10 rounded-[2.5rem] border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/50 md:grid-cols-[1.1fr_0.9fr] md:p-12">
+          <div className="space-y-5">
+            <span className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-blue-700">
+              <Store size={16} />
+              {t.wholesaleEyebrow}
+            </span>
+            <h2 className="text-3xl font-black leading-tight text-slate-950 md:text-5xl">
+              {t.wholesaleTitle}
+            </h2>
+            <p className="max-w-2xl text-base font-semibold leading-8 text-slate-600 md:text-lg">
+              {t.wholesaleDescription}
+            </p>
+          </div>
+
+          <div className="grid gap-4">
+            <Link
+              href="/wholesale"
+              className="inline-flex items-center justify-center gap-3 rounded-2xl bg-slate-950 px-6 py-5 text-sm font-black text-white transition hover:bg-blue-700"
+            >
+              <Store size={20} />
+              {t.wholesalePrimary}
+            </Link>
+            <Link
+              href="/wholesale/apply"
+              className="inline-flex items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-6 py-5 text-sm font-black text-slate-900 transition hover:border-blue-200 hover:bg-blue-50"
+            >
+              <FileCheck2 size={20} />
+              {t.wholesaleSecondary}
+            </Link>
+          </div>
+        </div>
       </section>
 
       {/* About Section - Minimalist approach */}
