@@ -19,19 +19,21 @@ const nextConfig = {
       },
     ];
   },
-  outputFileTracingExcludes: {
-    "/api/upload": ["./.git/**/*", "./.next/cache/**/*", "./public/**/*"],
-    "/api/products": ["./.git/**/*", "./.next/cache/**/*", "./public/**/*"],
-    "/api/admin/products/import": [
-      "./.git/**/*",
-      "./.next/cache/**/*",
-      "./public/**/*",
-    ],
-    "/api/admin/products/import/*": [
-      "./.git/**/*",
-      "./.next/cache/**/*",
-      "./public/**/*",
-    ],
+  experimental: {
+    outputFileTracingExcludes: {
+      "/api/upload": ["./.git/**/*", "./.next/cache/**/*", "./public/**/*"],
+      "/api/products": ["./.git/**/*", "./.next/cache/**/*", "./public/**/*"],
+      "/api/admin/products/import": [
+        "./.git/**/*",
+        "./.next/cache/**/*",
+        "./public/**/*",
+      ],
+      "/api/admin/products/import/*": [
+        "./.git/**/*",
+        "./.next/cache/**/*",
+        "./public/**/*",
+      ],
+    },
   },
 };
 

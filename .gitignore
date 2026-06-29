@@ -10,3 +10,4 @@ supabase/.temp
 backups/*.
 docs/search-indexing-batches-*.md
 docs/search-indexing-urls-*.txt
+.codex-*.log

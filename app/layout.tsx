@@ -10,6 +10,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 import { CheckoutProvider } from "@/context/CheckoutContext";
 import { LanguageProvider } from "@/context/LanguageContext";
+import { WholesaleCartProvider } from "@/context/WholesaleDbCartContext";
 import {
   BRAND_SEARCH_TERMS,
   CONTACT_EMAIL,
@@ -153,21 +154,23 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <AuthProvider>
           <LanguageProvider>
             <CartProvider>
-              <CheckoutProvider>
-                <div className="flex flex-col min-h-screen">
-                  <Navbar />
+              <WholesaleCartProvider>
+                <CheckoutProvider>
+                  <div className="flex flex-col min-h-screen">
+                    <Navbar />
 
-                  <main className="flex-grow pt-5 md:pt-7">{children}</main>
-                  <Toaster
-                    position="top-center"
-                    containerStyle={{ zIndex: 2147483647 }}
-                    toastOptions={{
-                      duration: 3000,
-                    }}
-                  />
-                  <SiteFooter />
-                </div>
-              </CheckoutProvider>
+                    <main className="flex-grow pt-5 md:pt-7">{children}</main>
+                    <Toaster
+                      position="top-center"
+                      containerStyle={{ zIndex: 2147483647 }}
+                      toastOptions={{
+                        duration: 3000,
+                      }}
+                    />
+                    <SiteFooter />
+                  </div>
+                </CheckoutProvider>
+              </WholesaleCartProvider>
             </CartProvider>
           </LanguageProvider>
         </AuthProvider>

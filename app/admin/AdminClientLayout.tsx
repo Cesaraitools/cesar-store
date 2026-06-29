@@ -13,6 +13,7 @@ import {
   TicketPercent,
   LogOut,
   UserCircle,
+  Store,
   ShieldAlert, // ✅ أضف ده
 } from "lucide-react";
 import type { AdminRole } from "@/lib/admin/permissions";
@@ -53,6 +54,9 @@ export default function AdminClientLayout({
     { name: "Categories", href: "/admin/categories", icon: Tag },
     { name: "Orders", href: "/admin/orders", icon: Package },
     { name: "Archive", href: "/admin/orders/archive", icon: Package },
+    { name: "Wholesale", href: "/admin/wholesale", icon: Store },
+    { name: "Wholesale Orders", href: "/admin/wholesale/orders", icon: Package },
+    { name: "Wholesale Products", href: "/admin/wholesale/products", icon: Store },
     { name: "Products", href: "/admin/products", icon: Package },
     { name: "Promos", href: "/admin/promos", icon: TicketPercent },
   ].filter((item) => {
