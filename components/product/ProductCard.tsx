@@ -131,7 +131,7 @@ const isLowStock = displayStock > 0 && displayStock <= threshold;
   return (
     <>
       <div
-        className={`group relative flex h-[390px] flex-col overflow-hidden rounded-[1.6rem] border border-slate-100 bg-white shadow-md shadow-slate-200/55 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl sm:h-[510px] lg:h-[530px] ${theme.shell}`}
+        className={`group relative flex min-h-[360px] flex-col overflow-hidden rounded-[1.6rem] border border-slate-100 bg-white shadow-md shadow-slate-200/55 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl sm:min-h-[440px] lg:min-h-[460px] ${theme.shell}`}
       >
       {badge && (
         <div
@@ -160,7 +160,7 @@ const isLowStock = displayStock > 0 && displayStock <= threshold;
         />
       </button>
 
-      <div className="flex flex-1 flex-col gap-1.5 p-3 pt-2 sm:gap-2 sm:p-4 sm:pt-2">
+      <div className="flex flex-col gap-1.5 p-3 pt-2 sm:gap-2 sm:p-4 sm:pt-2">
         <Link href={`/product/${product.id}`}>
           <h3 className="min-h-[2.2rem] text-[13px] font-black leading-snug text-slate-950 line-clamp-2 transition group-hover:text-slate-700 sm:min-h-0 sm:text-base">
             {name}
@@ -171,7 +171,7 @@ const isLowStock = displayStock > 0 && displayStock <= threshold;
           {description}
         </p>
 
-        <div className="mt-auto">
+        <div className="mt-1 sm:mt-2">
           <p className={`mb-1 text-sm font-black sm:mb-2 sm:text-base ${theme.price}`}>
             {product.price} جنيه
           </p>
