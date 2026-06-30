@@ -89,6 +89,21 @@ export const CONTACT_PHONE_E164 = "+201211120208";
 export const CONTACT_EMAIL = "Cesarstore365@gmail.com";
 export const CONTACT_WHATSAPP_URL = "https://wa.me/201211120208";
 
+function normalizeWhatsAppDigits(rawNumber: string) {
+  const digits = rawNumber.replace(/\D/g, "");
+
+  if (!digits) return "201211120208";
+  if (digits.startsWith("20")) return digits;
+  if (digits.startsWith("0")) return `2${digits}`;
+
+  return `20${digits}`;
+}
+
+export const WHOLESALE_WHATSAPP_NUMBER = normalizeWhatsAppDigits(
+  process.env.NEXT_PUBLIC_WHOLESALE_WHATSAPP_NUMBER || CONTACT_PHONE_E164
+);
+export const WHOLESALE_WHATSAPP_URL = `https://wa.me/${WHOLESALE_WHATSAPP_NUMBER}`;
+
 export const SOCIAL_PROFILES = {
   facebook: "https://www.facebook.com/share/18xg7Rwgfu/",
   instagram: "https://www.instagram.com/cesarstore3652026/",

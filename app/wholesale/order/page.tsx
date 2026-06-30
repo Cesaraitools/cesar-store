@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Eraser,
   Loader2,
+  MessageCircle,
   Minus,
   PackageSearch,
   Plus,
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 import { useWholesaleCart } from "@/context/WholesaleDbCartContext";
 import { formatVariantSnapshot } from "@/lib/product-variants";
+import { WHOLESALE_WHATSAPP_URL } from "@/lib/seo";
 import type {
   WholesaleCartItem,
   WholesaleCatalogAccess,
@@ -74,6 +76,58 @@ function createOrderToken() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+function customerSnapshotText(order: WholesaleOrder, field: string) {
+  const value = order.customerSnapshot?.[field];
+  return typeof value === "string" && value.trim() ? value.trim() : "-";
+}
+
+function buildWholesaleWhatsAppMessage(order: WholesaleOrder) {
+  const orderNumber = order.orderNumber || order.id;
+  const customerName = customerSnapshotText(order, "contactName");
+  const businessName = customerSnapshotText(order, "businessName");
+  const customerPhone = customerSnapshotText(order, "phone");
+  const customerWhatsApp = customerSnapshotText(order, "whatsapp");
+  const city = customerSnapshotText(order, "city");
+  const governorate = customerSnapshotText(order, "governorate");
+  const address = customerSnapshotText(order, "address");
+  const itemsText = order.items
+    .map((item, index) => {
+      const productName = item.productNameAr || item.productNameEn || "منتج";
+      const variantLabel = formatVariantSnapshot(item.variant, "ar");
+      const variantText = variantLabel ? ` - ${variantLabel}` : "";
+
+      return `${index + 1}. ${productName}${variantText}
+   الكمية: ${new Intl.NumberFormat("ar-EG").format(item.orderedUnits)} قطعة
+   سعر القطعة: ${formatPrice(item.unitPrice)}
+   الإجمالي: ${formatPrice(item.lineTotal)}`;
+    })
+    .join("\n\n");
+  const notesText = order.notes?.trim()
+    ? `\nملاحظات العميل:\n${order.notes.trim()}`
+    : "";
+
+  return `طلب جملة جديد من Cesar Store
+
+رقم الطلب: ${orderNumber}
+اسم الكيان: ${businessName}
+المسؤول: ${customerName}
+الهاتف: ${customerPhone}
+واتساب: ${customerWhatsApp}
+المحافظة/المدينة: ${governorate} / ${city}
+العنوان: ${address}
+
+الأصناف:
+${itemsText}
+
+إجمالي الطلب: ${formatPrice(order.subtotal)}${notesText}`;
+}
+
+function buildWholesaleWhatsAppUrl(order: WholesaleOrder) {
+  return `${WHOLESALE_WHATSAPP_URL}?text=${encodeURIComponent(
+    buildWholesaleWhatsAppMessage(order)
+  )}`;
+}
+
 export default function WholesaleOrderPage() {
   const [products, setProducts] = useState<WholesaleCatalogProduct[]>([]);
   const [access, setAccess] = useState<WholesaleCatalogAccess | null>(null);
@@ -82,6 +136,7 @@ export default function WholesaleOrderPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdOrder, setCreatedOrder] = useState<WholesaleOrder | null>(null);
+  const [createdOrderWhatsAppUrl, setCreatedOrderWhatsAppUrl] = useState<string | null>(null);
   const [quantityInputs, setQuantityInputs] = useState<Record<string, string>>({});
   const [quantityWarning, setQuantityWarning] = useState<string | null>(null);
   const quantityWarningTimerRef = useRef<number | null>(null);
@@ -390,6 +445,7 @@ export default function WholesaleOrderPage() {
 
     setSubmitting(true);
     setError(null);
+    setCreatedOrderWhatsAppUrl(null);
 
     try {
       const response = await fetch("/api/wholesale/orders", {
@@ -406,7 +462,12 @@ export default function WholesaleOrderPage() {
         throw new Error(payload?.error || "تعذر إرسال طلب الجملة");
       }
 
-      setCreatedOrder(payload.order || null);
+      const nextCreatedOrder = (payload.order || null) as WholesaleOrder | null;
+
+      setCreatedOrder(nextCreatedOrder);
+      setCreatedOrderWhatsAppUrl(
+        nextCreatedOrder ? buildWholesaleWhatsAppUrl(nextCreatedOrder) : null
+      );
       setQuantityInputs({});
       setQuantityWarning(null);
       setNotes("");
@@ -486,9 +547,20 @@ export default function WholesaleOrderPage() {
               احتفظ بهذا الرقم، وسيتم التواصل معك على بيانات حساب الجملة المسجلة.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
+              {createdOrderWhatsAppUrl ? (
+                <a
+                  href={createdOrderWhatsAppUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  إرسال الطلب على واتساب
+                </a>
+              ) : null}
               <Link
                 href="/wholesale/orders"
-                className="inline-flex rounded-xl bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800"
+                className="inline-flex rounded-xl border border-emerald-200 bg-white px-5 py-3 text-sm font-black text-emerald-800 transition hover:border-emerald-400"
               >
                 متابعة طلبات الجملة
               </Link>
