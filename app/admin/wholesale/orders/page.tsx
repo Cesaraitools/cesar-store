@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  BellRing,
   CheckCircle2,
   Clock3,
   Loader2,
@@ -154,6 +155,10 @@ function statusButtonClass(
   return `inline-flex items-center justify-center gap-1 rounded-xl border px-3 py-2 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${tone}`;
 }
 
+function isUnhandledNewOrder(order: WholesaleOrder) {
+  return order.status === "requested";
+}
+
 export default function AdminWholesaleOrdersPage() {
   const [orders, setOrders] = useState<WholesaleOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -206,6 +211,7 @@ export default function AdminWholesaleOrdersPage() {
   const totals = useMemo(
     () => ({
       count: orders.length,
+      newCount: orders.filter(isUnhandledNewOrder).length,
       value: orders.reduce((total, order) => total + order.subtotal, 0),
     }),
     [orders]
@@ -382,7 +388,24 @@ export default function AdminWholesaleOrdersPage() {
         </button>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-3">
+        <button
+          type="button"
+          onClick={() => setStatusFilter("requested")}
+          className={`rounded-2xl border p-4 text-right transition ${
+            totals.newCount > 0
+              ? "border-amber-200 bg-amber-50 text-amber-800 hover:border-amber-300"
+              : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
+          }`}
+        >
+          <p className="flex items-center gap-2 text-xs font-black">
+            <BellRing className="h-4 w-4" />
+            طلبات جديدة لم يتم التعامل معها
+          </p>
+          <p className="mt-2 text-2xl font-black">
+            {totals.newCount.toLocaleString("ar-EG")}
+          </p>
+        </button>
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
           <p className="text-xs font-black text-slate-400">عدد الطلبات</p>
           <p className="mt-2 text-2xl font-black text-slate-950">
@@ -418,11 +441,16 @@ export default function AdminWholesaleOrdersPage() {
         <div className="space-y-4">
           {orders.map((order) => {
             const whatsappUrl = buildWhatsAppUrl(order);
+            const isNewOrder = isUnhandledNewOrder(order);
 
             return (
             <article
               key={order.id}
-              className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+              className={`rounded-2xl border p-5 shadow-sm transition ${
+                isNewOrder
+                  ? "border-amber-300 bg-amber-50/70 shadow-amber-100"
+                  : "border-slate-200 bg-white"
+              }`}
             >
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
@@ -430,6 +458,12 @@ export default function AdminWholesaleOrdersPage() {
                     <h2 className="text-xl font-black text-slate-950">
                       {order.orderNumber || order.id.slice(0, 8)}
                     </h2>
+                    {isNewOrder ? (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-white px-3 py-1 text-xs font-black text-amber-700 shadow-sm">
+                        <BellRing className="h-3.5 w-3.5" />
+                        طلب جديد لم يتم التعامل معه
+                      </span>
+                    ) : null}
                     <span
                       className={`rounded-full border px-3 py-1 text-xs font-black ${statusClasses[order.status]}`}
                     >
