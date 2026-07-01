@@ -5,6 +5,7 @@ import {
   BellRing,
   CheckCircle2,
   Clock3,
+  FileText,
   Loader2,
   PackageCheck,
   Phone,
@@ -699,6 +700,16 @@ export default function AdminWholesaleOrdersPage() {
                     );
                   })}
                 </div>
+
+                <a
+                  href={`/api/admin/wholesale/orders/${order.id}/report`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs font-black text-blue-700 transition hover:border-blue-400"
+                >
+                  <FileText className="h-4 w-4" />
+                  تقرير الطلب
+                </a>
 
                 {whatsappUrl ? (
                   <a

@@ -217,7 +217,7 @@ async function fetchReturnsForOrderIds(supabase: any, orderIds: string[]) {
   return (data || []).map(toOrderReturn);
 }
 
-async function getWholesaleOrderById(orderId: string) {
+export async function getWholesaleOrderById(orderId: string) {
   const supabase = createServiceRoleClient();
   const { data: orderRow, error: orderError } = await supabase
     .from("wholesale_orders")
