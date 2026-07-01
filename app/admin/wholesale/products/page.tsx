@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  AlertTriangle,
   CheckCircle2,
   Loader2,
   PackageOpen,
@@ -17,6 +18,13 @@ type Draft = {
   minOrderUnits: string;
   notes: string;
 };
+
+type ProductFilter =
+  | "all"
+  | "enabled"
+  | "disabled"
+  | "needs_setup"
+  | "out_of_stock";
 
 function draftFromProduct(product: WholesaleProductSettingProduct): Draft {
   return {
@@ -38,6 +46,34 @@ function productSearchText(product: WholesaleProductSettingProduct) {
     .toLowerCase();
 }
 
+function numericDraftValue(value: string, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function getProductSetupState(
+  product: WholesaleProductSettingProduct,
+  draft: Draft
+) {
+  const wholesalePrice = numericDraftValue(draft.wholesalePrice, 0);
+  const minOrderUnits = Math.floor(numericDraftValue(draft.minOrderUnits, 1));
+  const isEnabled = draft.isEnabled;
+  const missingSetting = !product.setting;
+  const missingPrice = isEnabled && wholesalePrice <= 0;
+  const invalidMinimum = isEnabled && minOrderUnits <= 0;
+  const outOfStock = product.stock <= 0;
+
+  return {
+    isEnabled,
+    missingSetting,
+    missingPrice,
+    invalidMinimum,
+    outOfStock,
+    needsSetup:
+      isEnabled && (missingSetting || missingPrice || invalidMinimum || outOfStock),
+  };
+}
+
 export default function AdminWholesaleProductsPage() {
   const [products, setProducts] = useState<WholesaleProductSettingProduct[]>([]);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
@@ -47,7 +83,7 @@ export default function AdminWholesaleProductsPage() {
   const [savedId, setSavedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<"all" | "enabled" | "disabled">("all");
+  const [filter, setFilter] = useState<ProductFilter>("all");
 
   async function loadProducts(initial = false) {
     if (initial) setLoading(true);
@@ -85,15 +121,44 @@ export default function AdminWholesaleProductsPage() {
     loadProducts(true);
   }, []);
 
+  const productStats = useMemo(() => {
+    return products.reduce(
+      (stats, product) => {
+        const draft = drafts[product.id] || draftFromProduct(product);
+        const setup = getProductSetupState(product, draft);
+
+        stats.total += 1;
+        if (setup.isEnabled) stats.enabled += 1;
+        else stats.disabled += 1;
+        if (setup.needsSetup) stats.needsSetup += 1;
+        if (setup.outOfStock) stats.outOfStock += 1;
+
+        return stats;
+      },
+      { total: 0, enabled: 0, disabled: 0, needsSetup: 0, outOfStock: 0 }
+    );
+  }, [drafts, products]);
+
   const filteredProducts = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
     return products.filter((product) => {
       const draft = drafts[product.id] || draftFromProduct(product);
-      const matchesFilter =
-        filter === "all" ||
-        (filter === "enabled" && draft.isEnabled) ||
-        (filter === "disabled" && !draft.isEnabled);
+      const setup = getProductSetupState(product, draft);
+      const matchesFilter = (() => {
+        switch (filter) {
+          case "enabled":
+            return setup.isEnabled;
+          case "disabled":
+            return !setup.isEnabled;
+          case "needs_setup":
+            return setup.needsSetup;
+          case "out_of_stock":
+            return setup.outOfStock;
+          default:
+            return true;
+        }
+      })();
 
       return (
         matchesFilter &&
@@ -180,6 +245,14 @@ export default function AdminWholesaleProductsPage() {
         </button>
       </div>
 
+      <div className="grid gap-3 md:grid-cols-5">
+        <SummaryCard label="كل المنتجات" value={productStats.total} />
+        <SummaryCard label="مفعلة للجملة" value={productStats.enabled} tone="emerald" />
+        <SummaryCard label="غير مفعلة" value={productStats.disabled} tone="slate" />
+        <SummaryCard label="تحتاج إعداد" value={productStats.needsSetup} tone="amber" />
+        <SummaryCard label="نفد المخزون" value={productStats.outOfStock} tone="rose" />
+      </div>
+
       <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-[1fr_220px]">
         <label className="relative block">
           <Search className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -192,14 +265,14 @@ export default function AdminWholesaleProductsPage() {
         </label>
         <select
           value={filter}
-          onChange={(event) =>
-            setFilter(event.target.value as "all" | "enabled" | "disabled")
-          }
+          onChange={(event) => setFilter(event.target.value as ProductFilter)}
           className="field-input"
         >
           <option value="all">كل المنتجات</option>
           <option value="enabled">مفعلة للجملة</option>
           <option value="disabled">غير مفعلة</option>
+          <option value="needs_setup">تحتاج إعداد</option>
+          <option value="out_of_stock">نفد المخزون</option>
         </select>
       </div>
 
@@ -224,6 +297,7 @@ export default function AdminWholesaleProductsPage() {
         <div className="space-y-4">
           {filteredProducts.map((product) => {
             const draft = drafts[product.id] || draftFromProduct(product);
+            const setup = getProductSetupState(product, draft);
             const isSaving = savingId === product.id;
             const isSaved = savedId === product.id;
 
@@ -249,9 +323,25 @@ export default function AdminWholesaleProductsPage() {
                       )}
                     </div>
                     <div>
-                      <h2 className="text-lg font-black text-slate-950">
-                        {product.name.ar}
-                      </h2>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="text-lg font-black text-slate-950">
+                          {product.name.ar}
+                        </h2>
+                        {setup.needsSetup ? (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-black text-amber-700">
+                            <AlertTriangle className="h-3.5 w-3.5" />
+                            يحتاج إعداد
+                          </span>
+                        ) : setup.isEnabled ? (
+                          <span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[11px] font-black text-emerald-700">
+                            جاهز للجملة
+                          </span>
+                        ) : (
+                          <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-black text-slate-500">
+                            غير مفعل
+                          </span>
+                        )}
+                      </div>
                       <p className="mt-1 text-xs font-bold text-slate-500">
                         {product.category}
                       </p>
@@ -359,5 +449,32 @@ function Field({
       <span className="mb-2 block text-xs font-black text-slate-500">{label}</span>
       {children}
     </label>
+  );
+}
+
+function SummaryCard({
+  label,
+  value,
+  tone = "blue",
+}: {
+  label: string;
+  value: number;
+  tone?: "blue" | "emerald" | "amber" | "rose" | "slate";
+}) {
+  const toneClass = {
+    blue: "border-blue-100 bg-blue-50 text-blue-700",
+    emerald: "border-emerald-100 bg-emerald-50 text-emerald-700",
+    amber: "border-amber-100 bg-amber-50 text-amber-700",
+    rose: "border-rose-100 bg-rose-50 text-rose-700",
+    slate: "border-slate-200 bg-slate-50 text-slate-600",
+  }[tone];
+
+  return (
+    <div className={`rounded-2xl border p-4 ${toneClass}`}>
+      <p className="text-xs font-black opacity-75">{label}</p>
+      <p className="mt-2 text-2xl font-black">
+        {value.toLocaleString("ar-EG")}
+      </p>
+    </div>
   );
 }
