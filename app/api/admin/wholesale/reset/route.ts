@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdminRole } from "@/lib/admin/permissions";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
 import type { WholesaleApplicationDocument } from "@/types/wholesale";
 
@@ -7,7 +8,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const RESET_CONFIRMATION = "تصفير الجملة";
-const DEFAULT_RESET_EMAIL = "mohamed.seeking@gmail.com";
 
 type WholesaleApplicationRow = {
   id: string;
@@ -16,18 +16,6 @@ type WholesaleApplicationRow = {
 
 function normalizeEmail(value?: string | null) {
   return String(value || "").trim().toLowerCase();
-}
-
-function getAllowedResetEmail() {
-  return normalizeEmail(
-    process.env.WHOLESALE_TEST_RESET_EMAIL ||
-      process.env.SUPER_ADMIN_EMAIL ||
-      DEFAULT_RESET_EMAIL
-  );
-}
-
-function isResetEnabled() {
-  return process.env.WHOLESALE_TEST_RESET_ENABLED === "true";
 }
 
 function collectDocumentPaths(applications: WholesaleApplicationRow[]) {
@@ -111,15 +99,9 @@ export async function GET() {
   if (guard.response) return guard.response;
 
   try {
-    const enabled = isResetEnabled();
-    const allowedEmail = getAllowedResetEmail();
-    const authorized = normalizeEmail(guard.access.userEmail) === allowedEmail;
-    const summary = enabled && authorized ? await getResetSummary() : null;
+    const summary = await getResetSummary();
 
     return NextResponse.json({
-      enabled,
-      authorized,
-      allowedEmail,
       confirmation: RESET_CONFIRMATION,
       summary,
     });
@@ -138,11 +120,15 @@ export async function POST(request: Request) {
   if (guard.response) return guard.response;
 
   try {
-    const enabled = isResetEnabled();
-    const allowedEmail = getAllowedResetEmail();
-    const currentEmail = normalizeEmail(guard.access.userEmail);
+    const authSupabase = createServerClient();
+    const {
+      data: { user },
+    } = await authSupabase.auth.getUser();
 
-    if (!enabled || currentEmail !== allowedEmail) {
+    const currentEmail = normalizeEmail(user?.email);
+    const allowedEmail = normalizeEmail(process.env.SUPER_ADMIN_EMAIL);
+
+    if (!currentEmail || !allowedEmail || currentEmail !== allowedEmail) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

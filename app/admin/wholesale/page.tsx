@@ -13,6 +13,7 @@ import {
   Trash2,
   XCircle,
 } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
 import type {
   WholesaleApplication,
   WholesaleApplicationStatus,
@@ -80,9 +81,9 @@ const customerStatusLabels = {
   suspended: "حساب الجملة موقوف",
 };
 
+const RESET_ALLOWED_EMAIL = "mohamed.seeking@gmail.com";
+
 type WholesaleResetInfo = {
-  enabled: boolean;
-  authorized: boolean;
   confirmation: string;
   summary: {
     applications: number;
@@ -103,6 +104,7 @@ export default function AdminWholesalePage() {
   const [error, setError] = useState<string | null>(null);
   const [resetInfo, setResetInfo] = useState<WholesaleResetInfo | null>(null);
   const [resettingWholesale, setResettingWholesale] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | WholesaleApplicationStatus>(
     "all"
@@ -198,6 +200,18 @@ export default function AdminWholesalePage() {
   useEffect(() => {
     loadApplications(true);
     loadResetInfo();
+  }, []);
+
+  useEffect(() => {
+    const loadUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      setUserEmail(user?.email?.toLowerCase() ?? null);
+    };
+
+    void loadUser();
   }, []);
 
   const filteredApplications = useMemo(() => {
@@ -404,7 +418,7 @@ export default function AdminWholesalePage() {
         </select>
       </div>
 
-      {resetInfo?.enabled && resetInfo.authorized && resetInfo.summary ? (
+      {resetInfo?.summary ? (
         <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-start gap-3">
@@ -445,7 +459,11 @@ export default function AdminWholesalePage() {
             <button
               type="button"
               onClick={handleResetWholesaleTestData}
-              disabled={resettingWholesale || resetInfo.summary.deductedOrders > 0}
+              disabled={
+                resettingWholesale ||
+                resetInfo.summary.deductedOrders > 0 ||
+                userEmail !== RESET_ALLOWED_EMAIL
+              }
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-3 text-sm font-black text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {resettingWholesale ? (
@@ -458,6 +476,14 @@ export default function AdminWholesalePage() {
                 : "تصفير بيانات اختبار الجملة"}
             </button>
           </div>
+          {userEmail !== RESET_ALLOWED_EMAIL ? (
+            <p className="mt-3 text-xs font-bold text-amber-900">
+              هذا الإجراء متاح فقط عند تسجيل الدخول بحساب الأدمن{" "}
+              <span dir="ltr" className="inline-block">
+                {RESET_ALLOWED_EMAIL}
+              </span>
+            </p>
+          ) : null}
         </section>
       ) : null}
 
