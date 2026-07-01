@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  AlertTriangle,
   CheckCircle2,
   ExternalLink,
   FileText,
@@ -9,6 +10,7 @@ import {
   RefreshCw,
   Search,
   Store,
+  Trash2,
   XCircle,
 } from "lucide-react";
 import type {
@@ -78,11 +80,29 @@ const customerStatusLabels = {
   suspended: "حساب الجملة موقوف",
 };
 
+type WholesaleResetInfo = {
+  enabled: boolean;
+  authorized: boolean;
+  confirmation: string;
+  summary: {
+    applications: number;
+    customers: number;
+    carts: number;
+    cartItems: number;
+    orders: number;
+    orderItems: number;
+    returns: number;
+    deductedOrders: number;
+  } | null;
+};
+
 export default function AdminWholesalePage() {
   const [applications, setApplications] = useState<WholesaleApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resetInfo, setResetInfo] = useState<WholesaleResetInfo | null>(null);
+  const [resettingWholesale, setResettingWholesale] = useState(false);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | WholesaleApplicationStatus>(
     "all"
@@ -112,8 +132,72 @@ export default function AdminWholesalePage() {
     }
   }
 
+  async function loadResetInfo() {
+    try {
+      const response = await fetch("/api/admin/wholesale/reset", {
+        cache: "no-store",
+      });
+      const payload = await response.json().catch(() => null);
+
+      if (response.ok && payload) {
+        setResetInfo(payload);
+      }
+    } catch {
+      setResetInfo(null);
+    }
+  }
+
+  async function handleResetWholesaleTestData() {
+    if (!resetInfo?.confirmation) return;
+
+    const firstConfirmation = window.confirm(
+      "سيتم حذف بيانات اختبار الجملة فقط: طلبات الانضمام، العملاء، السلة، طلبات الجملة، المرتجعات، ومستندات التقديم. لن يتم لمس منتجات أو مخزون أو طلبات القطاعي. هل تريد المتابعة؟"
+    );
+
+    if (!firstConfirmation) return;
+
+    const typedConfirmation = window.prompt(
+      `للتأكيد اكتب بالضبط: ${resetInfo.confirmation}`
+    );
+
+    if (typedConfirmation !== resetInfo.confirmation) {
+      alert("تم إلغاء التصفير لأن عبارة التأكيد غير مطابقة.");
+      return;
+    }
+
+    try {
+      setResettingWholesale(true);
+
+      const response = await fetch("/api/admin/wholesale/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmation: typedConfirmation }),
+      });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "تعذر تصفير بيانات اختبار الجملة");
+      }
+
+      await Promise.all([loadApplications(false), loadResetInfo()]);
+
+      alert(
+        `تم تصفير بيانات اختبار الجملة بنجاح.\nطلبات الانضمام: ${payload.deleted.applications}\nالعملاء: ${payload.deleted.customers}\nطلبات الجملة: ${payload.deleted.orders}\nالملفات: ${payload.deleted.documents}`
+      );
+    } catch (resetError) {
+      alert(
+        resetError instanceof Error
+          ? resetError.message
+          : "تعذر تصفير بيانات اختبار الجملة"
+      );
+    } finally {
+      setResettingWholesale(false);
+    }
+  }
+
   useEffect(() => {
     loadApplications(true);
+    loadResetInfo();
   }, []);
 
   const filteredApplications = useMemo(() => {
@@ -319,6 +403,63 @@ export default function AdminWholesalePage() {
           <option value="rejected">مرفوض</option>
         </select>
       </div>
+
+      {resetInfo?.enabled && resetInfo.authorized && resetInfo.summary ? (
+        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-1 h-5 w-5 shrink-0 text-amber-700" />
+              <div>
+                <h2 className="text-sm font-black text-amber-900">
+                  تصفير بيانات اختبار الجملة
+                </h2>
+                <p className="mt-1 text-sm font-bold leading-6 text-amber-800">
+                  هذا الإجراء مخصص بعد اختبار الإطلاق فقط. يحذف بيانات الجملة
+                  التجريبية ومستنداتها، ولا يلمس منتجات أو مخزون أو طلبات
+                  القطاعي.
+                </p>
+                {resetInfo.summary.deductedOrders > 0 ? (
+                  <p className="mt-2 rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-black text-rose-700">
+                    التصفير متوقف الآن لأن هناك{" "}
+                    {resetInfo.summary.deductedOrders.toLocaleString("ar-EG")}{" "}
+                    طلب جملة خصم من المخزون ولم يتم إرجاعه.
+                  </p>
+                ) : null}
+                <div className="mt-3 flex flex-wrap gap-2 text-xs font-black text-amber-900">
+                  <span className="rounded-full bg-white px-3 py-1">
+                    طلبات انضمام: {resetInfo.summary.applications.toLocaleString("ar-EG")}
+                  </span>
+                  <span className="rounded-full bg-white px-3 py-1">
+                    عملاء: {resetInfo.summary.customers.toLocaleString("ar-EG")}
+                  </span>
+                  <span className="rounded-full bg-white px-3 py-1">
+                    طلبات: {resetInfo.summary.orders.toLocaleString("ar-EG")}
+                  </span>
+                  <span className="rounded-full bg-white px-3 py-1">
+                    سلة: {resetInfo.summary.cartItems.toLocaleString("ar-EG")}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleResetWholesaleTestData}
+              disabled={resettingWholesale || resetInfo.summary.deductedOrders > 0}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-3 text-sm font-black text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {resettingWholesale ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
+              {resettingWholesale
+                ? "جارٍ تصفير بيانات الجملة..."
+                : "تصفير بيانات اختبار الجملة"}
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       {error && (
         <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">

@@ -1,6 +1,6 @@
 # Cesar Store Wholesale Roadmap
 
-Last updated: 2026-06-29
+Last updated: 2026-07-01
 
 ## Current Status
 
@@ -150,6 +150,7 @@ Last updated: 2026-06-29
    - Statuses now match retail order stages: requested, confirmed, preparing, shipped, delivered, and canceled. Done locally.
    - Stock deduction is tied to the `confirmed` transition. Applied manually through Supabase SQL Editor.
    - Keep this separate from retail order screens. Done locally.
+   - Admin wholesale orders can now generate a protected PDF report for each wholesale order. Done locally and deployed.
 
 8. Build wholesale sales returns.
    - Create a separate wholesale returns flow after the base wholesale order flow is stable. Done locally.
@@ -171,10 +172,10 @@ Last updated: 2026-06-29
    - Verify production step by step.
 
 11. Add a protected wholesale test-data reset after deployment testing.
-   - Add an admin-only reset button for wholesale test data after production verification.
-   - Scope the reset to wholesale application/customer/order test data only, not retail orders, carts, users, products, or stock.
-   - Require the same strict admin protection pattern used for sensitive actions: admin session, authorized customer email, and required environment variables.
-   - Keep the button disabled or hidden unless the authorized full admin is signed in.
+   - Add an admin-only reset button for wholesale test data after production verification. Done locally.
+   - Scope the reset to wholesale application/customer/order test data only, not retail orders, carts, users, products, or stock. Done locally.
+   - Require the same strict admin protection pattern used for sensitive actions: admin session, authorized customer email, and required environment variables. Done locally.
+   - Keep the button disabled or hidden unless the authorized full admin is signed in. Done locally.
    - Use the reset only after upload/deployment testing is complete, to return the wholesale test database area to a clean launch state.
 
 ## Important Supabase Note
