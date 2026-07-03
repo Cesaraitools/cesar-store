@@ -428,7 +428,7 @@ function getAccessState(access: WholesaleCatalogAccess) {
   return {
     title: "الأسعار مخفية",
     description:
-      "سجل الدخول بحساب الجملة المعتمد أو قدم طلب انضمام لعرض الأسعار ووحدات البيع.",
+      "سجل الدخول بحساب الجملة المعتمد أو قدم طلب انضمام لعرض الأسعار والحد الأدنى للشراء.",
     icon: LockKeyhole,
     className: "border-slate-200 bg-slate-50 text-slate-700",
   };

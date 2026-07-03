@@ -48,7 +48,7 @@ const statusContent: Record<
     label: "نشط",
     title: "حساب الجملة مفعل",
     description:
-      "يمكن استخدام هذا الحساب للوصول إلى كتالوج وأسعار الجملة عند اكتمال صفحة الكتالوج.",
+      "يمكن استخدام هذا الحساب للوصول إلى كتالوج الجملة والأسعار وطلبات الجملة مباشرة.",
     className: "border-emerald-100 bg-emerald-50 text-emerald-700",
     icon: CheckCircle2,
   },

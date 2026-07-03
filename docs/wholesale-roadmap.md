@@ -1,10 +1,10 @@
 # Cesar Store Wholesale Roadmap
 
-Last updated: 2026-07-01
+Last updated: 2026-07-03
 
 ## Current Status
 
-- Wholesale work is local only. It has not been committed, pushed, or deployed to Vercel.
+- Wholesale work has been committed, pushed, and deployed in stages. Continue treating each new change as a separate reviewed increment before pushing to Vercel.
 - Retail shop logic, retail cart, retail checkout, and current product pages remain separate from wholesale logic.
 - Wholesale uses the existing `products` table as the catalog source.
 - Wholesale-specific product data is stored separately in `wholesale_product_settings`.
@@ -172,10 +172,10 @@ Last updated: 2026-07-01
    - Verify production step by step.
 
 11. Add a protected wholesale test-data reset after deployment testing.
-   - Add an admin-only reset button for wholesale test data after production verification. Done locally.
-   - Scope the reset to wholesale application/customer/order test data only, not retail orders, carts, users, products, or stock. Done locally.
-   - Require the same strict admin protection pattern used for sensitive actions: admin session, authorized customer email, and required environment variables. Done locally.
-   - Keep the button disabled or hidden unless the authorized full admin is signed in. Done locally.
+   - Add an admin-only reset button for wholesale test data after production verification. Done and pushed.
+   - Scope the reset to wholesale application/customer/order test data only, not retail orders, carts, users, products, or stock. Done and pushed.
+   - Require the same strict admin protection pattern used for sensitive actions: full admin session and the same `SUPER_ADMIN_EMAIL` check used by the retail reset action. Done and pushed.
+   - Keep the button disabled unless the authorized full admin email is signed in. Done and pushed.
    - Use the reset only after upload/deployment testing is complete, to return the wholesale test database area to a clean launch state.
 
 ## Important Supabase Note
