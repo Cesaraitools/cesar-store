@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
+  BellRing,
   CheckCircle2,
   ExternalLink,
   FileText,
@@ -96,6 +97,10 @@ type WholesaleResetInfo = {
     deductedOrders: number;
   } | null;
 };
+
+function isUnhandledNewApplication(application: WholesaleApplication) {
+  return application.status === "pending";
+}
 
 export default function AdminWholesalePage() {
   const [applications, setApplications] = useState<WholesaleApplication[]>([]);
@@ -234,6 +239,20 @@ export default function AdminWholesalePage() {
       return matchesStatus && (!normalizedQuery || haystack.includes(normalizedQuery));
     });
   }, [applications, query, statusFilter]);
+
+  const totals = useMemo(
+    () => ({
+      count: applications.length,
+      newCount: applications.filter(isUnhandledNewApplication).length,
+      underReview: applications.filter(
+        (application) => application.status === "under_review"
+      ).length,
+      approved: applications.filter(
+        (application) => application.status === "approved"
+      ).length,
+    }),
+    [applications]
+  );
 
   async function updateStatus(
     application: WholesaleApplication,
@@ -418,6 +437,29 @@ export default function AdminWholesalePage() {
         </select>
       </div>
 
+      <div className="grid gap-3 md:grid-cols-4">
+        <button
+          type="button"
+          onClick={() => setStatusFilter("pending")}
+          className={`rounded-2xl border p-4 text-right transition ${
+            totals.newCount > 0
+              ? "border-amber-200 bg-amber-50 text-amber-800 hover:border-amber-300"
+              : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
+          }`}
+        >
+          <p className="flex items-center gap-2 text-xs font-black">
+            <BellRing className="h-4 w-4" />
+            طلبات انضمام جديدة
+          </p>
+          <p className="mt-2 text-2xl font-black">
+            {totals.newCount.toLocaleString("ar-EG")}
+          </p>
+        </button>
+        <SummaryMetric label="إجمالي الطلبات" value={totals.count} />
+        <SummaryMetric label="قيد المراجعة" value={totals.underReview} />
+        <SummaryMetric label="تمت الموافقة" value={totals.approved} />
+      </div>
+
       {resetInfo?.summary ? (
         <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -506,10 +548,17 @@ export default function AdminWholesalePage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {filteredApplications.map((application) => (
+          {filteredApplications.map((application) => {
+            const isNewApplication = isUnhandledNewApplication(application);
+
+            return (
             <article
               key={application.id}
-              className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+              className={`rounded-2xl border p-5 shadow-sm transition ${
+                isNewApplication
+                  ? "border-amber-300 bg-amber-50/70 shadow-amber-100"
+                  : "border-slate-200 bg-white"
+              }`}
             >
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
@@ -522,6 +571,12 @@ export default function AdminWholesalePage() {
                     >
                       {statusLabels[application.status]}
                     </span>
+                    {isNewApplication ? (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-white px-3 py-1 text-xs font-black text-amber-700 shadow-sm">
+                        <BellRing className="h-3.5 w-3.5" />
+                        طلب انضمام جديد لم يبدأ فحصه
+                      </span>
+                    ) : null}
                     <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
                       {entityLabels[application.entityType] || "أخرى"}
                     </span>
@@ -718,9 +773,21 @@ export default function AdminWholesalePage() {
                 ))}
               </div>
             </article>
-          ))}
+            );
+          })}
         </div>
       )}
+    </div>
+  );
+}
+
+function SummaryMetric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+      <p className="text-xs font-black text-slate-400">{label}</p>
+      <p className="mt-2 text-2xl font-black text-slate-950">
+        {value.toLocaleString("ar-EG")}
+      </p>
     </div>
   );
 }

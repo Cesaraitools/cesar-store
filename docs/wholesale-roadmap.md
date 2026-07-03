@@ -22,6 +22,7 @@ Last updated: 2026-07-03
 - Public wholesale status lookup now stores the phone locally for the application and refreshes the displayed status automatically every 5 seconds after a successful lookup.
 - Public wholesale status lookup now prevents overlapping refresh requests if the network or Supabase response is slow.
 - Admin wholesale status controls now show the current status clearly and visually highlight the active status button after each successful update.
+- Admin wholesale applications now show a new-application counter and visually highlight pending applications that have not started review yet.
 - Re-approving an application is now idempotent: if a wholesale customer record already exists, the approval flow reuses it instead of failing.
 - Admins can now link an approved wholesale customer to an existing Supabase Auth user by email, activating the wholesale account through `auth_user_id`.
 - Public wholesale account page `/wholesale/account` now shows whether the signed-in user has an active, pending, suspended, or missing wholesale account link.
@@ -89,6 +90,7 @@ Last updated: 2026-07-03
 - Automatic client-side image compression for wholesale application documents.
 - Required wholesale login email in the application form with a note that this is the email the admin will use to link wholesale access.
 - Clear admin status controls for marking applications under review, approved, or rejected, with the current status highlighted.
+- Admin wholesale applications page highlights new pending applications and includes quick status summary cards.
 - Supabase migration file for:
   - `wholesale_applications`
   - `wholesale_customers`
