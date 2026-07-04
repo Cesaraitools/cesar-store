@@ -102,11 +102,36 @@ function itemName(item: WholesaleOrderItem) {
 }
 
 function itemVariant(item: WholesaleOrderItem) {
-  return formatVariantSnapshot(item.variant, "ar");
+  try {
+    const variant = formatVariantSnapshot(item.variant, "ar");
+    return typeof variant === "string" ? variant : "";
+  } catch (error) {
+    console.error("ADMIN WHOLESALE ORDER REPORT VARIANT ERROR:", {
+      orderItemId: item.id,
+      productId: item.productId,
+      error,
+    });
+    return "";
+  }
 }
 
 function quantity(value: number) {
   return `${Number(value || 0).toLocaleString("ar-EG")} قطعة`;
+}
+
+async function renderPdfBuffer(document: React.ReactElement) {
+  const output = await pdf(document).toBuffer();
+
+  if (Buffer.isBuffer(output)) {
+    return output;
+  }
+
+  const chunks: Buffer[] = [];
+  for await (const chunk of output as AsyncIterable<Buffer | Uint8Array | string>) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+
+  return Buffer.concat(chunks);
 }
 
 const styles = StyleSheet.create({
@@ -400,10 +425,10 @@ export async function GET(
   _request: Request,
   { params }: { params: { id: string } }
 ) {
-  const guard = await requireAdminRole(["full"]);
-  if (guard.response) return guard.response;
-
   try {
+    const guard = await requireAdminRole(["full", "orders"]);
+    if (guard.response) return guard.response;
+
     const order = await getWholesaleOrderById(params.id);
 
     if (!order) {
@@ -414,17 +439,20 @@ export async function GET(
     }
 
     const document = React.createElement(WholesaleOrderReport, { order });
-    const buffer = await pdf(document as any).toBuffer();
+    const buffer = await renderPdfBuffer(document);
     const fileId = order.orderNumber || order.id.slice(0, 8);
 
-    return new Response(buffer as any, {
+    return new Response(new Uint8Array(buffer), {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `inline; filename="wholesale-order-${fileId}.pdf"`,
       },
     });
   } catch (error) {
-    console.error("ADMIN WHOLESALE ORDER REPORT ERROR:", error);
+    console.error("ADMIN WHOLESALE ORDER REPORT ERROR:", {
+      orderId: params.id,
+      error,
+    });
 
     return NextResponse.json(
       { error: "Failed to generate wholesale order report" },
