@@ -137,6 +137,7 @@ export default function WholesaleOrderPage() {
   const [error, setError] = useState<string | null>(null);
   const [createdOrder, setCreatedOrder] = useState<WholesaleOrder | null>(null);
   const [createdOrderWhatsAppUrl, setCreatedOrderWhatsAppUrl] = useState<string | null>(null);
+  const [whatsAppOpenBlocked, setWhatsAppOpenBlocked] = useState(false);
   const [quantityInputs, setQuantityInputs] = useState<Record<string, string>>({});
   const [quantityWarning, setQuantityWarning] = useState<string | null>(null);
   const quantityWarningTimerRef = useRef<number | null>(null);
@@ -446,6 +447,7 @@ export default function WholesaleOrderPage() {
     setSubmitting(true);
     setError(null);
     setCreatedOrderWhatsAppUrl(null);
+    setWhatsAppOpenBlocked(false);
 
     try {
       const response = await fetch("/api/wholesale/orders", {
@@ -463,11 +465,18 @@ export default function WholesaleOrderPage() {
       }
 
       const nextCreatedOrder = (payload.order || null) as WholesaleOrder | null;
+      const nextWhatsAppUrl = nextCreatedOrder
+        ? buildWholesaleWhatsAppUrl(nextCreatedOrder)
+        : null;
 
       setCreatedOrder(nextCreatedOrder);
-      setCreatedOrderWhatsAppUrl(
-        nextCreatedOrder ? buildWholesaleWhatsAppUrl(nextCreatedOrder) : null
-      );
+      setCreatedOrderWhatsAppUrl(nextWhatsAppUrl);
+
+      if (nextWhatsAppUrl) {
+        const whatsappWindow = window.open(nextWhatsAppUrl, "_blank");
+        setWhatsAppOpenBlocked(!whatsappWindow);
+      }
+
       setQuantityInputs({});
       setQuantityWarning(null);
       setNotes("");
@@ -546,6 +555,11 @@ export default function WholesaleOrderPage() {
             <p className="mt-2 leading-7">
               احتفظ بهذا الرقم، وسيتم التواصل معك على بيانات حساب الجملة المسجلة.
             </p>
+            {whatsAppOpenBlocked ? (
+              <p className="mt-4 rounded-xl border border-amber-200 bg-white px-4 py-3 text-sm font-black text-amber-800">
+                لم يتم فتح واتساب تلقائيًا بسبب إعدادات المتصفح. اضغط زر واتساب بالأسفل لإرسال بيانات الطلب.
+              </p>
+            ) : null}
             <div className="mt-6 flex flex-wrap gap-3">
               {createdOrderWhatsAppUrl ? (
                 <a
@@ -555,7 +569,7 @@ export default function WholesaleOrderPage() {
                   className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-800"
                 >
                   <MessageCircle className="h-4 w-4" />
-                  إرسال الطلب على واتساب
+                  فتح واتساب برسالة الطلب
                 </a>
               ) : null}
               <Link

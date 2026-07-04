@@ -38,11 +38,11 @@ export default function Navbar() {
     : [
         {
           href: "/shop",
-          label: isAr ? "المتجر" : "SHOP",
+          label: isAr ? "متجر التجزئة" : "RETAIL SHOP",
         },
         {
           href: "/wholesale",
-          label: isAr ? "الجملة" : "WHOLESALE",
+          label: isAr ? "متجر الجملة" : "WHOLESALE SHOP",
         },
         {
           href: "/orders",

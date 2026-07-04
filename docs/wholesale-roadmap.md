@@ -30,6 +30,7 @@ Last updated: 2026-07-03
 - Wholesale cart/order UI is implemented locally with a separate Supabase-backed wholesale cart and a separate order review page; it does not use or modify the retail cart.
 - Wholesale product settings have been simplified to piece-based selling only: wholesale price per piece plus minimum purchase quantity in pieces.
 - Admin wholesale orders can now open WhatsApp follow-up with a prepared message containing the order number, current status, and order total.
+- Wholesale customer order submission now opens WhatsApp automatically with a prepared order message after the database order is created, while keeping a manual fallback button if the browser blocks the popup.
 - Wholesale order statuses follow the same stages used by retail orders: `requested`, `confirmed`, `preparing`, `shipped`, `delivered`, and `canceled`.
 - Wholesale stock policy decision: submitting a wholesale order does not deduct stock immediately. Stock deduction should happen later when Cesar confirms the order from admin workflow, because payment and delivery are handled manually/cash on delivery.
 - Wholesale cancellation and future wholesale sales returns must restore previously deducted quantities back to product stock.
@@ -86,6 +87,7 @@ Last updated: 2026-07-03
 - Admin wholesale orders page: `/admin/wholesale/orders`.
 - Admin API for listing wholesale orders and updating wholesale order status.
 - Admin WhatsApp follow-up link for wholesale orders with a prefilled manual message.
+- Customer-facing wholesale order review opens WhatsApp automatically after successful order creation, matching the retail checkout behavior.
 - Wholesale fallback error messages are now localized to Arabic across wholesale public/admin APIs and admin pages, including auth and rate-limit responses.
 - Automatic client-side image compression for wholesale application documents.
 - Required wholesale login email in the application form with a note that this is the email the admin will use to link wholesale access.
