@@ -4,9 +4,11 @@ export const dynamic = "force-dynamic";
 import React from "react";
 import path from "path";
 import arabicReshaper from "arabic-reshaper";
+import QRCode from "qrcode";
 import {
   Document,
   Font,
+  Image,
   Page,
   StyleSheet,
   Text,
@@ -49,6 +51,7 @@ const A = {
   total: "الإجمالي",
   grandTotal: "إجمالي طلب الجملة",
   printedAt: "وقت الطباعة",
+  qrNote: "امسح الكود وسجل الدخول بنفس حساب عميل الجملة لمتابعة الطلب",
   empty: "غير متوفر",
 };
 
@@ -90,6 +93,15 @@ function formatDate(value: string | null | undefined) {
   } catch {
     return value;
   }
+}
+
+function getWholesaleTrackingUrl(request: Request) {
+  const requestUrl = new URL(request.url);
+  const rawBaseUrl = process.env.NEXT_PUBLIC_SITE_URL || requestUrl.origin;
+  const baseUrl = rawBaseUrl.replace(/\/+$/, "");
+  const redirect = "/wholesale/orders";
+
+  return `${baseUrl}/auth/login?redirect=${encodeURIComponent(redirect)}`;
 }
 
 function customerText(order: WholesaleOrder, field: string) {
@@ -185,6 +197,24 @@ const styles = StyleSheet.create({
     color: "#0f172a",
     marginBottom: 8,
     textAlign: "right",
+  },
+  qrCard: {
+    width: 128,
+    border: "1 solid #e2e8f0",
+    borderRadius: 10,
+    padding: 10,
+    backgroundColor: "#ffffff",
+    alignItems: "center",
+  },
+  qr: {
+    width: 88,
+    height: 88,
+  },
+  qrText: {
+    marginTop: 6,
+    fontSize: 7,
+    color: "#475569",
+    textAlign: "center",
   },
   row: {
     flexDirection: "row",
@@ -337,7 +367,13 @@ function itemRow(item: WholesaleOrderItem, currency: string) {
   );
 }
 
-function WholesaleOrderReport({ order }: { order: WholesaleOrder }) {
+function WholesaleOrderReport({
+  order,
+  qrDataUrl,
+}: {
+  order: WholesaleOrder;
+  qrDataUrl: string;
+}) {
   return React.createElement(
     Document,
     null,
@@ -383,6 +419,12 @@ function WholesaleOrderReport({ order }: { order: WholesaleOrder }) {
           field(A.status, statusLabels[order.status]),
           field(A.total, formatMoney(order.subtotal, order.currency)),
           field(A.printedAt, formatDate(new Date().toISOString()))
+        ),
+        React.createElement(
+          View,
+          { style: styles.qrCard },
+          React.createElement(Image, { src: qrDataUrl, style: styles.qr }),
+          React.createElement(Text, { style: styles.qrText }, smartText(A.qrNote))
         )
       ),
       order.notes
@@ -422,7 +464,7 @@ function WholesaleOrderReport({ order }: { order: WholesaleOrder }) {
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -438,7 +480,16 @@ export async function GET(
       );
     }
 
-    const document = React.createElement(WholesaleOrderReport, { order });
+    const trackingUrl = getWholesaleTrackingUrl(request);
+    const qrDataUrl = await QRCode.toDataURL(trackingUrl, {
+      errorCorrectionLevel: "M",
+      margin: 1,
+      width: 320,
+    });
+    const document = React.createElement(WholesaleOrderReport, {
+      order,
+      qrDataUrl,
+    });
     const buffer = await renderPdfBuffer(document);
     const fileId = order.orderNumber || order.id.slice(0, 8);
 
