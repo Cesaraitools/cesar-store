@@ -28,96 +28,112 @@ export default function SiteFooter() {
         <div className="flex flex-wrap items-center justify-center gap-4">
           <Link
             href="/about"
+            prefetch={false}
             className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
           >
             {isAr ? "من نحن" : "About"}
           </Link>
           <Link
             href="/contact"
+            prefetch={false}
             className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
           >
             {isAr ? "التواصل" : "Contact"}
           </Link>
           <Link
             href="/car-care"
+            prefetch={false}
             className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
           >
             {isAr ? "العناية بالسيارات" : "Car care"}
           </Link>
           <Link
             href="/car-air-fresheners"
+            prefetch={false}
             className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
           >
             {isAr ? "معطرات السيارات" : "Air fresheners"}
           </Link>
           <Link
             href="/car-cleaning-products"
+            prefetch={false}
             className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
           >
             {isAr ? "تنظيف السيارات" : "Cleaning products"}
           </Link>
           <Link
             href="/car-accessories"
+            prefetch={false}
             className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
           >
             {isAr ? "إكسسوارات السيارات" : "Accessories"}
           </Link>
           <Link
             href="/car-lighting-tools"
+            prefetch={false}
             className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
           >
             {isAr ? "أدوات وإضاءة" : "Lighting and tools"}
           </Link>
           <Link
             href="/car-tools-equipment"
+            prefetch={false}
             className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
           >
             {isAr ? "أدوات ومعدات" : "Tools and equipment"}
           </Link>
           <Link
             href="/car-fluids-additives"
+            prefetch={false}
             className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
           >
             {isAr ? "سوائل وإضافات" : "Fluids and additives"}
           </Link>
           <Link
             href="/return-policy"
+            prefetch={false}
             className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
           >
             {isAr ? "سياسة الإرجاع والاستبدال" : "Return and exchange policy"}
           </Link>
           <Link
             href="/privacy-policy"
+            prefetch={false}
             className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
           >
             {isAr ? "سياسة الخصوصية" : "Privacy policy"}
           </Link>
           <Link
             href="/data-deletion"
+            prefetch={false}
             className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
           >
             {isAr ? "حذف البيانات" : "Data deletion"}
           </Link>
           <Link
             href="/shipping"
+            prefetch={false}
             className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
           >
             {isAr ? "الشحن والتوصيل" : "Shipping"}
           </Link>
           <Link
             href="/ordering-guide"
+            prefetch={false}
             className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
           >
             {isAr ? "دليل الطلب" : "Ordering guide"}
           </Link>
           <Link
             href="/faq"
+            prefetch={false}
             className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
           >
             {isAr ? "الأسئلة الشائعة" : "FAQ"}
           </Link>
           <Link
             href="/search-guide"
+            prefetch={false}
             className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
           >
             {isAr ? "دليل البحث" : "Search guide"}
