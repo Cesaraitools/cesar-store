@@ -1190,32 +1190,91 @@ function hasConfidentPostContextMatch(result: AutomationAnswer, postContext: str
 
 function shouldSendPrivatePriceReply(result: AutomationAnswer) {
   return (
+    result.meta.ai.used &&
     result.meta.autoReply === "answer" &&
     result.products.some((product) => Number(product.price) > 0)
   );
 }
 
-function buildFacebookPrivatePriceReply(result: AutomationAnswer) {
+async function buildFacebookPrivatePriceReply(result: AutomationAnswer) {
   const products = result.products
     .filter((product) => Number(product.price) > 0)
     .slice(0, 3);
 
   if (!products.length) return "";
 
-  if (products.length === 1) {
-    const product = products[0];
+  if (!isAutomationAiEnabled()) return "";
 
-    return `سعر ${product.name} حاليا ${product.price} جنيه.\nالطلب من هنا: ${product.productUrl}\n\nلو محتاج تفاصيل أكتر ابعتلنا رسالة.`;
+  try {
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY || ""}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: getAutomationAiModel(),
+        input: [
+          {
+            role: "system",
+            content:
+              "You write Cesar Store private Messenger replies in Arabic. Use only the supplied product names, prices, and URLs. Do not invent anything. Keep it concise and friendly.",
+          },
+          {
+            role: "user",
+            content: JSON.stringify({
+              customerMessage: result.query,
+              products: products.map((product) => ({
+                name: product.name,
+                price: product.price,
+                currency: product.currency,
+                productUrl: product.productUrl,
+              })),
+              outputRules: [
+                "Return valid JSON only.",
+                "Mention exact prices from products.",
+                "Include productUrl for each mentioned product.",
+                "Do not mention automation, AI, scoring, or internal rules.",
+              ],
+            }),
+          },
+        ],
+        max_output_tokens: 260,
+        store: false,
+        temperature: 0.2,
+        text: {
+          format: {
+            type: "json_schema",
+            name: "meta_private_price_reply",
+            strict: true,
+            schema: {
+              type: "object",
+              additionalProperties: false,
+              required: ["reply"],
+              properties: {
+                reply: {
+                  type: "string",
+                },
+              },
+            },
+          },
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI private price request failed with status ${response.status}`);
+    }
+
+    const parsed = JSON.parse(extractOpenAIText(await response.json())) as {
+      reply?: unknown;
+    };
+
+    return typeof parsed.reply === "string" ? parsed.reply.trim().slice(0, 1200) : "";
+  } catch (error) {
+    console.error("META COMMENT PRIVATE PRICE AI ERROR:", formatErrorForLog(error));
+    return "";
   }
-
-  return [
-    "أسعار أقرب المنتجات لسؤالك:",
-    ...products.map(
-      (product) => `- ${product.name}: ${product.price} جنيه\n${product.productUrl}`
-    ),
-    "",
-    "لو محتاج تفاصيل أكتر ابعتلنا رسالة.",
-  ].join("\n");
 }
 
 function buildConciseFacebookProductReply(result: AutomationAnswer) {
@@ -1251,41 +1310,21 @@ function buildFacebookUncertainPostReply(baseUrl: string) {
 
 function buildFacebookCommentReply(
   result: AutomationAnswer,
-  baseUrl: string,
   messageText: string,
-  options?: { privatePriceSent?: boolean }
 ) {
+  if (!result.meta.ai.used) return "";
+
   const shouldMovePricePrivate = shouldSendPrivatePriceReply(result);
-  const shouldUseDetailedPublicReply = isPublicDetailQuestion(messageText);
   const cleanSuffix =
     result.meta.autoReply === "clarify"
       ? "\n\nلو تحب ابعتلنا رسالة بصورة المنتج أو تفاصيل أكتر."
       : "";
 
   const publicReply = shouldMovePricePrivate
-    ? result.meta.ai.used
-      ? stripKnownProductPrices(result.suggestedReply, result)
-      : shouldUseDetailedPublicReply
-        ? stripKnownProductPrices(result.suggestedReply, result)
-        : buildConciseFacebookProductReply(result)
+    ? stripKnownProductPrices(result.suggestedReply, result)
     : result.suggestedReply.trim();
-  const reply = publicReply || buildPublicProductFallback(result);
-  const category = result.products[0]?.category || result.meta.matchedCategory || "";
-  const categoryUrl = category ? buildCategoryUrl(category, baseUrl) : "";
-  const shopUrl = buildShopUrl(baseUrl);
-  const links = [
-    categoryUrl && !reply.includes(categoryUrl) ? `شوف القسم من هنا: ${categoryUrl}` : "",
-    !reply.includes(shopUrl) ? `الموقع: ${shopUrl}` : "",
-  ].filter(Boolean);
-  const priceNote = shouldMovePricePrivate
-    ? options?.privatePriceSent
-      ? "بعتنالك التفاصيل في الخاص."
-      : "لو رسالة الخاص ما ظهرتش عندك، ابعتلنا رسالة وهنبعتلك التفاصيل فوراً."
-    : "";
 
-  return `${reply}${links.length ? `\n\n${links.join("\n")}` : ""}${
-    priceNote ? `\n\n${priceNote}` : ""
-  }${cleanSuffix}`;
+  return `${publicReply}${cleanSuffix}`.trim();
 }
 
 async function processEvent(event: MetaMessagingEvent, request: Request) {
@@ -1310,6 +1349,24 @@ async function processEvent(event: MetaMessagingEvent, request: Request) {
     limit: 3,
     baseUrl: getBaseUrl(request),
   });
+
+  if (!result.meta.ai.used) {
+    console.warn("META MESSENGER AI-ONLY SKIPPED SEND:", {
+      senderId: normalized.senderId,
+      messageId: normalized.messageId,
+      aiReason: result.meta.ai.reason,
+      productsCount: result.products.length,
+      bestScore: result.meta.bestScore,
+    });
+
+    return {
+      processed: false,
+      reason: "ai_required_no_reply_sent",
+      productsCount: result.products.length,
+      aiUsed: false,
+      aiReason: result.meta.ai.reason,
+    };
+  }
 
   await sendFacebookMessage(normalized.senderId, result.suggestedReply);
 
@@ -1567,6 +1624,28 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     aiReason: result.meta.ai.reason,
   });
 
+  if (!result.meta.ai.used) {
+    await recordCommentHandoff({
+      reason: result.meta.ai.reason || "ai_required_no_reply_sent",
+      commentId: normalized.commentId,
+      postId: normalized.postId,
+      messageText: normalized.messageText,
+      permalinkUrl: normalized.permalinkUrl,
+      productsCount: result.products.length,
+      bestScore: result.meta.bestScore,
+    });
+
+    return {
+      processed: false,
+      reason: result.meta.ai.reason || "ai_required_no_reply_sent",
+      productsCount: result.products.length,
+      bestScore: result.meta.bestScore,
+      postContextUsed,
+      aiUsed: false,
+      aiReason: result.meta.ai.reason,
+    };
+  }
+
   if (!isCommentAutoReplyEnabled()) {
     await recordCommentHandoff({
       reason: "comment_auto_reply_disabled",
@@ -1639,13 +1718,8 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
       bestScore: result.meta.bestScore,
     });
 
-    await sendFacebookCommentReply(
-      normalized.commentId,
-      buildFacebookUncertainPostReply(baseUrl)
-    );
-
     return {
-      processed: true,
+      processed: false,
       reason: "post_context_product_uncertain",
       productsCount: result.products.length,
       bestScore: result.meta.bestScore,
@@ -1659,7 +1733,7 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
   let privatePriceAttempted = false;
   let privatePriceSent = false;
   const privatePriceReply = shouldSendPrivatePriceReply(result)
-    ? buildFacebookPrivatePriceReply(result)
+    ? await buildFacebookPrivatePriceReply(result)
     : "";
 
   if (privatePriceReply) {
@@ -1677,12 +1751,34 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     }
   }
 
-  await sendFacebookCommentReply(
-    normalized.commentId,
-    buildFacebookCommentReply(result, baseUrl, normalized.messageText, {
+  const publicReply = buildFacebookCommentReply(result, normalized.messageText);
+
+  if (!publicReply) {
+    await recordCommentHandoff({
+      reason: "ai_empty_public_reply",
+      commentId: normalized.commentId,
+      postId: normalized.postId,
+      messageText: normalized.messageText,
+      permalinkUrl: normalized.permalinkUrl,
+      productsCount: result.products.length,
+      bestScore: result.meta.bestScore,
+    });
+
+    return {
+      processed: false,
+      reason: "ai_empty_public_reply",
+      productsCount: result.products.length,
+      bestScore: result.meta.bestScore,
+      postContextUsed,
+      aiUsed: result.meta.ai.used,
+      aiAction: result.meta.ai.action,
+      aiReason: result.meta.ai.reason,
+      privatePriceAttempted,
       privatePriceSent,
-    })
-  );
+    };
+  }
+
+  await sendFacebookCommentReply(normalized.commentId, publicReply);
 
   return {
     processed: true,
