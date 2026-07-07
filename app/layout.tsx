@@ -87,6 +87,7 @@ export function generateMetadata(): Metadata {
     },
     other: {
       ...Sentry.getTraceData(),
+      "facebook-domain-verification": "2wy8f55ia53xqhgg0fmddfv0ho754r",
     },
   };
 }
