@@ -205,7 +205,7 @@ function applyAgentDecision(
 function withAgentMeta(
   result: AutomationProductSearchResult,
   ai: AgentMeta,
-  suggestedReply = result.suggestedReply
+  suggestedReply = ""
 ): AutomationAgentResult {
   return {
     ...result,
@@ -256,7 +256,6 @@ async function generateAiReply(result: AutomationProductSearchResult) {
               handoffReason: result.meta.handoffReason,
             },
             candidateProducts: result.products.map(compactProduct),
-            deterministicReply: result.suggestedReply,
             outputRules: [
               "Return valid JSON only.",
               "Use productUrl values only from candidateProducts.",

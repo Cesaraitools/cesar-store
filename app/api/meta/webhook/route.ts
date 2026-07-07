@@ -277,12 +277,6 @@ function isCommentAutoReplyEnabled() {
   return /^(1|true|yes)$/i.test(process.env.META_COMMENTS_AUTO_REPLY || "");
 }
 
-function getCommentMinimumScore() {
-  const value = Number(process.env.META_COMMENTS_MIN_SCORE || 10);
-
-  return Number.isFinite(value) ? Math.max(value, 1) : 10;
-}
-
 function getAllowedCommentPostIds() {
   return (process.env.META_COMMENTS_ALLOWED_POST_IDS || "")
     .split(",")
@@ -569,80 +563,6 @@ function buildShopUrl(baseUrl: string) {
 
 function buildCategoryUrl(category: string, baseUrl: string) {
   return `${buildShopUrl(baseUrl)}?category=${encodeURIComponent(category)}`;
-}
-
-function escapeRegExp(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function toArabicDigits(value: string) {
-  const digits = ["٠", "١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩"];
-
-  return value.replace(/\d/g, (digit) => digits[Number(digit)] || digit);
-}
-
-function getPriceTextVariants(price: number) {
-  const normalized = Number.isInteger(price)
-    ? String(price)
-    : price.toFixed(2).replace(/\.?0+$/, "");
-  const fixed = price.toFixed(2);
-
-  return Array.from(
-    new Set([normalized, fixed, toArabicDigits(normalized), toArabicDigits(fixed)])
-  ).map(escapeRegExp);
-}
-
-function stripKnownProductPrices(text: string, result: AutomationAnswer) {
-  const prices = Array.from(
-    new Set(
-      result.products
-        .map((product) => Number(product.price))
-        .filter((price) => Number.isFinite(price) && price > 0)
-    )
-  ).sort((a, b) => String(b).length - String(a).length);
-
-  let output = text;
-  const currencyPattern = "(?:جنيه|جنيها|جنيهًا|ج\\.م|جم|ج|EGP|egp|LE|le)";
-
-  for (const price of prices) {
-    const amountPattern = `(?:${getPriceTextVariants(price).join("|")})`;
-
-    output = output
-      .replace(
-        new RegExp(
-          `\\s*(?:بسعر|بالسعر|سعره|سعرها|السعر|سعر)\\s*(?:هو|حاليا|حالياً|حوالي)?\\s*${amountPattern}(?:\\s*${currencyPattern})?\\.?`,
-          "giu"
-        ),
-        ""
-      )
-      .replace(
-        new RegExp(`\\s*[-–—]\\s*${amountPattern}\\s*${currencyPattern}\\.?`, "giu"),
-        ""
-      )
-      .replace(
-        new RegExp(`${amountPattern}\\s*${currencyPattern}\\.?`, "giu"),
-        ""
-      );
-  }
-
-  return output
-    .replace(/^\s*(?:[-*•]\s*)?(?:\*\*)?\s*(?:السعر|سعره|سعرها|price)\s*(?:\*\*)?\s*:?.*$/gimu, "")
-    .replace(/\s*(?:[-*•]\s*)?(?:\*\*)?\s*(?:السعر|سعره|سعرها|price)\s*(?:\*\*)?\s*:?\s*(?:اطلب(?:ه|ها)?\s*)?الآن\.?/gimu, "")
-    .replace(/\s*(?:[-*•]\s*)?(?:\*\*)?\s*(?:السعر|سعره|سعرها|price)\s*(?:\*\*)?\s*:?\s*$/gimu, "")
-    .replace(/\s+([:،,؛.])/g, "$1")
-    .replace(/-\s*:/g, ":")
-    .replace(/\n[ \t]+/g, "\n")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
-
-function isPublicDetailQuestion(messageText: string) {
-  const normalized = messageText.trim().toLowerCase();
-
-  return /تفاصيل|التفاصيل|مواصفات|المواصفات|وصف|الوصف|لون|ألوان|الوان|نوع|النوع|موديل|مقاس|مقاسات|حجم|احجام|أحجام|ريحة|ريحه|رائحة|رائحه|روايح|روائح|خامة|خامه|استخدام|يستخدم|ينفع|يركب|مناسب|فرق|الفرق|color|colour|size|type|model|scent|details|description|specs/.test(
-    normalized
-  );
 }
 
 function isPostDependentComment(messageText: string) {
@@ -1277,54 +1197,101 @@ async function buildFacebookPrivatePriceReply(result: AutomationAnswer) {
   }
 }
 
-function buildConciseFacebookProductReply(result: AutomationAnswer) {
-  const products = result.products.slice(0, 3);
-  if (!products.length) return result.suggestedReply.trim();
-
-  if (products.length === 1) {
-    return `المنتج الأقرب لسؤالك: ${products[0].name}.\nاطلبه من هنا: ${products[0].productUrl}`;
-  }
-
-  return [
-    "أقرب المنتجات لسؤالك:",
-    ...products.map((product) => `- ${product.name}\n${product.productUrl}`),
-  ].join("\n");
-}
-
-function buildPublicProductFallback(result: AutomationAnswer) {
-  const first = result.products[0];
-
-  if (!first) return result.suggestedReply.trim();
-
-  return `${first.name} متوفر حاليا.\nالطلب من هنا: ${first.productUrl}`;
-}
-
-function buildFacebookUncertainPostReply(baseUrl: string) {
-  return [
-    "محتاجين تأكيد المنتج المقصود في المنشور عشان نرد عليك بدقة.",
-    "ابعتلنا رسالة بصورة المنتج أو اكتب اسمه، وهنبعتلك التفاصيل.",
-    "",
-    `الموقع: ${buildShopUrl(baseUrl)}`,
-  ].join("\n");
-}
-
-function buildFacebookCommentReply(
+async function buildFacebookCommentReply(
   result: AutomationAnswer,
   messageText: string,
+  baseUrl: string,
+  privatePriceSent: boolean,
 ) {
   if (!result.meta.ai.used) return "";
 
-  const shouldMovePricePrivate = shouldSendPrivatePriceReply(result);
-  const cleanSuffix =
-    result.meta.autoReply === "clarify"
-      ? "\n\nلو تحب ابعتلنا رسالة بصورة المنتج أو تفاصيل أكتر."
-      : "";
+  if (!isAutomationAiEnabled()) return "";
 
-  const publicReply = shouldMovePricePrivate
-    ? stripKnownProductPrices(result.suggestedReply, result)
-    : result.suggestedReply.trim();
+  const products = result.products.slice(0, 3);
+  const category = result.products[0]?.category || result.meta.matchedCategory || "";
 
-  return `${publicReply}${cleanSuffix}`.trim();
+  try {
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY || ""}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: getAutomationAiModel(),
+        input: [
+          {
+            role: "system",
+            content:
+              "You write Cesar Store public Facebook comment replies in Arabic. You are the only writer of the final public reply. Use supplied catalog facts only. Do not invent products, prices, links, stock, variants, policies, or contact data. Public replies must not show prices. If price details were sent privately, mention that briefly. If private sending failed, ask the customer to message the page for details. Keep replies concise and suitable for public comments.",
+          },
+          {
+            role: "user",
+            content: JSON.stringify({
+              customerMessage: messageText,
+              aiDraft: result.suggestedReply,
+              aiAction: result.meta.ai.action,
+              aiConfidence: result.meta.ai.confidence,
+              privatePriceSent,
+              shopUrl: buildShopUrl(baseUrl),
+              categoryUrl: category ? buildCategoryUrl(category, baseUrl) : "",
+              products: products.map((product) => ({
+                name: product.name,
+                nameAr: product.nameAr,
+                nameEn: product.nameEn,
+                category: product.category,
+                productUrl: product.productUrl,
+                isAvailable: product.isAvailable,
+                stockStatus: product.stockStatus,
+                variantSummary: product.variantSummary,
+              })),
+              outputRules: [
+                "Return valid JSON only.",
+                "Do not include any price or currency in the public reply.",
+                "Include relevant productUrl values when products are relevant.",
+                "Include categoryUrl and shopUrl only if useful and not repetitive.",
+                "For clarification, ask one short question.",
+                "Do not mention automation, AI, scoring, tokens, webhooks, or internal rules.",
+              ],
+            }),
+          },
+        ],
+        max_output_tokens: 360,
+        store: false,
+        temperature: 0.2,
+        text: {
+          format: {
+            type: "json_schema",
+            name: "meta_public_comment_reply",
+            strict: true,
+            schema: {
+              type: "object",
+              additionalProperties: false,
+              required: ["reply"],
+              properties: {
+                reply: {
+                  type: "string",
+                },
+              },
+            },
+          },
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI public comment request failed with status ${response.status}`);
+    }
+
+    const parsed = JSON.parse(extractOpenAIText(await response.json())) as {
+      reply?: unknown;
+    };
+
+    return typeof parsed.reply === "string" ? parsed.reply.trim().slice(0, 1500) : "";
+  } catch (error) {
+    console.error("META COMMENT PUBLIC REPLY AI ERROR:", formatErrorForLog(error));
+    return "";
+  }
 }
 
 async function processEvent(event: MetaMessagingEvent, request: Request) {
@@ -1669,11 +1636,7 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     };
   }
 
-  const shouldHandoff =
-    result.meta.autoReply === "handoff" ||
-    (!result.meta.ai.used &&
-      result.meta.autoReply === "answer" &&
-      (!result.products.length || result.meta.bestScore < getCommentMinimumScore()));
+  const shouldHandoff = result.meta.autoReply === "handoff";
 
   if (shouldHandoff) {
     const handoffReason =
@@ -1751,7 +1714,12 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     }
   }
 
-  const publicReply = buildFacebookCommentReply(result, normalized.messageText);
+  const publicReply = await buildFacebookCommentReply(
+    result,
+    normalized.messageText,
+    baseUrl,
+    privatePriceSent
+  );
 
   if (!publicReply) {
     await recordCommentHandoff({
