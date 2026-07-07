@@ -449,6 +449,15 @@ async function recordCommentHandoff(input: {
 
 type AutomationAnswer = Awaited<ReturnType<typeof answerAutomationQuestion>>;
 
+type CommentIntentAction = "commerce" | "social_reply" | "ignore" | "handoff";
+
+type CommentIntentDecision = {
+  action: CommentIntentAction;
+  confidence: "high" | "medium" | "low";
+  reply: string;
+  reason: string;
+};
+
 type MetaPostAttachment = {
   title?: string;
   description?: string;
@@ -954,6 +963,167 @@ function formatErrorForLog(error: unknown) {
   return error;
 }
 
+function getAutomationAiModel() {
+  return (process.env.OPENAI_MODEL || "gpt-4o-mini").trim();
+}
+
+function isAutomationAiEnabled() {
+  if (!process.env.OPENAI_API_KEY) return false;
+
+  return !/^(0|false|no|off)$/i.test(process.env.AUTOMATION_AI_ENABLED || "");
+}
+
+function parseCommentIntentDecision(text: string): CommentIntentDecision | null {
+  try {
+    const parsed = JSON.parse(text) as Partial<CommentIntentDecision>;
+    const action = parsed.action;
+    const confidence = parsed.confidence;
+    const reply = typeof parsed.reply === "string" ? parsed.reply.trim() : "";
+    const reason = typeof parsed.reason === "string" ? parsed.reason.trim() : "";
+
+    if (!action || !["commerce", "social_reply", "ignore", "handoff"].includes(action)) {
+      return null;
+    }
+
+    if (!confidence || !["high", "medium", "low"].includes(confidence)) {
+      return null;
+    }
+
+    if (action === "social_reply" && !reply) return null;
+
+    return {
+      action,
+      confidence,
+      reply: reply.slice(0, 500),
+      reason: reason || action,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function extractOpenAIText(data: any) {
+  if (typeof data?.output_text === "string") return data.output_text;
+
+  const content = data?.output
+    ?.flatMap((item: any) => item?.content || [])
+    .find((item: any) => item?.type === "output_text" && typeof item?.text === "string");
+
+  return typeof content?.text === "string" ? content.text : "";
+}
+
+async function classifyMetaCommentIntent(input: {
+  commentText: string;
+  postContext: string;
+}) {
+  if (!isAutomationAiEnabled()) return null;
+
+  const apiKey = process.env.OPENAI_API_KEY || "";
+  const model = getAutomationAiModel();
+
+  try {
+    console.info("META COMMENT INTENT AI STARTED:", {
+      model,
+      commentLength: input.commentText.length,
+      postContextLength: input.postContext.length,
+    });
+
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        input: [
+          {
+            role: "system",
+            content:
+              "You are Cesar Store's Arabic Facebook page assistant. Classify each public comment before any product automation. If the comment is about products, prices, stock, ordering, shipping, returns, variants, or store service, choose commerce. If the comment is normal social engagement related to the post, such as football predictions, greetings, jokes, thanks, or contest participation, choose social_reply and write a short natural Arabic public reply. If a safe public reply is not useful, choose ignore. If it needs a human, choose handoff. Never force unrelated comments into products. Never include product links unless action is commerce, and for social_reply do not mention products or prices.",
+          },
+          {
+            role: "user",
+            content: JSON.stringify({
+              commentText: input.commentText,
+              postContext: input.postContext,
+              outputRules: [
+                "Return valid JSON only.",
+                "Use Egyptian Arabic when appropriate.",
+                "For football score predictions or match comments, reply in a friendly fan tone without claiming certainty.",
+                "For social_reply, keep the reply under 160 Arabic characters.",
+                "For commerce, leave reply empty.",
+                "Do not mention AI, automation, scoring, webhooks, tokens, or internal rules.",
+              ],
+            }),
+          },
+        ],
+        max_output_tokens: 220,
+        store: false,
+        temperature: 0.3,
+        text: {
+          format: {
+            type: "json_schema",
+            name: "meta_comment_intent",
+            strict: true,
+            schema: {
+              type: "object",
+              additionalProperties: false,
+              required: ["action", "confidence", "reply", "reason"],
+              properties: {
+                action: {
+                  type: "string",
+                  enum: ["commerce", "social_reply", "ignore", "handoff"],
+                },
+                confidence: {
+                  type: "string",
+                  enum: ["high", "medium", "low"],
+                },
+                reply: {
+                  type: "string",
+                },
+                reason: {
+                  type: "string",
+                },
+              },
+            },
+          },
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI intent request failed with status ${response.status}`);
+    }
+
+    const decision = parseCommentIntentDecision(
+      extractOpenAIText(await response.json())
+    );
+
+    if (!decision) {
+      throw new Error("OpenAI returned an invalid comment intent decision");
+    }
+
+    console.info("META COMMENT INTENT AI COMPLETED:", decision);
+
+    return decision;
+  } catch (error) {
+    console.error("META COMMENT INTENT AI ERROR:", formatErrorForLog(error));
+    return null;
+  }
+}
+
+function isLikelySocialComment(messageText: string, postContext: string) {
+  const text = normalizePostContextMatchText(`${messageText} ${postContext}`);
+
+  return (
+    /\b\d+\s*[-/]\s*\d+\b/.test(text) ||
+    /مصر|الارجنتين|الأرجنتين|كوره|كورة|ماتش|ماتشات|مباراه|مباراة|هدف|اهداف|أهداف|فوز|يكسب|توقع|توقعك|منتخب|لعيب|لاعب|اتحاد الكوره|اتحاد الكرة/.test(
+      text
+    )
+  );
+}
+
 function postContextTokens(value: string) {
   return Array.from(
     new Set(
@@ -1093,9 +1263,11 @@ function buildFacebookCommentReply(
       : "";
 
   const publicReply = shouldMovePricePrivate
-    ? shouldUseDetailedPublicReply
+    ? result.meta.ai.used
       ? stripKnownProductPrices(result.suggestedReply, result)
-      : buildConciseFacebookProductReply(result)
+      : shouldUseDetailedPublicReply
+        ? stripKnownProductPrices(result.suggestedReply, result)
+        : buildConciseFacebookProductReply(result)
     : result.suggestedReply.trim();
   const reply = publicReply || buildPublicProductFallback(result);
   const category = result.products[0]?.category || result.meta.matchedCategory || "";
@@ -1185,6 +1357,137 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
   }
 
   const baseUrl = getBaseUrl(request);
+  let postContextUsed = false;
+  let postContextSearchText = "";
+  const initialPostContext = await fetchFacebookPostContext(normalized.postId);
+
+  if (initialPostContext?.searchText) {
+    postContextUsed = true;
+    postContextSearchText = initialPostContext.searchText;
+    normalized.permalinkUrl = normalized.permalinkUrl || initialPostContext.permalinkUrl;
+
+    console.info("META COMMENT POST CONTEXT USED:", {
+      commentId: normalized.commentId,
+      postId: normalized.postId,
+      contextLength: initialPostContext.searchText.length,
+      source: "intent_gate",
+    });
+  }
+
+  const commentIntent = await classifyMetaCommentIntent({
+    commentText: normalized.messageText,
+    postContext: postContextSearchText,
+  });
+
+  if (commentIntent) {
+    console.info("META COMMENT INTENT DECISION:", {
+      commentId: normalized.commentId,
+      postId: normalized.postId,
+      action: commentIntent.action,
+      confidence: commentIntent.confidence,
+      reason: commentIntent.reason,
+    });
+
+    if (commentIntent.action === "social_reply") {
+      if (!isCommentAutoReplyEnabled()) {
+        await recordCommentHandoff({
+          reason: "comment_auto_reply_disabled",
+          commentId: normalized.commentId,
+          postId: normalized.postId,
+          messageText: normalized.messageText,
+          permalinkUrl: normalized.permalinkUrl,
+        });
+
+        return {
+          processed: false,
+          reason: "comment_auto_reply_disabled",
+          postContextUsed,
+          aiUsed: true,
+          aiAction: "answer",
+          aiReason: commentIntent.reason,
+        };
+      }
+
+      if (commentIntent.confidence === "low") {
+        await recordCommentHandoff({
+          reason: "social_reply_low_confidence",
+          commentId: normalized.commentId,
+          postId: normalized.postId,
+          messageText: normalized.messageText,
+          permalinkUrl: normalized.permalinkUrl,
+        });
+
+        return {
+          processed: false,
+          reason: "social_reply_low_confidence",
+          postContextUsed,
+          aiUsed: true,
+          aiAction: "handoff",
+          aiReason: commentIntent.reason,
+        };
+      }
+
+      await sendFacebookCommentReply(normalized.commentId, commentIntent.reply);
+
+      return {
+        processed: true,
+        reason: "comment_social_reply_sent",
+        productsCount: 0,
+        bestScore: 0,
+        postContextUsed,
+        aiUsed: true,
+        aiAction: "answer",
+        aiReason: commentIntent.reason,
+      };
+    }
+
+    if (commentIntent.action === "ignore") {
+      return {
+        processed: false,
+        reason: "comment_intent_ignored",
+        postContextUsed,
+        aiUsed: true,
+        aiAction: "handoff",
+        aiReason: commentIntent.reason,
+      };
+    }
+
+    if (commentIntent.action === "handoff") {
+      await recordCommentHandoff({
+        reason: commentIntent.reason || "comment_intent_handoff",
+        commentId: normalized.commentId,
+        postId: normalized.postId,
+        messageText: normalized.messageText,
+        permalinkUrl: normalized.permalinkUrl,
+      });
+
+      return {
+        processed: false,
+        reason: commentIntent.reason || "comment_intent_handoff",
+        postContextUsed,
+        aiUsed: true,
+        aiAction: "handoff",
+        aiReason: commentIntent.reason,
+      };
+    }
+  } else if (isLikelySocialComment(normalized.messageText, postContextSearchText)) {
+    await recordCommentHandoff({
+      reason: "social_comment_ai_unavailable",
+      commentId: normalized.commentId,
+      postId: normalized.postId,
+      messageText: normalized.messageText,
+      permalinkUrl: normalized.permalinkUrl,
+    });
+
+    return {
+      processed: false,
+      reason: "social_comment_ai_unavailable",
+      postContextUsed,
+      aiUsed: false,
+      aiReason: "comment_intent_ai_unavailable",
+    };
+  }
+
   const baseAutomationInput = {
     query: normalized.messageText,
     requestedLanguage: "ar",
@@ -1195,8 +1498,6 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     ...baseAutomationInput,
     skipAi: true,
   });
-  let postContextUsed = false;
-  let postContextSearchText = "";
 
   if (result.meta.handoffReason === "human_sensitive_request") {
     await recordCommentHandoff({
@@ -1222,8 +1523,9 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
   }
 
   if (
-    result.meta.handoffReason === "post_context_required" ||
-    shouldFetchPostContextForComment(normalized.messageText)
+    !postContextUsed &&
+    (result.meta.handoffReason === "post_context_required" ||
+      shouldFetchPostContextForComment(normalized.messageText))
   ) {
     const postContext = await fetchFacebookPostContext(normalized.postId);
 
