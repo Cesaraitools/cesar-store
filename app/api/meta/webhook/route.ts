@@ -960,7 +960,7 @@ async function classifyMetaCommentIntent(input: {
           {
             role: "system",
             content:
-              "You are Cesar Store's Arabic Facebook page assistant. Classify each public comment before any product automation. If the comment is about products, prices, stock, ordering, shipping, returns, variants, or store service, choose commerce. If the comment is normal social engagement related to the post, such as football predictions, greetings, jokes, thanks, or contest participation, choose social_reply and write a short natural Arabic public reply. If a safe public reply is not useful, choose ignore. If it needs a human, choose handoff. Never force unrelated comments into products. Never include product links unless action is commerce, and for social_reply do not mention products or prices.",
+              "You are Cesar Store's Arabic Facebook page assistant. Classify each public comment before any product automation. If the comment is about products, prices, stock, ordering, shipping, returns, variants, or store service, choose commerce. Very short price questions such as hm, h.m, Hm, HM, how much, price, بكام, بكم, كام, السعر, or سعر must be classified as commerce when the post context is a product, promotion, store post, product image, or product link. Do not treat those price tokens as greetings or social chat. If the comment is normal social engagement related to a non-product post, such as football predictions, greetings, jokes, thanks, or contest participation, choose social_reply and write a short natural Arabic public reply. If a safe public reply is not useful, choose ignore. If it needs a human, choose handoff. Never force unrelated comments into products. Never include product links unless action is commerce, and for social_reply do not mention products or prices.",
           },
           {
             role: "user",
@@ -969,7 +969,10 @@ async function classifyMetaCommentIntent(input: {
               postContext: input.postContext,
               outputRules: [
                 "Return valid JSON only.",
-                "Use Egyptian Arabic when appropriate.",
+                "Use clear Arabic suitable for a business page.",
+                "For product/store comments, use a formal business tone.",
+                "Never use casual phrases such as يا صديقي, إيه يا صديقي, حبيبي, يا باشا, يا نجم, or similar social wording.",
+                "Treat hm/h.m/how much/price/بكام/بكم/كام/السعر/سعر as commerce, not social_reply, when postContext is related to a product or store offer.",
                 "For football score predictions or match comments, reply in a friendly fan tone without claiming certainty.",
                 "For social_reply, keep the reply under 160 Arabic characters.",
                 "For commerce, leave reply empty.",
@@ -1138,7 +1141,7 @@ async function buildFacebookPrivatePriceReply(result: AutomationAnswer) {
           {
             role: "system",
             content:
-              "You write Cesar Store private Messenger replies in Arabic. Use only the supplied product names, prices, and URLs. Do not invent anything. Keep it concise and friendly.",
+              "You write Cesar Store private Messenger replies in Arabic. Use only the supplied product names, prices, and URLs. Do not invent anything. Use a formal, concise business tone. Do not use casual phrases such as يا صديقي, حبيبي, يا باشا, يا نجم, or similar social wording.",
           },
           {
             role: "user",
@@ -1200,6 +1203,7 @@ async function buildFacebookPrivatePriceReply(result: AutomationAnswer) {
 async function buildFacebookCommentReply(
   result: AutomationAnswer,
   messageText: string,
+  postContext: string,
   baseUrl: string,
   privatePriceSent: boolean,
 ) {
@@ -1223,12 +1227,13 @@ async function buildFacebookCommentReply(
           {
             role: "system",
             content:
-              "You write Cesar Store public Facebook comment replies in Arabic. You are the only writer of the final public reply. Use supplied catalog facts only. Do not invent products, prices, links, stock, variants, policies, or contact data. Public replies must not show prices. If price details were sent privately, mention that briefly. If private sending failed, ask the customer to message the page for details. Keep replies concise and suitable for public comments.",
+              "You write Cesar Store public Facebook comment replies in Arabic. You are the only writer of the final public reply. Use supplied post context and catalog facts only. Do not invent products, prices, links, stock, variants, policies, or contact data. Public replies must not show prices. If the customer asked hm, h.m, how much, price, بكام, بكم, كام, السعر, or سعر, treat it as a price question about the product/post context. If price details were sent privately, mention that formally and briefly. If private sending failed, ask the customer to message the page for details. Use a formal, concise business tone for product/store comments. Do not use casual phrases such as يا صديقي, حبيبي, يا باشا, يا نجم, or similar social wording.",
           },
           {
             role: "user",
             content: JSON.stringify({
               customerMessage: messageText,
+              postContext,
               aiDraft: result.suggestedReply,
               aiAction: result.meta.ai.action,
               aiConfidence: result.meta.ai.confidence,
@@ -1717,6 +1722,7 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
   const publicReply = await buildFacebookCommentReply(
     result,
     normalized.messageText,
+    postContextSearchText,
     baseUrl,
     privatePriceSent
   );

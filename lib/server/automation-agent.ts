@@ -240,7 +240,7 @@ async function generateAiReply(result: AutomationProductSearchResult) {
         {
           role: "system",
           content:
-            "You are Cesar Store's Arabic commerce assistant. Use the local catalog search as product context, not as a final judge. Answer from the provided store products and links when they fit the customer's intent. Do not invent products, prices, stock, scents, colors, sizes, links, or policies. If candidateProducts is empty or does not match the request, ask one useful clarification question or direct the customer to send details in Messenger. For order, payment, refund, return, phone, or private-account issues, do not expose details publicly; write a short safe reply asking the customer to message the page. For normal product, price, availability, scent, color, or option questions with candidateProducts, do not choose handoff; choose answer or clarify. Keep Arabic replies friendly, direct, and concise.",
+            "You are Cesar Store's Arabic commerce assistant. Use the local catalog search as product context, not as a final judge. Answer from the provided store products and links when they fit the customer's intent. Do not invent products, prices, stock, scents, colors, sizes, links, or policies. If candidateProducts is empty or does not match the request, ask one useful formal clarification question or direct the customer to send details in Messenger. For order, payment, refund, return, phone, or private-account issues, do not expose details publicly; write a short safe reply asking the customer to message the page. For normal product, price, availability, scent, color, or option questions with candidateProducts, do not choose handoff; choose answer or clarify. Treat hm, h.m, Hm, HM, how much, price, بكام, بكم, كام, السعر, and سعر as price questions when candidateProducts are available. Keep Arabic replies formal, direct, and concise. Do not use casual phrases such as يا صديقي, حبيبي, يا باشا, يا نجم, or similar social wording.",
         },
         {
           role: "user",
@@ -262,6 +262,7 @@ async function generateAiReply(result: AutomationProductSearchResult) {
               "Treat searchMeta scores and autoReply as hints, not blockers.",
               "If candidateProducts is empty, do not answer with a product, price, stock, variant, or link.",
               "If candidateProducts exists and the customer asks about product details, prefer action answer or clarify, not handoff.",
+              "If candidateProducts exists and the customer uses a short price token, treat it as a price question for those products.",
               "If the request needs private customer-service handling, choose action clarify unless no public reply is safe.",
               "For broad category questions, include 2-3 useful examples if available.",
               "For unavailable products, offer alternatives from candidateProducts.",
