@@ -1,4 +1,8 @@
 import { getActiveProducts } from "@/lib/server/catalog";
+import {
+  CUSTOMER_QUERY_LEXICON,
+  uniqueCustomerQueryTerms,
+} from "@/lib/customer-query-lexicon";
 import { getProductVariantOptions, getProductVariants } from "@/lib/product-variants";
 import { getSafeImage } from "@/lib/image-safe";
 import {
@@ -185,6 +189,50 @@ function productAttributes(category: string, title: string) {
   };
 }
 
+function uniqueCompactTerms(terms: Array<string | null | undefined>, limit = 18) {
+  return Array.from(
+    new Set(
+      terms
+        .map((term) => (term || "").trim())
+        .filter(Boolean)
+    )
+  ).slice(0, limit);
+}
+
+function productSearchIntents(input: {
+  title: string;
+  categoryKeywords: readonly string[];
+  productType: string;
+  useCase: string;
+  scent?: string | null;
+  color?: string | null;
+  size?: string | null;
+  socket?: string | null;
+}) {
+  return {
+    customerQuestions: uniqueCompactTerms(
+      [
+        ...CUSTOMER_QUERY_LEXICON.price.slice(0, 8),
+        ...CUSTOMER_QUERY_LEXICON.details.slice(0, 8),
+        ...CUSTOMER_QUERY_LEXICON.availability.slice(0, 6),
+        ...CUSTOMER_QUERY_LEXICON.options.slice(0, 8),
+      ],
+      28
+    ),
+    discoveryTerms: uniqueCompactTerms([
+      input.title,
+      input.productType,
+      input.useCase,
+      input.scent,
+      input.color,
+      input.size,
+      input.socket,
+      ...input.categoryKeywords,
+      ...CUSTOMER_QUERY_LEXICON.discovery,
+    ]),
+  };
+}
+
 function variantSelections(
   options: ReturnType<typeof getProductVariantOptions>,
   selections: Record<string, string>
@@ -211,11 +259,21 @@ export async function GET() {
     storeName: SITE_NAME,
     language: ["ar-EG", "en"],
     currency: "EGP",
+    customerQueryLanguage: {
+      price: CUSTOMER_QUERY_LEXICON.price,
+      details: CUSTOMER_QUERY_LEXICON.details,
+      availability: CUSTOMER_QUERY_LEXICON.availability,
+      options: CUSTOMER_QUERY_LEXICON.options,
+      postReference: CUSTOMER_QUERY_LEXICON.postReference,
+      discovery: CUSTOMER_QUERY_LEXICON.discovery,
+      allTerms: uniqueCustomerQueryTerms(),
+    },
     generatedAt: new Date().toISOString(),
     productsCount: products.length,
     products: products.map((product) => {
       const title = product.name.ar || product.name.en;
       const categorySeo = getCategorySeo(product.category);
+      const attributes = productAttributes(product.category, title);
       const images = product.images.length
         ? product.images.map((image) => absoluteUrl(getSafeImage(image)))
         : [absoluteUrl(getSafeImage())];
@@ -256,7 +314,17 @@ export async function GET() {
         currency: "EGP",
         availability: product.stock > 0 ? "in_stock" : "out_of_stock",
         stockStatus: stockStatus(product.stock),
-        attributes: productAttributes(product.category, title),
+        attributes,
+        searchIntents: productSearchIntents({
+          title,
+          categoryKeywords: categorySeo?.keywords || [],
+          productType: attributes.productType,
+          useCase: attributes.useCase,
+          scent: attributes.scent,
+          color: attributes.color,
+          size: attributes.size,
+          socket: attributes.socket,
+        }),
         canonicalUrl: absoluteUrl(`/product/${product.id}`),
         productUrl: absoluteUrl(`/product/${product.id}`),
         imageUrl: images[0],

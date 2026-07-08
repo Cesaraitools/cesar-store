@@ -72,7 +72,14 @@ function smartText(value: string | number | null | undefined) {
 
   try {
     const reshaper = (arabicReshaper as any).default || arabicReshaper;
-    return reshaper.reshape(text).split(" ").reverse().join(" ");
+    const shaped =
+      typeof reshaper.convertArabic === "function"
+        ? reshaper.convertArabic(text)
+        : typeof reshaper.reshape === "function"
+        ? reshaper.reshape(text)
+        : text;
+
+    return shaped.split(" ").reverse().join(" ");
   } catch {
     return text;
   }
@@ -95,11 +102,31 @@ function formatDate(value: string | null | undefined) {
   }
 }
 
-function getWholesaleTrackingUrl(request: Request) {
+function normalizePhone(value: unknown) {
+  const digits = String(value || "").replace(/\D/g, "");
+
+  if (!digits) return "";
+  if (digits.startsWith("20")) return `0${digits.slice(2)}`;
+
+  return digits;
+}
+
+function getWholesaleTrackingUrl(request: Request, order: WholesaleOrder) {
   const requestUrl = new URL(request.url);
   const rawBaseUrl = process.env.NEXT_PUBLIC_SITE_URL || requestUrl.origin;
   const baseUrl = rawBaseUrl.replace(/\/+$/, "");
-  const redirect = "/wholesale/orders";
+  const orderIdentifier = order.orderNumber || order.id;
+  const customerPhone =
+    normalizePhone(order.customerSnapshot?.phone) ||
+    normalizePhone(order.customerSnapshot?.whatsapp);
+  const trackingPath = new URL("/wholesale/status", baseUrl);
+  trackingPath.searchParams.set("id", orderIdentifier);
+
+  if (customerPhone) {
+    trackingPath.searchParams.set("phone", customerPhone);
+  }
+
+  const redirect = `${trackingPath.pathname}${trackingPath.search}`;
 
   return `${baseUrl}/auth/login?redirect=${encodeURIComponent(redirect)}`;
 }
@@ -480,7 +507,7 @@ export async function GET(
       );
     }
 
-    const trackingUrl = getWholesaleTrackingUrl(request);
+    const trackingUrl = getWholesaleTrackingUrl(request, order);
     const qrDataUrl = await QRCode.toDataURL(trackingUrl, {
       errorCorrectionLevel: "M",
       margin: 1,

@@ -3,6 +3,10 @@ import {
   AutomationProductSearchResult,
   searchAutomationProducts,
 } from "@/lib/server/automation-products";
+import {
+  CUSTOMER_QUERY_LEXICON,
+  CUSTOMER_QUERY_LEXICON_GUIDANCE,
+} from "@/lib/customer-query-lexicon";
 
 type AgentAction = "answer" | "clarify" | "handoff";
 type AgentConfidence = "high" | "medium" | "low";
@@ -247,6 +251,14 @@ async function generateAiReply(result: AutomationProductSearchResult) {
           content: JSON.stringify({
             customerMessage: result.query,
             language: result.language,
+            customerIntentGuidance: CUSTOMER_QUERY_LEXICON_GUIDANCE,
+            customerIntentLexicon: {
+              price: CUSTOMER_QUERY_LEXICON.price,
+              details: CUSTOMER_QUERY_LEXICON.details,
+              availability: CUSTOMER_QUERY_LEXICON.availability,
+              options: CUSTOMER_QUERY_LEXICON.options,
+              postReference: CUSTOMER_QUERY_LEXICON.postReference,
+            },
             searchMeta: {
               intent: result.meta.intent,
               bestScore: result.meta.bestScore,

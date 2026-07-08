@@ -1,5 +1,9 @@
 import crypto from "crypto";
 import { getRedis } from "@/lib/infra/redis";
+import {
+  CUSTOMER_QUERY_LEXICON,
+  CUSTOMER_QUERY_LEXICON_GUIDANCE,
+} from "@/lib/customer-query-lexicon";
 import { answerAutomationQuestion } from "@/lib/server/automation-agent";
 
 export const runtime = "nodejs";
@@ -551,6 +555,17 @@ function shouldFetchPostContextForComment(messageText: string) {
   const normalized = messageText.trim().toLowerCase();
   if (!normalized) return false;
   if (normalized.length <= 60) return true;
+  if (
+    hasAnyCustomerIntent(normalized, [
+      CUSTOMER_QUERY_LEXICON.price,
+      CUSTOMER_QUERY_LEXICON.details,
+      CUSTOMER_QUERY_LEXICON.availability,
+      CUSTOMER_QUERY_LEXICON.options,
+      CUSTOMER_QUERY_LEXICON.postReference,
+    ])
+  ) {
+    return true;
+  }
 
   return /[?؟]|بكام|بكم|كام|السعر|سعر|متوفر|موجود|الوان|ألوان|روايح|روائح|ده|دا|دي|الصوره|الصورة|المنشور|البوست|hm|h\.m|how much|price|available/.test(
     normalized
@@ -565,9 +580,31 @@ function buildCategoryUrl(category: string, baseUrl: string) {
   return `${buildShopUrl(baseUrl)}?category=${encodeURIComponent(category)}`;
 }
 
+function normalizeCustomerIntentText(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function includesCustomerIntentPhrase(value: string, phrases: readonly string[]) {
+  const normalized = normalizeCustomerIntentText(value);
+  if (!normalized) return false;
+
+  return phrases.some((phrase) => {
+    const normalizedPhrase = normalizeCustomerIntentText(phrase);
+
+    return Boolean(normalizedPhrase) && normalized.includes(normalizedPhrase);
+  });
+}
+
+function hasAnyCustomerIntent(value: string, groups: Array<readonly string[]>) {
+  return groups.some((phrases) => includesCustomerIntentPhrase(value, phrases));
+}
+
 function isMetaPriceQuestion(messageText: string) {
   const normalized = messageText.trim().toLowerCase();
   if (!normalized) return false;
+  if (includesCustomerIntentPhrase(normalized, CUSTOMER_QUERY_LEXICON.price)) {
+    return true;
+  }
 
   return /(?:^|\b)(hm|h\.m|how much|price)(?:\b|$)|\u0628\u0643\u0627\u0645|\u0628\u0643\u0645|\u0643\u0627\u0645|\u0627\u0644\u0633\u0639\u0631|\u0633\u0639\u0631/.test(
     normalized
@@ -576,6 +613,18 @@ function isMetaPriceQuestion(messageText: string) {
 
 function isPostDependentComment(messageText: string) {
   const normalized = messageText.trim().toLowerCase();
+  if (
+    /[?؟]/.test(messageText) ||
+    hasAnyCustomerIntent(messageText, [
+      CUSTOMER_QUERY_LEXICON.price,
+      CUSTOMER_QUERY_LEXICON.details,
+      CUSTOMER_QUERY_LEXICON.availability,
+      CUSTOMER_QUERY_LEXICON.options,
+      CUSTOMER_QUERY_LEXICON.postReference,
+    ])
+  ) {
+    return true;
+  }
 
   return /تفاصيل|التفاصيل|وصف|الوصف|بكام|بكم|كام|السعر|سعر|سعره|سعرها|متوفر|موجود|ده|دا|دي|الصوره|الصورة|المنشور|البوست|\?|؟|hm|h\.m|how much|price|details|available/.test(
     normalized
@@ -976,6 +1025,14 @@ async function classifyMetaCommentIntent(input: {
             content: JSON.stringify({
               commentText: input.commentText,
               postContext: input.postContext,
+              customerIntentGuidance: CUSTOMER_QUERY_LEXICON_GUIDANCE,
+              customerIntentLexicon: {
+                price: CUSTOMER_QUERY_LEXICON.price,
+                details: CUSTOMER_QUERY_LEXICON.details,
+                availability: CUSTOMER_QUERY_LEXICON.availability,
+                options: CUSTOMER_QUERY_LEXICON.options,
+                postReference: CUSTOMER_QUERY_LEXICON.postReference,
+              },
               outputRules: [
                 "Return valid JSON only.",
                 "Use clear Arabic suitable for a business page.",
@@ -1226,6 +1283,7 @@ async function buildFacebookCommentReply(
   const categoryUrl = category ? buildCategoryUrl(category, baseUrl) : "";
   const priceInquiry = isMetaPriceQuestion(messageText);
   const hasProducts = products.length > 0;
+  const postContextProductMatched = hasConfidentPostProductMatch(result, postContext);
 
   try {
     const response = await fetch("https://api.openai.com/v1/responses", {
@@ -1247,12 +1305,21 @@ async function buildFacebookCommentReply(
             content: JSON.stringify({
               customerMessage: messageText,
               postContext,
+              customerIntentGuidance: CUSTOMER_QUERY_LEXICON_GUIDANCE,
+              customerIntentLexicon: {
+                price: CUSTOMER_QUERY_LEXICON.price,
+                details: CUSTOMER_QUERY_LEXICON.details,
+                availability: CUSTOMER_QUERY_LEXICON.availability,
+                options: CUSTOMER_QUERY_LEXICON.options,
+                postReference: CUSTOMER_QUERY_LEXICON.postReference,
+              },
               aiDraft: result.suggestedReply,
               aiAction: result.meta.ai.action,
               aiConfidence: result.meta.ai.confidence,
               privatePriceSent,
               priceInquiry,
               hasProducts,
+              postContextProductMatched,
               shopUrl,
               categoryUrl,
               products: products.map((product) => ({
@@ -1269,6 +1336,7 @@ async function buildFacebookCommentReply(
                 "Return valid JSON only.",
                 "Do not include any price or currency in the public reply.",
                 "If hasProducts is true and the products fit the comment or post context, include at least one productUrl from products.",
+                "If postContextProductMatched is true, treat products[0] as the product in the post and list it first before any related products.",
                 "If priceInquiry is true and hasProducts is true, list relevant product names and productUrl values first, then add a short formal private-price note.",
                 "Do not answer a product or price question with only a generic instruction to message the page when products are supplied.",
                 "Include categoryUrl and shopUrl for product answers when supplied.",

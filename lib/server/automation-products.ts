@@ -1,4 +1,5 @@
 import { normalizeCategory } from "@/lib/category-normalizer";
+import { CUSTOMER_QUERY_LEXICON } from "@/lib/customer-query-lexicon";
 import { normalizeImagesArray } from "@/lib/image-normalizer";
 import { normalizeProductVariantOptions } from "@/lib/product-variants";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
@@ -230,6 +231,12 @@ const HUMAN_HANDOFF_PHRASES = [
 ];
 
 const PRODUCT_REQUEST_PHRASES = [
+  ...CUSTOMER_QUERY_LEXICON.price,
+  ...CUSTOMER_QUERY_LEXICON.details,
+  ...CUSTOMER_QUERY_LEXICON.availability,
+  ...CUSTOMER_QUERY_LEXICON.options,
+  ...CUSTOMER_QUERY_LEXICON.purchase,
+  ...CUSTOMER_QUERY_LEXICON.discovery,
   "عايز",
   "عاوز",
   "اريد",
@@ -252,6 +259,7 @@ const PRODUCT_REQUEST_PHRASES = [
 ];
 
 const PRICE_INTENT_PHRASES = [
+  ...CUSTOMER_QUERY_LEXICON.price,
   "بكام",
   "بكم",
   "كام",
@@ -272,6 +280,7 @@ const PRICE_INTENT_PHRASES = [
 ];
 
 const AVAILABILITY_INTENT_PHRASES = [
+  ...CUSTOMER_QUERY_LEXICON.availability,
   "متوفر",
   "موجود",
   "في منه",
@@ -283,6 +292,7 @@ const AVAILABILITY_INTENT_PHRASES = [
 ];
 
 const OPTIONS_INTENT_PHRASES = [
+  ...CUSTOMER_QUERY_LEXICON.options,
   "روايح",
   "روائح",
   "ريحة",
@@ -304,6 +314,8 @@ const OPTIONS_INTENT_PHRASES = [
 ];
 
 const POST_CONTEXT_ONLY_PHRASES = [
+  ...CUSTOMER_QUERY_LEXICON.price,
+  ...CUSTOMER_QUERY_LEXICON.postReference,
   "بكام",
   "بكم",
   "كام",
@@ -321,6 +333,18 @@ const POST_CONTEXT_ONLY_PHRASES = [
   "hm",
   "how much",
   "this",
+];
+
+const POST_CONTEXT_DEPENDENT_PHRASES = [
+  ...CUSTOMER_QUERY_LEXICON.details,
+  "details",
+  "detail",
+  "info",
+  "information",
+  "\u062a\u0641\u0627\u0635\u064a\u0644",
+  "\u0627\u0644\u062a\u0641\u0627\u0635\u064a\u0644",
+  "\u0648\u0635\u0641",
+  "\u0627\u0644\u0648\u0635\u0641",
 ];
 
 const CATEGORY_INTENTS: CategoryIntent[] = [
@@ -887,6 +911,58 @@ function scoreProduct(
   return Math.max(score, 0);
 }
 
+function productNameTokens(product: ProductRow) {
+  return meaningfulTokens(`${product.name_ar || ""} ${product.name_en || ""}`).filter(
+    (token) => token.length > 2
+  );
+}
+
+function scorePostContextProductMatch(product: ProductRow, contextQuery: string) {
+  const normalizedContext = normalizeSearchText(contextQuery);
+  if (!normalizedContext) return 0;
+
+  const idText = normalizeSearchText(product.id);
+  if (idText && normalizedContext.includes(idText)) return 100;
+
+  const names = [product.name_ar || "", product.name_en || ""]
+    .map((name) => normalizeSearchText(name))
+    .filter((name) => name.length >= 6);
+  let score = names.some((name) => normalizedContext.includes(name)) ? 90 : 0;
+  const tokens = Array.from(new Set(productNameTokens(product)));
+  if (!tokens.length) return score;
+
+  const matchedTokens = tokens.filter((token) => normalizedContext.includes(token));
+  const coverage = matchedTokens.length / tokens.length;
+  const hasDistinctiveToken = matchedTokens.some(
+    (token) => token.length >= 5 || /\d/.test(token)
+  );
+
+  if (matchedTokens.length >= 2 && coverage >= 0.5 && hasDistinctiveToken) {
+    score = Math.max(score, 55 + matchedTokens.length);
+  } else if (hasDistinctiveToken && coverage >= 0.75) {
+    score = Math.max(score, 45);
+  }
+
+  return score;
+}
+
+function shouldPrioritizePostContextProduct(
+  query: string,
+  commentUnderstanding: QueryUnderstanding,
+  contextQuery: string
+) {
+  if (!contextQuery.trim()) return false;
+
+  const tokenCount = commentUnderstanding.tokens.length;
+  return (
+    commentUnderstanding.needsPostContext ||
+    commentUnderstanding.hasPriceIntent ||
+    commentUnderstanding.hasAvailabilityIntent ||
+    commentUnderstanding.hasOptionsIntent ||
+    (tokenCount <= 2 && includesAnyPhrase(query, POST_CONTEXT_DEPENDENT_PHRASES))
+  );
+}
+
 function variantSummary(product: ProductRow, language: AutomationLanguage) {
   const options = normalizeProductVariantOptions(product.variant_options_json);
   if (!options.length) return "";
@@ -1154,13 +1230,31 @@ export async function searchAutomationProducts(input: {
     throw error;
   }
 
+  const prioritizePostContextProduct = shouldPrioritizePostContextProduct(
+    query,
+    commentUnderstanding,
+    contextQuery
+  );
   const scoredProducts = ((data || []) as ProductRow[])
-    .map((product) => ({
-      product,
-      score: scoreProduct(product, searchQuery, understanding, detectedCategory),
-    }))
+    .map((product) => {
+      const contextScore = prioritizePostContextProduct
+        ? scorePostContextProductMatch(product, contextQuery)
+        : 0;
+
+      return {
+        product,
+        contextScore,
+        score:
+          scoreProduct(product, searchQuery, understanding, detectedCategory) +
+          contextScore,
+      };
+    })
     .filter((item) => item.score > 0)
     .sort((a, b) => {
+      if (prioritizePostContextProduct && b.contextScore !== a.contextScore) {
+        return b.contextScore - a.contextScore;
+      }
+
       if (b.score !== a.score) return b.score - a.score;
 
       return Number(b.product.stock || 0) - Number(a.product.stock || 0);
