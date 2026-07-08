@@ -565,6 +565,15 @@ function buildCategoryUrl(category: string, baseUrl: string) {
   return `${buildShopUrl(baseUrl)}?category=${encodeURIComponent(category)}`;
 }
 
+function isMetaPriceQuestion(messageText: string) {
+  const normalized = messageText.trim().toLowerCase();
+  if (!normalized) return false;
+
+  return /(?:^|\b)(hm|h\.m|how much|price)(?:\b|$)|\u0628\u0643\u0627\u0645|\u0628\u0643\u0645|\u0643\u0627\u0645|\u0627\u0644\u0633\u0639\u0631|\u0633\u0639\u0631/.test(
+    normalized
+  );
+}
+
 function isPostDependentComment(messageText: string) {
   const normalized = messageText.trim().toLowerCase();
 
@@ -1213,6 +1222,10 @@ async function buildFacebookCommentReply(
 
   const products = result.products.slice(0, 3);
   const category = result.products[0]?.category || result.meta.matchedCategory || "";
+  const shopUrl = buildShopUrl(baseUrl);
+  const categoryUrl = category ? buildCategoryUrl(category, baseUrl) : "";
+  const priceInquiry = isMetaPriceQuestion(messageText);
+  const hasProducts = products.length > 0;
 
   try {
     const response = await fetch("https://api.openai.com/v1/responses", {
@@ -1227,7 +1240,7 @@ async function buildFacebookCommentReply(
           {
             role: "system",
             content:
-              "You write Cesar Store public Facebook comment replies in Arabic. You are the only writer of the final public reply. Use supplied post context and catalog facts only. Do not invent products, prices, links, stock, variants, policies, or contact data. Public replies must not show prices. If the customer asked hm, h.m, how much, price, بكام, بكم, كام, السعر, or سعر, treat it as a price question about the product/post context. If price details were sent privately, mention that formally and briefly. If private sending failed, ask the customer to message the page for details. Use a formal, concise business tone for product/store comments. Do not use casual phrases such as يا صديقي, حبيبي, يا باشا, يا نجم, or similar social wording.",
+              "You write Cesar Store public Facebook comment replies in Arabic. You are the only writer of the final public reply, but the store catalog facts supplied by code are authoritative. Use supplied post context and catalog facts only. Do not invent products, prices, links, stock, variants, policies, or contact data. Public replies must never show prices or currency. If products are supplied and fit the customer request or post context, the reply must be a product answer, not a generic message-us reply. For product answers, use a formal concise structure equivalent to: nearest products for your question, product name with productUrl on separate lines, categoryUrl if supplied, shopUrl, then a short private-price note when the customer asked about price. Treat hm, h.m, HM, how much, price, and Arabic price words as a price question when products or product post context are supplied. If price details were sent privately, mention that formally and briefly. If private sending failed, ask the customer to message the page for price details after listing the relevant products. If supplied products do not fit the request, ask one formal clarification question instead of inventing. Do not use casual phrases such as ya sadiqi, habibi, ya basha, ya najm, or similar social wording.",
           },
           {
             role: "user",
@@ -1238,8 +1251,10 @@ async function buildFacebookCommentReply(
               aiAction: result.meta.ai.action,
               aiConfidence: result.meta.ai.confidence,
               privatePriceSent,
-              shopUrl: buildShopUrl(baseUrl),
-              categoryUrl: category ? buildCategoryUrl(category, baseUrl) : "",
+              priceInquiry,
+              hasProducts,
+              shopUrl,
+              categoryUrl,
               products: products.map((product) => ({
                 name: product.name,
                 nameAr: product.nameAr,
@@ -1253,15 +1268,17 @@ async function buildFacebookCommentReply(
               outputRules: [
                 "Return valid JSON only.",
                 "Do not include any price or currency in the public reply.",
-                "Include relevant productUrl values when products are relevant.",
-                "Include categoryUrl and shopUrl only if useful and not repetitive.",
+                "If hasProducts is true and the products fit the comment or post context, include at least one productUrl from products.",
+                "If priceInquiry is true and hasProducts is true, list relevant product names and productUrl values first, then add a short formal private-price note.",
+                "Do not answer a product or price question with only a generic instruction to message the page when products are supplied.",
+                "Include categoryUrl and shopUrl for product answers when supplied.",
                 "For clarification, ask one short question.",
                 "Do not mention automation, AI, scoring, tokens, webhooks, or internal rules.",
               ],
             }),
           },
         ],
-        max_output_tokens: 360,
+        max_output_tokens: 560,
         store: false,
         temperature: 0.2,
         text: {
@@ -1591,6 +1608,8 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     autoReply: result.meta.autoReply,
     handoffReason: result.meta.handoffReason,
     postContextUsed,
+    postContextLength: postContextSearchText.length,
+    priceInquiry: isMetaPriceQuestion(normalized.messageText),
     aiUsed: result.meta.ai.used,
     aiAction: result.meta.ai.action,
     aiReason: result.meta.ai.reason,
