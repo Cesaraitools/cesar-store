@@ -113,6 +113,137 @@ export const SOCIAL_PROFILES = {
 
 export const SOCIAL_LINKS = Object.values(SOCIAL_PROFILES).filter(Boolean);
 
+export const PUBLIC_CATEGORY_SEO = [
+  {
+    id: "air-fresheners",
+    titleAr: "معطرات السيارات",
+    titleEn: "Car air fresheners",
+    guidePath: "/car-air-fresheners",
+    shopPath: "/shop?category=air-fresheners",
+    merchantProductType: "Car care > Car air fresheners",
+    keywords: [
+      "معطرات سيارات",
+      "معطر سيارة",
+      "car air fresheners",
+      "car scent",
+      "car perfume",
+    ],
+  },
+  {
+    id: "detergent",
+    titleAr: "تنظيف السيارات",
+    titleEn: "Car cleaning products",
+    guidePath: "/car-cleaning-products",
+    shopPath: "/shop?category=detergent",
+    merchantProductType: "Car care > Cleaning products",
+    keywords: [
+      "منظفات سيارات",
+      "شامبو سيارات",
+      "فوط مايكروفايبر",
+      "car cleaning products",
+      "car shampoo",
+      "microfiber towel",
+    ],
+  },
+  {
+    id: "cars-accessories",
+    titleAr: "إكسسوارات السيارات",
+    titleEn: "Car accessories",
+    guidePath: "/car-accessories",
+    shopPath: "/shop?category=cars-accessories",
+    merchantProductType: "Vehicles & Parts > Vehicle Parts & Accessories",
+    keywords: [
+      "إكسسوارات سيارات",
+      "ملحقات سيارات",
+      "مساحات سيارات",
+      "car accessories",
+      "windshield wipers",
+      "car accessories Egypt",
+    ],
+  },
+  {
+    id: "cars-lights",
+    titleAr: "إضاءة السيارات",
+    titleEn: "Car lighting",
+    guidePath: "/car-lighting-tools",
+    shopPath: "/shop?category=cars-lights",
+    merchantProductType: "Vehicles & Parts > Vehicle Lighting",
+    keywords: [
+      "إضاءة سيارات",
+      "لمبات سيارات",
+      "car LED lights",
+      "vehicle lighting",
+      "car lighting Egypt",
+    ],
+  },
+  {
+    id: "equipment",
+    titleAr: "أدوات ومعدات السيارات",
+    titleEn: "Car tools and equipment",
+    guidePath: "/car-tools-equipment",
+    shopPath: "/shop?category=equipment",
+    merchantProductType: "Vehicles & Parts > Vehicle Tools & Equipment",
+    keywords: [
+      "أدوات سيارات",
+      "معدات سيارات",
+      "كمبريسور سيارة",
+      "كابل بطارية",
+      "car tools",
+      "tire air compressor",
+      "battery jumper cable",
+    ],
+  },
+  {
+    id: "additives-fluids",
+    titleAr: "سوائل وإضافات السيارات",
+    titleEn: "Car fluids and additives",
+    guidePath: "/car-fluids-additives",
+    shopPath: "/shop?category=additives-fluids",
+    merchantProductType: "Vehicles & Parts > Vehicle Fluids",
+    keywords: [
+      "سوائل سيارات",
+      "إضافات وقود",
+      "مياه مساحات",
+      "منظف رشاشات",
+      "car fluids",
+      "fuel additives",
+      "windshield washer fluid",
+    ],
+  },
+] as const;
+
+export type PublicCategorySeo = (typeof PUBLIC_CATEGORY_SEO)[number];
+
+function normalizeSeoCategory(input?: string) {
+  if (!input) return "";
+
+  const normalized = input.toLowerCase().trim().replace(/\s+/g, "-");
+  const aliases: Record<string, string> = {
+    "additives-&-fluids": "additives-fluids",
+    "additives-and-fluids": "additives-fluids",
+    "air-freshener": "air-fresheners",
+    airfresheners: "air-fresheners",
+    accessory: "cars-accessories",
+    accessories: "cars-accessories",
+    "car-accessories": "cars-accessories",
+    "cars-light": "cars-lights",
+    "car-lights": "cars-lights",
+    lights: "cars-lights",
+    "equipment-&-tools": "equipment",
+    "equipment-and-tools": "equipment",
+    tools: "equipment",
+    detergents: "detergent",
+  };
+
+  return aliases[normalized] || normalized;
+}
+
+export function getCategorySeo(category?: string): PublicCategorySeo | null {
+  const normalized = normalizeSeoCategory(category);
+
+  return PUBLIC_CATEGORY_SEO.find((item) => item.id === normalized) || null;
+}
+
 export function absoluteUrl(pathOrUrl = "/") {
   if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")) {
     return pathOrUrl;

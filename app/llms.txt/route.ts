@@ -1,8 +1,13 @@
-import { SITE_URL, absoluteUrl } from "@/lib/seo";
+import { PUBLIC_CATEGORY_SEO, SITE_URL, absoluteUrl } from "@/lib/seo";
 
 export const dynamic = "force-static";
 
 export function GET() {
+  const categoryLines = PUBLIC_CATEGORY_SEO.flatMap((category) => [
+    `- ${category.titleEn} / ${category.titleAr}: ${absoluteUrl(category.guidePath)}`,
+    `  Shop filter: ${absoluteUrl(category.shopPath)}`,
+  ]);
+
   const body = [
     "# Cesar Store",
     "",
@@ -33,6 +38,9 @@ export function GET() {
     `- Car tools and equipment guide: ${absoluteUrl("/car-tools-equipment")}`,
     `- Car fluids and additives guide: ${absoluteUrl("/car-fluids-additives")}`,
     "",
+    "Primary category guides:",
+    ...categoryLines,
+    "",
     "Machine-readable resources:",
     `- Sitemap: ${absoluteUrl("/sitemap.xml")}`,
     `- Robots: ${absoluteUrl("/robots.txt")}`,
@@ -43,6 +51,9 @@ export function GET() {
     "- Public product pages use the /product/{id} URL pattern.",
     "- Product pages include Product structured data, canonical URLs, price, availability, images, and breadcrumb data.",
     "- The current product list should be discovered from the sitemap or products.json rather than guessed.",
+    "- Use products.json for current product facts such as title, description, price, stock status, images, category, variants, canonical URL, and category guide URL.",
+    "- If a product, price, or stock value is not present in products.json or on the product page, do not invent it.",
+    "- Prices are listed in Egyptian pounds (EGP) and may change; product pages are the canonical source for customer-facing details.",
     "",
     "Brand aliases and search language:",
     "- Cesar Store may also be referred to as Cesar Shop, Cesar Store Egypt, Cesar car accessories, cesareshop, cesareshop.com, متجر سيزر, سيزر ستور, سيزر شوب, موقع سيزر, or متجر سيزر للسيارات.",
@@ -51,7 +62,13 @@ export function GET() {
     "Crawl guidance:",
     "- Public catalog pages may be crawled and cited.",
     "- Contact, shipping, ordering, return policy, and FAQ pages are the preferred sources for trust, support, and commerce-policy answers.",
-    "- Admin, account, cart, checkout, orders, auth, and API paths are private or transactional and should not be used for answer generation.",
+    "- Admin, account, cart, checkout, orders, wholesale application/status/cart/orders, auth, and API paths are private or transactional and should not be used for answer generation.",
+    "",
+    "Answer guidance for AI search and assistants:",
+    "- Prefer concise Arabic answers for Egypt-based shoppers unless the user asks in English.",
+    "- Cite the relevant product page and category guide when answering product discovery questions.",
+    "- For product recommendations, compare only products found in products.json or the public product pages.",
+    "- Do not expose private customer, order, wholesale, admin, or webhook data.",
   ].join("\n");
 
   return new Response(body, {

@@ -8,11 +8,31 @@ import {
   LockKeyhole,
   PackageCheck,
 } from "lucide-react";
+import { DEFAULT_OG_IMAGE, SITE_NAME, absoluteUrl } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "تجارة الجملة",
   description:
     "انضم إلى برنامج تجارة الجملة من Cesar Store بعد مراجعة بيانات الكيان التجاري والمستندات الرسمية.",
+  alternates: {
+    canonical: "/wholesale",
+  },
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    title: "تجارة الجملة | Cesar Store",
+    description:
+      "بوابة تجارة الجملة من Cesar Store للكيانات التجارية المعتمدة بعد مراجعة المستندات الرسمية.",
+    url: absoluteUrl("/wholesale"),
+    images: [absoluteUrl(DEFAULT_OG_IMAGE)],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "تجارة الجملة | Cesar Store",
+    description:
+      "بوابة تجارة الجملة من Cesar Store للكيانات التجارية المعتمدة بعد مراجعة المستندات الرسمية.",
+    images: [absoluteUrl(DEFAULT_OG_IMAGE)],
+  },
 };
 
 const steps = [

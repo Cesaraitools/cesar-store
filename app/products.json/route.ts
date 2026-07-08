@@ -1,7 +1,13 @@
 import { getActiveProducts } from "@/lib/server/catalog";
 import { getProductVariantOptions, getProductVariants } from "@/lib/product-variants";
 import { getSafeImage } from "@/lib/image-safe";
-import { SITE_NAME, SITE_URL, absoluteUrl, compactText } from "@/lib/seo";
+import {
+  SITE_NAME,
+  SITE_URL,
+  absoluteUrl,
+  compactText,
+  getCategorySeo,
+} from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -209,6 +215,7 @@ export async function GET() {
     productsCount: products.length,
     products: products.map((product) => {
       const title = product.name.ar || product.name.en;
+      const categorySeo = getCategorySeo(product.category);
       const images = product.images.length
         ? product.images.map((image) => absoluteUrl(getSafeImage(image)))
         : [absoluteUrl(getSafeImage())];
@@ -226,20 +233,37 @@ export async function GET() {
 
       return {
         id: product.id,
+        sku: product.id,
+        brand: SITE_NAME,
         name: product.name,
         description: {
           ar: compactText(product.description.ar || product.name.ar, 500),
           en: compactText(product.description.en || product.name.en, 500),
         },
         category: product.category,
+        categoryDetails: {
+          id: product.category,
+          name: {
+            ar: categorySeo?.titleAr || product.category,
+            en: categorySeo?.titleEn || product.category,
+          },
+          guideUrl: categorySeo ? absoluteUrl(categorySeo.guidePath) : null,
+          shopUrl: categorySeo ? absoluteUrl(categorySeo.shopPath) : absoluteUrl("/shop"),
+          merchantProductType: categorySeo?.merchantProductType || "Car product",
+          keywords: categorySeo?.keywords || [],
+        },
         price: product.price,
         currency: "EGP",
         availability: product.stock > 0 ? "in_stock" : "out_of_stock",
         stockStatus: stockStatus(product.stock),
         attributes: productAttributes(product.category, title),
+        canonicalUrl: absoluteUrl(`/product/${product.id}`),
         productUrl: absoluteUrl(`/product/${product.id}`),
         imageUrl: images[0],
         images,
+        primaryImageAlt: title,
+        hasVariants: variants.length > 0,
+        variantCount: variants.length,
         variantOptions: options,
         variants,
         updatedAt: product.updatedAt,

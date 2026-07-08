@@ -1,5 +1,6 @@
 import { getActiveProducts } from "@/lib/server/catalog";
-import { absoluteUrl, SITE_NAME } from "@/lib/seo";
+import { getSafeImage } from "@/lib/image-safe";
+import { absoluteUrl, getCategorySeo, SITE_NAME } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,7 @@ const HEADERS = [
   "description",
   "link",
   "image_link",
+  "additional_image_link",
   "availability",
   "price",
   "condition",
@@ -17,6 +19,7 @@ const HEADERS = [
   "mpn",
   "product_type",
   "google_product_category",
+  "custom_label_0",
 ];
 
 const MERCHANT_EXCLUDED_PRODUCT_IDS = new Set([
@@ -66,6 +69,12 @@ function googleProductCategory(product: Awaited<ReturnType<typeof getActiveProdu
   return "Vehicles & Parts > Vehicle Parts & Accessories";
 }
 
+function productImages(product: Awaited<ReturnType<typeof getActiveProducts>>[number]) {
+  return product.images
+    .filter(Boolean)
+    .map((image) => absoluteUrl(getSafeImage(image)));
+}
+
 export async function GET() {
   const products = await getActiveProducts(10000);
   const rows = products
@@ -75,21 +84,28 @@ export async function GET() {
         product.price > 0 &&
         !MERCHANT_EXCLUDED_PRODUCT_IDS.has(product.id)
     )
-    .map((product) => [
-      product.id,
-      merchantTitle(product),
-      pickDescription(product),
-      absoluteUrl(`/product/${product.id}`),
-      absoluteUrl(product.images[0]),
-      "in_stock",
-      formatPrice(product.price),
-      "new",
-      SITE_NAME,
-      "no",
-      product.id,
-      product.category,
-      googleProductCategory(product),
-    ]);
+    .map((product) => {
+      const images = productImages(product);
+      const categorySeo = getCategorySeo(product.category);
+
+      return [
+        product.id,
+        merchantTitle(product),
+        pickDescription(product),
+        absoluteUrl(`/product/${product.id}`),
+        images[0],
+        images.slice(1, 11).join(","),
+        "in_stock",
+        formatPrice(product.price),
+        "new",
+        SITE_NAME,
+        "no",
+        product.id,
+        categorySeo?.merchantProductType || product.category,
+        googleProductCategory(product),
+        categorySeo?.titleEn || product.category,
+      ];
+    });
 
   const body = [HEADERS, ...rows]
     .map((row) => row.map(cleanCell).join("\t"))

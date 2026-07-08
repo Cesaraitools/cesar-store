@@ -11,6 +11,14 @@ export default function robots(): MetadataRoute.Robots {
     "/cart",
     "/checkout",
     "/orders",
+    "/wholesale/account",
+    "/wholesale/apply",
+    "/wholesale/cart",
+    "/wholesale/catalog",
+    "/wholesale/order",
+    "/wholesale/orders",
+    "/wholesale/product",
+    "/wholesale/status",
     "/sentry-example-page",
   ];
   const crawlerRules = [
