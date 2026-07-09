@@ -3,14 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-// إضافة الاستيراد المفقود الذي تسبب في الخطأ
 import {
   ShoppingBag,
   ArrowRight,
   ShieldAlert,
   Sparkles,
-  Package,
-  BarChart3,
+  Store,
+  TicketPercent,
 } from "lucide-react";
 
 export default function AdminPage() {
@@ -61,7 +60,10 @@ export default function AdminPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-        <div className="group relative overflow-hidden rounded-3xl bg-white p-8 border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300">
+        <Link
+          href="/admin/orders"
+          className="group relative overflow-hidden rounded-3xl bg-white p-8 border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300"
+        >
           <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full -mr-16 -mt-16 group-hover:bg-blue-600 transition-colors duration-500 opacity-20 group-hover:opacity-10" />
           
           <div className="relative space-y-4">
@@ -70,62 +72,65 @@ export default function AdminPage() {
             </div>
             
             <div className="space-y-1">
-              <h2 className="text-xl font-bold text-gray-900">إدارة الطلبات</h2>
+              <h2 className="text-xl font-bold text-gray-900">إدارة متجر التجزئة</h2>
               <p className="text-sm text-gray-500 leading-relaxed">
-                راقب الطلبات اللحظية، تتبع حالات الشحن، وراجع فواتير العملاء بدقة.
+                ادخل إلى طلبات التجزئة، المنتجات، الأقسام، التحليلات، ومتابعة أخطاء وظهور المتجر.
               </p>
             </div>
 
-            <Link
-              href="/admin/orders"
-              className="inline-flex items-center gap-2 text-blue-600 font-bold text-sm group-hover:translate-x-1 transition-transform"
-            >
-              انتقل إلى لوحة الطلبات
+            <div className="inline-flex items-center gap-2 text-blue-600 font-bold text-sm group-hover:translate-x-1 transition-transform">
+              فتح إدارة متجر التجزئة
               <ArrowRight className="w-4 h-4" />
-            </Link>
+            </div>
           </div>
-        </div>
+        </Link>
 
-        <div className="group relative overflow-hidden rounded-3xl bg-white p-8 border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300">
+        <Link
+          href="/admin/wholesale"
+          className="group relative overflow-hidden rounded-3xl bg-white p-8 border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300"
+        >
           <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full -mr-16 -mt-16 group-hover:bg-emerald-600 transition-colors duration-500 opacity-20 group-hover:opacity-10" />
 
           <div className="relative space-y-4">
             <div className="w-14 h-14 bg-emerald-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-100">
-              <BarChart3 className="w-7 h-7" />
+              <Store className="w-7 h-7" />
             </div>
 
             <div className="space-y-1">
-              <h2 className="text-xl font-bold text-gray-900">لوحة التحليلات</h2>
+              <h2 className="text-xl font-bold text-gray-900">إدارة متجر الجملة</h2>
               <p className="text-sm text-gray-500 leading-relaxed">
-                راجع مبيعات الأصناف والأقسام واستخدم الفلاتر للوصول السريع إلى أهم المؤشرات داخل المتجر.
+                راجع طلبات انضمام التجار، طلبات الجملة، وإعدادات منتجات وأسعار الجملة.
               </p>
             </div>
 
-            <Link
-              href="/admin/analytics"
-              className="inline-flex items-center gap-2 text-emerald-600 font-bold text-sm group-hover:translate-x-1 transition-transform"
-            >
-              انتقل إلى التحليلات
+            <div className="inline-flex items-center gap-2 text-emerald-600 font-bold text-sm group-hover:translate-x-1 transition-transform">
+              فتح إدارة متجر الجملة
               <ArrowRight className="w-4 h-4" />
-            </Link>
+            </div>
           </div>
-        </div>
+        </Link>
 
-        <div className="rounded-3xl bg-gray-900 p-8 text-white relative overflow-hidden">
+        <Link
+          href="/admin/promos"
+          className="group rounded-3xl bg-gray-900 p-8 text-white relative overflow-hidden hover:shadow-xl transition-all duration-300"
+        >
           <div className="relative z-10 space-y-4">
-            <h3 className="text-lg font-bold text-blue-400">نظرة عامة على النظام</h3>
+            <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center text-white">
+              <TicketPercent className="w-7 h-7" />
+            </div>
+            <h3 className="text-lg font-bold text-blue-400">إدارة الإعلانات والعروض</h3>
             <p className="text-gray-400 text-sm leading-relaxed">
-              هذه هي اللوحة الرئيسية. سيتم قريباً تفعيل إدارة المنتجات، التصنيفات، والعروض الترويجية من هذا القسم.
+              تحكم في العروض الترويجية وظهور الإعلانات داخل المتجر من قسم واحد واضح.
             </p>
-            <div className="pt-4 flex gap-2">
-              <span className="px-3 py-1 bg-white/10 rounded-full text-[10px] font-bold text-white uppercase tracking-widest">Products Coming Soon</span>
+            <div className="inline-flex items-center gap-2 text-blue-300 font-bold text-sm group-hover:translate-x-1 transition-transform">
+              فتح إدارة الإعلانات والعروض
+              <ArrowRight className="w-4 h-4" />
             </div>
           </div>
           <div className="absolute bottom-0 right-0 opacity-10 transform translate-y-4 translate-x-4">
-             {/* الأيقونة التي كانت مسببة للخطأ تم تعريفها الآن */}
-             <Package className="w-40 h-40" />
+             <TicketPercent className="w-40 h-40" />
           </div>
-        </div>
+        </Link>
       </div>
     </div>
   );

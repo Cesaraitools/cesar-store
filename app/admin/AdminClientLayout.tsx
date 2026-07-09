@@ -46,8 +46,8 @@ export default function AdminClientLayout({
     }
   }
   
-  const navItems = [
-    { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
+  const dashboardItem = { name: "Dashboard", href: "/admin", icon: LayoutDashboard };
+  const retailNavItems = [
     { name: "Analytics", href: "/admin/analytics", icon: BarChart3 },
     { name: "Charts", href: "/admin/charts", icon: LineChart },
     { name: "SEO Audit", href: "/admin/seo", icon: SearchCheck },
@@ -56,12 +56,32 @@ export default function AdminClientLayout({
     { name: "Categories", href: "/admin/categories", icon: Tag },
     { name: "Orders", href: "/admin/orders", icon: Package },
     { name: "Archive", href: "/admin/orders/archive", icon: Package },
+    { name: "Products", href: "/admin/products", icon: Package },
+  ];
+  const wholesaleNavItems = [
     { name: "Wholesale", href: "/admin/wholesale", icon: Store },
     { name: "Wholesale Orders", href: "/admin/wholesale/orders", icon: Package },
     { name: "Wholesale Products", href: "/admin/wholesale/products", icon: Store },
-    { name: "Products", href: "/admin/products", icon: Package },
-    { name: "Promos", href: "/admin/promos", icon: TicketPercent },
-  ].filter((item) => {
+  ];
+  const promoNavItems = [
+    { name: "إدارة الإعلانات والعروض", href: "/admin/promos", icon: TicketPercent },
+  ];
+  const activeAdminSection = pathname?.startsWith("/admin/wholesale")
+    ? "wholesale"
+    : pathname?.startsWith("/admin/promos")
+    ? "promos"
+    : pathname && pathname !== "/admin"
+    ? "retail"
+    : "dashboard";
+  const sectionNavItems =
+    activeAdminSection === "wholesale"
+      ? wholesaleNavItems
+      : activeAdminSection === "promos"
+      ? promoNavItems
+      : activeAdminSection === "retail"
+      ? retailNavItems
+      : [];
+  const navItems = [dashboardItem, ...sectionNavItems].filter((item) => {
     if (role === "full") {
       return true;
     }
