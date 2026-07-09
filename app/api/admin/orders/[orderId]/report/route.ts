@@ -107,6 +107,21 @@ function getItemVariantText(item: any) {
     .join(" - ");
 }
 
+async function renderPdfBuffer(document: React.ReactElement) {
+  const output = await pdf(document).toBuffer();
+
+  if (Buffer.isBuffer(output)) {
+    return output;
+  }
+
+  const chunks: Buffer[] = [];
+  for await (const chunk of output as AsyncIterable<Buffer | Uint8Array | string>) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+
+  return Buffer.concat(chunks);
+}
+
 const styles = StyleSheet.create({
   page: {
     padding: 36,
@@ -364,9 +379,9 @@ export async function GET(
       )
     );
 
-    const buffer = await pdf(document).toBuffer();
+    const buffer = await renderPdfBuffer(document);
 
-    return new Response(buffer as any, {
+    return new Response(new Uint8Array(buffer), {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `inline; filename=order-report-${order.id}.pdf`,
