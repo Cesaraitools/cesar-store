@@ -141,9 +141,30 @@ Merchant Center product edits.
 - [ ] Add the official retail phone number.
 - [ ] Add business hours that can be honored.
 - [ ] Add logo and real product/store photos where available.
-- [ ] Complete Google verification.
+- [ ] Complete Google verification later after visiting the warehouse/storage
+  location to record the required verification video.
 - [ ] After verification, add secondary categories if Google offers relevant
   options.
+
+#### Deferred Google Business Profile video verification checklist
+
+- [ ] Open the Business Profile on a mobile device while physically at the
+  warehouse/storage or operating location.
+- [ ] Record the video from Google Business Profile directly; do not pre-record
+  offline and upload later.
+- [ ] Make the video one continuous, unedited recording with no breaks.
+- [ ] Keep the video at least 30 seconds long.
+- [ ] Show location proof: street sign, building number, nearby landmarks, or
+  recognizable neighboring businesses.
+- [ ] Show business existence: Cesar Store products, workspace, storage shelves,
+  packaging, branded materials, business cards, or branded apparel if available.
+- [ ] Show management proof: unlocking/accessing the storage area, opening
+  business-only assets, or showing non-sensitive business documents such as an
+  invoice, permit, or utility bill matching the business name.
+- [ ] Avoid filming bank details, tax/ID numbers, private personal information,
+  or other people's faces.
+- [ ] Upload the video and wait for Google's review, which can take up to 5
+  business days.
 
 ### Weekly Monitoring
 
