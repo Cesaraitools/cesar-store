@@ -5,8 +5,22 @@ import { Loader2, RadioTower, Send } from "lucide-react";
 
 type SubmitState =
   | { status: "idle" }
-  | { status: "success"; message: string }
-  | { status: "error"; message: string };
+  | { status: "success"; message: string; result: SubmitResult }
+  | { status: "error"; message: string; result?: SubmitResult };
+
+type SubmitResult = {
+  bingStatus: number;
+  urlsCount: number;
+  responseText: string;
+  submittedAt: string;
+};
+
+function formatSubmittedAt() {
+  return new Intl.DateTimeFormat("ar-EG", {
+    dateStyle: "medium",
+    timeStyle: "medium",
+  }).format(new Date());
+}
 
 export default function IndexNowSubmitButton() {
   const [state, setState] = useState<SubmitState>({ status: "idle" });
@@ -31,10 +45,17 @@ export default function IndexNowSubmitButton() {
         responseText?: string;
         error?: string;
       } | null;
+      const result: SubmitResult = {
+        bingStatus: data?.status || response.status,
+        urlsCount: data?.urlsCount || 0,
+        responseText: String(data?.responseText || "").trim(),
+        submittedAt: formatSubmittedAt(),
+      };
 
       if (!response.ok || !data?.submitted) {
         setState({
           status: "error",
+          result,
           message:
             data?.error ||
             `لم يتم إرسال الروابط إلى Bing. حالة IndexNow: ${data?.status || response.status}`,
@@ -44,7 +65,8 @@ export default function IndexNowSubmitButton() {
 
       setState({
         status: "success",
-        message: `تم إرسال ${data.urlsCount || 0} رابط إلى IndexNow بنجاح.`,
+        result,
+        message: `قبل Bing API إرسال ${data.urlsCount || 0} رابط عبر IndexNow.`,
       });
     } catch {
       setState({
@@ -79,15 +101,48 @@ export default function IndexNowSubmitButton() {
         </button>
       </div>
       {state.status !== "idle" ? (
-        <p
-          className={`mt-3 rounded-xl px-3 py-2 text-sm font-bold ${
+        <div
+          className={`mt-3 rounded-xl px-3 py-3 text-sm font-bold ${
             state.status === "success"
               ? "bg-emerald-50 text-emerald-700"
               : "bg-rose-50 text-rose-700"
           }`}
         >
-          {state.message}
-        </p>
+          <p>{state.message}</p>
+          {state.result ? (
+            <dl className="mt-3 grid gap-2 text-xs font-black sm:grid-cols-3" dir="rtl">
+              <div className="rounded-lg bg-white/70 p-2">
+                <dt className="text-slate-500">كود استجابة Bing</dt>
+                <dd className="mt-1 text-slate-950" dir="ltr">
+                  {state.result.bingStatus}
+                </dd>
+              </div>
+              <div className="rounded-lg bg-white/70 p-2">
+                <dt className="text-slate-500">عدد الروابط</dt>
+                <dd className="mt-1 text-slate-950">{state.result.urlsCount}</dd>
+              </div>
+              <div className="rounded-lg bg-white/70 p-2">
+                <dt className="text-slate-500">وقت الإرسال</dt>
+                <dd className="mt-1 text-slate-950">{state.result.submittedAt}</dd>
+              </div>
+              {state.result.responseText ? (
+                <div className="rounded-lg bg-white/70 p-2 sm:col-span-3">
+                  <dt className="text-slate-500">رد Bing</dt>
+                  <dd className="mt-1 break-words text-slate-950" dir="ltr">
+                    {state.result.responseText.slice(0, 300)}
+                  </dd>
+                </div>
+              ) : (
+                <div className="rounded-lg bg-white/70 p-2 sm:col-span-3">
+                  <dt className="text-slate-500">رد Bing</dt>
+                  <dd className="mt-1 text-slate-950">
+                    لا يوجد نص في الرد، وهذا طبيعي مع بعض استجابات IndexNow الناجحة.
+                  </dd>
+                </div>
+              )}
+            </dl>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );
