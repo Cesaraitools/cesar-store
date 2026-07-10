@@ -115,6 +115,8 @@ export default function ReviewPage() {
 
     if (isSubmitting) return;
 
+    const whatsappWindow = window.open("", "_blank");
+
     setIsSubmitting(true);
 
     let orderId = "";
@@ -125,6 +127,7 @@ export default function ReviewPage() {
 
       if (!session) {
   toast.error("انتهت الجلسة، يرجى تسجيل الدخول مرة أخرى");
+  whatsappWindow?.close();
   setIsSubmitting(false);
   router.push("/auth/login?redirect=/review");
   return;
@@ -147,6 +150,8 @@ export default function ReviewPage() {
   price: item.price,
   image: item.image,
   quantity: item.quantity,
+  variant_key: item.variant_key || "",
+  variant: item.variant ?? null,
 }));
 
       const response = await fetch("/api/orders", {
@@ -168,16 +173,20 @@ export default function ReviewPage() {
 
       if (!response.ok) {
         if (typeof result?.available === "number") {
+          whatsappWindow?.close();
           toast.error(result?.error || `الكمية المتاحة حاليًا هي ${result.available} فقط`);
           return;
         }
 
+        whatsappWindow?.close();
         toast.error(result?.error || "Failed to create order");
         return;
       }
       orderId = result?.orderId ?? "";
+      const orderNumber = result?.order_number ?? "";
 
       if (!orderId) {
+        whatsappWindow?.close();
         toast.error("تعذر استكمال الطلب، حاول مرة أخرى");
         return;
       }
@@ -203,6 +212,7 @@ export default function ReviewPage() {
             `- ${item.name} × ${item.quantity} = ${item.price * item.quantity} ج`
         )
         .join("\n");
+      const trackingUrl = `${window.location.origin}/orders/${orderId}`;
 
       const message = `طلب جديد من متجر سيزر 🛒
 
@@ -215,12 +225,15 @@ ${productsText}
 
 💰 الإجمالي: ${formatCurrency(total)}`;
 
-      const whatsappWindow = window.open(
-  `https://wa.me/201211120208?text=${encodeURIComponent(message)}`,
-  "_blank"
-);
+      const enhancedMessage = `${message}
 
-if (!whatsappWindow) {
+Order: ${orderNumber || orderId.slice(0, 8)}
+Tracking: ${trackingUrl}`;
+      const whatsappUrl = `https://wa.me/201211120208?text=${encodeURIComponent(enhancedMessage)}`;
+
+if (whatsappWindow) {
+  whatsappWindow.location.href = whatsappUrl;
+} else {
   toast("تعذر فتح واتساب ⚠️", {
   icon: "⚠️",
 });
@@ -236,6 +249,7 @@ if (!whatsappWindow) {
     } catch (err) {
 
       console.error(err);
+      whatsappWindow?.close();
       toast.error("حدث خطأ، حاول مرة أخرى");
 
     } finally {
