@@ -6,6 +6,7 @@ import { getActiveProducts } from "@/lib/server/catalog";
 import { getCategorySeo } from "@/lib/seo";
 import { getSafeImage } from "@/lib/image-safe";
 import type { Product } from "@/types/product";
+import IndexNowSubmitButton from "./IndexNowSubmitButton";
 
 export const dynamic = "force-dynamic";
 
@@ -178,6 +179,8 @@ export default async function AdminSeoAuditPage() {
           </p>
         </div>
       </section>
+
+      <IndexNowSubmitButton />
 
       <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-100 p-5">
