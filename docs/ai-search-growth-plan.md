@@ -1,6 +1,6 @@
 # Cesar Store AI Search Growth Plan
 
-Last updated: 2026-05-30
+Last updated: 2026-07-10
 
 ## Current completed foundation
 
@@ -92,3 +92,62 @@ Goal: improve based on real search behavior.
 ## Current next task
 
 Move to measurement and keyword iteration: request indexing for the public HTML guide pages, then review Google/Bing queries weekly against the keyword target map.
+
+## July 2026 Local SEO and Bing Visibility Checklist
+
+Goal: improve discovery for Cesar Store in Bing, Google Search, Google Maps,
+AI answers, and product-shopping surfaces without using spam links or manual
+Merchant Center product edits.
+
+### Bing Webmaster Tools
+
+- [x] Review the Bing top recommendation about insufficient high-quality backlinks.
+- [x] Confirm the recommendation is domain-level backlink quality, not a code error.
+- [x] Add an authenticated admin IndexNow submit action in `/admin/seo`.
+- [ ] After Vercel deployment, open `/admin/seo` and submit IndexNow URLs to Bing.
+- [ ] Confirm `https://www.cesareshop.com/sitemap.xml` is submitted and successful in Bing Sitemaps.
+- [ ] Open Bing Backlinks report and capture current referring domains/pages.
+- [ ] Open Similar Sites and use it only for backlink and competitor research.
+- [ ] Defer Bing PubHub unless Cesar Store starts a real editorial/news content section.
+
+### Backlink Growth
+
+- [ ] Ensure the official website link is visible on Facebook Page.
+- [ ] Ensure the official website link is visible on Instagram bio.
+- [ ] Ensure the official website link is visible on TikTok bio if the account is active.
+- [ ] Add or verify Cesar Store in Google Business Profile.
+- [ ] Add or verify Cesar Store in Bing Places when possible.
+- [ ] Share useful guide pages in social posts, not only the homepage:
+  `/car-care`, `/car-accessories`, `/car-cleaning-products`,
+  `/car-air-fresheners`, `/car-tools-equipment`, `/car-fluids-additives`.
+- [ ] Look for real Egyptian/local business directories suitable for car
+  accessories and ecommerce, avoiding paid spam backlink packages.
+- [ ] Ask trusted suppliers, partners, or car-related pages to mention Cesar
+  Store with a natural link when appropriate.
+
+### Google Business Profile
+
+- [x] Start Business Profile creation for `Cesar Store`.
+- [x] Choose a suitable primary category. Preferred if available:
+  `Car accessories store` or `Auto accessories store`; otherwise use
+  `Auto parts store`.
+- [x] Strengthen site-side `AutoPartsStore` structured data with product
+  categories, local commerce signals, language, currency, and official links.
+- [ ] For the location question, choose `Yes` only if customers can visit a
+  public store/showroom/office during stated hours.
+- [ ] Choose `No` if there is no public customer-visit location; then configure
+  service area/delivery coverage instead.
+- [ ] Add official website: `https://www.cesareshop.com`.
+- [ ] Add the official retail phone number.
+- [ ] Add business hours that can be honored.
+- [ ] Add logo and real product/store photos where available.
+- [ ] Complete Google verification.
+- [ ] After verification, add secondary categories if Google offers relevant
+  options.
+
+### Weekly Monitoring
+
+- [ ] Check Google Search Console indexed pages and product snippets.
+- [ ] Check Bing indexed pages, IndexNow response, backlinks, and search queries.
+- [ ] Check Google Merchant Center product feed health.
+- [ ] Record any new errors or recommendations before making changes.

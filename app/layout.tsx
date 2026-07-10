@@ -19,6 +19,7 @@ import {
   DEFAULT_SEO_DESCRIPTION,
   DEFAULT_SEO_TITLE,
   PRODUCT_SEARCH_TERMS,
+  PUBLIC_CATEGORY_SEO,
   SITE_ALTERNATE_NAMES,
   SITE_NAME,
   SITE_NAME_AR,
@@ -96,15 +97,23 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   const storeStructuredData = {
     "@context": "https://schema.org",
     "@type": "AutoPartsStore",
+    "@id": `${SITE_URL}/#store`,
+    additionalType: "https://schema.org/Store",
     name: SITE_NAME,
     alternateName: SITE_ALTERNATE_NAMES,
     url: SITE_URL,
     logo: absoluteUrl(DEFAULT_OG_IMAGE),
     image: absoluteUrl(DEFAULT_OG_IMAGE),
     description: DEFAULT_SEO_DESCRIPTION,
+    slogan: "Car care products and car accessories in Egypt",
+    keywords: [...BRAND_SEARCH_TERMS, ...PRODUCT_SEARCH_TERMS].join(", "),
     telephone: CONTACT_PHONE_E164,
     email: CONTACT_EMAIL,
     sameAs: SOCIAL_LINKS,
+    priceRange: "EGP",
+    currenciesAccepted: "EGP",
+    paymentAccepted: ["Cash on delivery", "Cash"],
+    availableLanguage: ["ar", "en"],
     contactPoint: {
       "@type": "ContactPoint",
       telephone: CONTACT_PHONE_E164,
@@ -116,6 +125,30 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     areaServed: {
       "@type": "Country",
       name: "Egypt",
+    },
+    knowsAbout: PRODUCT_SEARCH_TERMS,
+    brand: {
+      "@type": "Brand",
+      name: SITE_NAME,
+      alternateName: [SITE_NAME_AR, "Cesar Shop"],
+    },
+    hasOfferCatalog: {
+      "@type": "OfferCatalog",
+      name: "Cesar Store product categories",
+      itemListElement: PUBLIC_CATEGORY_SEO.map((category) => ({
+        "@type": "OfferCatalog",
+        name: category.titleEn,
+        alternateName: category.titleAr,
+        url: absoluteUrl(category.guidePath),
+        itemListElement: category.keywords.map((keyword) => ({
+          "@type": "Offer",
+          itemOffered: {
+            "@type": "Product",
+            name: keyword,
+            category: category.merchantProductType,
+          },
+        })),
+      })),
     },
     inLanguage: ["ar-EG", "en"],
   };
