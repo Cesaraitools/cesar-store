@@ -6,7 +6,16 @@ import { useCart } from "@/context/CartContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useAuth } from "@/context/AuthContext";
 import { useWholesaleCart } from "@/context/WholesaleDbCartContext";
-import { ShoppingCart, LogOut, Globe, Package, LogIn, Store } from "lucide-react";
+import {
+  Home,
+  LayoutGrid,
+  ShoppingCart,
+  LogOut,
+  Globe,
+  Package,
+  LogIn,
+  Store,
+} from "lucide-react";
 
 export default function Navbar() {
   const { cartItems } = useCart();
@@ -21,6 +30,60 @@ export default function Navbar() {
   const cartBadgeCount = isWholesaleSection
     ? wholesaleCartCount
     : cartItems.length;
+  const mobileNavigationLinks = isWholesaleSection
+    ? [
+        {
+          href: "/wholesale",
+          label: isAr ? "الرئيسية" : "Home",
+          icon: Home,
+        },
+        {
+          href: "/wholesale/catalog",
+          label: isAr ? "الجملة" : "Wholesale",
+          icon: Store,
+        },
+        {
+          href: "/wholesale/orders",
+          label: isAr ? "طلباتي" : "Orders",
+          icon: Package,
+          authOnly: true,
+        },
+        {
+          href: "/wholesale/order",
+          label: isAr ? "السلة" : "Cart",
+          icon: ShoppingCart,
+          badge: wholesaleCartCount,
+        },
+      ]
+    : [
+        {
+          href: "/",
+          label: isAr ? "الرئيسية" : "Home",
+          icon: Home,
+        },
+        {
+          href: "/shop",
+          label: isAr ? "المتجر" : "Shop",
+          icon: Store,
+        },
+        {
+          href: "/categories",
+          label: isAr ? "الأقسام" : "Categories",
+          icon: LayoutGrid,
+        },
+        {
+          href: "/orders",
+          label: isAr ? "طلباتي" : "Orders",
+          icon: Package,
+          authOnly: true,
+        },
+        {
+          href: "/cart",
+          label: isAr ? "السلة" : "Cart",
+          icon: ShoppingCart,
+          badge: cartItems.length,
+        },
+      ];
   const navigationLinks = isWholesaleSection
     ? [
         {
@@ -52,7 +115,12 @@ export default function Navbar() {
         },
       ];
 
+  const visibleMobileLinks = mobileNavigationLinks.filter(
+    (link) => !link.authOnly || (!loading && user)
+  );
+
   return (
+    <>
     <nav className="w-full bg-white/80 backdrop-blur-md border-b border-gray-100 sticky top-0 z-[100] transition-all duration-300">
       <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
         
@@ -150,5 +218,46 @@ export default function Navbar() {
         </div>
       </div>
     </nav>
+    <nav
+      className="fixed inset-x-0 bottom-0 z-[120] border-t border-slate-200 bg-white/95 px-2 pb-[calc(env(safe-area-inset-bottom)+0.35rem)] pt-2 shadow-[0_-12px_30px_rgba(15,23,42,0.10)] backdrop-blur-md md:hidden"
+      dir={isAr ? "rtl" : "ltr"}
+      aria-label={isAr ? "تنقل التطبيق" : "App navigation"}
+    >
+      <div
+        className={`mx-auto grid max-w-md ${
+          visibleMobileLinks.length >= 5 ? "grid-cols-5" : "grid-cols-4"
+        } gap-1`}
+      >
+        {visibleMobileLinks.map((link) => {
+          const Icon = link.icon;
+          const isActive =
+            pathname === link.href ||
+            (link.href !== "/" && pathname?.startsWith(link.href));
+
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`relative flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[10px] font-black transition-all active:scale-95 ${
+                isActive
+                  ? "bg-blue-50 text-blue-700"
+                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+              }`}
+            >
+              <span className="relative">
+                <Icon size={20} strokeWidth={2.4} />
+                {typeof link.badge === "number" && link.badge > 0 ? (
+                  <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-600 px-1 text-[9px] font-black text-white ring-2 ring-white">
+                    {link.badge}
+                  </span>
+                ) : null}
+              </span>
+              <span className="max-w-full truncate">{link.label}</span>
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
+    </>
   );
 }
