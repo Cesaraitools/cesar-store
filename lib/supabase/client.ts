@@ -1,7 +1,7 @@
 // /lib/supabase/client.ts
 
 import { createBrowserClient } from "@supabase/ssr";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient, SupabaseClientOptions } from "@supabase/supabase-js";
 
 /**
  * Browser Supabase Client
@@ -11,6 +11,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  */
 
 let browserClient: SupabaseClient | null = null;
+
+const browserAuthOptions = {
+  detectSessionInUrl: false,
+  // Supported by auth-js at runtime; this package version does not expose it in supabase-js types.
+  lockAcquireTimeout: 30000,
+} as unknown as SupabaseClientOptions<"public">["auth"];
 
 export function createClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -27,9 +33,7 @@ export function createClient() {
   }
 
   const client = createBrowserClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      detectSessionInUrl: false,
-    },
+    auth: browserAuthOptions,
   });
 
   if (typeof window !== "undefined") {

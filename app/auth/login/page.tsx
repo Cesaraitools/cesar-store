@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { preserveGuestCartForAuth } from "@/context/CartContext";
@@ -45,6 +45,7 @@ function isAndroidAppEnvironment() {
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const supabase = useMemo(() => createClient(), []);
   const { signInWithGoogle, user, loading: authLoading } = useAuth();
 
   const redirectParam = searchParams.get("redirect");
