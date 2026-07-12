@@ -10,6 +10,7 @@ import {
 } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { usePathname } from "next/navigation";
+import { createSafeUUID } from "@/lib/safe-uuid";
 import type { ProductVariantSnapshot } from "@/types/product";
 import toast from "react-hot-toast";
 
@@ -50,7 +51,7 @@ const OAUTH_GUEST_CART_STORAGE_KEY = "cesar_store_oauth_guest_cart";
 const OAUTH_MERGE_COMPLETE_USER_KEY = "cesar_store_oauth_merge_complete_user";
 
 function generateUUID() {
-  return crypto.randomUUID();
+  return createSafeUUID();
 }
 
 function sanitizeImage(image?: string): string | null {

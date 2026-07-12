@@ -8,6 +8,7 @@ import { useCart } from "@/context/CartContext";
 import { useCheckout } from "@/context/CheckoutContext";
 import { useOrderTracking } from "@/context/OrderTrackingContext";
 import { useAuth } from "@/context/AuthContext";
+import { createSafeUUID } from "@/lib/safe-uuid";
 import toast from "react-hot-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { 
@@ -25,7 +26,7 @@ const ORDERS_STORAGE_KEY = "cesar_store_orders";
 const PENDING_ORDER_TOKEN_KEY = "cesar_store_pending_order_token";
 
 function generateUUID() {
-  return crypto.randomUUID();
+  return createSafeUUID();
 }
 
 function loadOrders() {
@@ -49,11 +50,11 @@ function getPendingOrderToken() {
     const existing = sessionStorage.getItem(PENDING_ORDER_TOKEN_KEY);
     if (existing) return existing;
 
-    const next = crypto.randomUUID();
+    const next = createSafeUUID();
     sessionStorage.setItem(PENDING_ORDER_TOKEN_KEY, next);
     return next;
   } catch {
-    return crypto.randomUUID();
+    return createSafeUUID();
   }
 }
 

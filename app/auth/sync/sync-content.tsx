@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
+import { createSafeUUID } from "@/lib/safe-uuid";
 import { createClient } from "@/lib/supabase/client";
 
 const CART_STORAGE_KEY = "cesar_store_cart_v2";
@@ -94,7 +95,7 @@ async function syncOauthGuestCart(session: Session) {
       id:
         typeof backup?.id === "string" && backup.id
           ? backup.id
-          : crypto.randomUUID(),
+          : createSafeUUID(),
       ownerUserId: session.user.id,
       items: mapCartItemsForStorage(dbItems),
     })

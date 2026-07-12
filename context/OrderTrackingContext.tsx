@@ -5,6 +5,7 @@ import {
   useContext,
   ReactNode,
 } from "react";
+import { createSafeUUID } from "@/lib/safe-uuid";
 
 /* ================== Types ================== */
 
@@ -45,7 +46,7 @@ const TRACKING_STORAGE_KEY = "cesar_store_order_tracking";
 /* ================== Helpers ================== */
 
 function generateUUID() {
-  return crypto.randomUUID();
+  return createSafeUUID();
 }
 
 function loadEvents(): OrderTrackingEvent[] {

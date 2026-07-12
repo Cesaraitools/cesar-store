@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ProductVariantsEditor } from "@/components/admin/ProductVariantsEditor";
+import { createSafeUUID } from "@/lib/safe-uuid";
 import type { ProductVariant, ProductVariantOption } from "@/types/product";
 
 export default function AddProductPage() {
@@ -172,7 +173,7 @@ export default function AddProductPage() {
       }
 
       const cleanProduct: any = {
-        id: form.id?.trim() || crypto.randomUUID(),
+        id: form.id?.trim() || createSafeUUID(),
 
         name: {
           ar: form.nameAr,

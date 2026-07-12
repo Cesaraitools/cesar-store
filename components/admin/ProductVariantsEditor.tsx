@@ -5,6 +5,7 @@ import {
   normalizeProductVariantOptions,
   normalizeProductVariants,
 } from "@/lib/product-variants";
+import { createSafeUUID } from "@/lib/safe-uuid";
 import type { ProductVariant, ProductVariantOption } from "@/types/product";
 
 type Props = {
@@ -17,7 +18,7 @@ type Props = {
 };
 
 function makeId(prefix: string) {
-  return `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
+  return `${prefix}-${createSafeUUID().slice(0, 8)}`;
 }
 
 function cartesianProduct(

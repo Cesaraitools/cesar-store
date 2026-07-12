@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useWholesaleCart } from "@/context/WholesaleDbCartContext";
 import { formatVariantSnapshot } from "@/lib/product-variants";
+import { createSafeUUID } from "@/lib/safe-uuid";
 import { WHOLESALE_WHATSAPP_URL } from "@/lib/seo";
 import type {
   WholesaleCartItem,
@@ -69,11 +70,7 @@ function getCartItemKey(item: Pick<WholesaleCartItem, "productId" | "variantKey"
 }
 
 function createOrderToken() {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return createSafeUUID();
 }
 
 function customerSnapshotText(order: WholesaleOrder, field: string) {

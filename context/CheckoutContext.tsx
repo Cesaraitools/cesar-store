@@ -11,6 +11,7 @@ import {
 } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "./CartContext";
+import { createSafeUUID } from "@/lib/safe-uuid";
 
 export type CheckoutData = {
   name: string;
@@ -39,11 +40,11 @@ function getPendingOrderToken() {
     const existing = sessionStorage.getItem(PENDING_ORDER_TOKEN_KEY);
     if (existing) return existing;
 
-    const next = crypto.randomUUID();
+    const next = createSafeUUID();
     sessionStorage.setItem(PENDING_ORDER_TOKEN_KEY, next);
     return next;
   } catch {
-    return crypto.randomUUID();
+    return createSafeUUID();
   }
 }
 
