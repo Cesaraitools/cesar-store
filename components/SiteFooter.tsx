@@ -22,7 +22,7 @@ export default function SiteFooter() {
   return (
     <footer
       dir={isAr ? "rtl" : "ltr"}
-      className="bg-white border-t border-slate-100 py-10 text-center text-sm font-medium text-slate-500"
+      className="bg-white border-t border-slate-100 py-10 text-center text-sm font-medium text-slate-700"
     >
       <div className="mx-auto flex max-w-5xl flex-col items-center gap-6 px-4">
         <div className="flex flex-wrap items-center justify-center gap-4">
@@ -223,7 +223,7 @@ export default function SiteFooter() {
           </a>
         </div>
 
-        <div className="space-y-1 text-xs text-slate-400">
+        <div className="space-y-1 text-xs font-semibold text-slate-600">
           <p>
             © {new Date().getFullYear()}{" "}
             {isAr ? "متجر سيزر. جميع الحقوق محفوظة." : "Cesar Store. All rights reserved."}

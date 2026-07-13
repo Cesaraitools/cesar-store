@@ -177,8 +177,15 @@ export default function LandingPage() {
               onClick={() => setIndex(i)}
               aria-label={isAr ? `عرض الشريحة ${i + 1}` : `Show slide ${i + 1}`}
               aria-current={i === index ? "true" : undefined}
-              className={`h-1.5 transition-all duration-500 rounded-full ${i === index ? "w-10 bg-blue-600" : "w-2 bg-white/40 hover:bg-white/60"}`} 
-            />
+              className="flex h-11 min-w-11 items-center justify-center rounded-full transition-all duration-500"
+            >
+              <span
+                className={`h-1.5 rounded-full transition-all duration-500 ${
+                  i === index ? "w-10 bg-blue-600" : "w-2 bg-white/40"
+                }`}
+                aria-hidden="true"
+              />
+            </button>
           ))}
         </div>
       </section>
