@@ -104,6 +104,14 @@ export default function LandingPage() {
   }, [slides.length]);
 
   const t = content[lang];
+  const getSlideAlt = (slide: Slide) =>
+    slide.type === "hero"
+      ? isAr
+        ? "واجهة متجر سيزر لمنتجات وإكسسوارات السيارات"
+        : "Cesar Store automotive products and accessories"
+      : isAr
+      ? slide.ar.title
+      : slide.en.title;
 
   return (
     <div className="min-h-screen bg-[#F8FAFC]" dir={isAr ? "rtl" : "ltr"}>
@@ -116,10 +124,13 @@ export default function LandingPage() {
             className={`absolute inset-0 transition-all duration-1000 ease-out ${i === index ? "opacity-100 scale-100 z-10" : "opacity-0 scale-105 z-0"}`}
           >
             {/* Overlay Gradient لضمان وضوح النص */}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/10 to-black/40 z-10" />
+            <div
+              className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/10 to-black/40 z-10"
+              aria-hidden="true"
+            />
             <img 
               src={s.image} 
-              alt="Slide" 
+              alt={getSlideAlt(s)}
               className={`w-full h-full object-cover transition-transform duration-[10000ms] ease-linear ${i === index ? "scale-110" : "scale-100"}`}
             />
 
@@ -164,6 +175,8 @@ export default function LandingPage() {
             <button 
               key={i} 
               onClick={() => setIndex(i)}
+              aria-label={isAr ? `عرض الشريحة ${i + 1}` : `Show slide ${i + 1}`}
+              aria-current={i === index ? "true" : undefined}
               className={`h-1.5 transition-all duration-500 rounded-full ${i === index ? "w-10 bg-blue-600" : "w-2 bg-white/40 hover:bg-white/60"}`} 
             />
           ))}
@@ -240,7 +253,10 @@ export default function LandingPage() {
             {isAr ? "دليل البحث عن سيزر" : "Cesar search guide"}
           </Link>
         </div>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-slate-50/50 font-black text-[15rem] -z-0 select-none">
+        <div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-slate-50/50 font-black text-[15rem] -z-0 select-none"
+          aria-hidden="true"
+        >
           CESAR
         </div>
       </section>
@@ -249,8 +265,14 @@ export default function LandingPage() {
       <section className="px-6 mb-24">
         <div className="max-w-7xl mx-auto bg-slate-900 rounded-[3.5rem] py-20 px-10 text-center relative overflow-hidden">
           {/* Decorative Elements */}
-          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/2"></div>
-          <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-blue-500/10 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/2"></div>
+          <div
+            className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/2"
+            aria-hidden="true"
+          ></div>
+          <div
+            className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-blue-500/10 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/2"
+            aria-hidden="true"
+          ></div>
           
           <div className="relative z-10 space-y-10">
             <h2 className="text-3xl md:text-5xl font-black text-white max-w-3xl mx-auto leading-tight">

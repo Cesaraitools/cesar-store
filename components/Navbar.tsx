@@ -121,7 +121,10 @@ export default function Navbar() {
 
   return (
     <>
-    <nav className="w-full bg-white/80 backdrop-blur-md border-b border-gray-100 sticky top-0 z-[100] transition-all duration-300">
+    <nav
+      className="w-full bg-white/80 backdrop-blur-md border-b border-gray-100 sticky top-0 z-[100] transition-all duration-300"
+      aria-label={isAr ? "التنقل الرئيسي" : "Main navigation"}
+    >
       <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
         
         {/* Logo Section */}
@@ -185,6 +188,7 @@ export default function Navbar() {
                     <button
                       onClick={signOut}
                       className="p-2 bg-white text-rose-500 rounded-full shadow-sm hover:bg-rose-500 hover:text-white transition-all active:scale-90"
+                      aria-label={isAr ? "تسجيل الخروج" : "Log out"}
                       title={isAr ? "تسجيل الخروج" : "Logout"}
                     >
                       <LogOut size={16} />
@@ -195,6 +199,7 @@ export default function Navbar() {
                     <Link
                       href="/auth/login"
                       className="p-2.5 text-gray-400 hover:text-blue-600 transition-colors"
+                      aria-label={isAr ? "تسجيل الدخول" : "Log in"}
                       title={isAr ? "تسجيل الدخول" : "Login"}
                     >
                       <LogIn size={20} />
@@ -205,7 +210,11 @@ export default function Navbar() {
             )}
 
             {/* Cart Button */}
-            <Link href={cartHref} className="relative group p-2.5 bg-gray-900 text-white rounded-2xl shadow-lg shadow-gray-200 hover:bg-blue-600 transition-all active:scale-90">
+            <Link
+              href={cartHref}
+              className="relative group p-2.5 bg-gray-900 text-white rounded-2xl shadow-lg shadow-gray-200 hover:bg-blue-600 transition-all active:scale-90"
+              aria-label={isAr ? "فتح السلة" : "Open cart"}
+            >
               <ShoppingCart size={20} className="group-hover:rotate-12 transition-transform" />
 
               {cartBadgeCount > 0 && (
