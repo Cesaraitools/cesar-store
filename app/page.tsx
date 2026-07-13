@@ -63,6 +63,23 @@ const heroSlide: HeroSlide = {
   image: "/slides/hero.jpg",
 };
 
+function scheduleAfterInitialPaint(callback: () => void) {
+  if (typeof window === "undefined") return () => {};
+
+  const idleWindow = window as Window & {
+    requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
+    cancelIdleCallback?: (id: number) => void;
+  };
+
+  if (typeof idleWindow.requestIdleCallback === "function") {
+    const id = idleWindow.requestIdleCallback(callback, { timeout: 2500 });
+    return () => idleWindow.cancelIdleCallback?.(id);
+  }
+
+  const id = window.setTimeout(callback, 1200);
+  return () => window.clearTimeout(id);
+}
+
 export default function LandingPage() {
   const { lang } = useLanguage();
   const isAr = lang === "ar";
@@ -89,13 +106,27 @@ export default function LandingPage() {
 }, []);
 
   useEffect(() => {
-    
-    fetch("/api/categories")
+    let isCancelled = false;
+
+    const loadCategories = () => {
+      fetch("/api/categories")
       .then((r) => r.json())
-      .then((categories) => {
+      .then((categories: CategorySlide[]) => {
+        if (isCancelled) return;
         setSlides([heroSlide, ...categories]);
       })
-      .catch(() => setSlides([{ type: "hero", id: "hero", image: "/slides/hero.jpg" }]))
+      .catch(() => {
+        if (isCancelled) return;
+        setSlides([heroSlide]);
+      });
+    };
+
+    const cancelDeferredLoad = scheduleAfterInitialPaint(loadCategories);
+
+    return () => {
+      isCancelled = true;
+      cancelDeferredLoad();
+    };
   }, []);
 
   useEffect(() => {

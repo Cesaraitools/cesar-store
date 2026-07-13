@@ -24,6 +24,10 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+const PUBLIC_CATEGORY_CACHE_HEADERS = {
+  "Cache-Control": "public, max-age=300, s-maxage=600, stale-while-revalidate=86400",
+};
+
 /* ---------------- GET ---------------- */
 
 export async function GET() {
@@ -36,12 +40,12 @@ export async function GET() {
 
     if (error) throw error;
 
-    return Response.json(data);
+    return Response.json(data, { headers: PUBLIC_CATEGORY_CACHE_HEADERS });
   } catch (err) {
     console.error("GET CATEGORIES ERROR:", err);
     return Response.json(
       { error: "Failed to fetch categories" },
-      { status: 500 }
+      { status: 500, headers: { "Cache-Control": "no-store" } }
     );
   }
 }
