@@ -13,10 +13,44 @@ const nextConfig = {
         value: "public, max-age=31536000, immutable",
       },
     ];
+    const catalogAssetHeaders = [
+      {
+        key: "Cache-Control",
+        value: "public, max-age=604800, s-maxage=31536000, stale-while-revalidate=604800",
+      },
+    ];
 
     return [
       {
         source: "/slides/:path*",
+        headers: longLivedStaticAssetHeaders,
+      },
+      {
+        source: "/products/:path*",
+        headers: catalogAssetHeaders,
+      },
+      {
+        source: "/categories/:path*",
+        headers: catalogAssetHeaders,
+      },
+      {
+        source: "/uploads/:path*",
+        headers: catalogAssetHeaders,
+      },
+      {
+        source: "/promos/:path*",
+        headers: catalogAssetHeaders,
+      },
+      {
+        source: "/collecting/:path*",
+        headers: catalogAssetHeaders,
+      },
+      {
+        source: "/credits/:path*",
+        headers: catalogAssetHeaders,
+      },
+      {
+        source: "/fonts/:path*",
         headers: longLivedStaticAssetHeaders,
       },
       {
