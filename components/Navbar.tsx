@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useCart } from "@/context/CartContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -132,9 +133,11 @@ export default function Navbar() {
           href={homeHref}
           className="flex items-center gap-3 transition-transform active:scale-95"
         >
-          <img
+          <Image
             src="/navlogo.png"
             alt="Cesar Store Logo"
+            width={40}
+            height={40}
             className="w-10 h-10 object-contain drop-shadow-sm"
           />
           <span className="text-xl font-black text-gray-900 tracking-tighter">

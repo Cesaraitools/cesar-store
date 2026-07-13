@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useLanguage } from "@/context/LanguageContext";
 import { ArrowLeft, ArrowRight, Sparkles, ShieldCheck, Zap, ChevronRight, ChevronLeft, Store, FileCheck2 } from "lucide-react";
 
@@ -128,9 +129,14 @@ export default function LandingPage() {
               className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/10 to-black/40 z-10"
               aria-hidden="true"
             />
-            <img 
-              src={s.image} 
+            <Image
+              src={s.image}
               alt={getSlideAlt(s)}
+              fill
+              priority={i === 0 && s.type === "hero"}
+              loading={i === 0 && s.type === "hero" ? undefined : "lazy"}
+              sizes="100vw"
+              quality={75}
               className={`w-full h-full object-cover transition-transform duration-[10000ms] ease-linear ${i === index ? "scale-110" : "scale-100"}`}
             />
 

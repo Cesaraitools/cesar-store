@@ -3,6 +3,35 @@ const nextConfig = {
   reactStrictMode: true,
   images: {
     domains: ["bdmumdbykzbozgkxtsmk.supabase.co"],
+    formats: ["image/avif", "image/webp"],
+    minimumCacheTTL: 86400,
+  },
+  async headers() {
+    const longLivedStaticAssetHeaders = [
+      {
+        key: "Cache-Control",
+        value: "public, max-age=31536000, immutable",
+      },
+    ];
+
+    return [
+      {
+        source: "/slides/:path*",
+        headers: longLivedStaticAssetHeaders,
+      },
+      {
+        source: "/navlogo.png",
+        headers: longLivedStaticAssetHeaders,
+      },
+      {
+        source: "/logo-v2.png",
+        headers: longLivedStaticAssetHeaders,
+      },
+      {
+        source: "/placeholder.png",
+        headers: longLivedStaticAssetHeaders,
+      },
+    ];
   },
   async redirects() {
     return [
