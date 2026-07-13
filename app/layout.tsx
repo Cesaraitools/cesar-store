@@ -8,7 +8,6 @@ import Navbar from "@/components/Navbar";
 import SiteFooter from "@/components/SiteFooter";
 import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
-import { CheckoutProvider } from "@/context/CheckoutContext";
 import { LanguageProvider } from "@/context/LanguageContext";
 import { WholesaleCartProvider } from "@/context/WholesaleDbCartContext";
 import {
@@ -189,21 +188,19 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <LanguageProvider>
             <CartProvider>
               <WholesaleCartProvider>
-                <CheckoutProvider>
-                  <div className="flex flex-col min-h-screen">
-                    <Navbar />
+                <div className="flex flex-col min-h-screen">
+                  <Navbar />
 
-                    <main className="flex-grow pt-5 md:pt-7">{children}</main>
-                    <Toaster
-                      position="top-center"
-                      containerStyle={{ zIndex: 2147483647 }}
-                      toastOptions={{
-                        duration: 3000,
-                      }}
-                    />
-                    <SiteFooter />
-                  </div>
-                </CheckoutProvider>
+                  <main className="flex-grow pt-5 md:pt-7">{children}</main>
+                  <Toaster
+                    position="top-center"
+                    containerStyle={{ zIndex: 2147483647 }}
+                    toastOptions={{
+                      duration: 3000,
+                    }}
+                  />
+                  <SiteFooter />
+                </div>
               </WholesaleCartProvider>
             </CartProvider>
           </LanguageProvider>
