@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -94,8 +95,13 @@ const isLowStock = displayStock > 0 && displayStock <= threshold;
   const description =
     lang === "ar" ? product.description.ar : product.description.en;
   const imageSrc = getSafeImage(product.images?.[0]);
+  const [displayImageSrc, setDisplayImageSrc] = useState(imageSrc);
   const theme = productThemes[normalizeCategory(product.category)] ?? fallbackTheme;
   const badge = product.badge ? badgeStyles[product.badge] : null;
+
+  useEffect(() => {
+    setDisplayImageSrc(imageSrc);
+  }, [imageSrc]);
 
   useEffect(() => {
     if (!isImageOpen) return;
@@ -150,13 +156,14 @@ const isLowStock = displayStock > 0 && displayStock <= threshold;
           className={`absolute h-[124px] w-[124px] rounded-full bg-gradient-to-br ${theme.media} shadow-inner shadow-white/80 transition duration-500 group-hover:scale-105 sm:h-[188px] sm:w-[188px] lg:h-[204px] lg:w-[204px]`}
           aria-hidden="true"
         />
-        <img
-          src={imageSrc}
+        <Image
+          src={displayImageSrc}
           alt={name}
+          width={220}
+          height={220}
+          sizes="(min-width: 1024px) 220px, (min-width: 640px) 204px, 132px"
           className="relative z-10 h-[132px] w-[132px] object-contain p-3 mix-blend-multiply transition duration-500 group-hover:scale-105 sm:h-[204px] sm:w-[204px] sm:p-5 lg:h-[220px] lg:w-[220px]"
-          onError={(e) => {
-            (e.currentTarget as HTMLImageElement).src = "/placeholder.png";
-          }}
+          onError={() => setDisplayImageSrc("/placeholder.png")}
         />
       </button>
 
@@ -239,14 +246,15 @@ const isLowStock = displayStock > 0 && displayStock <= threshold;
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
 
-          <img
-            src={imageSrc}
+          <Image
+            src={displayImageSrc}
             alt={name}
+            width={1200}
+            height={1200}
+            sizes="94vw"
             className="max-h-[92vh] max-w-[94vw] rounded-lg object-contain shadow-2xl"
             onClick={(event) => event.stopPropagation()}
-            onError={(e) => {
-              (e.currentTarget as HTMLImageElement).src = "/placeholder.png";
-            }}
+            onError={() => setDisplayImageSrc("/placeholder.png")}
           />
         </div>
       )}

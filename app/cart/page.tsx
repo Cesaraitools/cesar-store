@@ -1,6 +1,8 @@
 "use client";
 import { formatCurrency } from "@/lib/formatCurrency";
+import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { preserveGuestCartForAuth, useCart } from "@/context/CartContext";
 import {
   Trash2,
@@ -13,6 +15,28 @@ import {
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { formatVariantSnapshot } from "@/lib/product-variants";
+import { getSafeImage } from "@/lib/image-safe";
+
+function CartItemImage({ src, alt }: { src?: string; alt: string }) {
+  const safeSrc = getSafeImage(src);
+  const [displaySrc, setDisplaySrc] = useState(safeSrc);
+
+  useEffect(() => {
+    setDisplaySrc(safeSrc);
+  }, [safeSrc]);
+
+  return (
+    <Image
+      src={displaySrc}
+      alt={alt}
+      width={112}
+      height={112}
+      sizes="112px"
+      className="h-full w-full object-contain transition-transform duration-500 group-hover:scale-110"
+      onError={() => setDisplaySrc("/placeholder.png")}
+    />
+  );
+}
 
 export default function CartPage() {
   const { cartItems, updateQuantity, removeFromCart } = useCart();
@@ -80,11 +104,7 @@ export default function CartPage() {
                     className="bg-white rounded-[2rem] p-5 flex flex-col sm:flex-row items-center gap-6 border border-gray-100 shadow-sm transition-all hover:shadow-md group"
                   >
                     <div className="w-28 h-28 rounded-2xl overflow-hidden bg-gray-50 flex-shrink-0 border border-gray-50">
-                      <img
-                        src={item.image || "/placeholder.png"}
-                        alt={item.name}
-                        className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500"
-                      />
+                      <CartItemImage src={item.image} alt={item.name} />
                     </div>
 
                     <div className="flex-1 text-center sm:text-right">

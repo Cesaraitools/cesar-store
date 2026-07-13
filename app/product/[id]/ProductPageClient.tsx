@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import type { Product } from "@/types/product";
 import { useCart } from "@/context/CartContext";
@@ -68,6 +69,7 @@ export default function ProductPageClient({ product, categories }: Props) {
   const displayPrice = getVariantDisplayPrice(product, selectedVariant);
   const displayStock = getVariantDisplayStock(product, selectedVariant);
   const displayImage = getVariantDisplayImage(product, selectedVariant);
+  const safeMainImage = getSafeImage(mainImage || productImages[0]);
   const isOutOfStock =
     displayStock <= 0 ||
     (hasVariants && (!selectedVariant || selectedVariant.active === false));
@@ -129,10 +131,14 @@ export default function ProductPageClient({ product, categories }: Props) {
       <div className="grid md:grid-cols-2 gap-8">
         <div>
           <div className="border rounded-xl p-4 flex items-center justify-center bg-gray-50 mb-4">
-            <img
-              src={getSafeImage(mainImage || productImages[0])}
+            <Image
+              src={safeMainImage}
               alt={name}
+              width={520}
+              height={420}
+              sizes="(min-width: 768px) 50vw, 100vw"
               className="max-h-[350px] object-contain"
+              onError={() => setMainImage("/placeholder.png")}
             />
           </div>
 
@@ -148,10 +154,14 @@ export default function ProductPageClient({ product, categories }: Props) {
                     : "border-gray-200"
                 }`}
               >
-                <img
+                <Image
                   src={image}
                   alt={`${name}-${index + 1}`}
+                  width={64}
+                  height={64}
+                  sizes="64px"
                   className="h-16 w-16 object-contain"
+                  onError={() => setMainImage("/placeholder.png")}
                 />
               </button>
             ))}
