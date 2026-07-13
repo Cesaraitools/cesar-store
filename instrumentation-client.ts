@@ -4,6 +4,8 @@
 
 import * as Sentry from "@sentry/nextjs";
 
+const isProduction = process.env.NODE_ENV === "production";
+
 function isFacebookIosWebKitBridgeNoise(event: Sentry.Event) {
   const exceptionValues = event.exception?.values ?? [];
 
@@ -30,15 +32,14 @@ Sentry.init({
   // Add optional integrations for additional features
   integrations: [Sentry.replayIntegration()],
 
-  // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
-  tracesSampleRate: 1,
+  // Keep error monitoring active while reducing production tracing overhead.
+  tracesSampleRate: isProduction ? 0.1 : 1,
   // Enable logs to be sent to Sentry
-  enableLogs: true,
+  enableLogs: !isProduction,
 
   // Define how likely Replay events are sampled.
-  // This sets the sample rate to be 10%. You may want this to be 100% while
-  // in development and sample at a lower rate in production
-  replaysSessionSampleRate: 0.1,
+  // Avoid recording normal production sessions; keep error replays enabled below.
+  replaysSessionSampleRate: isProduction ? 0 : 0.1,
 
   // Define how likely Replay events are sampled when an error occurs.
   replaysOnErrorSampleRate: 1.0,

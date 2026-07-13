@@ -3,6 +3,16 @@ const nextConfig = {
   reactStrictMode: true,
   images: {
     domains: ["bdmumdbykzbozgkxtsmk.supabase.co"],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "www.cesareshop.com",
+      },
+      {
+        protocol: "https",
+        hostname: "cesareshop.com",
+      },
+    ],
     formats: ["image/avif", "image/webp"],
     minimumCacheTTL: 86400,
   },

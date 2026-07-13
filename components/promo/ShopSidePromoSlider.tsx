@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { getSafeImage } from "@/lib/image-safe";
@@ -97,12 +98,16 @@ export default function ShopSidePromoSlider({ promo, lang }: Props) {
                   ? "opacity-100 scale-100"
                   : "opacity-0 scale-105"
               }`}
-              style={{
-                backgroundImage: `url(${slide.image})`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            />
+            >
+              <Image
+                src={slide.image}
+                alt=""
+                fill
+                sizes="(min-width: 1280px) 360px, 100vw"
+                className="object-cover"
+                aria-hidden="true"
+              />
+            </div>
           ))}
         </div>
 
@@ -150,9 +155,12 @@ export default function ShopSidePromoSlider({ promo, lang }: Props) {
                       : "border-white/20 opacity-80"
                   }`}
                 >
-                  <img
+                  <Image
                     src={slide.image}
                     alt={slide.title}
+                    width={48}
+                    height={56}
+                    sizes="48px"
                     className="h-14 w-12 object-cover"
                   />
                 </button>
