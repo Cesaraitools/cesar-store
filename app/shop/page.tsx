@@ -5,6 +5,7 @@ import Link from "next/link";
 import ProductGrid from "@/components/product/ProductGrid";
 import ShopSidePromoSlider from "@/components/promo/ShopSidePromoSlider";
 import { normalizeCategory } from "@/lib/category-normalizer";
+import { getSeoProductDescriptions } from "@/lib/product-seo-description";
 import { sortProducts, SortOption } from "@/lib/filters";
 import { useLanguage } from "@/context/LanguageContext";
 import type { Product } from "@/types/product";
@@ -83,6 +84,7 @@ function tokenizeSearch(input: string) {
 }
 
 function getProductSearchText(product: Product) {
+  const seoDescriptions = getSeoProductDescriptions(product);
   const variantText =
     product.variantOptions
       ?.flatMap((option) => [
@@ -95,7 +97,7 @@ function getProductSearchText(product: Product) {
   return {
     name: normalizeSearchText(`${product.name.ar} ${product.name.en}`),
     description: normalizeSearchText(
-      `${product.description.ar} ${product.description.en}`
+      `${product.description.ar} ${product.description.en} ${seoDescriptions.ar} ${seoDescriptions.en}`
     ),
     category: normalizeSearchText(normalizeCategory(product.category)),
     variants: normalizeSearchText(variantText),

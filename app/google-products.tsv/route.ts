@@ -1,5 +1,6 @@
 import { getActiveProducts } from "@/lib/server/catalog";
 import { getSafeImage } from "@/lib/image-safe";
+import { getSeoProductDescription } from "@/lib/product-seo-description";
 import { absoluteUrl, getCategorySeo, SITE_NAME } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -35,10 +36,7 @@ function cleanCell(value: unknown) {
 }
 
 function pickDescription(product: Awaited<ReturnType<typeof getActiveProducts>>[number]) {
-  const description =
-    product.description.ar || product.description.en || product.name.ar || product.name.en;
-
-  return description || "منتج من متجر سيزر لمنتجات وإكسسوارات السيارات.";
+  return getSeoProductDescription(product, "ar");
 }
 
 function formatPrice(price: number) {

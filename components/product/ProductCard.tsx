@@ -9,6 +9,7 @@ import { useCart } from "@/context/CartContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { normalizeCategory } from "@/lib/category-normalizer";
 import { getSafeImage } from "@/lib/image-safe";
+import { getSeoProductDescription } from "@/lib/product-seo-description";
 import { getProductVariants, productHasVariants } from "@/lib/product-variants";
 
 type Props = {
@@ -92,8 +93,7 @@ export default function ProductCard({ product }: Props) {
 const isLowStock = displayStock > 0 && displayStock <= threshold;
 
   const name = lang === "ar" ? product.name.ar : product.name.en;
-  const description =
-    lang === "ar" ? product.description.ar : product.description.en;
+  const description = getSeoProductDescription(product, lang);
   const imageSrc = getSafeImage(product.images?.[0]);
   const [displayImageSrc, setDisplayImageSrc] = useState(imageSrc);
   const theme = productThemes[normalizeCategory(product.category)] ?? fallbackTheme;

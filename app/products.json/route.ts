@@ -4,6 +4,7 @@ import {
   uniqueCustomerQueryTerms,
 } from "@/lib/customer-query-lexicon";
 import { getProductVariantOptions, getProductVariants } from "@/lib/product-variants";
+import { getSeoProductDescription } from "@/lib/product-seo-description";
 import { getSafeImage } from "@/lib/image-safe";
 import {
   SITE_NAME,
@@ -295,8 +296,8 @@ export async function GET() {
         brand: SITE_NAME,
         name: product.name,
         description: {
-          ar: compactText(product.description.ar || product.name.ar, 500),
-          en: compactText(product.description.en || product.name.en, 500),
+          ar: compactText(getSeoProductDescription(product, "ar"), 500),
+          en: compactText(getSeoProductDescription(product, "en"), 500),
         },
         category: product.category,
         categoryDetails: {

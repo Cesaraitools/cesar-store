@@ -8,6 +8,7 @@ import {
 } from "@/lib/server/catalog";
 import { absoluteUrl, compactText } from "@/lib/seo";
 import { getSafeImage } from "@/lib/image-safe";
+import { getSeoProductDescription } from "@/lib/product-seo-description";
 
 type Props = {
   params: { id: string };
@@ -29,11 +30,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   const title = product.name.ar || product.name.en;
-  const description = compactText(
-    product.description.ar ||
-      product.description.en ||
-      `${title} من متجر سيزر لمنتجات وإكسسوارات السيارات في مصر.`
-  );
+  const description = compactText(getSeoProductDescription(product, "ar"));
   const image = absoluteUrl(getSafeImage(product.images[0]));
   const url = absoluteUrl(`/product/${product.id}`);
 
@@ -75,10 +72,7 @@ export default async function ProductPage({ params }: Props) {
   }
 
   const title = product.name.ar || product.name.en;
-  const description =
-    product.description.ar ||
-    product.description.en ||
-    `${title} من متجر سيزر لمنتجات وإكسسوارات السيارات في مصر.`;
+  const description = getSeoProductDescription(product, "ar");
   const images = product.images.length
     ? product.images.map((image) => absoluteUrl(getSafeImage(image)))
     : [absoluteUrl(getSafeImage())];

@@ -8,6 +8,7 @@ import { useCart } from "@/context/CartContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { normalizeCategory } from "@/lib/category-normalizer";
 import { getSafeImage } from "@/lib/image-safe";
+import { getSeoProductDescription } from "@/lib/product-seo-description";
 import {
   buildVariantKey,
   createVariantSnapshot,
@@ -57,8 +58,7 @@ export default function ProductPageClient({ product, categories }: Props) {
   );
 
   const name = lang === "ar" ? product.name.ar : product.name.en;
-  const description =
-    lang === "ar" ? product.description.ar : product.description.en;
+  const description = getSeoProductDescription(product, lang);
   const productImages = product.images.length
     ? product.images.map((image) => getSafeImage(image))
     : [getSafeImage()];
