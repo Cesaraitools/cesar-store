@@ -165,6 +165,7 @@ export default function LandingPage() {
               alt={getSlideAlt(s)}
               fill
               priority={i === 0 && s.type === "hero"}
+              fetchPriority={i === 0 && s.type === "hero" ? "high" : "auto"}
               loading={i === 0 && s.type === "hero" ? undefined : "lazy"}
               sizes="100vw"
               quality={75}
