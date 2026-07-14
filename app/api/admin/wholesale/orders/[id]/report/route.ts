@@ -2,12 +2,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import React from "react";
-import path from "path";
-import arabicReshaper from "arabic-reshaper";
 import QRCode from "qrcode";
 import {
   Document,
-  Font,
   Image,
   Page,
   StyleSheet,
@@ -18,13 +15,11 @@ import {
 import { NextResponse } from "next/server";
 import { requireAdminRole } from "@/lib/admin/permissions";
 import { formatVariantSnapshot } from "@/lib/product-variants";
+import { pdfText, registerPdfFonts } from "@/lib/server/pdf-arabic";
 import { getWholesaleOrderById } from "@/lib/server/wholesale-orders";
 import type { WholesaleOrder, WholesaleOrderItem, WholesaleOrderStatus } from "@/types/wholesale";
 
-Font.register({
-  family: "Cairo",
-  src: path.join(process.cwd(), "public", "fonts", "Cairo-VariableFont_slnt,wght.ttf"),
-});
+registerPdfFonts();
 
 const A = {
   brand: "Cesar Store",
@@ -61,29 +56,8 @@ const statusLabels: Record<WholesaleOrderStatus, string> = {
   preparing: "جاري التحضير",
   shipped: "تم الشحن",
   delivered: "تم التسليم",
-  canceled: "ملغى",
+  canceled: "ملغي",
 };
-
-function smartText(value: string | number | null | undefined) {
-  const text = String(value ?? "");
-  if (!text) return "";
-
-  if (!/[\u0600-\u06FF]/.test(text)) return text;
-
-  try {
-    const reshaper = (arabicReshaper as any).default || arabicReshaper;
-    const shaped =
-      typeof reshaper.convertArabic === "function"
-        ? reshaper.convertArabic(text)
-        : typeof reshaper.reshape === "function"
-        ? reshaper.reshape(text)
-        : text;
-
-    return shaped.split(" ").reverse().join(" ");
-  } catch {
-    return text;
-  }
-}
 
 function formatMoney(value: number, currency = "EGP") {
   return `${Number(value || 0).toLocaleString("ar-EG")} ${currency}`;
@@ -348,8 +322,8 @@ function field(label: string, value: string | number | null | undefined) {
   return React.createElement(
     View,
     { style: styles.row },
-    React.createElement(Text, { style: styles.value }, smartText(value || A.empty)),
-    React.createElement(Text, { style: styles.label }, smartText(label))
+    React.createElement(Text, { style: styles.value }, pdfText(value || A.empty)),
+    React.createElement(Text, { style: styles.label }, pdfText(label))
   );
 }
 
@@ -357,7 +331,7 @@ function headerCell(label: string, style: any) {
   return React.createElement(
     Text,
     { style: [styles.cell, styles.headCell, style] },
-    smartText(label)
+    pdfText(label)
   );
 }
 
@@ -365,7 +339,7 @@ function cell(value: string | number, style: any) {
   return React.createElement(
     Text,
     { style: [styles.cell, style] },
-    smartText(value)
+    pdfText(value)
   );
 }
 
@@ -380,9 +354,9 @@ function itemRow(item: WholesaleOrderItem, currency: string) {
     React.createElement(
       View,
       { style: [styles.cell, styles.productCell] },
-      React.createElement(Text, null, smartText(itemName(item))),
+      React.createElement(Text, null, pdfText(itemName(item))),
       variant
-        ? React.createElement(Text, { style: styles.variant }, smartText(variant))
+        ? React.createElement(Text, { style: styles.variant }, pdfText(variant))
         : null
     ),
     cell(quantity(item.minOrderUnits), styles.smallCell),
@@ -414,13 +388,13 @@ function WholesaleOrderReport({
           View,
           null,
           React.createElement(Text, { style: styles.brand }, A.brand),
-          React.createElement(Text, { style: styles.status }, smartText(formatDate(order.createdAt)))
+          React.createElement(Text, { style: styles.status }, pdfText(formatDate(order.createdAt)))
         ),
         React.createElement(
           View,
           null,
-          React.createElement(Text, { style: styles.title }, smartText(A.reportTitle)),
-          React.createElement(Text, { style: styles.status }, smartText(statusLabels[order.status]))
+          React.createElement(Text, { style: styles.title }, pdfText(A.reportTitle)),
+          React.createElement(Text, { style: styles.status }, pdfText(statusLabels[order.status]))
         )
       ),
       React.createElement(
@@ -429,7 +403,7 @@ function WholesaleOrderReport({
         React.createElement(
           View,
           { style: styles.card },
-          React.createElement(Text, { style: styles.cardTitle }, smartText(A.customerInfo)),
+          React.createElement(Text, { style: styles.cardTitle }, pdfText(A.customerInfo)),
           field(A.businessName, customerText(order, "businessName")),
           field(A.contactName, customerText(order, "contactName")),
           field(A.phone, customerText(order, "phone")),
@@ -440,7 +414,7 @@ function WholesaleOrderReport({
         React.createElement(
           View,
           { style: styles.card },
-          React.createElement(Text, { style: styles.cardTitle }, smartText(A.orderInfo)),
+          React.createElement(Text, { style: styles.cardTitle }, pdfText(A.orderInfo)),
           field(A.orderNumber, order.orderNumber || order.id),
           field(A.date, formatDate(order.createdAt)),
           field(A.status, statusLabels[order.status]),
@@ -451,13 +425,13 @@ function WholesaleOrderReport({
           View,
           { style: styles.qrCard },
           React.createElement(Image, { src: qrDataUrl, style: styles.qr }),
-          React.createElement(Text, { style: styles.qrText }, smartText(A.qrNote))
+          React.createElement(Text, { style: styles.qrText }, pdfText(A.qrNote))
         )
       ),
       order.notes
-        ? React.createElement(Text, { style: styles.notes }, smartText(`${A.notes}: ${order.notes}`))
+        ? React.createElement(Text, { style: styles.notes }, pdfText(`${A.notes}: ${order.notes}`))
         : null,
-      React.createElement(Text, { style: styles.cardTitle }, smartText(A.products)),
+      React.createElement(Text, { style: styles.cardTitle }, pdfText(A.products)),
       React.createElement(
         View,
         { style: styles.table },
@@ -477,14 +451,14 @@ function WholesaleOrderReport({
       React.createElement(
         View,
         { style: styles.totalBox },
-        React.createElement(Text, { style: styles.totalLabel }, smartText(A.grandTotal)),
+        React.createElement(Text, { style: styles.totalLabel }, pdfText(A.grandTotal)),
         React.createElement(Text, { style: styles.totalValue }, formatMoney(order.subtotal, order.currency))
       ),
       React.createElement(
         View,
         { style: styles.footer },
         React.createElement(Text, null, A.brand),
-        React.createElement(Text, null, smartText(`${A.printedAt}: ${formatDate(new Date().toISOString())}`))
+        React.createElement(Text, null, pdfText(`${A.printedAt}: ${formatDate(new Date().toISOString())}`))
       )
     )
   );

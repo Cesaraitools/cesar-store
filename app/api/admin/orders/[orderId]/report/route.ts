@@ -2,12 +2,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import React from "react";
-import path from "path";
-import arabicReshaper from "arabic-reshaper";
 import QRCode from "qrcode";
 import {
   Document,
-  Font,
   Image,
   Page,
   StyleSheet,
@@ -17,12 +14,10 @@ import {
 } from "@react-pdf/renderer";
 import { NextResponse } from "next/server";
 import { requireAdminRole } from "@/lib/admin/permissions";
+import { pdfText, registerPdfFonts } from "@/lib/server/pdf-arabic";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
 
-Font.register({
-  family: "Cairo",
-  src: path.join(process.cwd(), "public", "fonts", "Cairo-VariableFont_slnt,wght.ttf"),
-});
+registerPdfFonts();
 
 const A = {
   reportTitle: "\u062a\u0642\u0631\u064a\u0631 \u062a\u0633\u0644\u064a\u0645 \u0627\u0644\u0637\u0644\u0628",
@@ -44,22 +39,6 @@ const A = {
     "\u0627\u0645\u0633\u062d \u0627\u0644\u0631\u0645\u0632 \u0644\u062a\u062a\u0628\u0639 \u0627\u0644\u0637\u0644\u0628 \u0628\u0639\u062f \u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644",
   empty: "\u063a\u064a\u0631 \u0645\u062a\u0648\u0641\u0631",
 };
-
-function smartText(value: string | number | null | undefined) {
-  const text = String(value ?? "");
-  if (!text) return "";
-
-  if (!/[\u0600-\u06FF]/.test(text)) {
-    return text;
-  }
-
-  try {
-    const reshaper = (arabicReshaper as any).default || arabicReshaper;
-    return reshaper.reshape(text).split(" ").reverse().join(" ");
-  } catch {
-    return text;
-  }
-}
 
 function getOrderTrackingUrl(request: Request, orderId: string) {
   const requestUrl = new URL(request.url);
@@ -304,7 +283,7 @@ export async function GET(
             React.createElement(Text, { style: styles.brand }, "CESAR STORE"),
             React.createElement(Text, null, `Order ${order.order_number || order.id.slice(0, 8)}`)
           ),
-          React.createElement(Text, { style: styles.title }, smartText(A.reportTitle))
+          React.createElement(Text, { style: styles.title }, pdfText(A.reportTitle))
         ),
         React.createElement(
           View,
@@ -312,38 +291,38 @@ export async function GET(
           React.createElement(
             View,
             { style: styles.card },
-            React.createElement(Text, { style: styles.sectionTitle }, smartText(A.customerInfo)),
-            React.createElement(Text, { style: styles.line }, `${smartText(A.name)}: ${smartText(customer.name || A.empty)}`),
-            React.createElement(Text, { style: styles.line }, `${smartText(A.phone)}: ${customer.phone || "-"}`),
-            React.createElement(Text, { style: styles.line }, `${smartText(A.address)}: ${smartText(customer.address || A.empty)}`),
-            React.createElement(Text, { style: styles.line }, `${smartText(A.email)}: ${customer.email || "-"}`)
+            React.createElement(Text, { style: styles.sectionTitle }, pdfText(A.customerInfo)),
+            React.createElement(Text, { style: styles.line }, `${pdfText(A.name)}: ${pdfText(customer.name || A.empty)}`),
+            React.createElement(Text, { style: styles.line }, `${pdfText(A.phone)}: ${customer.phone || "-"}`),
+            React.createElement(Text, { style: styles.line }, `${pdfText(A.address)}: ${pdfText(customer.address || A.empty)}`),
+            React.createElement(Text, { style: styles.line }, `${pdfText(A.email)}: ${customer.email || "-"}`)
           ),
           React.createElement(
             View,
             { style: styles.card },
-            React.createElement(Text, { style: styles.sectionTitle }, smartText(A.orderInfo)),
-            React.createElement(Text, { style: styles.line }, `${smartText(A.orderNumber)}: ${order.order_number || order.id}`),
-            React.createElement(Text, { style: styles.line }, `${smartText(A.date)}: ${new Date(order.created_at).toLocaleDateString("en-GB")}`),
-            React.createElement(Text, { style: styles.line }, `${smartText(A.status)}: ${order.status || "requested"}`)
+            React.createElement(Text, { style: styles.sectionTitle }, pdfText(A.orderInfo)),
+            React.createElement(Text, { style: styles.line }, `${pdfText(A.orderNumber)}: ${order.order_number || order.id}`),
+            React.createElement(Text, { style: styles.line }, `${pdfText(A.date)}: ${new Date(order.created_at).toLocaleDateString("en-GB")}`),
+            React.createElement(Text, { style: styles.line }, `${pdfText(A.status)}: ${order.status || "requested"}`)
           ),
           React.createElement(
             View,
             { style: styles.qrWrap },
             React.createElement(Image, { src: qrDataUrl, style: styles.qr }),
-            React.createElement(Text, { style: styles.qrText }, smartText(A.qrNote))
+            React.createElement(Text, { style: styles.qrText }, pdfText(A.qrNote))
           )
         ),
-        React.createElement(Text, { style: styles.sectionTitle }, smartText(A.products)),
+        React.createElement(Text, { style: styles.sectionTitle }, pdfText(A.products)),
         React.createElement(
           View,
           { style: styles.table },
           React.createElement(
             View,
             { style: [styles.row, styles.tableHeader] },
-            React.createElement(Text, { style: styles.colName }, smartText(A.item)),
-            React.createElement(Text, { style: styles.colQty }, smartText(A.qty)),
-            React.createElement(Text, { style: styles.colPrice }, smartText(A.price)),
-            React.createElement(Text, { style: styles.colTotal }, smartText(A.total))
+            React.createElement(Text, { style: styles.colName }, pdfText(A.item)),
+            React.createElement(Text, { style: styles.colQty }, pdfText(A.qty)),
+            React.createElement(Text, { style: styles.colPrice }, pdfText(A.price)),
+            React.createElement(Text, { style: styles.colTotal }, pdfText(A.total))
           ),
           ...items.map((item: any, index: number) => {
             const price = Number(item?.price || 0);
@@ -355,9 +334,9 @@ export async function GET(
               React.createElement(
                 View,
                 { style: styles.colNameStack },
-                React.createElement(Text, { style: { textAlign: "right" } }, smartText(getItemName(item))),
+                React.createElement(Text, { style: { textAlign: "right" } }, pdfText(getItemName(item))),
                 variantText
-                  ? React.createElement(Text, { style: styles.itemVariant }, smartText(variantText))
+                  ? React.createElement(Text, { style: styles.itemVariant }, pdfText(variantText))
                   : null
               ),
               React.createElement(Text, { style: styles.colQty }, String(quantity)),
@@ -369,7 +348,7 @@ export async function GET(
         React.createElement(
           View,
           { style: styles.totalBox },
-          React.createElement(Text, { style: { fontWeight: 900 } }, `${smartText(A.total)}: ${order.total} ${order.currency || "EGP"}`)
+          React.createElement(Text, { style: { fontWeight: 900 } }, `${pdfText(A.total)}: ${order.total} ${order.currency || "EGP"}`)
         ),
         React.createElement(
           Text,

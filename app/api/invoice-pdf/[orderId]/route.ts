@@ -10,35 +10,11 @@ import {
   StyleSheet,
   pdf,
   Image,
-  Font,
 } from "@react-pdf/renderer";
-import path from "path";
-import arabicReshaper from "arabic-reshaper";
 import { CONTACT_EMAIL } from "@/lib/seo";
+import { pdfText, registerPdfFonts } from "@/lib/server/pdf-arabic";
 
-/* ================= تسجيل الخطوط ================= */
-Font.register({
-  family: "Cairo",
-  src: path.join(process.cwd(), "public", "fonts", "Cairo-VariableFont_slnt,wght.ttf"),
-});
-
-/* ================= معالجة النص ================= */
-const smartText = (text: string) => {
-  if (!text) return "";
-
-  const hasArabic = /[\u0600-\u06FF]/.test(text);
-
-  if (hasArabic) {
-    try {
-      const reshaper = (arabicReshaper as any).default || arabicReshaper;
-      const reshaped = reshaper.reshape(text);
-      return reshaped.split(" ").reverse().join(" ");
-    } catch (e) {
-      return text;
-    }
-  }
-  return text;
-};
+registerPdfFonts();
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -71,7 +47,21 @@ function getItemVariantText(item: any) {
     .join(" - ");
 }
 
-/* ================= Styles ================= */
+async function renderPdfBuffer(document: React.ReactElement) {
+  const output = await pdf(document).toBuffer();
+
+  if (Buffer.isBuffer(output)) {
+    return output;
+  }
+
+  const chunks: Buffer[] = [];
+  for await (const chunk of output as AsyncIterable<Buffer | Uint8Array | string>) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+
+  return Buffer.concat(chunks);
+}
+
 const styles = StyleSheet.create({
   page: {
     padding: 50,
@@ -110,27 +100,36 @@ const styles = StyleSheet.create({
     width: "45%",
     textAlign: "left",
   },
+  infoBlockRight: {
+    width: "45%",
+    alignItems: "flex-end",
+  },
+  muted: {
+    color: "#94A3B8",
+    fontSize: 8,
+  },
   tableHeader: {
-    flexDirection: "row",
+    flexDirection: "row-reverse",
     backgroundColor: "#F8FAFC",
     borderBottom: "1 solid #E2E8F0",
     padding: 10,
   },
   tableRow: {
-    flexDirection: "row",
+    flexDirection: "row-reverse",
     borderBottom: "1 solid #F1F5F9",
     padding: 10,
     alignItems: "center",
   },
-  colDescription: { width: "50%", textAlign: "left" },
+  colDescription: { width: "50%", textAlign: "right" },
   itemVariant: {
     marginTop: 3,
     color: "#64748B",
     fontSize: 8,
+    textAlign: "right",
   },
   colQty: { width: "15%", textAlign: "center" },
-  colPrice: { width: "15%", textAlign: "right" },
-  colAmount: { width: "20%", textAlign: "right" },
+  colPrice: { width: "15%", textAlign: "center" },
+  colAmount: { width: "20%", textAlign: "center" },
   summaryContainer: {
     marginTop: 30,
     flexDirection: "row",
@@ -151,165 +150,139 @@ const styles = StyleSheet.create({
 
 export async function GET(_req: Request, { params }: { params: { orderId: string } }) {
   const orderId = params.orderId;
+  const logoUrl = "https://www.cesareshop.com/logo-v2.png";
 
- 
- const logoUrl = "https://www.cesareshop.com/logo-v2.png";
+  try {
+    const { data: order, error } = await supabase
+      .from("orders")
+      .select("id, created_at, currency, total, customer_snapshot, items_snapshot")
+      .eq("id", orderId)
+      .single();
 
-  let order;
+    if (error || !order) {
+      return Response.json({ error: "Order not found" }, { status: 404 });
+    }
 
-try {
-  const { data, error } = await supabase
-    .from("orders")
-    .select("id, created_at, currency, total, customer_snapshot, items_snapshot")
-    .eq("id", orderId)
-    .single();
+    const customer = order.customer_snapshot || {};
+    const rawItems = Array.isArray(order.items_snapshot) ? order.items_snapshot : [];
+    const items = rawItems.map((item: any) => ({
+      name:
+        [
+          item?.name_ar,
+          item?.name_en,
+          item?.name,
+          item?.product?.name_ar,
+          item?.product?.name_en,
+          item?.product?.name,
+        ].find((value) => typeof value === "string" && value.trim().length > 0) || "-",
+      price: Number(item?.price || 0),
+      quantity: Number(item?.quantity || 0),
+      variantText: getItemVariantText(item),
+    }));
 
-  if (error || !data) {
-    return Response.json({ error: "Order not found" }, { status: 404 });
-  }
-
-  order = data;
-} catch (err) {
-  console.error("Order Fetch Error:", err);
-  return Response.json({ error: "Failed to load order" }, { status: 500 });
-}
-
-  const customer = order.customer_snapshot || {};
-  const rawItems = Array.isArray(order.items_snapshot) ? order.items_snapshot : [];
-
-  /* ================= ULTRA SAFE ADDITION ================= */
-  const items = rawItems.map((item: any) => ({
-  name: [
-  item?.name_ar,
-  item?.name_en,
-  item?.name,
-  item?.product?.name_ar,
-  item?.product?.name_en,
-  item?.product?.name,
-].find((v) => typeof v === "string" && v.trim().length > 0) || "—",
-  price: Number(item?.price || 0),
-  quantity: Number(item?.quantity || 0),
-  variantText: getItemVariantText(item),
-}));
-  /* ===================================================== */
-
-  const document = React.createElement(
-    Document,
-    null,
-    React.createElement(
-      Page,
-      { size: "A4", style: styles.page },
-
+    const document = React.createElement(
+      Document,
+      null,
       React.createElement(
-        View,
-        { style: styles.brandHeader },
-        React.createElement(Text, { style: styles.brandName }, smartText("CESAR STORE")),
+        Page,
+        { size: "A4", style: styles.page },
         React.createElement(
           View,
-          { style: styles.rightHeaderSection },
-          React.createElement(Image, {
-  style: styles.logo,
-  src: logoUrl,
-}),
-          React.createElement(Text, null, smartText("Invoice / فاتورة")),
-          React.createElement(Text, { style: { fontSize: 9 } }, `#${order.id.slice(0, 8)}`)
-        )
-      ),
-
-      React.createElement(
-        View,
-        { style: styles.infoGrid },
-        React.createElement(
-          View,
-          { style: styles.infoBlock },
-          React.createElement(Text, { style: { color: "#94A3B8", fontSize: 8 } }, smartText("Billed To / فاتورة إلى:")),
-          React.createElement(Text, { style: { fontWeight: 700 } }, smartText(customer.name || "Customer")),
-          React.createElement(Text, null, customer.phone || ""),
-          React.createElement(Text, null, smartText(customer.address || ""))
-        ),
-        React.createElement(
-          View,
-          { style: [styles.infoBlock, { alignItems: "flex-end" }] },
-          React.createElement(Text, { style: { color: "#94A3B8", fontSize: 8 } }, smartText("Order Details / تفاصيل الطلب:")),
-          React.createElement(Text, null, `Date: ${new Date(order.created_at).toLocaleDateString("en-US")}`),
-          React.createElement(Text, null, `Currency: ${order.currency || "EGP"}`)
-        )
-      ),
-
-      React.createElement(
-        View,
-        { style: { marginTop: 20 } },
-        React.createElement(
-          View,
-          { style: styles.tableHeader },
-          React.createElement(Text, { style: styles.colDescription }, smartText("Description / الوصف")),
-          React.createElement(Text, { style: styles.colQty }, smartText("Qty / الكمية")),
-          React.createElement(Text, { style: styles.colPrice }, smartText("Price / السعر")),
-          React.createElement(Text, { style: styles.colAmount }, smartText("Amount / الإجمالي"))
-        ),
-
-        ...items.map((item: any) =>
-          React.createElement(
-  View,
-  { style: styles.tableRow },
-  React.createElement(
-    View,
-    { style: styles.colDescription },
-    React.createElement(Text, null, smartText(item.name)),
-    item.variantText
-      ? React.createElement(Text, { style: styles.itemVariant }, smartText(item.variantText))
-      : null
-  ),
-  React.createElement(Text, { style: styles.colQty }, String(item.quantity)),
-  React.createElement(Text, { style: styles.colPrice }, `${item.price}`),
-  React.createElement(Text, { style: styles.colAmount }, `${(item.price * item.quantity).toFixed(2)}`)
-)
-        )
-      ),
-
-      React.createElement(
-        View,
-        { style: styles.summaryContainer },
-        React.createElement(
-          View,
-          { style: { width: "40%", borderTop: "1 solid #E2E8F0", paddingTop: 10 } },
+          { style: styles.brandHeader },
+          React.createElement(Text, { style: styles.brandName }, "CESAR STORE"),
           React.createElement(
             View,
-            { style: { flexDirection: "row", justifyContent: "space-between" } },
-            React.createElement(Text, null, smartText("Total / الإجمالي")),
+            { style: styles.rightHeaderSection },
+            React.createElement(Image, { style: styles.logo, src: logoUrl }),
+            React.createElement(Text, null, pdfText("فاتورة")),
+            React.createElement(Text, { style: { fontSize: 9 } }, `#${order.id.slice(0, 8)}`)
+          )
+        ),
+        React.createElement(
+          View,
+          { style: styles.infoGrid },
+          React.createElement(
+            View,
+            { style: styles.infoBlock },
+            React.createElement(Text, { style: styles.muted }, pdfText("بيانات العميل")),
+            React.createElement(Text, { style: { fontWeight: 700 } }, pdfText(customer.name || "Customer")),
+            React.createElement(Text, null, customer.phone || ""),
+            React.createElement(Text, null, pdfText(customer.address || ""))
+          ),
+          React.createElement(
+            View,
+            { style: styles.infoBlockRight },
+            React.createElement(Text, { style: styles.muted }, pdfText("تفاصيل الطلب")),
+            React.createElement(Text, null, `Date: ${new Date(order.created_at).toLocaleDateString("en-US")}`),
+            React.createElement(Text, null, `Currency: ${order.currency || "EGP"}`)
+          )
+        ),
+        React.createElement(
+          View,
+          { style: { marginTop: 20 } },
+          React.createElement(
+            View,
+            { style: styles.tableHeader },
+            React.createElement(Text, { style: styles.colDescription }, pdfText("الصنف")),
+            React.createElement(Text, { style: styles.colQty }, pdfText("الكمية")),
+            React.createElement(Text, { style: styles.colPrice }, pdfText("السعر")),
+            React.createElement(Text, { style: styles.colAmount }, pdfText("الإجمالي"))
+          ),
+          ...items.map((item: any, index: number) =>
             React.createElement(
-              Text,
-              { style: { color: "#2563EB", fontWeight: 700, fontSize: 14 } },
-              `${order.total} ${order.currency || "EGP"}`
+              View,
+              { key: `${index}-${item.name}`, style: styles.tableRow },
+              React.createElement(
+                View,
+                { style: styles.colDescription },
+                React.createElement(Text, null, pdfText(item.name)),
+                item.variantText
+                  ? React.createElement(Text, { style: styles.itemVariant }, pdfText(item.variantText))
+                  : null
+              ),
+              React.createElement(Text, { style: styles.colQty }, String(item.quantity)),
+              React.createElement(Text, { style: styles.colPrice }, `${item.price}`),
+              React.createElement(Text, { style: styles.colAmount }, `${(item.price * item.quantity).toFixed(2)}`)
             )
           )
+        ),
+        React.createElement(
+          View,
+          { style: styles.summaryContainer },
+          React.createElement(
+            View,
+            { style: { width: "40%", borderTop: "1 solid #E2E8F0", paddingTop: 10 } },
+            React.createElement(
+              View,
+              { style: { flexDirection: "row", justifyContent: "space-between" } },
+              React.createElement(Text, null, pdfText("الإجمالي")),
+              React.createElement(
+                Text,
+                { style: { color: "#2563EB", fontWeight: 700, fontSize: 14 } },
+                `${order.total} ${order.currency || "EGP"}`
+              )
+            )
+          )
+        ),
+        React.createElement(
+          View,
+          { style: styles.footer },
+          React.createElement(Text, null, pdfText("شكرًا لاختيارك متجر سيزر.")),
+          React.createElement(Text, { style: { marginTop: 4 } }, CONTACT_EMAIL)
         )
-      ),
-
-      React.createElement(
-  View,
-  { style: styles.footer },
-  React.createElement(
-    Text,
-    null,
-    smartText("Thank you for choosing Cesar Store / شكراً لتعاملك مع متجر سيزر.")
-  ),
-  React.createElement(
-    Text,
-    { style: { marginTop: 4 } },
-    CONTACT_EMAIL
-  )
-)
       )
-    
-  );
+    );
 
-  const buffer = await pdf(document).toBuffer();
+    const buffer = await renderPdfBuffer(document);
 
-  return new Response(buffer as any, {
-    headers: {
-      "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename=invoice-${order.id}.pdf`,
-    },
-  });
+    return new Response(new Uint8Array(buffer), {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `inline; filename=invoice-${order.id}.pdf`,
+      },
+    });
+  } catch (err) {
+    console.error("Invoice PDF Error:", err);
+    return Response.json({ error: "Failed to generate invoice" }, { status: 500 });
+  }
 }
