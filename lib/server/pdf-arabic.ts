@@ -9,13 +9,17 @@ export function registerPdfFonts() {
 
   Font.register({
     family: "Cairo",
-    src: path.join(
-      process.cwd(),
-      "public",
-      "fonts",
-      "Cairo-VariableFont_slnt,wght.ttf"
-    ),
+    fonts: [400, 700, 900].map((fontWeight) => ({
+      src: path.join(
+        process.cwd(),
+        "public",
+        "fonts",
+        "NotoSansArabic-Regular.ttf"
+      ),
+      fontWeight,
+    })),
   });
+  Font.registerHyphenationCallback((word) => [word]);
 
   fontsRegistered = true;
 }
