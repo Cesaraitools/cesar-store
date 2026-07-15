@@ -39,7 +39,7 @@ export function pdfText(value: string | number | null | undefined) {
         ? reshaper.reshape(text)
         : text;
 
-    return shaped.split(" ").reverse().join(" ");
+    return shaped;
   } catch {
     return text;
   }
