@@ -179,7 +179,7 @@ export default function AdminOrderDetailsPage() {
             className="inline-flex items-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-4 py-2 text-sm font-bold text-blue-700 transition-colors hover:bg-blue-100"
           >
             <Printer size={16} />
-            {"\u062a\u0642\u0631\u064a\u0631 PDF"}
+            {"\u062a\u0642\u0631\u064a\u0631 \u0627\u0644\u0637\u0628\u0627\u0639\u0629 / PDF"}
           </a>
 
           <h1 className="text-2xl font-black text-slate-900">

@@ -1,23 +1,10 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-import React from "react";
 import QRCode from "qrcode";
-import {
-  Document,
-  Image,
-  Page,
-  StyleSheet,
-  Text,
-  View,
-  pdf,
-} from "@react-pdf/renderer";
 import { NextResponse } from "next/server";
 import { requireAdminRole } from "@/lib/admin/permissions";
-import { pdfText, registerPdfFonts } from "@/lib/server/pdf-arabic";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
-
-registerPdfFonts();
 
 const A = {
   reportTitle: "\u062a\u0642\u0631\u064a\u0631 \u062a\u0633\u0644\u064a\u0645 \u0627\u0644\u0637\u0644\u0628",
@@ -37,6 +24,7 @@ const A = {
   total: "\u0627\u0644\u0625\u062c\u0645\u0627\u0644\u064a",
   qrNote:
     "\u0627\u0645\u0633\u062d \u0627\u0644\u0631\u0645\u0632 \u0644\u062a\u062a\u0628\u0639 \u0627\u0644\u0637\u0644\u0628 \u0628\u0639\u062f \u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644",
+  print: "\u0637\u0628\u0627\u0639\u0629 \u0627\u0644\u062a\u0642\u0631\u064a\u0631",
   empty: "\u063a\u064a\u0631 \u0645\u062a\u0648\u0641\u0631",
 };
 
@@ -86,168 +74,309 @@ function getItemVariantText(item: any) {
     .join(" - ");
 }
 
-async function renderPdfBuffer(document: React.ReactElement) {
-  const output = await pdf(document).toBuffer();
-
-  if (Buffer.isBuffer(output)) {
-    return output;
-  }
-
-  const chunks: Buffer[] = [];
-  for await (const chunk of output as AsyncIterable<Buffer | Uint8Array | string>) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  }
-
-  return Buffer.concat(chunks);
+function escapeHtml(value: string | number | null | undefined) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
-const styles = StyleSheet.create({
-  page: {
-    padding: 36,
-    fontFamily: "Cairo",
-    fontSize: 10,
-    color: "#0f172a",
-    backgroundColor: "#ffffff",
-    direction: "rtl",
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    borderBottom: "1 solid #e2e8f0",
-    paddingBottom: 18,
-    marginBottom: 18,
-  },
-  brand: {
-    fontSize: 18,
-    fontWeight: 900,
-    color: "#111827",
-    direction: "ltr",
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: 900,
-    color: "#2563eb",
-    textAlign: "right",
-    direction: "rtl",
-  },
-  grid: {
-    flexDirection: "row",
-    gap: 16,
-    marginBottom: 16,
-  },
-  card: {
-    flex: 1,
-    border: "1 solid #e2e8f0",
-    borderRadius: 12,
-    padding: 14,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: 900,
-    marginBottom: 10,
-    color: "#2563eb",
-    textAlign: "right",
-    direction: "rtl",
-  },
-  line: {
-    marginBottom: 6,
-    textAlign: "right",
-    direction: "rtl",
-  },
-  label: {
-    color: "#64748b",
-  },
-  qrWrap: {
-    width: 150,
-    alignItems: "center",
-    border: "1 solid #e2e8f0",
-    borderRadius: 12,
-    padding: 10,
-  },
-  qr: {
-    width: 118,
-    height: 118,
-  },
-  qrText: {
-    marginTop: 8,
-    fontSize: 8,
-    color: "#475569",
-    textAlign: "center",
-    direction: "rtl",
-  },
-  table: {
-    border: "1 solid #e2e8f0",
-    borderRadius: 12,
-    overflow: "hidden",
-    marginTop: 4,
-  },
-  row: {
-    flexDirection: "row-reverse",
-    borderBottom: "1 solid #f1f5f9",
-    minHeight: 30,
-    alignItems: "center",
-  },
-  tableHeader: {
-    backgroundColor: "#f8fafc",
-    fontWeight: 900,
-  },
-  colName: {
-    width: "46%",
-    padding: 8,
-    textAlign: "right",
-    direction: "rtl",
-  },
-  colNameStack: {
-    width: "46%",
-    padding: 8,
-    direction: "rtl",
-  },
-  itemVariant: {
-    marginTop: 3,
-    color: "#475569",
-    fontSize: 8,
-    textAlign: "right",
-    direction: "rtl",
-  },
-  colQty: {
-    width: "14%",
-    padding: 8,
-    textAlign: "center",
-  },
-  colPrice: {
-    width: "20%",
-    padding: 8,
-    textAlign: "center",
-  },
-  colTotal: {
-    width: "20%",
-    padding: 8,
-    textAlign: "center",
-  },
-  totalBox: {
-    marginTop: 14,
-    alignSelf: "flex-start",
-    border: "1 solid #dbeafe",
-    backgroundColor: "#eff6ff",
-    borderRadius: 10,
-    padding: 12,
-    minWidth: 180,
-    direction: "rtl",
-  },
-  footer: {
-    position: "absolute",
-    bottom: 24,
-    left: 36,
-    right: 36,
-    color: "#94a3b8",
-    fontSize: 8,
-    borderTop: "1 solid #f1f5f9",
-    paddingTop: 10,
-    textAlign: "center",
-    direction: "ltr",
-  },
-});
+function formatDate(value: string | null | undefined) {
+  return value ? new Date(value).toLocaleDateString("en-GB") : A.empty;
+}
+
+function reportField(label: string, value: string | number | null | undefined) {
+  return `
+    <div class="field">
+      <span class="field-label">${escapeHtml(label)}:</span>
+      <span class="field-value">${escapeHtml(value || A.empty)}</span>
+    </div>
+  `;
+}
+
+function renderPrintableOrderReport(params: {
+  order: any;
+  customer: any;
+  items: any[];
+  qrDataUrl: string;
+  trackingUrl: string;
+}) {
+  const { order, customer, items, qrDataUrl, trackingUrl } = params;
+  const currency = order.currency || "EGP";
+  const rows = items
+    .map((item) => {
+      const price = Number(item?.price || 0);
+      const quantity = Number(item?.quantity || 0);
+      const variantText = getItemVariantText(item);
+
+      return `
+        <tr>
+          <td class="item-cell">
+            <div>${escapeHtml(getItemName(item))}</div>
+            ${variantText ? `<div class="variant">${escapeHtml(variantText)}</div>` : ""}
+          </td>
+          <td>${escapeHtml(quantity)}</td>
+          <td>${escapeHtml(`${price} ${currency}`)}</td>
+          <td>${escapeHtml(`${price * quantity} ${currency}`)}</td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  return `<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(A.reportTitle)} - ${escapeHtml(order.order_number || order.id)}</title>
+  <style>
+    @font-face {
+      font-family: "CesarArabic";
+      src: url("/fonts/NotoSansArabic-Regular.ttf") format("truetype");
+      font-weight: 400 900;
+      font-style: normal;
+      font-display: swap;
+    }
+    @page { size: A4; margin: 12mm; }
+    * { box-sizing: border-box; }
+    html {
+      direction: rtl;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+    }
+    body {
+      margin: 0;
+      background: #f8fafc;
+      color: #0f172a;
+      font-family: "CesarArabic", Tahoma, Arial, sans-serif;
+      font-size: 13px;
+      line-height: 1.8;
+    }
+    .print-bar {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      z-index: 10;
+    }
+    .print-button {
+      border: 0;
+      border-radius: 10px;
+      background: #2563eb;
+      color: #fff;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 800;
+      padding: 10px 16px;
+      box-shadow: 0 8px 20px rgba(37, 99, 235, 0.2);
+    }
+    .sheet {
+      width: 190mm;
+      min-height: 270mm;
+      margin: 18px auto;
+      padding: 12mm;
+      background: #fff;
+      border-radius: 18px;
+      box-shadow: 0 14px 38px rgba(15, 23, 42, 0.08);
+    }
+    .header {
+      direction: ltr;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 24px;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 18px;
+      margin-bottom: 18px;
+    }
+    .brand { direction: ltr; text-align: left; }
+    .brand-title { font-size: 24px; font-weight: 900; letter-spacing: 0; }
+    .order-short { color: #475569; font-weight: 700; margin-top: 4px; }
+    .report-title {
+      direction: rtl;
+      color: #2563eb;
+      font-size: 22px;
+      font-weight: 900;
+      margin: 0;
+      text-align: right;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 150px;
+      gap: 16px;
+      align-items: stretch;
+      margin-bottom: 24px;
+    }
+    .card {
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 16px;
+      min-height: 150px;
+    }
+    .card-title {
+      color: #2563eb;
+      font-size: 16px;
+      font-weight: 900;
+      margin-bottom: 12px;
+      text-align: right;
+    }
+    .field {
+      display: block;
+      margin-bottom: 8px;
+      overflow-wrap: anywhere;
+      text-align: right;
+      unicode-bidi: plaintext;
+    }
+    .field-label { color: #0f172a; font-weight: 900; }
+    .field-value {
+      color: #111827;
+      font-weight: 600;
+      white-space: pre-wrap;
+    }
+    .qr-card {
+      align-items: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      text-align: center;
+    }
+    .qr-card img { height: 118px; width: 118px; }
+    .qr-note {
+      color: #475569;
+      font-size: 11px;
+      line-height: 1.7;
+      margin-top: 8px;
+    }
+    .section-title {
+      color: #2563eb;
+      font-size: 18px;
+      font-weight: 900;
+      margin: 0 0 12px;
+      text-align: right;
+    }
+    table {
+      border: 1px solid #e2e8f0;
+      border-collapse: separate;
+      border-radius: 14px;
+      border-spacing: 0;
+      direction: rtl;
+      overflow: hidden;
+      table-layout: fixed;
+      width: 100%;
+    }
+    th,
+    td {
+      border-bottom: 1px solid #f1f5f9;
+      padding: 12px;
+      text-align: center;
+      vertical-align: middle;
+      word-break: normal;
+    }
+    th {
+      background: #f8fafc;
+      color: #0f172a;
+      font-weight: 900;
+    }
+    tr:last-child td { border-bottom: 0; }
+    .item-cell {
+      overflow-wrap: anywhere;
+      text-align: right;
+      unicode-bidi: plaintext;
+      width: 46%;
+    }
+    .variant {
+      color: #475569;
+      font-size: 11px;
+      margin-top: 4px;
+    }
+    .total-box {
+      background: #eff6ff;
+      border: 1px solid #dbeafe;
+      border-radius: 12px;
+      color: #0f172a;
+      display: inline-block;
+      font-size: 15px;
+      font-weight: 900;
+      margin-top: 18px;
+      min-width: 190px;
+      padding: 14px 18px;
+      text-align: right;
+    }
+    .footer {
+      border-top: 1px solid #f1f5f9;
+      color: #94a3b8;
+      direction: ltr;
+      font-size: 10px;
+      margin-top: 48px;
+      overflow-wrap: anywhere;
+      padding-top: 10px;
+      text-align: center;
+    }
+    @media print {
+      body { background: #fff; }
+      .print-bar { display: none; }
+      .sheet {
+        box-shadow: none;
+        margin: 0;
+        min-height: auto;
+        padding: 0;
+        width: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="print-bar">
+    <button class="print-button" type="button" onclick="window.print()">${escapeHtml(A.print)}</button>
+  </div>
+  <main class="sheet">
+    <header class="header">
+      <div class="brand">
+        <div class="brand-title">CESAR STORE</div>
+        <div class="order-short">Order ${escapeHtml(order.order_number || order.id.slice(0, 8))}</div>
+      </div>
+      <h1 class="report-title">${escapeHtml(A.reportTitle)}</h1>
+    </header>
+    <section class="grid">
+      <div class="card">
+        <div class="card-title">${escapeHtml(A.customerInfo)}</div>
+        ${reportField(A.name, customer.name || A.empty)}
+        ${reportField(A.phone, customer.phone || "-")}
+        ${reportField(A.address, customer.address || A.empty)}
+        ${reportField(A.email, customer.email || "-")}
+      </div>
+      <div class="card">
+        <div class="card-title">${escapeHtml(A.orderInfo)}</div>
+        ${reportField(A.orderNumber, order.order_number || order.id)}
+        ${reportField(A.date, formatDate(order.created_at))}
+        ${reportField(A.status, order.status || "requested")}
+      </div>
+      <div class="card qr-card">
+        <img src="${escapeHtml(qrDataUrl)}" alt="${escapeHtml(A.qrNote)}" />
+        <div class="qr-note">${escapeHtml(A.qrNote)}</div>
+      </div>
+    </section>
+    <section>
+      <h2 class="section-title">${escapeHtml(A.products)}</h2>
+      <table>
+        <thead>
+          <tr>
+            <th class="item-cell">${escapeHtml(A.item)}</th>
+            <th>${escapeHtml(A.qty)}</th>
+            <th>${escapeHtml(A.price)}</th>
+            <th>${escapeHtml(A.total)}</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </section>
+    <div class="total-box">${escapeHtml(A.total)}: ${escapeHtml(order.total)} ${escapeHtml(currency)}</div>
+    <footer class="footer">Printed ${escapeHtml(new Date().toLocaleString("en-GB"))} - ${escapeHtml(trackingUrl)}</footer>
+  </main>
+</body>
+</html>`;
+}
 
 export async function GET(
   request: Request,
@@ -279,114 +408,22 @@ export async function GET(
       width: 360,
     });
 
-    const document = React.createElement(
-      Document,
-      null,
-      React.createElement(
-        Page,
-        { size: "A4", style: styles.page },
-        React.createElement(
-          View,
-          { style: styles.header },
-          React.createElement(
-            View,
-            null,
-            React.createElement(Text, { style: styles.brand }, "CESAR STORE"),
-            React.createElement(Text, null, `Order ${order.order_number || order.id.slice(0, 8)}`)
-          ),
-          React.createElement(Text, { style: styles.title }, pdfText(A.reportTitle))
-        ),
-        React.createElement(
-          View,
-          { style: styles.grid },
-          React.createElement(
-            View,
-            { style: styles.card },
-            React.createElement(Text, { style: styles.sectionTitle }, pdfText(A.customerInfo)),
-            React.createElement(Text, { style: styles.line }, `${pdfText(A.name)}: ${pdfText(customer.name || A.empty)}`),
-            React.createElement(Text, { style: styles.line }, `${pdfText(A.phone)}: ${customer.phone || "-"}`),
-            React.createElement(Text, { style: styles.line }, `${pdfText(A.address)}: ${pdfText(customer.address || A.empty)}`),
-            React.createElement(Text, { style: styles.line }, `${pdfText(A.email)}: ${customer.email || "-"}`)
-          ),
-          React.createElement(
-            View,
-            { style: styles.card },
-            React.createElement(Text, { style: styles.sectionTitle }, pdfText(A.orderInfo)),
-            React.createElement(Text, { style: styles.line }, `${pdfText(A.orderNumber)}: ${order.order_number || order.id}`),
-            React.createElement(Text, { style: styles.line }, `${pdfText(A.date)}: ${new Date(order.created_at).toLocaleDateString("en-GB")}`),
-            React.createElement(Text, { style: styles.line }, `${pdfText(A.status)}: ${order.status || "requested"}`)
-          ),
-          React.createElement(
-            View,
-            { style: styles.qrWrap },
-            React.createElement(Image, { src: qrDataUrl, style: styles.qr }),
-            React.createElement(Text, { style: styles.qrText }, pdfText(A.qrNote))
-          )
-        ),
-        React.createElement(Text, { style: styles.sectionTitle }, pdfText(A.products)),
-        React.createElement(
-          View,
-          { style: styles.table },
-          React.createElement(
-            View,
-            { style: [styles.row, styles.tableHeader] },
-            React.createElement(Text, { style: styles.colName }, pdfText(A.item)),
-            React.createElement(Text, { style: styles.colQty }, pdfText(A.qty)),
-            React.createElement(Text, { style: styles.colPrice }, pdfText(A.price)),
-            React.createElement(Text, { style: styles.colTotal }, pdfText(A.total))
-          ),
-          ...items.map((item: any, index: number) => {
-            const price = Number(item?.price || 0);
-            const quantity = Number(item?.quantity || 0);
-            const variantText = getItemVariantText(item);
-            return React.createElement(
-              View,
-              { key: `${index}-${getItemName(item)}`, style: styles.row },
-              React.createElement(
-                View,
-                { style: styles.colNameStack },
-                React.createElement(
-                  Text,
-                  { style: { textAlign: "right", direction: "rtl" } },
-                  pdfText(getItemName(item))
-                ),
-                variantText
-                  ? React.createElement(Text, { style: styles.itemVariant }, pdfText(variantText))
-                  : null
-              ),
-              React.createElement(Text, { style: styles.colQty }, String(quantity)),
-              React.createElement(Text, { style: styles.colPrice }, `${price} ${order.currency || "EGP"}`),
-              React.createElement(Text, { style: styles.colTotal }, `${price * quantity} ${order.currency || "EGP"}`)
-            );
-          })
-        ),
-        React.createElement(
-          View,
-          { style: styles.totalBox },
-          React.createElement(
-            Text,
-            { style: { fontWeight: 900, textAlign: "right", direction: "rtl" } },
-            `${pdfText(A.total)}: ${order.total} ${order.currency || "EGP"}`
-          )
-        ),
-        React.createElement(
-          Text,
-          { style: styles.footer },
-          `Printed ${new Date().toLocaleString("en-GB")} - ${trackingUrl}`
-        )
-      )
-    );
+    const html = renderPrintableOrderReport({
+      order,
+      customer,
+      items,
+      qrDataUrl,
+      trackingUrl,
+    });
 
-    const buffer = await renderPdfBuffer(document);
-
-    return new Response(new Uint8Array(buffer), {
+    return new Response(html, {
       headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename=order-report-${order.id}.pdf`,
+        "Cache-Control": "no-store",
+        "Content-Type": "text/html; charset=utf-8",
       },
     });
   } catch (error) {
-    console.error("Admin order report PDF error:", error);
+    console.error("Admin order report render error:", error);
     return NextResponse.json(
       { error: "Failed to generate order report" },
       { status: 500 }
