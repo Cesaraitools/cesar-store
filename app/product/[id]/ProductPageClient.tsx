@@ -7,6 +7,7 @@ import type { Product } from "@/types/product";
 import { useCart } from "@/context/CartContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { normalizeCategory } from "@/lib/category-normalizer";
+import { trackViewItem } from "@/lib/google-ads-tracking";
 import { getSafeImage } from "@/lib/image-safe";
 import { getSeoProductDescription } from "@/lib/product-seo-description";
 import {
@@ -79,6 +80,23 @@ export default function ProductPageClient({ product, categories }: Props) {
       setMainImage(selectedVariant.image);
     }
   }, [selectedVariant?.image]);
+
+  useEffect(() => {
+    trackViewItem({
+      id: product.id,
+      name_ar: product.name.ar,
+      name_en: product.name.en,
+      price: displayPrice,
+      category: product.category,
+      variant_key: selectedVariant?.key || "",
+      variant: selectedVariant
+        ? createVariantSnapshot(
+            product.variantOptions || [],
+            selectedVariant.selections
+          )
+        : null,
+    });
+  }, [displayPrice, product, selectedVariant]);
 
   const handleAddToCart = () => {
     if (isAdding || isOutOfStock) return;

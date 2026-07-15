@@ -8,6 +8,7 @@ import { useCart } from "@/context/CartContext";
 import { useCheckout } from "@/context/CheckoutContext";
 import { useOrderTracking } from "@/context/OrderTrackingContext";
 import { useAuth } from "@/context/AuthContext";
+import { trackPurchase } from "@/lib/google-ads-tracking";
 import { createSafeUUID } from "@/lib/safe-uuid";
 import toast from "react-hot-toast";
 import { supabase } from "@/lib/supabaseClient";
@@ -191,6 +192,12 @@ export default function ReviewPage() {
         toast.error("تعذر استكمال الطلب، حاول مرة أخرى");
         return;
       }
+
+      trackPurchase({
+        transactionId: orderNumber || orderId,
+        value: total,
+        items: cartItems,
+      });
 
       saveOrders([
         ...loadOrders(),

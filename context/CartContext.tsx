@@ -10,6 +10,7 @@ import {
 } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { usePathname } from "next/navigation";
+import { trackAddToCart } from "@/lib/google-ads-tracking";
 import { createSafeUUID } from "@/lib/safe-uuid";
 import type { ProductVariantSnapshot } from "@/types/product";
 import toast from "react-hot-toast";
@@ -489,6 +490,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
             return;
           }
 
+          trackAddToCart(newItem);
+
           const itemsRes = await fetch("/api/cart/items", {
             headers: {
               Authorization: `Bearer ${session.access_token}`,
@@ -519,6 +522,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
       void syncWithDb();
     } else {
+      trackAddToCart(newItem);
       showAddedToCartToast();
     }
   };

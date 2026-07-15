@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { ReactNode } from "react";
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import * as Sentry from "@sentry/nextjs";
 import { Toaster } from "react-hot-toast";
 
@@ -93,6 +94,7 @@ export function generateMetadata(): Metadata {
 }
 
 export default function RootLayout({ children }: { children: ReactNode }) {
+  const googleTagId = process.env.NEXT_PUBLIC_GOOGLE_TAG_ID;
   const storeStructuredData = {
     "@context": "https://schema.org",
     "@type": "AutoPartsStore",
@@ -175,6 +177,22 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ar" className="scroll-smooth">
       <body className="bg-[#F8FAFC] min-h-screen text-slate-900 antialiased selection:bg-blue-600 selection:text-white">
+        {googleTagId && (
+          <>
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${googleTagId}`}
+              strategy="afterInteractive"
+            />
+            <Script id="google-tag" strategy="afterInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '${googleTagId}');
+              `}
+            </Script>
+          </>
+        )}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCheckout } from "@/context/CheckoutContext";
 import { preserveGuestCartForAuth, useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
+import { trackBeginCheckout } from "@/lib/google-ads-tracking";
 
 import {
   User,
@@ -79,6 +80,7 @@ export default function CheckoutPage() {
       notes: formData.notes,
     });
 
+    trackBeginCheckout(cartItems, total);
     router.push("/review");
   };
 
