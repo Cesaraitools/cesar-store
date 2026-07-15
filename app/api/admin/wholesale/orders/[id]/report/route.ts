@@ -154,6 +154,7 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: "#0f172a",
     backgroundColor: "#ffffff",
+    direction: "rtl",
   },
   header: {
     flexDirection: "row",
@@ -167,18 +168,21 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 900,
     color: "#111827",
+    direction: "ltr",
   },
   title: {
     fontSize: 16,
     fontWeight: 900,
     color: "#2563eb",
     textAlign: "right",
+    direction: "rtl",
   },
   status: {
     marginTop: 6,
     fontSize: 10,
     color: "#475569",
     textAlign: "right",
+    direction: "rtl",
   },
   grid: {
     flexDirection: "row",
@@ -198,6 +202,7 @@ const styles = StyleSheet.create({
     color: "#0f172a",
     marginBottom: 8,
     textAlign: "right",
+    direction: "rtl",
   },
   qrCard: {
     width: 128,
@@ -216,6 +221,7 @@ const styles = StyleSheet.create({
     fontSize: 7,
     color: "#475569",
     textAlign: "center",
+    direction: "rtl",
   },
   row: {
     flexDirection: "row",
@@ -229,12 +235,14 @@ const styles = StyleSheet.create({
     color: "#64748b",
     fontWeight: 700,
     textAlign: "right",
+    direction: "rtl",
   },
   value: {
     width: "65%",
     color: "#111827",
     fontWeight: 900,
     textAlign: "right",
+    direction: "rtl",
   },
   notes: {
     border: "1 solid #fde68a",
@@ -244,6 +252,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fffbeb",
     color: "#92400e",
     textAlign: "right",
+    direction: "rtl",
   },
   table: {
     border: "1 solid #e2e8f0",
@@ -264,6 +273,7 @@ const styles = StyleSheet.create({
     padding: 7,
     textAlign: "right",
     borderLeft: "1 solid #e2e8f0",
+    direction: "rtl",
   },
   headCell: {
     fontWeight: 900,
@@ -282,6 +292,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontSize: 8,
     color: "#c2410c",
+    direction: "rtl",
   },
   totalBox: {
     marginTop: 14,
@@ -296,6 +307,7 @@ const styles = StyleSheet.create({
     color: "#047857",
     fontWeight: 900,
     textAlign: "right",
+    direction: "rtl",
   },
   totalValue: {
     marginTop: 4,
@@ -303,6 +315,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 900,
     textAlign: "right",
+    direction: "rtl",
   },
   footer: {
     position: "absolute",
@@ -315,6 +328,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     color: "#64748b",
     fontSize: 8,
+    direction: "rtl",
   },
 });
 

@@ -69,6 +69,7 @@ const styles = StyleSheet.create({
     color: "#334155",
     backgroundColor: "#FFFFFF",
     fontFamily: "Cairo",
+    direction: "rtl",
   },
   brandHeader: {
     flexDirection: "row",
@@ -82,9 +83,11 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 900,
     color: "#0F172A",
+    direction: "ltr",
   },
   rightHeaderSection: {
     alignItems: "flex-end",
+    direction: "rtl",
   },
   logo: {
     width: 60,
@@ -103,10 +106,12 @@ const styles = StyleSheet.create({
   infoBlockRight: {
     width: "45%",
     alignItems: "flex-end",
+    direction: "rtl",
   },
   muted: {
     color: "#94A3B8",
     fontSize: 8,
+    direction: "rtl",
   },
   tableHeader: {
     flexDirection: "row-reverse",
@@ -120,12 +125,13 @@ const styles = StyleSheet.create({
     padding: 10,
     alignItems: "center",
   },
-  colDescription: { width: "50%", textAlign: "right" },
+  colDescription: { width: "50%", textAlign: "right", direction: "rtl" },
   itemVariant: {
     marginTop: 3,
     color: "#64748B",
     fontSize: 8,
     textAlign: "right",
+    direction: "rtl",
   },
   colQty: { width: "15%", textAlign: "center" },
   colPrice: { width: "15%", textAlign: "center" },
@@ -145,6 +151,7 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     color: "#94A3B8",
     fontSize: 8,
+    direction: "rtl",
   },
 });
 
@@ -205,7 +212,11 @@ export async function GET(_req: Request, { params }: { params: { orderId: string
             View,
             { style: styles.infoBlock },
             React.createElement(Text, { style: styles.muted }, pdfText("بيانات العميل")),
-            React.createElement(Text, { style: { fontWeight: 700 } }, pdfText(customer.name || "Customer")),
+            React.createElement(
+              Text,
+              { style: { fontWeight: 700, direction: "rtl" } },
+              pdfText(customer.name || "Customer")
+            ),
             React.createElement(Text, null, customer.phone || ""),
             React.createElement(Text, null, pdfText(customer.address || ""))
           ),

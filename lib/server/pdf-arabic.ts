@@ -1,5 +1,4 @@
 import path from "path";
-import arabicReshaper from "arabic-reshaper";
 import { Font } from "@react-pdf/renderer";
 
 let fontsRegistered = false;
@@ -26,21 +25,5 @@ export function registerPdfFonts() {
 
 export function pdfText(value: string | number | null | undefined) {
   const text = String(value ?? "");
-  if (!text) return "";
-
-  if (!/[\u0600-\u06FF]/.test(text)) return text;
-
-  try {
-    const reshaper = (arabicReshaper as any).default || arabicReshaper;
-    const shaped =
-      typeof reshaper.convertArabic === "function"
-        ? reshaper.convertArabic(text)
-        : typeof reshaper.reshape === "function"
-        ? reshaper.reshape(text)
-        : text;
-
-    return shaped;
-  } catch {
-    return text;
-  }
+  return text ? text.normalize("NFC") : "";
 }

@@ -108,6 +108,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: "#0f172a",
     backgroundColor: "#ffffff",
+    direction: "rtl",
   },
   header: {
     flexDirection: "row",
@@ -121,12 +122,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 900,
     color: "#111827",
+    direction: "ltr",
   },
   title: {
     fontSize: 16,
     fontWeight: 900,
     color: "#2563eb",
     textAlign: "right",
+    direction: "rtl",
   },
   grid: {
     flexDirection: "row",
@@ -145,10 +148,12 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     color: "#2563eb",
     textAlign: "right",
+    direction: "rtl",
   },
   line: {
     marginBottom: 6,
     textAlign: "right",
+    direction: "rtl",
   },
   label: {
     color: "#64748b",
@@ -169,6 +174,7 @@ const styles = StyleSheet.create({
     fontSize: 8,
     color: "#475569",
     textAlign: "center",
+    direction: "rtl",
   },
   table: {
     border: "1 solid #e2e8f0",
@@ -190,16 +196,19 @@ const styles = StyleSheet.create({
     width: "46%",
     padding: 8,
     textAlign: "right",
+    direction: "rtl",
   },
   colNameStack: {
     width: "46%",
     padding: 8,
+    direction: "rtl",
   },
   itemVariant: {
     marginTop: 3,
     color: "#475569",
     fontSize: 8,
     textAlign: "right",
+    direction: "rtl",
   },
   colQty: {
     width: "14%",
@@ -224,6 +233,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 12,
     minWidth: 180,
+    direction: "rtl",
   },
   footer: {
     position: "absolute",
@@ -235,6 +245,7 @@ const styles = StyleSheet.create({
     borderTop: "1 solid #f1f5f9",
     paddingTop: 10,
     textAlign: "center",
+    direction: "ltr",
   },
 });
 
@@ -334,7 +345,11 @@ export async function GET(
               React.createElement(
                 View,
                 { style: styles.colNameStack },
-                React.createElement(Text, { style: { textAlign: "right" } }, pdfText(getItemName(item))),
+                React.createElement(
+                  Text,
+                  { style: { textAlign: "right", direction: "rtl" } },
+                  pdfText(getItemName(item))
+                ),
                 variantText
                   ? React.createElement(Text, { style: styles.itemVariant }, pdfText(variantText))
                   : null
@@ -348,7 +363,11 @@ export async function GET(
         React.createElement(
           View,
           { style: styles.totalBox },
-          React.createElement(Text, { style: { fontWeight: 900 } }, `${pdfText(A.total)}: ${order.total} ${order.currency || "EGP"}`)
+          React.createElement(
+            Text,
+            { style: { fontWeight: 900, textAlign: "right", direction: "rtl" } },
+            `${pdfText(A.total)}: ${order.total} ${order.currency || "EGP"}`
+          )
         ),
         React.createElement(
           Text,
