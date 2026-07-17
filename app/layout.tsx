@@ -95,6 +95,14 @@ export function generateMetadata(): Metadata {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   const googleTagId = process.env.NEXT_PUBLIC_GOOGLE_TAG_ID;
+  const googleAnalyticsId =
+    process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID || "G-KF46KLF26M";
+  const googleTagLoaderId = googleTagId || googleAnalyticsId;
+  const googleConfigScript = Array.from(
+    new Set([googleTagId, googleAnalyticsId].filter(Boolean))
+  )
+    .map((id) => `gtag('config', '${id}');`)
+    .join("\n");
   const clarityProjectId =
     process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID || "xnk6ch24vb";
   const storeStructuredData = {
@@ -179,10 +187,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ar" className="scroll-smooth">
       <body className="bg-[#F8FAFC] min-h-screen text-slate-900 antialiased selection:bg-blue-600 selection:text-white">
-        {googleTagId && (
+        {googleTagLoaderId && (
           <>
             <Script
-              src={`https://www.googletagmanager.com/gtag/js?id=${googleTagId}`}
+              src={`https://www.googletagmanager.com/gtag/js?id=${googleTagLoaderId}`}
               strategy="afterInteractive"
             />
             <Script id="google-tag" strategy="afterInteractive">
@@ -190,7 +198,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 window.dataLayer = window.dataLayer || [];
                 function gtag(){dataLayer.push(arguments);}
                 gtag('js', new Date());
-                gtag('config', '${googleTagId}');
+                ${googleConfigScript}
               `}
             </Script>
           </>
