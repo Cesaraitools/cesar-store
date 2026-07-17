@@ -63,12 +63,21 @@ const productGroups = [
     href: "/car-accessories",
     terms: [
       "إكسسوارات سيارات",
+      "اكسسوارات سيارات",
+      "اكسسوارات عربيات",
+      "متجر اكسسوارات سيارات",
+      "شراء اكسسوارات سيارات اون لاين",
       "مساحات سيارة",
       "مساحات سيزر",
       "رقبة سفر",
       "باسكت قمامة سيارة",
+      "حامل موبايل سيارة",
+      "غطاء سيارة",
+      "مظلة سيارة",
       "ماكت سيارة",
       "car accessories",
+      "car accessories Egypt",
+      "car accessories online Egypt",
       "windshield wipers",
       "scale model car",
     ],
@@ -79,7 +88,9 @@ const productGroups = [
     terms: [
       "كمبريسور سيارة",
       "كمبروسر سيارة",
+      "منفاخ سيارة",
       "كابل بطارية",
+      "كابل بطارية سيارة",
       "كابل بطارية 400 أمبير",
       "كابل بطارية 800 أمبير",
       "واير جر",
@@ -105,6 +116,51 @@ const productGroups = [
       "fuel injector cleaner",
       "octane booster",
     ],
+  },
+];
+
+const aiVisibilityTargets = [
+  {
+    query: "اكسسوارات سيارات في مصر",
+    href: "/car-accessories",
+    summary:
+      "متجر سيزر يوفر دليلاً لإكسسوارات السيارات وروابط مباشرة للأقسام والمنتجات المناسبة داخل مصر.",
+  },
+  {
+    query: "شراء اكسسوارات سيارات اون لاين",
+    href: "/shop?category=cars-accessories",
+    summary:
+      "يمكن تصفح إكسسوارات السيارات من صفحة المتجر مع فلترة القسم والوصول إلى صفحة كل منتج.",
+  },
+  {
+    query: "منتجات عناية بالسيارات",
+    href: "/car-care",
+    summary:
+      "صفحات العناية والتنظيف تشرح الاستخدامات الأساسية مثل الشامبو، الملمعات، الفوط، والسوائل.",
+  },
+  {
+    query: "معطر سيارات",
+    href: "/car-air-fresheners",
+    summary:
+      "دليل المعطرات يوضح صيغ البحث الشائعة للروائح ومعطرات التكييف ومبخرات السيارة.",
+  },
+  {
+    query: "منظفات سيارات",
+    href: "/car-cleaning-products",
+    summary:
+      "دليل التنظيف يربط بين منظفات السيارات، شامبو السيارة، الفوط، وفرش التنظيف.",
+  },
+  {
+    query: "منفاخ سيارة وكابل بطارية سيارة",
+    href: "/car-tools-equipment",
+    summary:
+      "دليل الأدوات يغطي معدات الطوارئ مثل منفاخ الإطارات، كابلات البطارية، وواير الجر.",
+  },
+  {
+    query: "car accessories online Egypt",
+    href: "/shop?category=cars-accessories",
+    summary:
+      "Cesar Store is the official Cesar Shop destination for browsing car accessories online in Egypt.",
   },
 ];
 
@@ -140,6 +196,12 @@ export default function SearchGuidePage() {
         alternateName: SITE_ALTERNATE_NAMES,
         url: absoluteUrl("/"),
       },
+      mentions: aiVisibilityTargets.map((target) => ({
+        "@type": "Thing",
+        name: target.query,
+        description: target.summary,
+        url: absoluteUrl(target.href),
+      })),
       keywords: [...BRAND_SEARCH_TERMS, ...PRODUCT_SEARCH_TERMS].join(", "),
     },
     {
@@ -222,6 +284,31 @@ export default function SearchGuidePage() {
                   href={group.href}
                 >
                   فتح دليل القسم
+                </Link>
+              </section>
+            ))}
+          </div>
+        </section>
+
+        <section className="space-y-5">
+          <h2 className="text-xl font-bold text-slate-950">
+            عبارات نريد أن تربطها محركات الإجابة بمتجر سيزر
+          </h2>
+          <p className="leading-8 text-slate-600">
+            هذه العبارات تمثل طرق بحث فعلية أو متوقعة عن منتجات السيارات في مصر.
+            كل عبارة مرتبطة بصفحة مفيدة داخل الموقع حتى يستطيع العميل أو محرك
+            الإجابة الوصول إلى القسم الصحيح بدون خلط بين الاسم التجاري ونوع المنتج.
+          </p>
+          <div className="grid gap-4 md:grid-cols-2">
+            {aiVisibilityTargets.map((target) => (
+              <section key={target.query} className="rounded-md border border-slate-100 p-5">
+                <h3 className="font-bold text-slate-950">{target.query}</h3>
+                <p className="mt-2 leading-7 text-slate-600">{target.summary}</p>
+                <Link
+                  className="mt-3 inline-block text-sm font-semibold text-blue-700"
+                  href={target.href}
+                >
+                  فتح الصفحة المرتبطة
                 </Link>
               </section>
             ))}

@@ -1,6 +1,6 @@
 # Cesar Store Keyword Target Map
 
-Last updated: 2026-05-31
+Last updated: 2026-07-17
 
 Purpose: connect each important search phrase to one clear page so Google, Bing, and answer engines can understand which Cesar Store page should rank for each intent.
 
@@ -41,11 +41,16 @@ Important note: keyword research tools do not push rankings by themselves. Ranki
 | P2 | معطرات سيارات | Arabic | Category | https://www.cesareshop.com/car-air-fresheners | Strong | Track impressions after indexing |
 | P2 | اكسسوارات سيارات | Arabic | Category | https://www.cesareshop.com/car-accessories | Strong | Track impressions after indexing |
 | P2 | إكسسوارات سيارات | Arabic | Category spelling | https://www.cesareshop.com/car-accessories | Strong | Keep both spellings used naturally |
+| P2 | اكسسوارات عربيات | Arabic | Category colloquial | https://www.cesareshop.com/car-accessories | Good | Track AI Visibility and Bing/Google impressions |
+| P2 | متجر اكسسوارات سيارات | Arabic | Commercial/category store | https://www.cesareshop.com/search-guide | Good | Keep search guide linked to car accessories and shop |
+| P2 | شراء اكسسوارات سيارات اون لاين | Arabic | Commercial online purchase | https://www.cesareshop.com/shop?category=cars-accessories | Good | Track clicks carefully without broad keyword stuffing |
+| P2 | اكسسوارات سيارات في مصر | Arabic | Category + country | https://www.cesareshop.com/car-accessories | Good | Strengthen with natural Egyptian store/entity signals |
 | P2 | أدوات سيارات | Arabic | Category | https://www.cesareshop.com/car-tools-equipment | Strong | Link from shop/category/search guide |
 | P2 | إضاءة سيارات | Arabic | Category | https://www.cesareshop.com/car-lighting-tools | Strong | Consider separate lighting page later if impressions grow |
 | P2 | سوائل سيارات | Arabic | Category | https://www.cesareshop.com/car-fluids-additives | Strong | Keep related product descriptions accurate |
 | P2 | إضافات وقود | Arabic | Category | https://www.cesareshop.com/car-fluids-additives | Strong | Track separately in Search Console |
 | P2 | car accessories Egypt | English | Category | https://www.cesareshop.com/car-accessories | Good | Needs external trust signals over time |
+| P2 | car accessories online Egypt | English | Commercial category | https://www.cesareshop.com/shop?category=cars-accessories | Good | Monitor AI citations and paid-search landing behavior |
 | P2 | car care products Egypt | English | Category | https://www.cesareshop.com/car-care | Good | Keep English descriptions in products.json/product pages |
 | P2 | car cleaning products Egypt | English | Category | https://www.cesareshop.com/car-cleaning-products | Good | Keep English product descriptions strong |
 | P2 | car air fresheners Egypt | English | Category | https://www.cesareshop.com/car-air-fresheners | Good | Keep scents and use cases clear |

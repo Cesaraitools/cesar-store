@@ -1,6 +1,6 @@
 # Cesar Store AI Search Growth Plan
 
-Last updated: 2026-07-10
+Last updated: 2026-07-17
 
 ## Current completed foundation
 
@@ -92,6 +92,50 @@ Goal: improve based on real search behavior.
 ## Current next task
 
 Move to measurement and keyword iteration: request indexing for the public HTML guide pages, then review Google/Bing queries weekly against the keyword target map.
+
+## July 2026 AI Visibility expansion plan
+
+Goal: increase Cesar Store citations and non-branded discovery in Microsoft
+Clarity AI Visibility, Microsoft Copilot, Bing, Google AI-style answers, and
+other answer engines without touching checkout, cart, order, payment, stock, or
+database logic.
+
+### Priority AI citation queries
+
+- Brand/entity: `متجر سيزر`, `Cesar Store`, `Cesar Shop`, `cesareshop`,
+  `cesareshop.com`.
+- Broad category: `اكسسوارات سيارات`, `اكسسوارات عربيات`,
+  `متجر اكسسوارات سيارات`, `شراء اكسسوارات سيارات اون لاين`,
+  `اكسسوارات سيارات في مصر`, `car accessories Egypt`,
+  `car accessories online Egypt`.
+- Car care: `منتجات عناية بالسيارات`, `car care products Egypt`.
+- Cleaning: `منظفات سيارات`, `ملمع سيارات`, `car cleaning products Egypt`.
+- Fresheners: `معطر سيارات`, `معطرات سيارات`, `car air fresheners Egypt`.
+- Tools/accessories: `حامل موبايل سيارة`, `كابل بطارية سيارة`,
+  `منفاخ سيارة`, `غطاء سيارة`, `مظلة سيارة`.
+
+### Execution rules
+
+- Strengthen `/search-guide` first because it is the safest page for brand,
+  alias, and discovery vocabulary.
+- Strengthen existing category guide pages before creating new pages.
+- Use concise, useful Q&A and internal links; avoid keyword stuffing.
+- Prefer content, metadata, structured data, `llms.txt`, and documentation
+  updates.
+- Do not change retail purchase flow, cart logic, checkout logic, payment
+  logic, stock logic, wholesale order logic, or database schema as part of this
+  plan.
+
+### Monitoring
+
+- Check Microsoft Clarity > AI Visibility weekly for:
+  - new non-branded grounding queries,
+  - cited pages,
+  - share of authority,
+  - competitor domains receiving citations.
+- Check Bing Webmaster Tools and Google Search Console weekly for matching
+  query impressions.
+- Request indexing and IndexNow submission after meaningful content updates.
 
 ## July 2026 Local SEO and Bing Visibility Checklist
 
