@@ -9,6 +9,7 @@ import { useCheckout } from "@/context/CheckoutContext";
 import { useOrderTracking } from "@/context/OrderTrackingContext";
 import { useAuth } from "@/context/AuthContext";
 import { trackPurchase } from "@/lib/google-ads-tracking";
+import { CONTACT_WHATSAPP_URL } from "@/lib/seo";
 import { createSafeUUID } from "@/lib/safe-uuid";
 import toast from "react-hot-toast";
 import { supabase } from "@/lib/supabaseClient";
@@ -237,7 +238,7 @@ ${productsText}
 
 Order: ${orderNumber || orderId.slice(0, 8)}
 Tracking: ${trackingUrl}`;
-      const whatsappUrl = `https://wa.me/201211120208?text=${encodeURIComponent(enhancedMessage)}`;
+      const whatsappUrl = `${CONTACT_WHATSAPP_URL}?text=${encodeURIComponent(enhancedMessage)}`;
 
 if (whatsappWindow) {
   whatsappWindow.location.href = whatsappUrl;
