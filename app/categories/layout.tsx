@@ -6,7 +6,7 @@ import { DEFAULT_OG_IMAGE, SITE_NAME, absoluteUrl } from "@/lib/seo";
 export const metadata: Metadata = {
   title: "أقسام منتجات السيارات",
   description:
-    "استكشف أقسام متجر سيزر: معطرات سيارات، منظفات، إكسسوارات، أدوات، وإضاءة للسيارات.",
+    "تصفح أقسام متجر سيزر لمنتجات السيارات في مصر، واكتشف المعطرات، المنظفات، الإكسسوارات، أدوات الطوارئ، الإضاءة، وسوائل العناية المناسبة لسيارتك.",
   alternates: {
     canonical: "/categories",
   },
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     siteName: SITE_NAME,
     title: "أقسام منتجات السيارات | Cesar Store",
     description:
-      "تصفح أقسام متجر سيزر لاختيار منتجات العناية بالسيارات والإكسسوارات المناسبة لك.",
+      "استكشف أقسام Cesar Store لاختيار منتجات العناية بالسيارات، المعطرات، المنظفات، الإكسسوارات، الأدوات، الإضاءة، والسوائل داخل مصر.",
     url: absoluteUrl("/categories"),
     images: [absoluteUrl(DEFAULT_OG_IMAGE)],
   },
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "أقسام منتجات السيارات | Cesar Store",
     description:
-      "أقسام منتجات سيزر للسيارات: عناية، إكسسوارات، أدوات، معطرات، وإضاءة.",
+      "أقسام متجر سيزر تساعدك على الوصول بسرعة إلى منتجات العناية بالسيارات، الإكسسوارات، المعطرات، الأدوات، الإضاءة، والسوائل.",
     images: [absoluteUrl(DEFAULT_OG_IMAGE)],
   },
 };
