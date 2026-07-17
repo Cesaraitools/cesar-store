@@ -95,6 +95,8 @@ export function generateMetadata(): Metadata {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   const googleTagId = process.env.NEXT_PUBLIC_GOOGLE_TAG_ID;
+  const clarityProjectId =
+    process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID || "xnk6ch24vb";
   const storeStructuredData = {
     "@context": "https://schema.org",
     "@type": "AutoPartsStore",
@@ -192,6 +194,17 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               `}
             </Script>
           </>
+        )}
+        {clarityProjectId && (
+          <Script id="microsoft-clarity" strategy="afterInteractive">
+            {`
+              (function(c,l,a,r,i,t,y){
+                c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+                t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+                y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+              })(window, document, "clarity", "script", "${clarityProjectId}");
+            `}
+          </Script>
         )}
         <script
           type="application/ld+json"
