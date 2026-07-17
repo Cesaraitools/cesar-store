@@ -93,6 +93,10 @@ Goal: improve based on real search behavior.
 
 Move to measurement and keyword iteration: request indexing for the public HTML guide pages, then review Google/Bing queries weekly against the keyword target map.
 
+Operational tracker: use `docs/search-indexing-and-google-services-2026-07-17.md`
+as the fixed checklist for indexing URLs, Google services, Bing/IndexNow, and
+weekly monitoring.
+
 ## July 2026 AI Visibility expansion plan
 
 Goal: increase Cesar Store citations and non-branded discovery in Microsoft
