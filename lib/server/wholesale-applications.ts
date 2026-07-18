@@ -49,7 +49,7 @@ const WHOLESALE_CUSTOMER_STATUSES = new Set<WholesaleCustomerStatus>([
   "suspended",
 ]);
 
-function cleanText(value: FormDataEntryValue | null, maxLength = 500) {
+function cleanText(value: unknown, maxLength = 500) {
   return String(value || "")
     .trim()
     .replace(/\s+/g, " ")
@@ -677,6 +677,77 @@ export async function updateWholesaleCustomerStatus(input: {
   }
 
   return toWholesaleCustomerSummary(data);
+}
+
+export async function deleteWholesaleCustomerAccount(input: {
+  customerId: string;
+  adminEmail?: string | null;
+}) {
+  const customerId = cleanText(input.customerId, 80);
+
+  if (!customerId) {
+    throw new Error("حساب عميل الجملة غير موجود");
+  }
+
+  const supabase = createServiceRoleClient();
+  const { data: customer, error: customerError } = await supabase
+    .from("wholesale_customers")
+    .select("id, business_name, contact_name, email, auth_user_id")
+    .eq("id", customerId)
+    .maybeSingle();
+
+  if (customerError) {
+    throw customerError;
+  }
+
+  if (!customer) {
+    throw new Error("حساب عميل الجملة غير موجود");
+  }
+
+  const { count: ordersCount, error: ordersError } = await supabase
+    .from("wholesale_orders")
+    .select("id", { count: "exact", head: true })
+    .eq("wholesale_customer_id", customerId);
+
+  if (ordersError) {
+    throw ordersError;
+  }
+
+  if ((ordersCount || 0) > 0) {
+    throw new Error("لا يمكن حذف حساب عميل جملة لديه طلبات. أوقف الحساب بدلًا من الحذف أو احذف الطلبات المرتبطة أولًا.");
+  }
+
+  const adminEmail = normalizeOptional(
+    cleanText(input.adminEmail, 200)
+  ) || "admin";
+
+  const { error: auditError } = await supabase.from("admin_audit_logs").insert({
+    admin_email: adminEmail,
+    action: "delete",
+    entity: "wholesale_customers",
+    entity_id: customerId,
+    payload: {
+      businessName: customer.business_name,
+      contactName: customer.contact_name,
+      email: customer.email,
+      authUserId: customer.auth_user_id,
+      authUserDeleted: false,
+    },
+    created_at: new Date().toISOString(),
+  });
+
+  if (auditError) throw auditError;
+
+  const { error: deleteError } = await supabase
+    .from("wholesale_customers")
+    .delete()
+    .eq("id", customerId);
+
+  if (deleteError) {
+    throw deleteError;
+  }
+
+  return { id: customerId };
 }
 
 export async function getWholesaleCustomerForAuthUser(authUserId: string) {

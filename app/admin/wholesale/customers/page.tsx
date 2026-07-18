@@ -7,6 +7,7 @@ import {
   Phone,
   RefreshCw,
   Search,
+  Trash2,
   Users,
 } from "lucide-react";
 import type {
@@ -66,6 +67,9 @@ export default function AdminWholesaleCustomersPage() {
   const [statusFilter, setStatusFilter] = useState<
     WholesaleCustomerStatus | "all"
   >("all");
+  const [deletingCustomerId, setDeletingCustomerId] = useState<string | null>(
+    null
+  );
 
   async function loadCustomers(initial = false) {
     if (initial) setLoading(true);
@@ -152,6 +156,43 @@ export default function AdminWholesaleCustomersPage() {
     link.download = "wholesale-customers.csv";
     link.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function deleteCustomer(customer: WholesaleAdminCustomer) {
+    const label = customer.businessName || customer.contactName || customer.id;
+    if (
+      !window.confirm(
+        `هل تريد حذف حساب الجملة "${label}"؟ سيتم حذف صلاحية الجملة فقط ولن يتم حذف حساب تسجيل الدخول العام. لا يمكن حذف عميل لديه طلبات جملة مرتبطة.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setDeletingCustomerId(customer.id);
+      const response = await fetch(
+        `/api/admin/wholesale/customers/${customer.id}`,
+        { method: "DELETE" }
+      );
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "تعذر حذف حساب عميل الجملة");
+      }
+
+      setCustomers((current) =>
+        current.filter((currentCustomer) => currentCustomer.id !== customer.id)
+      );
+    } catch (deleteError) {
+      console.error("Wholesale customer delete failed", deleteError);
+      alert(
+        deleteError instanceof Error
+          ? deleteError.message
+          : "تعذر حذف حساب عميل الجملة"
+      );
+    } finally {
+      setDeletingCustomerId(null);
+    }
   }
 
   return (
@@ -246,7 +287,7 @@ export default function AdminWholesaleCustomersPage() {
         </div>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
-          <table className="w-full min-w-[920px] text-sm">
+          <table className="w-full min-w-[980px] text-sm">
             <thead className="bg-slate-50 text-xs font-black text-slate-500">
               <tr>
                 <th className="p-3 text-right">النشاط</th>
@@ -256,6 +297,7 @@ export default function AdminWholesaleCustomersPage() {
                 <th className="p-3 text-right">الربط</th>
                 <th className="p-3 text-right">تاريخ الاعتماد</th>
                 <th className="p-3 text-right">تواصل</th>
+                <th className="p-3 text-right">إدارة</th>
               </tr>
             </thead>
             <tbody>
@@ -307,6 +349,21 @@ export default function AdminWholesaleCustomersPage() {
                           غير متاح
                         </span>
                       )}
+                    </td>
+                    <td className="p-3">
+                      <button
+                        type="button"
+                        disabled={deletingCustomerId === customer.id}
+                        onClick={() => deleteCustomer(customer)}
+                        className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-black text-rose-700 transition hover:border-rose-400 disabled:opacity-60"
+                      >
+                        {deletingCustomerId === customer.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                        حذف حساب الجملة
+                      </button>
                     </td>
                   </tr>
                 );

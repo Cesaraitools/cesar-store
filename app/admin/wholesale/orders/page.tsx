@@ -456,6 +456,13 @@ export default function AdminWholesaleOrdersPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link
+            href="/admin/wholesale/orders/archive"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:border-blue-300 hover:text-blue-700"
+          >
+            <Archive className="h-4 w-4" />
+            أرشيف الجملة
+          </Link>
           <button
             type="button"
             onClick={exportOrdersCsv}

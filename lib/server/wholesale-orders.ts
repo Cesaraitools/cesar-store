@@ -660,6 +660,63 @@ export async function addWholesaleOrderItem(input: {
   return order;
 }
 
+export async function deleteWholesaleOrderPermanently(input: {
+  orderId: string;
+  adminEmail?: string | null;
+}) {
+  const orderId = cleanText(input.orderId, 80);
+
+  if (!orderId) {
+    throw new Error("طلب الجملة غير موجود");
+  }
+
+  const order = await getWholesaleOrderById(orderId);
+
+  if (!order) {
+    throw new Error("طلب الجملة غير موجود");
+  }
+
+  if (!order.archivedAt) {
+    throw new Error("يمكن حذف طلب الجملة نهائيًا من الأرشيف فقط");
+  }
+
+  const supabase = createServiceRoleClient();
+  const adminEmail = cleanText(input.adminEmail || "", 200) || "admin";
+
+  const { error: auditError } = await supabase.from("admin_audit_logs").insert({
+    admin_email: adminEmail,
+    action: "hard_delete",
+    entity: "wholesale_orders",
+    entity_id: orderId,
+    payload: {
+      orderNumber: order.orderNumber,
+      status: order.status,
+      subtotal: order.subtotal,
+      returns: order.returns.length,
+      items: order.items.length,
+    },
+    created_at: new Date().toISOString(),
+  });
+
+  if (auditError) throw auditError;
+
+  const { error: returnsError } = await supabase
+    .from("wholesale_order_returns")
+    .delete()
+    .eq("order_id", orderId);
+
+  if (returnsError) throw returnsError;
+
+  const { error: deleteError } = await supabase
+    .from("wholesale_orders")
+    .delete()
+    .eq("id", orderId);
+
+  if (deleteError) throw deleteError;
+
+  return { id: orderId };
+}
+
 export async function createWholesaleOrderReturn(input: {
   orderId: string;
   orderItemId: string;

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
+  Archive,
   Tag,
   Package,
   BarChart3,
@@ -67,6 +68,7 @@ export default function AdminClientLayout({
     { name: "Applications", href: "/admin/wholesale", icon: Store },
     { name: "Wholesale Customers", href: "/admin/wholesale/customers", icon: Users },
     { name: "Wholesale Orders", href: "/admin/wholesale/orders", icon: Package },
+    { name: "Wholesale Archive", href: "/admin/wholesale/orders/archive", icon: Archive },
     { name: "Wholesale Returns", href: "/admin/wholesale/returns", icon: RotateCcw },
     { name: "Products & Pricing", href: "/admin/wholesale/products", icon: Store },
     { name: "Wholesale Analytics", href: "/admin/wholesale/analytics", icon: BarChart3 },

@@ -159,7 +159,12 @@ Recommended implementation order:
    dedicated order details page. Done on 2026-07-18.
    Archive/restore and adding an item to a `preparing` wholesale order were
    enabled after the required SQL was applied manually on 2026-07-18.
+   A dedicated wholesale order archive page and permanent delete action for
+   archived wholesale orders were added on 2026-07-18.
 3. Add wholesale customers and returns as separate admin pages. Done on 2026-07-18.
+   Safe deletion for wholesale customer accounts was added on 2026-07-18. It
+   deletes only the wholesale customer record and refuses deletion when linked
+   wholesale orders exist.
 4. Add wholesale analytics and charts using read-only aggregate queries first. Done on 2026-07-18.
 5. Refine the wholesale product settings screen only as an overlay on retail
    products, without adding a separate wholesale catalog import/export path. Done on 2026-07-18.
@@ -174,6 +179,7 @@ Implemented wholesale admin pages on 2026-07-18:
 - `/admin/wholesale/overview`
 - `/admin/wholesale/customers`
 - `/admin/wholesale/orders/[id]`
+- `/admin/wholesale/orders/archive`
 - `/admin/wholesale/returns`
 - `/admin/wholesale/analytics`
 - `/admin/wholesale/charts`
@@ -186,12 +192,15 @@ Implemented wholesale admin APIs on 2026-07-18:
 - `/api/admin/wholesale/returns`
 - `/api/admin/wholesale/summary`
 - `/api/admin/wholesale/orders/[id]/archive`
+- `/api/admin/wholesale/orders/[id]/hard-delete`
 - `/api/admin/wholesale/orders/[id]/items`
+- `/api/admin/wholesale/customers/[id]`
 
 Archive/restore for wholesale orders is now available from the wholesale order
-list and details pages. Adding a product to an existing wholesale order is
-available only while the order is in `preparing`, and it uses the reviewed
-atomic SQL function from
+list, details, and dedicated archive pages. Permanent wholesale order deletion
+is available only from the archive flow. Adding a product to an existing
+wholesale order is available only while the order is in `preparing`, and it
+uses the reviewed atomic SQL function from
 `supabase/migrations/202607180001_wholesale_order_archive_and_add_item.sql` to
 update order totals and stock together.
 
