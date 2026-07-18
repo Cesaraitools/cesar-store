@@ -151,14 +151,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         name: category.titleEn,
         alternateName: category.titleAr,
         url: absoluteUrl(category.guidePath),
-        itemListElement: category.keywords.map((keyword) => ({
-          "@type": "Offer",
-          itemOffered: {
-            "@type": "Product",
-            name: keyword,
-            category: category.merchantProductType,
-          },
-        })),
+        category: category.merchantProductType,
+        keywords: category.keywords.join(", "),
       })),
     },
     inLanguage: ["ar-EG", "en"],
