@@ -4,6 +4,20 @@ import { deleteWholesaleOrderPermanently } from "@/lib/server/wholesale-orders";
 
 export const dynamic = "force-dynamic";
 
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (
+    error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof error.message === "string"
+  ) {
+    return error.message;
+  }
+
+  return "تعذر حذف طلب الجملة نهائيًا";
+}
+
 export async function POST(
   _request: Request,
   { params }: { params: { id: string } }
@@ -23,10 +37,7 @@ export async function POST(
 
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "تعذر حذف طلب الجملة نهائيًا",
+        error: getErrorMessage(error),
       },
       { status: 400 }
     );

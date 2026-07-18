@@ -755,7 +755,14 @@ export async function deleteWholesaleOrderPermanently(input: {
     created_at: new Date().toISOString(),
   });
 
-  if (auditError) throw auditError;
+  if (auditError) {
+    console.warn("WHOLESALE ORDER HARD DELETE AUDIT FAILED:", {
+      orderId,
+      code: auditError.code,
+      message: auditError.message,
+      details: auditError.details,
+    });
+  }
 
   const { error: returnsError } = await supabase
     .from("wholesale_order_returns")
@@ -763,6 +770,13 @@ export async function deleteWholesaleOrderPermanently(input: {
     .eq("order_id", orderId);
 
   if (returnsError) throw returnsError;
+
+  const { error: itemsError } = await supabase
+    .from("wholesale_order_items")
+    .delete()
+    .eq("order_id", orderId);
+
+  if (itemsError) throw itemsError;
 
   const { error: deleteError } = await supabase
     .from("wholesale_orders")
