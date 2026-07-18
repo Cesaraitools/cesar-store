@@ -336,7 +336,7 @@ export default function AdminWholesaleOrderDetailsPage() {
               className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-black text-blue-700 transition hover:border-blue-400"
             >
               <FileText className="h-4 w-4" />
-              تقرير PDF
+              تقرير طباعة
             </a>
             {whatsappUrl ? (
               <a

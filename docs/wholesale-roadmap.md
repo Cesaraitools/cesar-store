@@ -108,7 +108,7 @@ stable retail order behavior while implementing wholesale admin improvements.
 The current wholesale admin area has only three main screens:
 
 - `/admin/wholesale` for applications and account linking.
-- `/admin/wholesale/orders` for wholesale order review, status updates, PDF reports, WhatsApp follow-up, and embedded returns.
+- `/admin/wholesale/orders` for wholesale order review, status updates, print reports, WhatsApp follow-up, and embedded returns.
 - `/admin/wholesale/products` for wholesale product availability, piece price, minimum quantity, and notes.
 
 Retail admin currently has several management features that should be adapted
@@ -132,7 +132,7 @@ carefully to wholesale where the wholesale business model needs them:
 - Returns: a dedicated wholesale returns screen with filters, returned quantity
   tracking, order/customer/product context, and export, instead of relying only
   on the embedded order-card form.
-- Reports: review and harden wholesale PDF Arabic layout, then consider batch
+- Reports: review and harden wholesale Arabic print/PDF layout, then consider batch
   report/export actions.
 - Navigation: expand the wholesale admin section into clear tabs/pages instead
   of keeping all wholesale operations under only applications, orders, and
@@ -163,6 +163,9 @@ Recommended implementation order:
    products, without adding a separate wholesale catalog import/export path. Done on 2026-07-18.
 6. Review wholesale PDF Arabic output after the order detail and report flow are
    stable. QR tracking already exists in the protected wholesale order report.
+   The order report route is currently a print-friendly HTML report, not a
+   generated PDF binary. The admin button was renamed to "print report" on
+   2026-07-18 to avoid misleading operators.
 
 Implemented wholesale admin pages on 2026-07-18:
 
@@ -182,8 +185,15 @@ Implemented wholesale admin APIs on 2026-07-18:
 - `/api/admin/wholesale/summary`
 
 Archive/restore for wholesale orders remains intentionally deferred because the
-current wholesale order schema does not include an archive flag. Add it only
-after a reviewed SQL plan is approved.
+current production wholesale order schema does not include an archive flag.
+Reviewed SQL has been drafted in
+`supabase/migrations/202607180001_wholesale_order_archive_and_add_item.sql`,
+but it has not been applied to Supabase yet.
+
+Adding a product to an existing wholesale order while it is in `preparing` is
+also drafted in the same SQL file. It is intentionally not exposed in the admin
+UI until the SQL has been reviewed and applied, because the operation changes
+order totals and stock atomically.
 
 ## Roadmap Order
 
@@ -240,7 +250,7 @@ after a reviewed SQL plan is approved.
    - Statuses now match retail order stages: requested, confirmed, preparing, shipped, delivered, and canceled. Done locally.
    - Stock deduction is tied to the `confirmed` transition. Applied manually through Supabase SQL Editor.
    - Keep this separate from retail order screens. Done locally.
-   - Admin wholesale orders can now generate a protected PDF report for each wholesale order. Done locally and deployed.
+   - Admin wholesale orders can now generate a protected print report for each wholesale order. Done locally and deployed.
 
 8. Build wholesale sales returns.
    - Create a separate wholesale returns flow after the base wholesale order flow is stable. Done locally.
@@ -285,7 +295,16 @@ The wholesale migrations below were applied manually through Supabase SQL Editor
 
 Existing unit columns remain in the database for compatibility, but the application now writes and reads them as fixed piece values: `piece`, `قطعة`, and `1`.
 
-The remaining database-related work is not a new SQL migration. Browser flow testing for active wholesale account access, DB cart persistence, variant cart lines, atomic order creation from the DB cart, stock deduction on admin confirmation, cancellation restore, and returns restore was reported by the user as already performed previously. Do not repeat it unless the user asks for another test pass.
+Browser flow testing for active wholesale account access, DB cart persistence, variant cart lines, atomic order creation from the DB cart, stock deduction on admin confirmation, cancellation restore, and returns restore was reported by the user as already performed previously. Do not repeat it unless the user asks for another test pass.
+
+Pending SQL review/application:
+
+- `supabase/migrations/202607180001_wholesale_order_archive_and_add_item.sql`
+  adds `wholesale_orders.archived_at`, `wholesale_orders.archived_by`,
+  `archive_wholesale_order_atomic`, and `add_wholesale_order_item_atomic`.
+- Do not run `supabase db push` blindly. Apply this SQL manually through
+  Supabase SQL Editor only after review and approval, then enable the matching
+  admin UI/API in a separate code step.
 
 ## Architecture Principle
 

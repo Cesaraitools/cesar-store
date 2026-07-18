@@ -8,44 +8,6 @@ import { formatVariantSnapshot } from "@/lib/product-variants";
 import { getWholesaleOrderById } from "@/lib/server/wholesale-orders";
 import type { WholesaleOrder, WholesaleOrderItem, WholesaleOrderStatus } from "@/types/wholesale";
 
-const A = {
-  brand: "Cesar Store",
-  reportTitle: "تقرير طلب الجملة",
-  customerInfo: "بيانات عميل الجملة",
-  orderInfo: "بيانات الطلب",
-  products: "الأصناف",
-  businessName: "اسم الكيان",
-  contactName: "اسم المسؤول",
-  phone: "الهاتف",
-  whatsapp: "واتساب",
-  address: "العنوان",
-  city: "المدينة",
-  orderNumber: "رقم الطلب",
-  date: "تاريخ الطلب",
-  status: "الحالة",
-  notes: "ملاحظات",
-  item: "الصنف",
-  minQty: "أقل كمية",
-  qty: "الكمية",
-  price: "سعر القطعة",
-  returned: "المردود",
-  remaining: "المتبقي",
-  total: "الإجمالي",
-  grandTotal: "إجمالي طلب الجملة",
-  printedAt: "وقت الطباعة",
-  qrNote: "امسح الكود وسجل الدخول بنفس حساب عميل الجملة لمتابعة الطلب",
-  empty: "غير متوفر",
-};
-
-const statusLabels: Record<WholesaleOrderStatus, string> = {
-  requested: "تم الاستلام",
-  confirmed: "تم التأكيد",
-  preparing: "جاري التحضير",
-  shipped: "تم الشحن",
-  delivered: "تم التسليم",
-  canceled: "ملغي",
-};
-
 const R = {
   brand: "Cesar Store",
   reportTitle: "تقرير طلب الجملة",
@@ -89,19 +51,6 @@ function formatMoney(value: number, currency = "EGP") {
   return `${Number(value || 0).toLocaleString("ar-EG")} ${currency}`;
 }
 
-function formatDate(value: string | null | undefined) {
-  if (!value) return A.empty;
-
-  try {
-    return new Intl.DateTimeFormat("ar-EG", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(new Date(value));
-  } catch {
-    return value;
-  }
-}
-
 function normalizePhone(value: unknown) {
   const digits = String(value || "").replace(/\D/g, "");
 
@@ -133,11 +82,11 @@ function getWholesaleTrackingUrl(request: Request, order: WholesaleOrder) {
 
 function customerText(order: WholesaleOrder, field: string) {
   const value = order.customerSnapshot?.[field];
-  return typeof value === "string" && value.trim() ? value.trim() : A.empty;
+  return typeof value === "string" && value.trim() ? value.trim() : R.empty;
 }
 
 function itemName(item: WholesaleOrderItem) {
-  return item.productNameAr || item.productNameEn || A.empty;
+  return item.productNameAr || item.productNameEn || R.empty;
 }
 
 function itemVariant(item: WholesaleOrderItem) {
@@ -152,10 +101,6 @@ function itemVariant(item: WholesaleOrderItem) {
     });
     return "";
   }
-}
-
-function quantity(value: number) {
-  return `${Number(value || 0).toLocaleString("ar-EG")} قطعة`;
 }
 
 function escapeHtml(value: string | number | null | undefined) {
