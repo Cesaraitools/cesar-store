@@ -578,16 +578,73 @@ export async function archiveWholesaleOrder(input: {
     throw new Error("طلب الجملة غير موجود");
   }
 
-  const { data, error } = await createServiceRoleClient().rpc(
+  const supabase = createServiceRoleClient();
+  const archived = Boolean(input.archived);
+  const adminEmail = cleanText(input.adminEmail || "", 200) || null;
+
+  const { data, error } = await supabase.rpc(
     "archive_wholesale_order_atomic",
     {
       p_order_id: orderId,
-      p_archived: Boolean(input.archived),
-      p_admin_email: cleanText(input.adminEmail || "", 200) || null,
+      p_archived: archived,
+      p_admin_email: adminEmail,
     }
   );
 
-  if (error) throw error;
+  if (error) {
+    console.warn("WHOLESALE ORDER ARCHIVE RPC FAILED, USING DIRECT UPDATE:", {
+      orderId,
+      code: error.code,
+      message: error.message,
+      details: error.details,
+    });
+
+    const now = new Date().toISOString();
+    const { data: fallbackOrder, error: fallbackError } = await supabase
+      .from("wholesale_orders")
+      .update({
+        archived_at: archived ? now : null,
+        archived_by: archived ? adminEmail : null,
+        updated_at: now,
+      })
+      .eq("id", orderId)
+      .select("id")
+      .maybeSingle();
+
+    if (fallbackError) {
+      throw new Error(
+        fallbackError.message || "تعذر تحديث أرشفة طلب الجملة"
+      );
+    }
+
+    if (!fallbackOrder) {
+      throw new Error("طلب الجملة غير موجود");
+    }
+
+    const { error: auditError } = await supabase.from("admin_audit_logs").insert({
+      admin_email: adminEmail || "admin",
+      action: archived ? "archive" : "restore",
+      entity: "wholesale_orders",
+      entity_id: orderId,
+      payload: { archived },
+      created_at: now,
+    });
+
+    if (auditError) {
+      console.warn("WHOLESALE ORDER ARCHIVE AUDIT FAILED:", {
+        orderId,
+        code: auditError.code,
+        message: auditError.message,
+      });
+    }
+
+    const order = await getWholesaleOrderById(String(fallbackOrder.id));
+    if (!order) {
+      throw new Error("طلب الجملة غير موجود");
+    }
+
+    return order;
+  }
 
   const orderRow = Array.isArray(data) ? data[0] : data;
   if (!orderRow) {
