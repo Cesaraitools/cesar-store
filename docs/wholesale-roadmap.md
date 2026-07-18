@@ -157,6 +157,8 @@ Recommended implementation order:
    admin pages without changing retail screens. Done on 2026-07-18.
 2. Improve wholesale orders with date filters, pagination, CSV export, and a
    dedicated order details page. Done on 2026-07-18.
+   Archive/restore and adding an item to a `preparing` wholesale order were
+   enabled after the required SQL was applied manually on 2026-07-18.
 3. Add wholesale customers and returns as separate admin pages. Done on 2026-07-18.
 4. Add wholesale analytics and charts using read-only aggregate queries first. Done on 2026-07-18.
 5. Refine the wholesale product settings screen only as an overlay on retail
@@ -183,17 +185,15 @@ Implemented wholesale admin APIs on 2026-07-18:
 - `/api/admin/wholesale/customers`
 - `/api/admin/wholesale/returns`
 - `/api/admin/wholesale/summary`
+- `/api/admin/wholesale/orders/[id]/archive`
+- `/api/admin/wholesale/orders/[id]/items`
 
-Archive/restore for wholesale orders remains intentionally deferred because the
-current production wholesale order schema does not include an archive flag.
-Reviewed SQL has been drafted in
-`supabase/migrations/202607180001_wholesale_order_archive_and_add_item.sql`,
-but it has not been applied to Supabase yet.
-
-Adding a product to an existing wholesale order while it is in `preparing` is
-also drafted in the same SQL file. It is intentionally not exposed in the admin
-UI until the SQL has been reviewed and applied, because the operation changes
-order totals and stock atomically.
+Archive/restore for wholesale orders is now available from the wholesale order
+list and details pages. Adding a product to an existing wholesale order is
+available only while the order is in `preparing`, and it uses the reviewed
+atomic SQL function from
+`supabase/migrations/202607180001_wholesale_order_archive_and_add_item.sql` to
+update order totals and stock together.
 
 ## Roadmap Order
 

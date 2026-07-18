@@ -100,6 +100,8 @@ export type WholesaleProductSettingProduct = {
   active: boolean;
   image: string | null;
   setting: WholesaleProductSetting | null;
+  variantOptions?: import("@/types/product").ProductVariantOption[];
+  variants?: import("@/types/product").ProductVariant[];
 };
 
 export type WholesaleCatalogAccess = {
@@ -219,6 +221,8 @@ export type WholesaleOrder = {
   returns: WholesaleOrderReturn[];
   stockDeductedAt?: string | null;
   stockRestoredAt?: string | null;
+  archivedAt?: string | null;
+  archivedBy?: string | null;
   createdAt: string;
   updatedAt: string;
 };

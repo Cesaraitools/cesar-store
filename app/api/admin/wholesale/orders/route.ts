@@ -31,6 +31,12 @@ export async function GET(request: Request) {
       query,
       dateFrom: url.searchParams.get("from") || "",
       dateTo: url.searchParams.get("to") || "",
+      archived:
+        url.searchParams.get("archived") === "archived"
+          ? "archived"
+          : url.searchParams.get("archived") === "all"
+            ? "all"
+            : "active",
     });
 
     return NextResponse.json({ orders });

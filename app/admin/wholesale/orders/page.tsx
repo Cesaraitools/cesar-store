@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
+  Archive,
+  ArchiveRestore,
   BellRing,
   CheckCircle2,
   Clock3,
@@ -77,6 +79,8 @@ const statusOptions: Array<WholesaleOrderStatus | "all"> = [
   "delivered",
   "canceled",
 ];
+
+type ArchiveFilter = "active" | "archived" | "all";
 
 const allowedTransitions: Record<WholesaleOrderStatus, WholesaleOrderStatus[]> = {
   requested: ["confirmed", "canceled"],
@@ -175,6 +179,7 @@ export default function AdminWholesaleOrdersPage() {
   const [statusFilter, setStatusFilter] = useState<
     WholesaleOrderStatus | "all"
   >("all");
+  const [archiveFilter, setArchiveFilter] = useState<ArchiveFilter>("active");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [returningItemId, setReturningItemId] = useState<string | null>(null);
   const [returnForms, setReturnForms] = useState<
@@ -189,6 +194,7 @@ export default function AdminWholesaleOrdersPage() {
     try {
       const params = new URLSearchParams();
       params.set("status", statusFilter);
+      params.set("archived", archiveFilter);
       if (query.trim()) params.set("q", query.trim());
       if (dateFrom) params.set("from", dateFrom);
       if (dateTo) params.set("to", dateTo);
@@ -216,7 +222,7 @@ export default function AdminWholesaleOrdersPage() {
     setCurrentPage(1);
     loadOrders(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter]);
+  }, [archiveFilter, statusFilter]);
 
   const totals = useMemo(
     () => ({
@@ -306,6 +312,50 @@ export default function AdminWholesaleOrdersPage() {
         updateError instanceof Error
           ? updateError.message
           : "تعذر تحديث حالة طلب الجملة"
+      );
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
+  async function updateArchive(order: WholesaleOrder, archived: boolean) {
+    const confirmation = archived
+      ? "هل تريد أرشفة طلب الجملة؟ سيختفي من عرض الطلبات النشطة."
+      : "هل تريد استرجاع طلب الجملة من الأرشيف؟";
+
+    if (!window.confirm(confirmation)) return;
+
+    try {
+      setUpdatingId(order.id);
+      const response = await fetch(
+        `/api/admin/wholesale/orders/${order.id}/archive`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ archived }),
+        }
+      );
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "تعذر تحديث أرشفة طلب الجملة");
+      }
+
+      setOrders((current) => {
+        if (archiveFilter === "all") {
+          return current.map((item) =>
+            item.id === order.id ? payload.order : item
+          );
+        }
+
+        return current.filter((item) => item.id !== order.id);
+      });
+    } catch (archiveError) {
+      console.error("Wholesale order archive update failed", archiveError);
+      alert(
+        archiveError instanceof Error
+          ? archiveError.message
+          : "تعذر تحديث أرشفة طلب الجملة"
       );
     } finally {
       setUpdatingId(null);
@@ -427,7 +477,7 @@ export default function AdminWholesaleOrdersPage() {
         </div>
       </div>
 
-      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 lg:grid-cols-[1fr_180px_170px_170px_auto]">
+      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 lg:grid-cols-[1fr_180px_170px_170px_170px_auto]">
         <div className="relative">
           <Search className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
           <input
@@ -452,6 +502,17 @@ export default function AdminWholesaleOrdersPage() {
               {status === "all" ? "كل الحالات" : statusLabels[status]}
             </option>
           ))}
+        </select>
+        <select
+          value={archiveFilter}
+          onChange={(event) =>
+            setArchiveFilter(event.target.value as ArchiveFilter)
+          }
+          className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-black outline-none transition focus:border-blue-400 focus:bg-white"
+        >
+          <option value="active">الطلبات النشطة</option>
+          <option value="archived">الأرشيف</option>
+          <option value="all">النشطة والأرشيف</option>
         </select>
         <input
           type="date"
@@ -536,7 +597,9 @@ export default function AdminWholesaleOrdersPage() {
             <article
               key={order.id}
               className={`rounded-2xl border p-5 shadow-sm transition ${
-                isNewOrder
+                order.archivedAt
+                  ? "border-slate-300 bg-slate-50 opacity-90"
+                  : isNewOrder
                   ? "border-amber-300 bg-amber-50/70 shadow-amber-100"
                   : "border-slate-200 bg-white"
               }`}
@@ -558,6 +621,12 @@ export default function AdminWholesaleOrdersPage() {
                     >
                       {statusLabels[order.status]}
                     </span>
+                    {order.archivedAt ? (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-black text-slate-600">
+                        <Archive className="h-3.5 w-3.5" />
+                        مؤرشف
+                      </span>
+                    ) : null}
                   </div>
                   <p className="mt-2 text-sm font-bold text-slate-500">
                     {customerText(order, "businessName")} -{" "}
@@ -763,6 +832,7 @@ export default function AdminWholesaleOrdersPage() {
                         type="button"
                         disabled={
                           updatingId === order.id ||
+                          Boolean(order.archivedAt) ||
                           isCurrentStatus ||
                           !canMoveToStatus
                         }
@@ -796,6 +866,20 @@ export default function AdminWholesaleOrdersPage() {
                   <Eye className="h-4 w-4" />
                   تفاصيل الطلب
                 </Link>
+
+                <button
+                  type="button"
+                  disabled={updatingId === order.id}
+                  onClick={() => updateArchive(order, !order.archivedAt)}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-black text-slate-700 transition hover:border-slate-400 disabled:opacity-60"
+                >
+                  {order.archivedAt ? (
+                    <ArchiveRestore className="h-4 w-4" />
+                  ) : (
+                    <Archive className="h-4 w-4" />
+                  )}
+                  {order.archivedAt ? "استرجاع من الأرشيف" : "أرشفة"}
+                </button>
 
                 <a
                   href={`/api/admin/wholesale/orders/${order.id}/report`}

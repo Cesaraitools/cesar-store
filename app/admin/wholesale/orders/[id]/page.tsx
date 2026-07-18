@@ -2,19 +2,29 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
+  Archive,
+  ArchiveRestore,
   ArrowRight,
   CheckCircle2,
   Clock3,
   FileText,
   Loader2,
   Phone,
+  Plus,
   RefreshCw,
   XCircle,
 } from "lucide-react";
-import { formatVariantSnapshot } from "@/lib/product-variants";
-import type { WholesaleOrder, WholesaleOrderStatus } from "@/types/wholesale";
+import {
+  createVariantSnapshot,
+  formatVariantSnapshot,
+} from "@/lib/product-variants";
+import type {
+  WholesaleOrder,
+  WholesaleOrderStatus,
+  WholesaleProductSettingProduct,
+} from "@/types/wholesale";
 
 const statusLabels: Record<WholesaleOrderStatus, string> = {
   requested: "تم الاستلام",
@@ -95,6 +105,18 @@ function buildWhatsAppUrl(order: WholesaleOrder) {
   return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 }
 
+function isWholesaleProductReady(product: WholesaleProductSettingProduct) {
+  const enabled = product.setting?.isEnabled ?? true;
+  const price = Number(product.setting?.wholesalePrice || 0);
+  return product.active && product.stock > 0 && enabled && price > 0;
+}
+
+function getActiveVariants(product: WholesaleProductSettingProduct | null) {
+  if (!product?.variantOptions?.length || !product.variants?.length) return [];
+
+  return product.variants.filter((variant) => variant.active !== false);
+}
+
 export default function AdminWholesaleOrderDetailsPage() {
   const params = useParams<{ id: string }>();
   const orderId = params?.id;
@@ -103,6 +125,12 @@ export default function AdminWholesaleOrderDetailsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [products, setProducts] = useState<WholesaleProductSettingProduct[]>([]);
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [addProductId, setAddProductId] = useState("");
+  const [addVariantKey, setAddVariantKey] = useState("");
+  const [addUnits, setAddUnits] = useState("");
+  const [addingItem, setAddingItem] = useState(false);
 
   async function loadOrder(initial = false) {
     if (!orderId) return;
@@ -128,8 +156,31 @@ export default function AdminWholesaleOrderDetailsPage() {
     }
   }
 
+  async function loadProducts() {
+    try {
+      setProductsLoading(true);
+      const response = await fetch("/api/admin/wholesale/product-settings");
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "تعذر تحميل منتجات الجملة");
+      }
+
+      const nextProducts = Array.isArray(payload?.products)
+        ? payload.products.filter(isWholesaleProductReady)
+        : [];
+      setProducts(nextProducts);
+      setAddProductId((current) => current || nextProducts[0]?.id || "");
+    } catch (productError) {
+      console.error("Wholesale add-item products load failed", productError);
+    } finally {
+      setProductsLoading(false);
+    }
+  }
+
   useEffect(() => {
     loadOrder(true);
+    loadProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId]);
 
@@ -163,6 +214,121 @@ export default function AdminWholesaleOrderDetailsPage() {
   }
 
   const whatsappUrl = order ? buildWhatsAppUrl(order) : null;
+  const selectedProduct = useMemo(
+    () => products.find((product) => product.id === addProductId) || null,
+    [addProductId, products]
+  );
+  const activeVariants = useMemo(
+    () => getActiveVariants(selectedProduct),
+    [selectedProduct]
+  );
+  const selectedVariant = activeVariants.find(
+    (variant) => variant.key === addVariantKey
+  );
+  const selectedVariantSnapshot =
+    selectedProduct && selectedVariant
+      ? createVariantSnapshot(
+          selectedProduct.variantOptions || [],
+          selectedVariant.selections
+        )
+      : null;
+  const selectedVariantLabel =
+    selectedVariantSnapshot?.label_ar ||
+    selectedVariantSnapshot?.label_en ||
+    selectedVariant?.key ||
+    "";
+
+  async function updateArchive(archived: boolean) {
+    if (!order) return;
+
+    const confirmation = archived
+      ? "هل تريد أرشفة طلب الجملة؟ سيختفي من عرض الطلبات النشطة."
+      : "هل تريد استرجاع طلب الجملة من الأرشيف؟";
+
+    if (!window.confirm(confirmation)) return;
+
+    try {
+      setUpdating(true);
+      const response = await fetch(
+        `/api/admin/wholesale/orders/${order.id}/archive`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ archived }),
+        }
+      );
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "تعذر تحديث أرشفة طلب الجملة");
+      }
+
+      setOrder(payload.order);
+    } catch (archiveError) {
+      console.error("Wholesale order details archive update failed", archiveError);
+      alert(
+        archiveError instanceof Error
+          ? archiveError.message
+          : "تعذر تحديث أرشفة طلب الجملة"
+      );
+    } finally {
+      setUpdating(false);
+    }
+  }
+
+  async function addItemToOrder() {
+    if (!order || !selectedProduct) return;
+
+    const orderedUnits = Math.floor(Number(addUnits));
+
+    if (order.status !== "preparing" || order.archivedAt) {
+      alert("إضافة صنف متاحة فقط لطلب جملة نشط في حالة التحضير.");
+      return;
+    }
+
+    if (!Number.isFinite(orderedUnits) || orderedUnits <= 0) {
+      alert("اكتب كمية صحيحة أكبر من صفر.");
+      return;
+    }
+
+    if (activeVariants.length && !addVariantKey) {
+      alert("اختر نوع/متغير المنتج قبل الإضافة.");
+      return;
+    }
+
+    try {
+      setAddingItem(true);
+      const response = await fetch(`/api/admin/wholesale/orders/${order.id}/items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productId: selectedProduct.id,
+          variantKey: addVariantKey,
+          variantSnapshot: selectedVariantSnapshot,
+          orderedUnits,
+        }),
+      });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "تعذر إضافة الصنف إلى طلب الجملة");
+      }
+
+      setOrder(payload.order);
+      setAddUnits("");
+      setAddVariantKey("");
+      await loadProducts();
+    } catch (addError) {
+      console.error("Wholesale order add item failed", addError);
+      alert(
+        addError instanceof Error
+          ? addError.message
+          : "تعذر إضافة الصنف إلى طلب الجملة"
+      );
+    } finally {
+      setAddingItem(false);
+    }
+  }
 
   return (
     <div dir="rtl" className="space-y-6">
@@ -179,15 +345,32 @@ export default function AdminWholesaleOrderDetailsPage() {
             تفاصيل طلب الجملة
           </h1>
         </div>
-        <button
-          type="button"
-          onClick={() => loadOrder(false)}
-          disabled={refreshing}
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:border-blue-300 hover:text-blue-700 disabled:opacity-60"
-        >
-          <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-          تحديث
-        </button>
+        <div className="flex flex-wrap gap-2">
+          {order ? (
+            <button
+              type="button"
+              onClick={() => updateArchive(!order.archivedAt)}
+              disabled={updating}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:border-slate-400 disabled:opacity-60"
+            >
+              {order.archivedAt ? (
+                <ArchiveRestore className="h-4 w-4" />
+              ) : (
+                <Archive className="h-4 w-4" />
+              )}
+              {order.archivedAt ? "استرجاع من الأرشيف" : "أرشفة"}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => loadOrder(false)}
+            disabled={refreshing}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:border-blue-300 hover:text-blue-700 disabled:opacity-60"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+            تحديث
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -212,6 +395,12 @@ export default function AdminWholesaleOrderDetailsPage() {
                   >
                     {statusLabels[order.status]}
                   </span>
+                  {order.archivedAt ? (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600">
+                      <Archive className="h-3.5 w-3.5" />
+                      مؤرشف
+                    </span>
+                  ) : null}
                 </div>
                 <p className="mt-2 text-sm font-bold text-slate-500">
                   {formatDate(order.createdAt)}
@@ -247,7 +436,7 @@ export default function AdminWholesaleOrderDetailsPage() {
                   <button
                     key={status}
                     type="button"
-                    disabled={updating || isCurrent || !canMove}
+                    disabled={updating || Boolean(order.archivedAt) || isCurrent || !canMove}
                     onClick={() => updateStatus(status)}
                     className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 transition hover:border-blue-300 disabled:cursor-not-allowed disabled:opacity-50"
                   >
@@ -264,6 +453,122 @@ export default function AdminWholesaleOrderDetailsPage() {
               })}
             </div>
           </section>
+
+          {order.status === "preparing" && !order.archivedAt ? (
+            <section className="rounded-2xl border border-blue-100 bg-blue-50/70 p-5 shadow-sm">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-black text-blue-950">
+                    إضافة صنف على طلب قائم
+                  </h2>
+                  <p className="mt-1 text-sm font-bold text-blue-700">
+                    متاح فقط أثناء التحضير. الإضافة تخصم المخزون وتحدث إجمالي طلب الجملة ذريًا.
+                  </p>
+                </div>
+                <Plus className="h-5 w-5 text-blue-700" />
+              </div>
+
+              <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(180px,0.7fr)_150px_auto]">
+                <select
+                  value={addProductId}
+                  disabled={productsLoading || addingItem || !products.length}
+                  onChange={(event) => {
+                    setAddProductId(event.target.value);
+                    setAddVariantKey("");
+                  }}
+                  className="rounded-xl border border-blue-100 bg-white px-4 py-3 text-sm font-black text-slate-800 outline-none transition focus:border-blue-400 disabled:opacity-60"
+                >
+                  {products.length ? (
+                    products.map((product) => (
+                      <option key={product.id} value={product.id}>
+                        {product.name.ar || product.name.en} -{" "}
+                        {formatMoney(product.setting?.wholesalePrice || 0)}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="">لا توجد منتجات جملة جاهزة</option>
+                  )}
+                </select>
+
+                {activeVariants.length ? (
+                  <select
+                    value={addVariantKey}
+                    disabled={addingItem}
+                    onChange={(event) => setAddVariantKey(event.target.value)}
+                    className="rounded-xl border border-blue-100 bg-white px-4 py-3 text-sm font-black text-slate-800 outline-none transition focus:border-blue-400 disabled:opacity-60"
+                  >
+                    <option value="">اختر النوع</option>
+                    {activeVariants.map((variant) => {
+                      const snapshot = createVariantSnapshot(
+                        selectedProduct?.variantOptions || [],
+                        variant.selections
+                      );
+                      const label =
+                        snapshot.label_ar || snapshot.label_en || variant.key;
+                      const stock =
+                        typeof variant.stock === "number"
+                          ? Math.max(0, Math.floor(variant.stock))
+                          : selectedProduct?.stock || 0;
+
+                      return (
+                        <option key={variant.key} value={variant.key}>
+                          {label} - متاح {stock.toLocaleString("ar-EG")}
+                        </option>
+                      );
+                    })}
+                  </select>
+                ) : (
+                  <div className="rounded-xl border border-blue-100 bg-white px-4 py-3 text-sm font-black text-slate-500">
+                    بدون متغيرات
+                  </div>
+                )}
+
+                <input
+                  type="number"
+                  min={1}
+                  value={addUnits}
+                  disabled={addingItem || !selectedProduct}
+                  onChange={(event) => setAddUnits(event.target.value)}
+                  placeholder="الكمية"
+                  className="rounded-xl border border-blue-100 bg-white px-4 py-3 text-sm font-black text-slate-800 outline-none transition focus:border-blue-400 disabled:opacity-60"
+                />
+
+                <button
+                  type="button"
+                  disabled={addingItem || !selectedProduct || productsLoading}
+                  onClick={addItemToOrder}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-black text-white transition hover:bg-blue-800 disabled:opacity-60"
+                >
+                  {addingItem ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4" />
+                  )}
+                  إضافة
+                </button>
+              </div>
+
+              {selectedProduct ? (
+                <div className="mt-3 flex flex-wrap gap-2 text-xs font-black text-blue-800">
+                  <span className="rounded-full bg-white px-3 py-1">
+                    الحد الأدنى:{" "}
+                    {(selectedProduct.setting?.minOrderUnits || 1).toLocaleString(
+                      "ar-EG"
+                    )}{" "}
+                    قطعة
+                  </span>
+                  <span className="rounded-full bg-white px-3 py-1">
+                    المخزون: {selectedProduct.stock.toLocaleString("ar-EG")} قطعة
+                  </span>
+                  {selectedVariantLabel ? (
+                    <span className="rounded-full bg-white px-3 py-1">
+                      النوع: {selectedVariantLabel}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
+            </section>
+          ) : null}
 
           <section className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
             <table className="w-full min-w-[780px] text-sm">

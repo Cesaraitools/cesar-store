@@ -77,6 +77,7 @@ function toProduct(row: any, setting: WholesaleProductSetting | null): Wholesale
     active: Boolean(row.is_active ?? true),
     image: images[0] || null,
     setting,
+    ...getProductVariantData(row),
   };
 }
 

@@ -138,6 +138,8 @@ function toOrder(
     returns,
     stockDeductedAt: row.stock_deducted_at || null,
     stockRestoredAt: row.stock_restored_at || null,
+    archivedAt: row.archived_at || null,
+    archivedBy: row.archived_by || null,
     createdAt: row.created_at || new Date().toISOString(),
     updatedAt: row.updated_at || new Date().toISOString(),
   };
@@ -341,6 +343,7 @@ export async function listWholesaleOrdersForAdmin(options?: {
   query?: string;
   dateFrom?: string;
   dateTo?: string;
+  archived?: "active" | "archived" | "all";
 }) {
   const supabase = createServiceRoleClient();
   let ordersQuery = supabase
@@ -355,6 +358,12 @@ export async function listWholesaleOrdersForAdmin(options?: {
     WHOLESALE_ORDER_STATUSES.has(options.status)
   ) {
     ordersQuery = ordersQuery.eq("status", options.status);
+  }
+
+  if (options?.archived === "archived") {
+    ordersQuery = ordersQuery.not("archived_at", "is", null);
+  } else if (options?.archived !== "all") {
+    ordersQuery = ordersQuery.is("archived_at", null);
   }
 
   const dateFrom = cleanText(options?.dateFrom || "", 40);
@@ -551,6 +560,99 @@ export async function updateWholesaleOrderStatus(
 
   const order = await getWholesaleOrderById(String(orderRow.id));
 
+  if (!order) {
+    throw new Error("طلب الجملة غير موجود");
+  }
+
+  return order;
+}
+
+export async function archiveWholesaleOrder(input: {
+  orderId: string;
+  archived: boolean;
+  adminEmail?: string | null;
+}) {
+  const orderId = cleanText(input.orderId, 80);
+
+  if (!orderId) {
+    throw new Error("طلب الجملة غير موجود");
+  }
+
+  const { data, error } = await createServiceRoleClient().rpc(
+    "archive_wholesale_order_atomic",
+    {
+      p_order_id: orderId,
+      p_archived: Boolean(input.archived),
+      p_admin_email: cleanText(input.adminEmail || "", 200) || null,
+    }
+  );
+
+  if (error) throw error;
+
+  const orderRow = Array.isArray(data) ? data[0] : data;
+  if (!orderRow) {
+    throw new Error("طلب الجملة غير موجود");
+  }
+
+  const order = await getWholesaleOrderById(String(orderRow.id));
+  if (!order) {
+    throw new Error("طلب الجملة غير موجود");
+  }
+
+  return order;
+}
+
+export async function addWholesaleOrderItem(input: {
+  orderId: string;
+  productId: string;
+  orderedUnits: number;
+  variantKey?: string | null;
+  variantSnapshot?: unknown;
+  adminEmail?: string | null;
+}) {
+  const orderId = cleanText(input.orderId, 80);
+  const productId = cleanText(input.productId, 80);
+  const orderedUnits = toInteger(input.orderedUnits, 0);
+  const variantKey = normalizeVariantKey(input.variantKey || "");
+
+  if (!orderId || !productId || orderedUnits <= 0) {
+    throw new Error("بيانات الصنف المضاف غير صحيحة");
+  }
+
+  const { data, error } = await createServiceRoleClient().rpc(
+    "add_wholesale_order_item_atomic",
+    {
+      p_order_id: orderId,
+      p_product_id: productId,
+      p_ordered_units: orderedUnits,
+      p_variant_key: variantKey,
+      p_created_by: cleanText(input.adminEmail || "", 200) || null,
+    }
+  );
+
+  if (error) throw error;
+
+  const orderRow = Array.isArray(data) ? data[0] : data;
+  if (!orderRow) {
+    throw new Error("طلب الجملة غير موجود");
+  }
+
+  if (
+    variantKey &&
+    input.variantSnapshot &&
+    typeof input.variantSnapshot === "object"
+  ) {
+    const { error: snapshotError } = await createServiceRoleClient()
+      .from("wholesale_order_items")
+      .update({ variant_snapshot: input.variantSnapshot })
+      .eq("order_id", orderId)
+      .eq("product_id", productId)
+      .eq("variant_key", variantKey);
+
+    if (snapshotError) throw snapshotError;
+  }
+
+  const order = await getWholesaleOrderById(String(orderRow.id));
   if (!order) {
     throw new Error("طلب الجملة غير موجود");
   }
