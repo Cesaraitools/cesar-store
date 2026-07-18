@@ -15,6 +15,10 @@ import {
   LogOut,
   UserCircle,
   Store,
+  Users,
+  RotateCcw,
+  FileText,
+  Settings,
   ShieldAlert, // ✅ أضف ده
 } from "lucide-react";
 import type { AdminRole } from "@/lib/admin/permissions";
@@ -59,9 +63,16 @@ export default function AdminClientLayout({
     { name: "Products", href: "/admin/products", icon: Package },
   ];
   const wholesaleNavItems = [
-    { name: "Wholesale", href: "/admin/wholesale", icon: Store },
+    { name: "Wholesale Overview", href: "/admin/wholesale/overview", icon: LayoutDashboard },
+    { name: "Applications", href: "/admin/wholesale", icon: Store },
+    { name: "Wholesale Customers", href: "/admin/wholesale/customers", icon: Users },
     { name: "Wholesale Orders", href: "/admin/wholesale/orders", icon: Package },
-    { name: "Wholesale Products", href: "/admin/wholesale/products", icon: Store },
+    { name: "Wholesale Returns", href: "/admin/wholesale/returns", icon: RotateCcw },
+    { name: "Products & Pricing", href: "/admin/wholesale/products", icon: Store },
+    { name: "Wholesale Analytics", href: "/admin/wholesale/analytics", icon: BarChart3 },
+    { name: "Wholesale Charts", href: "/admin/wholesale/charts", icon: LineChart },
+    { name: "Reports & Exports", href: "/admin/wholesale/reports", icon: FileText },
+    { name: "Wholesale Settings", href: "/admin/wholesale/settings", icon: Settings },
   ];
   const promoNavItems = [
     { name: "إدارة الإعلانات والعروض", href: "/admin/promos", icon: TicketPercent },

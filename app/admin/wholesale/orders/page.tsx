@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   BellRing,
   CheckCircle2,
   Clock3,
+  Download,
+  Eye,
   FileText,
   Loader2,
   PackageCheck,
@@ -166,6 +169,9 @@ export default function AdminWholesaleOrdersPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<
     WholesaleOrderStatus | "all"
   >("all");
@@ -184,6 +190,8 @@ export default function AdminWholesaleOrdersPage() {
       const params = new URLSearchParams();
       params.set("status", statusFilter);
       if (query.trim()) params.set("q", query.trim());
+      if (dateFrom) params.set("from", dateFrom);
+      if (dateTo) params.set("to", dateTo);
 
       const response = await fetch(
         `/api/admin/wholesale/orders?${params.toString()}`
@@ -205,6 +213,7 @@ export default function AdminWholesaleOrdersPage() {
   }
 
   useEffect(() => {
+    setCurrentPage(1);
     loadOrders(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter]);
@@ -217,6 +226,59 @@ export default function AdminWholesaleOrdersPage() {
     }),
     [orders]
   );
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(orders.length / pageSize));
+  const paginatedOrders = useMemo(
+    () => orders.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [currentPage, orders]
+  );
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  function csvValue(value: unknown) {
+    return `"${String(value ?? "").replace(/"/g, '""')}"`;
+  }
+
+  function exportOrdersCsv() {
+    const rows = [
+      [
+        "order_number",
+        "status",
+        "business_name",
+        "contact_name",
+        "phone",
+        "whatsapp",
+        "subtotal",
+        "items",
+        "created_at",
+      ],
+      ...orders.map((order) => [
+        order.orderNumber,
+        order.status,
+        customerText(order, "businessName"),
+        customerText(order, "contactName"),
+        customerText(order, "phone"),
+        customerText(order, "whatsapp"),
+        order.subtotal,
+        order.items.length,
+        order.createdAt,
+      ]),
+    ];
+    const csv = rows.map((row) => row.map(csvValue).join(",")).join("\n");
+    const blob = new Blob([`\uFEFF${csv}`], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "wholesale-orders.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
 
   async function updateStatus(
     order: WholesaleOrder,
@@ -343,18 +405,29 @@ export default function AdminWholesaleOrdersPage() {
             مراجعة طلبات الشراء بالجملة والتواصل اليدوي مع العملاء.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => loadOrders(false)}
-          disabled={refreshing}
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:border-blue-300 hover:text-blue-700 disabled:opacity-60"
-        >
-          <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-          تحديث
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={exportOrdersCsv}
+            disabled={!orders.length}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:border-blue-300 hover:text-blue-700 disabled:opacity-60"
+          >
+            <Download className="h-4 w-4" />
+            CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => loadOrders(false)}
+            disabled={refreshing}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:border-blue-300 hover:text-blue-700 disabled:opacity-60"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+            تحديث
+          </button>
+        </div>
       </div>
 
-      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-[1fr_220px_auto]">
+      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 lg:grid-cols-[1fr_180px_170px_170px_auto]">
         <div className="relative">
           <Search className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
           <input
@@ -380,9 +453,24 @@ export default function AdminWholesaleOrdersPage() {
             </option>
           ))}
         </select>
+        <input
+          type="date"
+          value={dateFrom}
+          onChange={(event) => setDateFrom(event.target.value)}
+          className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold outline-none transition focus:border-blue-400 focus:bg-white"
+        />
+        <input
+          type="date"
+          value={dateTo}
+          onChange={(event) => setDateTo(event.target.value)}
+          className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold outline-none transition focus:border-blue-400 focus:bg-white"
+        />
         <button
           type="button"
-          onClick={() => loadOrders(false)}
+          onClick={() => {
+            setCurrentPage(1);
+            loadOrders(false);
+          }}
           className="rounded-xl bg-slate-950 px-5 py-3 text-sm font-black text-white transition hover:bg-blue-700"
         >
           بحث
@@ -440,7 +528,7 @@ export default function AdminWholesaleOrdersPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {orders.map((order) => {
+          {paginatedOrders.map((order) => {
             const whatsappUrl = buildWhatsAppUrl(order);
             const isNewOrder = isUnhandledNewOrder(order);
 
@@ -701,6 +789,14 @@ export default function AdminWholesaleOrdersPage() {
                   })}
                 </div>
 
+                <Link
+                  href={`/admin/wholesale/orders/${order.id}`}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-black text-slate-700 transition hover:border-blue-300 hover:text-blue-700"
+                >
+                  <Eye className="h-4 w-4" />
+                  تفاصيل الطلب
+                </Link>
+
                 <a
                   href={`/api/admin/wholesale/orders/${order.id}/report`}
                   target="_blank"
@@ -731,6 +827,35 @@ export default function AdminWholesaleOrdersPage() {
             </article>
             );
           })}
+          {totalPages > 1 ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+              <p className="text-sm font-bold text-slate-500">
+                صفحة {currentPage.toLocaleString("ar-EG")} من{" "}
+                {totalPages.toLocaleString("ar-EG")} - إجمالي{" "}
+                {orders.length.toLocaleString("ar-EG")} طلب
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                  disabled={currentPage <= 1}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 transition hover:border-blue-300 disabled:opacity-50"
+                >
+                  السابق
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCurrentPage((page) => Math.min(totalPages, page + 1))
+                  }
+                  disabled={currentPage >= totalPages}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 transition hover:border-blue-300 disabled:opacity-50"
+                >
+                  التالي
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       )}
     </div>

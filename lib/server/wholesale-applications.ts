@@ -3,6 +3,7 @@ import path from "path";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
 import type {
   WholesaleApplication,
+  WholesaleAdminCustomer,
   WholesaleApplicationDocument,
   WholesaleDocumentType,
   WholesaleEntityType,
@@ -114,6 +115,29 @@ function toWholesaleCustomerSummary(row: any) {
     status: row.status || "pending_account",
     authUserId: row.auth_user_id ? String(row.auth_user_id) : null,
     approvedAt: row.approved_at || new Date().toISOString(),
+  };
+}
+
+function toWholesaleAdminCustomer(row: any): WholesaleAdminCustomer {
+  return {
+    id: String(row.id),
+    applicationId: row.application_id ? String(row.application_id) : null,
+    businessName: row.business_name || "",
+    entityType: row.entity_type || "other",
+    contactName: row.contact_name || "",
+    phone: row.phone || "",
+    whatsapp: row.whatsapp || "",
+    email: row.email || null,
+    governorate: row.governorate || "",
+    city: row.city || "",
+    address: row.address || null,
+    taxNumber: row.tax_number || null,
+    commercialRegisterNumber: row.commercial_register_number || null,
+    status: row.status || "pending_account",
+    authUserId: row.auth_user_id ? String(row.auth_user_id) : null,
+    approvedAt: row.approved_at || null,
+    createdAt: row.created_at || row.approved_at || new Date().toISOString(),
+    updatedAt: row.updated_at || new Date().toISOString(),
   };
 }
 
@@ -353,6 +377,62 @@ export async function listWholesaleApplications() {
       wholesaleCustomer:
         customerByApplicationId.get(String(application.id)) || null,
     })
+  );
+}
+
+export async function listWholesaleCustomersForAdmin(options?: {
+  status?: WholesaleCustomerStatus | "all";
+  query?: string;
+}) {
+  const supabase = createServiceRoleClient();
+  let customersQuery = supabase
+    .from("wholesale_customers")
+    .select("*")
+    .order("approved_at", { ascending: false })
+    .limit(300);
+
+  if (
+    options?.status &&
+    options.status !== "all" &&
+    WHOLESALE_CUSTOMER_STATUSES.has(options.status)
+  ) {
+    customersQuery = customersQuery.eq("status", options.status);
+  }
+
+  const { data, error } = await customersQuery;
+
+  if (error) {
+    throw error;
+  }
+
+  const normalizedQuery = String(options?.query || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .slice(0, 120)
+    .toLowerCase();
+
+  const customers = (data || []).map(toWholesaleAdminCustomer);
+
+  if (!normalizedQuery) {
+    return customers;
+  }
+
+  return customers.filter((customer) =>
+    [
+      customer.businessName,
+      customer.contactName,
+      customer.phone,
+      customer.whatsapp,
+      customer.email,
+      customer.governorate,
+      customer.city,
+      customer.taxNumber,
+      customer.commercialRegisterNumber,
+      customer.authUserId,
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(normalizedQuery)
   );
 }
 

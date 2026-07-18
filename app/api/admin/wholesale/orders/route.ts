@@ -26,7 +26,12 @@ export async function GET(request: Request) {
         ? (rawStatus as WholesaleOrderStatus)
         : "all";
     const query = url.searchParams.get("q") || "";
-    const orders = await listWholesaleOrdersForAdmin({ status, query });
+    const orders = await listWholesaleOrdersForAdmin({
+      status,
+      query,
+      dateFrom: url.searchParams.get("from") || "",
+      dateTo: url.searchParams.get("to") || "",
+    });
 
     return NextResponse.json({ orders });
   } catch (error) {

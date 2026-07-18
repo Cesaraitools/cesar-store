@@ -84,6 +84,7 @@ export default function AdminWholesaleProductsPage() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ProductFilter>("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
 
   async function loadProducts(initial = false) {
     if (initial) setLoading(true);
@@ -162,10 +163,16 @@ export default function AdminWholesaleProductsPage() {
 
       return (
         matchesFilter &&
+        (categoryFilter === "all" || product.category === categoryFilter) &&
         (!normalizedQuery || productSearchText(product).includes(normalizedQuery))
       );
     });
-  }, [drafts, filter, products, query]);
+  }, [categoryFilter, drafts, filter, products, query]);
+
+  const categories = useMemo(
+    () => Array.from(new Set(products.map((product) => product.category))).sort(),
+    [products]
+  );
 
   function updateDraft(productId: string, updates: Partial<Draft>) {
     setDrafts((current) => ({
@@ -253,7 +260,13 @@ export default function AdminWholesaleProductsPage() {
         <SummaryCard label="نفد المخزون" value={productStats.outOfStock} tone="rose" />
       </div>
 
-      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-[1fr_220px]">
+      <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold leading-7 text-blue-800">
+        هذه الشاشة لا تنشئ كتالوج جملة مستقل. المنتجات هنا مقروءة من كتالوج التجزئة،
+        والتعديل مسموح فقط على بيانات الجملة الإضافية: التفعيل، سعر القطعة، الحد الأدنى،
+        والملاحظات.
+      </div>
+
+      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 lg:grid-cols-[1fr_220px_220px]">
         <label className="relative block">
           <Search className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
@@ -263,6 +276,18 @@ export default function AdminWholesaleProductsPage() {
             className="field-input pr-11"
           />
         </label>
+        <select
+          value={categoryFilter}
+          onChange={(event) => setCategoryFilter(event.target.value)}
+          className="field-input"
+        >
+          <option value="all">كل الأقسام</option>
+          {categories.map((category) => (
+            <option key={category} value={category}>
+              {category}
+            </option>
+          ))}
+        </select>
         <select
           value={filter}
           onChange={(event) => setFilter(event.target.value as ProductFilter)}

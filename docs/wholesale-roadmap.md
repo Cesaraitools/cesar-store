@@ -1,6 +1,6 @@
 # Cesar Store Wholesale Roadmap
 
-Last updated: 2026-07-03
+Last updated: 2026-07-18
 
 ## Current Status
 
@@ -98,6 +98,92 @@ Last updated: 2026-07-03
   - `wholesale_customers`
   - `wholesale_product_settings`
   - private `wholesale-documents` storage bucket
+
+## Wholesale Admin Parity Plan
+
+Retail admin screens may be read only as a reference for mature admin patterns.
+Do not modify retail admin screens, retail cart logic, retail checkout logic, or
+stable retail order behavior while implementing wholesale admin improvements.
+
+The current wholesale admin area has only three main screens:
+
+- `/admin/wholesale` for applications and account linking.
+- `/admin/wholesale/orders` for wholesale order review, status updates, PDF reports, WhatsApp follow-up, and embedded returns.
+- `/admin/wholesale/products` for wholesale product availability, piece price, minimum quantity, and notes.
+
+Retail admin currently has several management features that should be adapted
+carefully to wholesale where the wholesale business model needs them:
+
+- Orders: date filters, pagination, CSV export, row selection, bulk actions,
+  archive/restore workflow, and a dedicated order details page.
+- Analytics: wholesale revenue, order count, average order value, delivered and
+  canceled counts, return totals, top wholesale customer, top wholesale product,
+  and top wholesale category.
+- Charts: compact visual summaries for wholesale sales by date, status,
+  customer, product, and category.
+- Products and pricing: keep wholesale products derived from the existing retail
+  product catalog, and manage only wholesale-specific overlay fields such as
+  enabled/disabled status, wholesale piece price, minimum order quantity, notes,
+  missing-price indicators, low-stock visibility, and variant-aware wholesale
+  setup review.
+- Customers: a dedicated wholesale customer screen separate from applications,
+  with active/suspended/pending filters, account-linking status, review notes,
+  WhatsApp action, and export.
+- Returns: a dedicated wholesale returns screen with filters, returned quantity
+  tracking, order/customer/product context, and export, instead of relying only
+  on the embedded order-card form.
+- Reports: review and harden wholesale PDF Arabic layout, then consider batch
+  report/export actions.
+- Navigation: expand the wholesale admin section into clear tabs/pages instead
+  of keeping all wholesale operations under only applications, orders, and
+  products.
+
+Recommended wholesale admin tabs/pages:
+
+- Overview
+- Applications
+- Customers
+- Orders
+- Returns
+- Products & Pricing
+- Analytics
+- Charts
+- Reports & Exports
+- Settings
+
+Recommended implementation order:
+
+1. Add navigation structure and placeholder-safe routes for missing wholesale
+   admin pages without changing retail screens. Done on 2026-07-18.
+2. Improve wholesale orders with date filters, pagination, CSV export, and a
+   dedicated order details page. Done on 2026-07-18.
+3. Add wholesale customers and returns as separate admin pages. Done on 2026-07-18.
+4. Add wholesale analytics and charts using read-only aggregate queries first. Done on 2026-07-18.
+5. Refine the wholesale product settings screen only as an overlay on retail
+   products, without adding a separate wholesale catalog import/export path. Done on 2026-07-18.
+6. Review wholesale PDF Arabic output after the order detail and report flow are
+   stable. QR tracking already exists in the protected wholesale order report.
+
+Implemented wholesale admin pages on 2026-07-18:
+
+- `/admin/wholesale/overview`
+- `/admin/wholesale/customers`
+- `/admin/wholesale/orders/[id]`
+- `/admin/wholesale/returns`
+- `/admin/wholesale/analytics`
+- `/admin/wholesale/charts`
+- `/admin/wholesale/reports`
+- `/admin/wholesale/settings`
+
+Implemented wholesale admin APIs on 2026-07-18:
+
+- `/api/admin/wholesale/customers`
+- `/api/admin/wholesale/returns`
+- `/api/admin/wholesale/summary`
+
+Archive/restore for wholesale orders remains intentionally deferred because the
+current wholesale order schema does not include an archive flag. Add it only
+after a reviewed SQL plan is approved.
 
 ## Roadmap Order
 

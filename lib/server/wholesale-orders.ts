@@ -1,5 +1,6 @@
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
 import type {
+  WholesaleAdminReturn,
   WholesaleOrder,
   WholesaleOrderItem,
   WholesaleOrderReturn,
@@ -338,6 +339,8 @@ export async function listWholesaleOrdersForUser(authUserId: string) {
 export async function listWholesaleOrdersForAdmin(options?: {
   status?: WholesaleOrderStatus | "all";
   query?: string;
+  dateFrom?: string;
+  dateTo?: string;
 }) {
   const supabase = createServiceRoleClient();
   let ordersQuery = supabase
@@ -352,6 +355,23 @@ export async function listWholesaleOrdersForAdmin(options?: {
     WHOLESALE_ORDER_STATUSES.has(options.status)
   ) {
     ordersQuery = ordersQuery.eq("status", options.status);
+  }
+
+  const dateFrom = cleanText(options?.dateFrom || "", 40);
+  const dateTo = cleanText(options?.dateTo || "", 40);
+
+  if (dateFrom) {
+    const fromDate = new Date(`${dateFrom}T00:00:00.000Z`);
+    if (!Number.isNaN(fromDate.getTime())) {
+      ordersQuery = ordersQuery.gte("created_at", fromDate.toISOString());
+    }
+  }
+
+  if (dateTo) {
+    const toDate = new Date(`${dateTo}T23:59:59.999Z`);
+    if (!Number.isNaN(toDate.getTime())) {
+      ordersQuery = ordersQuery.lte("created_at", toDate.toISOString());
+    }
   }
 
   const { data: orders, error } = await ordersQuery;
@@ -415,6 +435,91 @@ export async function listWholesaleOrdersForAdmin(options?: {
       itemsByOrderId.get(String(order.id)) || [],
       returnsByOrderId.get(String(order.id)) || []
     )
+  );
+}
+
+export async function listWholesaleReturnsForAdmin(options?: {
+  query?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}) {
+  const orders = await listWholesaleOrdersForAdmin({
+    status: "all",
+    query: "",
+  });
+
+  const itemById = new Map<
+    string,
+    WholesaleOrderItem & { order: WholesaleOrder }
+  >();
+  for (const order of orders) {
+    for (const item of order.items) {
+      itemById.set(item.id, { ...item, order });
+    }
+  }
+
+  const returns: WholesaleAdminReturn[] = [];
+  for (const order of orders) {
+    for (const itemReturn of order.returns) {
+      const item = itemById.get(itemReturn.orderItemId);
+      returns.push({
+        ...itemReturn,
+        orderNumber: order.orderNumber || order.id,
+        orderStatus: order.status,
+        orderCreatedAt: order.createdAt,
+        customerSnapshot: order.customerSnapshot,
+        productNameAr: item?.productNameAr || "",
+        productNameEn: item?.productNameEn || "",
+        variantKey: item?.variantKey,
+        variant: item?.variant || null,
+        unitPrice: item?.unitPrice || 0,
+        lineTotal: item?.lineTotal || 0,
+      });
+    }
+  }
+
+  const normalizedQuery = cleanText(options?.query || "", 120).toLowerCase();
+  const dateFrom = cleanText(options?.dateFrom || "", 40);
+  const dateTo = cleanText(options?.dateTo || "", 40);
+  const fromTime = dateFrom
+    ? new Date(`${dateFrom}T00:00:00.000Z`).getTime()
+    : null;
+  const toTime = dateTo ? new Date(`${dateTo}T23:59:59.999Z`).getTime() : null;
+
+  return (normalizedQuery
+    ? returns.filter((itemReturn) =>
+        [
+          itemReturn.returnNumber,
+          itemReturn.orderNumber,
+          itemReturn.productNameAr,
+          itemReturn.productNameEn,
+          itemReturn.reason,
+          itemReturn.note,
+          itemReturn.customerSnapshot.businessName,
+          itemReturn.customerSnapshot.contactName,
+          itemReturn.customerSnapshot.phone,
+          itemReturn.customerSnapshot.whatsapp,
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedQuery)
+      )
+    : returns
+  )
+    .filter((itemReturn) => {
+      const createdTime = new Date(itemReturn.createdAt).getTime();
+      if (Number.isNaN(createdTime)) return true;
+      if (fromTime !== null && !Number.isNaN(fromTime) && createdTime < fromTime) {
+        return false;
+      }
+      if (toTime !== null && !Number.isNaN(toTime) && createdTime > toTime) {
+        return false;
+      }
+      return true;
+    })
+    .sort(
+    (first, second) =>
+      new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime()
   );
 }
 

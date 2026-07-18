@@ -171,6 +171,40 @@ export type WholesaleOrderReturn = {
   createdAt: string;
 };
 
+export type WholesaleAdminCustomer = {
+  id: string;
+  applicationId: string | null;
+  businessName: string;
+  entityType: WholesaleEntityType;
+  contactName: string;
+  phone: string;
+  whatsapp: string;
+  email: string | null;
+  governorate: string;
+  city: string;
+  address: string | null;
+  taxNumber: string | null;
+  commercialRegisterNumber: string | null;
+  status: WholesaleCustomerStatus;
+  authUserId: string | null;
+  approvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type WholesaleAdminReturn = WholesaleOrderReturn & {
+  orderNumber: string;
+  orderStatus: WholesaleOrderStatus;
+  orderCreatedAt: string;
+  customerSnapshot: Record<string, unknown>;
+  productNameAr: string;
+  productNameEn: string;
+  variantKey?: string;
+  variant?: import("@/types/product").ProductVariantSnapshot | null;
+  unitPrice: number;
+  lineTotal: number;
+};
+
 export type WholesaleOrder = {
   id: string;
   orderNumber: string;
