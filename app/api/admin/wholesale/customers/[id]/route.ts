@@ -4,6 +4,20 @@ import { deleteWholesaleCustomerAccount } from "@/lib/server/wholesale-applicati
 
 export const dynamic = "force-dynamic";
 
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (
+    error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof error.message === "string"
+  ) {
+    return error.message;
+  }
+
+  return "تعذر حذف حساب عميل الجملة";
+}
+
 export async function DELETE(
   _request: Request,
   { params }: { params: { id: string } }
@@ -23,10 +37,7 @@ export async function DELETE(
 
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "تعذر حذف حساب عميل الجملة",
+        error: getErrorMessage(error),
       },
       { status: 400 }
     );

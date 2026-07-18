@@ -736,7 +736,45 @@ export async function deleteWholesaleCustomerAccount(input: {
     created_at: new Date().toISOString(),
   });
 
-  if (auditError) throw auditError;
+  if (auditError) {
+    console.warn("WHOLESALE CUSTOMER DELETE AUDIT FAILED:", {
+      customerId,
+      code: auditError.code,
+      message: auditError.message,
+      details: auditError.details,
+    });
+  }
+
+  const { data: carts, error: cartsError } = await supabase
+    .from("wholesale_carts")
+    .select("id")
+    .eq("wholesale_customer_id", customerId);
+
+  if (cartsError) {
+    throw cartsError;
+  }
+
+  const cartIds = (carts || []).map((cart) => String(cart.id));
+
+  if (cartIds.length > 0) {
+    const { error: cartItemsError } = await supabase
+      .from("wholesale_cart_items")
+      .delete()
+      .in("cart_id", cartIds);
+
+    if (cartItemsError) {
+      throw cartItemsError;
+    }
+
+    const { error: cartsDeleteError } = await supabase
+      .from("wholesale_carts")
+      .delete()
+      .in("id", cartIds);
+
+    if (cartsDeleteError) {
+      throw cartsDeleteError;
+    }
+  }
 
   const { error: deleteError } = await supabase
     .from("wholesale_customers")
