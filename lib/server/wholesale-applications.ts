@@ -603,6 +603,104 @@ export async function updateWholesaleApplicationStatus(input: {
   return application;
 }
 
+export async function deleteWholesaleApplication(input: {
+  applicationId: string;
+  adminEmail?: string | null;
+}) {
+  const applicationId = cleanText(input.applicationId, 80);
+
+  if (!applicationId) {
+    throw new Error("طلب الجملة غير موجود");
+  }
+
+  const supabase = createServiceRoleClient();
+  const { data: customer, error: customerError } = await supabase
+    .from("wholesale_customers")
+    .select("id")
+    .eq("application_id", applicationId)
+    .maybeSingle();
+
+  if (customerError) {
+    throw customerError;
+  }
+
+  if (customer) {
+    throw new Error(
+      "لا يمكن حذف طلب جملة مرتبط بحساب عميل. احذف حساب عميل الجملة أولًا إذا كان ذلك مقصودًا."
+    );
+  }
+
+  const { data: application, error: applicationError } = await supabase
+    .from("wholesale_applications")
+    .select("id, business_name, contact_name, email, documents, status")
+    .eq("id", applicationId)
+    .maybeSingle();
+
+  if (applicationError) {
+    throw applicationError;
+  }
+
+  if (!application) {
+    throw new Error("طلب الجملة غير موجود");
+  }
+
+  const documents = Array.isArray(application.documents)
+    ? (application.documents as WholesaleApplicationDocument[])
+    : [];
+  const documentPaths = documents
+    .map((document) => document?.storagePath)
+    .filter((storagePath): storagePath is string => Boolean(storagePath));
+
+  if (documentPaths.length > 0) {
+    const { error: storageError } = await supabase.storage
+      .from(WHOLESALE_DOCUMENT_BUCKET)
+      .remove(documentPaths);
+
+    if (storageError) {
+      console.warn("WHOLESALE APPLICATION DOCUMENT DELETE FAILED:", {
+        applicationId,
+        message: storageError.message,
+      });
+    }
+  }
+
+  const adminEmail = normalizeOptional(cleanText(input.adminEmail, 200)) || "admin";
+  const { error: auditError } = await supabase.from("admin_audit_logs").insert({
+    admin_email: adminEmail,
+    action: "delete",
+    entity: "wholesale_applications",
+    entity_id: applicationId,
+    payload: {
+      businessName: application.business_name,
+      contactName: application.contact_name,
+      email: application.email,
+      status: application.status,
+      documents: documentPaths.length,
+    },
+    created_at: new Date().toISOString(),
+  });
+
+  if (auditError) {
+    console.warn("WHOLESALE APPLICATION DELETE AUDIT FAILED:", {
+      applicationId,
+      code: auditError.code,
+      message: auditError.message,
+      details: auditError.details,
+    });
+  }
+
+  const { error: deleteError } = await supabase
+    .from("wholesale_applications")
+    .delete()
+    .eq("id", applicationId);
+
+  if (deleteError) {
+    throw deleteError;
+  }
+
+  return { id: applicationId };
+}
+
 export async function linkWholesaleCustomerAccount(input: {
   applicationId: string;
   accountEmail: string;

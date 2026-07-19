@@ -116,6 +116,9 @@ export default function AdminWholesalePage() {
   );
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [accountUpdatingId, setAccountUpdatingId] = useState<string | null>(null);
+  const [deletingApplicationId, setDeletingApplicationId] = useState<string | null>(
+    null
+  );
 
   async function loadApplications(initial = false) {
     if (initial) setLoading(true);
@@ -293,6 +296,53 @@ export default function AdminWholesalePage() {
       );
     } finally {
       setUpdatingId(null);
+    }
+  }
+
+  async function deleteApplication(application: WholesaleApplication) {
+    const label =
+      application.businessName || application.contactName || application.id;
+
+    if (application.wholesaleCustomer) {
+      alert(
+        "لا يمكن حذف طلب جملة مرتبط بحساب عميل. احذف حساب عميل الجملة أولًا إذا كان ذلك مقصودًا."
+      );
+      return;
+    }
+
+    if (
+      !window.confirm(
+        `هل تريد حذف طلب الجملة "${label}"؟ سيتم حذف مستندات الطلب أيضًا ولا يمكن التراجع عن هذا الإجراء.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setDeletingApplicationId(application.id);
+      const response = await fetch(
+        `/api/admin/wholesale/applications/${application.id}`,
+        { method: "DELETE" }
+      );
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "تعذر حذف طلب الجملة");
+      }
+
+      setApplications((current) =>
+        current.filter((item) => item.id !== application.id)
+      );
+      await loadResetInfo();
+    } catch (deleteError) {
+      console.error("Wholesale application delete failed", deleteError);
+      alert(
+        deleteError instanceof Error
+          ? deleteError.message
+          : "تعذر حذف طلب الجملة"
+      );
+    } finally {
+      setDeletingApplicationId(null);
     }
   }
 
@@ -632,6 +682,27 @@ export default function AdminWholesalePage() {
                     >
                       <XCircle className="h-4 w-4" />
                       رفض
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deleteApplication(application)}
+                      disabled={
+                        deletingApplicationId === application.id ||
+                        Boolean(application.wholesaleCustomer)
+                      }
+                      title={
+                        application.wholesaleCustomer
+                          ? "لا يمكن حذف طلب مرتبط بحساب عميل جملة."
+                          : undefined
+                      }
+                      className="inline-flex items-center justify-center gap-1 rounded-xl border border-rose-200 bg-white px-4 py-3 text-xs font-black text-rose-700 transition hover:border-rose-400 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {deletingApplicationId === application.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                      حذف الطلب
                     </button>
                   </div>
                 </div>
