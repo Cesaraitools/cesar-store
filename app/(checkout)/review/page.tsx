@@ -397,8 +397,8 @@ if (whatsappWindow) {
                   <span>{formatCurrency(total)}</span>
                 </div>
 
-                <div className="flex justify-between font-bold text-slate-400">
-                  <span>التوصيل</span>
+                <div className="flex justify-between font-bold text-black">
+                  <span>تكلفة الشحن والتوصيل</span>
                   <span className="text-xs italic">حسب العنوان</span>
                 </div>
 
