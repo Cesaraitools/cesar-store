@@ -26,6 +26,29 @@ function isFacebookIosWebKitBridgeNoise(event: Sentry.Event) {
   });
 }
 
+function isInjectedPanelNullReadNoise(event: Sentry.Event) {
+  const noisyMessages = new Set([
+    "Cannot read properties of null (reading 'document')",
+    "Cannot read properties of null (reading 'live')",
+  ]);
+  const exceptionValues = event.exception?.values ?? [];
+
+  return exceptionValues.some((exception) => {
+    const value = exception.value ?? "";
+    const frames = exception.stacktrace?.frames ?? [];
+    const hasInjectedPanelFrame = frames.some((frame) => {
+      const filename = frame.filename ?? "";
+
+      return (
+        filename === "app:///panel.js" ||
+        filename === "app:///vendors-async.js"
+      );
+    });
+
+    return noisyMessages.has(value) && hasInjectedPanelFrame;
+  });
+}
+
 Sentry.init({
   dsn: "https://c66fec97c01df290b8e7884f524c864d@o4511319727865856.ingest.de.sentry.io/4511319729766480",
 
@@ -49,7 +72,10 @@ Sentry.init({
   sendDefaultPii: true,
 
   beforeSend(event) {
-    if (isFacebookIosWebKitBridgeNoise(event)) {
+    if (
+      isFacebookIosWebKitBridgeNoise(event) ||
+      isInjectedPanelNullReadNoise(event)
+    ) {
       return null;
     }
 
