@@ -149,31 +149,29 @@ async function loadUserEmailMap(userIds: string[]) {
   return emailMap;
 }
 
-export async function GET(req: NextRequest) {
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: { customerKey: string } }
+) {
   try {
     const guard = await requireAdminRole(["full"]);
     if (guard.response) return guard.response;
 
-    const { searchParams } = new URL(req.url);
-    const dateFrom = searchParams.get("from");
-    const dateTo = searchParams.get("to");
+    const customerKey = decodeURIComponent(params.customerKey || "");
 
-    let ordersQuery = supabase
+    if (!customerKey) {
+      return NextResponse.json(
+        { error: "Missing customer key" },
+        { status: 400 }
+      );
+    }
+
+    const { data: orders, error: ordersError } = await supabase
       .from("orders")
       .select(
-        "id, order_number, user_id, status, created_at, customer_snapshot"
+        "id, order_number, user_id, status, total, currency, created_at, customer_snapshot"
       )
       .order("created_at", { ascending: false });
-
-    if (dateFrom) {
-      ordersQuery = ordersQuery.gte("created_at", `${dateFrom}T00:00:00`);
-    }
-
-    if (dateTo) {
-      ordersQuery = ordersQuery.lte("created_at", `${dateTo}T23:59:59.999`);
-    }
-
-    const { data: orders, error: ordersError } = await ordersQuery;
 
     if (ordersError) {
       throw ordersError;
@@ -192,6 +190,12 @@ export async function GET(req: NextRequest) {
       throw trackingError;
     }
 
+    const emailMap = await loadUserEmailMap(
+      (orders || [])
+        .map((order) => String(order.user_id || ""))
+        .filter(Boolean)
+    );
+
     const trackingMap = new Map<string, TrackingEvent[]>();
 
     for (const event of trackingEvents || []) {
@@ -204,119 +208,68 @@ export async function GET(req: NextRequest) {
       trackingMap.set(event.order_id, current);
     }
 
-    const deliveredOrders = (orders || [])
+    const matchingOrders = (orders || [])
       .map((order) => {
+        const userId = String(order.user_id || "");
+        const customer = normalizeCustomerSnapshot(order.customer_snapshot);
+        const email =
+          customer.email || (userId ? emailMap.get(userId) || "" : "");
+        const key = createCustomerKey(customer, userId, email);
+
+        if (key !== customerKey) {
+          return null;
+        }
+
         const orderTracking = trackingMap.get(order.id) || [];
         const latestTracking =
           orderTracking.length > 0
             ? orderTracking[orderTracking.length - 1]
             : null;
-        const currentStatus = resolveOrderStatus(
-          order.status,
-          latestTracking?.status
-        );
-
-        if (currentStatus !== "delivered") {
-          return null;
-        }
-
         const deliveredEvent = [...orderTracking]
           .reverse()
           .find((event) => event.status === "delivered");
 
         return {
-          order,
-          delivered_at:
-            deliveredEvent?.created_at || latestTracking?.created_at || null,
+          id: order.id,
+          order_number: order.order_number || order.id,
+          created_at: order.created_at,
+          total: Number(order.total || 0),
+          currency: order.currency || "EGP",
+          current_status: resolveOrderStatus(
+            order.status,
+            latestTracking?.status
+          ),
+          status_at: latestTracking?.created_at || order.created_at,
+          delivered_at: deliveredEvent?.created_at || null,
+          customer: {
+            ...customer,
+            email,
+          },
         };
       })
       .filter(Boolean);
 
-    const emailMap = await loadUserEmailMap(
-      deliveredOrders
-        .map((entry: any) => String(entry.order.user_id || ""))
-        .filter(Boolean)
-    );
-
-    const deliveredCustomerRows = deliveredOrders.map((entry: any) => {
-      const customer = normalizeCustomerSnapshot(entry.order.customer_snapshot);
-      const userId = String(entry.order.user_id || "");
-      const email = customer.email || (userId ? emailMap.get(userId) || "" : "");
-
-      return {
-        customer_key: createCustomerKey(customer, userId, email),
-        order_id: entry.order.id,
-        order_number: entry.order.order_number || entry.order.id,
-        order_created_at: entry.order.created_at,
-        delivered_at: entry.delivered_at,
-        name: customer.name,
-        phone: customer.phone,
-        address: customer.address,
-        email,
-      };
-    });
-
-    const groupedCustomers = new Map<string, any>();
-
-    for (const row of deliveredCustomerRows) {
-      const existing = groupedCustomers.get(row.customer_key);
-
-      if (!existing) {
-        groupedCustomers.set(row.customer_key, {
-          ...row,
-          order_count: 1,
-          delivered_order_numbers: [row.order_number],
-        });
-        continue;
-      }
-
-      const existingDeliveredAt = existing.delivered_at
-        ? new Date(existing.delivered_at).getTime()
-        : 0;
-      const rowDeliveredAt = row.delivered_at
-        ? new Date(row.delivered_at).getTime()
-        : 0;
-      const isNewer = rowDeliveredAt > existingDeliveredAt;
-
-      groupedCustomers.set(row.customer_key, {
-        ...existing,
-        order_id: isNewer ? row.order_id : existing.order_id,
-        order_number: isNewer ? row.order_number : existing.order_number,
-        order_created_at: isNewer
-          ? row.order_created_at
-          : existing.order_created_at,
-        delivered_at: isNewer ? row.delivered_at : existing.delivered_at,
-        name: existing.name || row.name,
-        phone: existing.phone || row.phone,
-        address: existing.address || row.address,
-        email: existing.email || row.email,
-        order_count: existing.order_count + 1,
-        delivered_order_numbers: [
-          ...existing.delivered_order_numbers,
-          row.order_number,
-        ],
-      });
-    }
-
-    const customers = Array.from(groupedCustomers.values());
-    const uniquePhones = new Set(
-      customers.map((customer: any) => customer.phone).filter(Boolean)
-    );
-    const withEmail = customers.filter((customer: any) => customer.email).length;
+    const customer =
+      matchingOrders.length > 0 ? (matchingOrders[0] as any).customer : null;
 
     return NextResponse.json({
-      customers,
+      customer,
+      orders: matchingOrders,
       summary: {
-        deliveredOrders: deliveredCustomerRows.length,
-        uniqueCustomers: customers.length,
-        uniquePhones: uniquePhones.size,
-        withEmail,
+        totalOrders: matchingOrders.length,
+        deliveredOrders: matchingOrders.filter(
+          (order: any) => order.current_status === "delivered"
+        ).length,
+        totalValue: matchingOrders.reduce(
+          (sum: number, order: any) => sum + Number(order.total || 0),
+          0
+        ),
       },
     });
   } catch (error) {
-    console.error("Delivered Customers Report Error:", error);
+    console.error("Delivered Customer Details Error:", error);
     return NextResponse.json(
-      { error: "Failed to load delivered customers report" },
+      { error: "Failed to load customer details" },
       { status: 500 }
     );
   }

@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Download,
+  Eye,
   Mail,
   MapPin,
   Phone,
@@ -12,6 +14,7 @@ import {
 } from "lucide-react";
 
 type DeliveredCustomer = {
+  customer_key: string;
   order_id: string;
   order_number: string;
   order_created_at: string;
@@ -20,12 +23,15 @@ type DeliveredCustomer = {
   phone: string;
   address: string;
   email: string;
+  order_count: number;
+  delivered_order_numbers: string[];
 };
 
 type DeliveredCustomersResponse = {
   customers: DeliveredCustomer[];
   summary: {
     deliveredOrders: number;
+    uniqueCustomers: number;
     uniquePhones: number;
     withEmail: number;
   };
@@ -35,6 +41,7 @@ const EMPTY_RESPONSE: DeliveredCustomersResponse = {
   customers: [],
   summary: {
     deliveredOrders: 0,
+    uniqueCustomers: 0,
     uniquePhones: 0,
     withEmail: 0,
   },
@@ -62,13 +69,14 @@ async function exportToExcel(rows: DeliveredCustomer[]) {
   const XLSX = await import("xlsx");
   const worksheet = XLSX.utils.json_to_sheet(
     rows.map((row) => ({
-      "رقم الطلب": row.order_number,
       "اسم العميل": row.name,
       "رقم الهاتف": row.phone,
       "العنوان": row.address,
       "البريد الإلكتروني": row.email,
-      "تاريخ إنشاء الطلب": formatDate(row.order_created_at),
-      "تاريخ التسليم": formatDate(row.delivered_at),
+      "عدد الطلبات المستلمة": row.order_count,
+      "آخر رقم طلب مستلم": row.order_number,
+      "أرقام الطلبات المستلمة": row.delivered_order_numbers.join(", "),
+      "آخر تاريخ تسليم": formatDate(row.delivered_at),
     }))
   );
   const workbook = XLSX.utils.book_new();
@@ -217,14 +225,14 @@ export default function DeliveredCustomersReportPage() {
           icon={Users}
         />
         <StatCard
+          label="عملاء بدون تكرار"
+          value={data.summary.uniqueCustomers}
+          icon={Users}
+        />
+        <StatCard
           label="أرقام عملاء فريدة"
           value={data.summary.uniquePhones}
           icon={Phone}
-        />
-        <StatCard
-          label="عملاء لديهم بريد"
-          value={data.summary.withEmail}
-          icon={Mail}
         />
       </section>
 
@@ -290,9 +298,6 @@ export default function DeliveredCustomersReportPage() {
               <thead className="bg-slate-50">
                 <tr>
                   <th className="px-5 py-3 text-xs font-black text-slate-500">
-                    رقم الطلب
-                  </th>
-                  <th className="px-5 py-3 text-xs font-black text-slate-500">
                     العميل
                   </th>
                   <th className="px-5 py-3 text-xs font-black text-slate-500">
@@ -305,16 +310,19 @@ export default function DeliveredCustomersReportPage() {
                     البريد
                   </th>
                   <th className="px-5 py-3 text-xs font-black text-slate-500">
-                    تاريخ التسليم
+                    الطلبات المستلمة
+                  </th>
+                  <th className="px-5 py-3 text-xs font-black text-slate-500">
+                    آخر تسليم
+                  </th>
+                  <th className="px-5 py-3 text-xs font-black text-slate-500">
+                    التفاصيل
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
                 {filteredCustomers.map((customer) => (
-                  <tr key={customer.order_id} className="hover:bg-slate-50">
-                    <td className="whitespace-nowrap px-5 py-4 text-sm font-black text-slate-950">
-                      {customer.order_number}
-                    </td>
+                  <tr key={customer.customer_key} className="hover:bg-slate-50">
                     <td className="px-5 py-4">
                       <div className="text-sm font-black text-slate-950">
                         {customer.name || "-"}
@@ -332,8 +340,22 @@ export default function DeliveredCustomersReportPage() {
                     <td className="whitespace-nowrap px-5 py-4 text-sm font-semibold text-slate-700">
                       <span dir="ltr">{customer.email || "-"}</span>
                     </td>
+                    <td className="whitespace-nowrap px-5 py-4 text-sm font-black text-slate-950">
+                      {customer.order_count}
+                    </td>
                     <td className="whitespace-nowrap px-5 py-4 text-sm font-semibold text-slate-700">
                       {formatDate(customer.delivered_at)}
+                    </td>
+                    <td className="whitespace-nowrap px-5 py-4">
+                      <Link
+                        href={`/admin/delivered-customers/${encodeURIComponent(
+                          customer.customer_key
+                        )}`}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-black text-blue-700 transition hover:bg-blue-100"
+                      >
+                        <Eye className="h-4 w-4" />
+                        تفاصيل العميل
+                      </Link>
                     </td>
                   </tr>
                 ))}
