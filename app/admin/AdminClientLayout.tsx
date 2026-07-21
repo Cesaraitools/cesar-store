@@ -61,6 +61,7 @@ export default function AdminClientLayout({
     { name: "Categories", href: "/admin/categories", icon: Tag },
     { name: "Orders", href: "/admin/orders", icon: Package },
     { name: "Archive", href: "/admin/orders/archive", icon: Package },
+    { name: "Delivered Customers", href: "/admin/delivered-customers", icon: Users },
     { name: "Products", href: "/admin/products", icon: Package },
   ];
   const wholesaleNavItems = [
