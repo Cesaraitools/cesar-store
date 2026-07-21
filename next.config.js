@@ -6,6 +6,10 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: "https",
+        hostname: "bdmumdbykzbozgkxtsmk.supabase.co",
+      },
+      {
+        protocol: "https",
         hostname: "www.cesareshop.com",
       },
       {
@@ -13,8 +17,10 @@ const nextConfig = {
         hostname: "cesareshop.com",
       },
     ],
-    formats: ["image/avif", "image/webp"],
-    minimumCacheTTL: 86400,
+    deviceSizes: [360, 414, 640, 768, 1024, 1280],
+    imageSizes: [48, 64, 96, 128, 192, 256, 384],
+    formats: ["image/webp"],
+    minimumCacheTTL: 604800,
   },
   async headers() {
     const longLivedStaticAssetHeaders = [

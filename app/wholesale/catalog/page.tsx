@@ -708,7 +708,7 @@ function ProductCard({
               src={product.image}
               alt={productName}
               fill
-              sizes="94vw"
+              sizes="(min-width: 1024px) 960px, 94vw"
               className="object-contain"
             />
           </div>

@@ -251,7 +251,7 @@ const isLowStock = displayStock > 0 && displayStock <= threshold;
             alt={name}
             width={1200}
             height={1200}
-            sizes="94vw"
+            sizes="(min-width: 1024px) 960px, 94vw"
             className="max-h-[92vh] max-w-[94vw] rounded-lg object-contain shadow-2xl"
             onClick={(event) => event.stopPropagation()}
             onError={() => setDisplayImageSrc("/placeholder.png")}
