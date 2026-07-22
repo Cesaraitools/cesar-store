@@ -19,7 +19,6 @@ import {
   DEFAULT_SEO_DESCRIPTION,
   DEFAULT_SEO_TITLE,
   PRODUCT_SEARCH_TERMS,
-  PUBLIC_CATEGORY_SEO,
   SITE_ALTERNATE_NAMES,
   SITE_NAME,
   SITE_NAME_AR,
@@ -142,18 +141,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       "@type": "Brand",
       name: SITE_NAME,
       alternateName: [SITE_NAME_AR, "Cesar Shop"],
-    },
-    hasOfferCatalog: {
-      "@type": "OfferCatalog",
-      name: "Cesar Store product categories",
-      itemListElement: PUBLIC_CATEGORY_SEO.map((category) => ({
-        "@type": "OfferCatalog",
-        name: category.titleEn,
-        alternateName: category.titleAr,
-        url: absoluteUrl(category.guidePath),
-        category: category.merchantProductType,
-        keywords: category.keywords.join(", "),
-      })),
     },
     inLanguage: ["ar-EG", "en"],
   };
