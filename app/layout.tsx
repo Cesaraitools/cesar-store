@@ -4,6 +4,7 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import * as Sentry from "@sentry/nextjs";
 import { Toaster } from "react-hot-toast";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 import Navbar from "@/components/Navbar";
 import SiteFooter from "@/components/SiteFooter";
@@ -225,6 +226,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             </CartProvider>
           </LanguageProvider>
         </AuthProvider>
+        <SpeedInsights />
       </body>
     </html>
   );
