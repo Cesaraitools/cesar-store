@@ -21,7 +21,6 @@ const nextConfig = {
     imageSizes: [48, 64, 96, 128, 192, 256, 384],
     formats: ["image/webp"],
     minimumCacheTTL: 604800,
-    unoptimized: true,
   },
   async headers() {
     const longLivedStaticAssetHeaders = [
