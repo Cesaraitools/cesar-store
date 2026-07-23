@@ -95,11 +95,15 @@ export function generateMetadata(): Metadata {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   const googleTagId = process.env.NEXT_PUBLIC_GOOGLE_TAG_ID;
-  const googleAnalyticsId =
-    process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID || "G-KF46KLF26M";
-  const googleTagLoaderId = googleTagId || googleAnalyticsId;
+  const googleAdsId =
+    process.env.NEXT_PUBLIC_GOOGLE_ADS_ID || "AW-18319168682";
+  const googleAnalyticsId = process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID;
+  const googleTagLoaderId =
+    googleTagId && !googleTagId.startsWith("G-")
+      ? googleTagId
+      : googleAdsId || googleAnalyticsId || googleTagId;
   const googleConfigScript = Array.from(
-    new Set([googleTagId, googleAnalyticsId].filter(Boolean))
+    new Set([googleTagId, googleAdsId, googleAnalyticsId].filter(Boolean))
   )
     .map((id) => `gtag('config', '${id}');`)
     .join("\n");
