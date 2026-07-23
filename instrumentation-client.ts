@@ -49,6 +49,26 @@ function isInjectedPanelNullReadNoise(event: Sentry.Event) {
   });
 }
 
+function isVercelLiveFeedbackRangeNoise(event: Sentry.Event) {
+  const exceptionValues = event.exception?.values ?? [];
+
+  return exceptionValues.some((exception) => {
+    const value = exception.value ?? "";
+    const frames = exception.stacktrace?.frames ?? [];
+    const hasLiveFeedbackFrame = frames.some((frame) => {
+      const filename = frame.filename ?? "";
+
+      return filename.startsWith("app:///_next-live/feedback/");
+    });
+
+    return (
+      exception.type === "InvalidNodeTypeError" &&
+      value.includes("Failed to execute 'selectNode' on 'Range'") &&
+      hasLiveFeedbackFrame
+    );
+  });
+}
+
 Sentry.init({
   dsn: "https://c66fec97c01df290b8e7884f524c864d@o4511319727865856.ingest.de.sentry.io/4511319729766480",
 
@@ -74,7 +94,8 @@ Sentry.init({
   beforeSend(event) {
     if (
       isFacebookIosWebKitBridgeNoise(event) ||
-      isInjectedPanelNullReadNoise(event)
+      isInjectedPanelNullReadNoise(event) ||
+      isVercelLiveFeedbackRangeNoise(event)
     ) {
       return null;
     }
