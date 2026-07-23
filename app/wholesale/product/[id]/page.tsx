@@ -318,6 +318,7 @@ export default function WholesaleProductPage() {
                   fill
                   sizes="(min-width: 1024px) 45vw, 100vw"
                   className="object-contain p-6"
+                  unoptimized
                 />
               </div>
               <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 p-4">

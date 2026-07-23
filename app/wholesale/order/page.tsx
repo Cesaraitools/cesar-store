@@ -623,6 +623,7 @@ export default function WholesaleOrderPage() {
                         fill
                         sizes="96px"
                         className="object-cover"
+                        unoptimized
                       />
                     ) : null}
                   </div>

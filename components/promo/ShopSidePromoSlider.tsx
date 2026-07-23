@@ -105,6 +105,7 @@ export default function ShopSidePromoSlider({ promo, lang }: Props) {
                 fill
                 sizes="(min-width: 1280px) 360px, 100vw"
                 className="object-cover"
+                unoptimized
                 aria-hidden="true"
               />
             </div>
@@ -162,6 +163,7 @@ export default function ShopSidePromoSlider({ promo, lang }: Props) {
                     height={56}
                     sizes="48px"
                     className="h-14 w-12 object-cover"
+                    unoptimized
                   />
                 </button>
               ))}

@@ -156,6 +156,7 @@ export default function ProductPageClient({ product, categories }: Props) {
               height={420}
               sizes="(min-width: 768px) 50vw, 100vw"
               className="max-h-[350px] object-contain"
+              unoptimized
               onError={() => setMainImage("/placeholder.png")}
             />
           </div>
@@ -179,6 +180,7 @@ export default function ProductPageClient({ product, categories }: Props) {
                   height={64}
                   sizes="64px"
                   className="h-16 w-16 object-contain"
+                  unoptimized
                   onError={() => setMainImage("/placeholder.png")}
                 />
               </button>

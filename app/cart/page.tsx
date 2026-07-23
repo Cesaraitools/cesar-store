@@ -33,6 +33,7 @@ function CartItemImage({ src, alt }: { src?: string; alt: string }) {
       height={112}
       sizes="112px"
       className="h-full w-full object-contain transition-transform duration-500 group-hover:scale-110"
+      unoptimized
       onError={() => setDisplaySrc("/placeholder.png")}
     />
   );
