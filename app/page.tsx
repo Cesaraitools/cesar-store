@@ -131,11 +131,12 @@ export default function LandingPage() {
 
   useEffect(() => {
     if (slides.length <= 1) return;
-    const timer = setInterval(() => setIndex((prev) => (prev + 1) % slides.length), 7000);
+    const timer = setInterval(() => setIndex((prev) => (prev + 1) % slides.length), 15000);
     return () => clearInterval(timer);
   }, [slides.length]);
 
   const t = content[lang];
+  const activeSlide = slides[index] ?? heroSlide;
   const getSlideAlt = (slide: Slide) =>
     slide.type === "hero"
       ? isAr
@@ -150,10 +151,10 @@ export default function LandingPage() {
       
       {/* Hero Slider Section */}
       <section className="relative h-[80vh] md:h-[90vh] w-full overflow-hidden bg-slate-900">
-        {slides.map((s, i) => (
+        {[activeSlide].map((s) => (
           <div
-            key={s.id + i}
-            className={`absolute inset-0 transition-all duration-1000 ease-out ${i === index ? "opacity-100 scale-100 z-10" : "opacity-0 scale-105 z-0"}`}
+            key={`${s.id}-${index}`}
+            className="absolute inset-0 z-10 scale-100 opacity-100 transition-all duration-1000 ease-out"
           >
             {/* Overlay Gradient لضمان وضوح النص */}
             <div
@@ -164,16 +165,16 @@ export default function LandingPage() {
               src={s.image}
               alt={getSlideAlt(s)}
               fill
-              priority={i === 0 && s.type === "hero"}
-              fetchPriority={i === 0 && s.type === "hero" ? "high" : "auto"}
-              loading={i === 0 && s.type === "hero" ? undefined : "lazy"}
+              priority={index === 0 && s.type === "hero"}
+              fetchPriority={index === 0 && s.type === "hero" ? "high" : "auto"}
+              loading={index === 0 && s.type === "hero" ? undefined : "lazy"}
               sizes="100vw"
               quality={75}
-              className={`w-full h-full object-cover transition-transform duration-[10000ms] ease-linear ${i === index ? "scale-110" : "scale-100"}`}
+              className="h-full w-full scale-110 object-cover transition-transform duration-[10000ms] ease-linear"
             />
 
             <div className="absolute inset-0 z-20 flex items-center justify-center text-center px-6">
-              <div className={`max-w-5xl transition-all duration-1000 delay-300 ${i === index ? "translate-y-0 opacity-100" : "translate-y-12 opacity-0"}`}>
+              <div className="max-w-5xl translate-y-0 opacity-100 transition-all duration-1000 delay-300">
                 
                 {s.type === "hero" ? (
                   <div className="space-y-6 md:space-y-8">
