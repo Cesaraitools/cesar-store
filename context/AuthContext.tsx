@@ -30,6 +30,9 @@ const NATIVE_OAUTH_GUEST_CART_STORAGE_KEY =
   "cesar_store_native_oauth_guest_cart";
 const NATIVE_OAUTH_REDIRECT_STORAGE_KEY = "cesar_store_native_oauth_redirect";
 const NATIVE_ANDROID_OAUTH_CALLBACK = "com.cesareshop.app://auth/callback";
+const NATIVE_GOOGLE_AUTH_CAPABILITY_KEY =
+  "cesar_store_native_google_auth";
+const NATIVE_GOOGLE_AUTH_CAPABILITY_VERSION = "custom_tab_v1";
 
 function getSafeRedirectPath(redirect?: string | null) {
   if (!redirect) return "/checkout";
@@ -39,6 +42,13 @@ function getSafeRedirectPath(redirect?: string | null) {
 
 export function isNativeGoogleAuthAvailable() {
   if (typeof window === "undefined") return false;
+
+  const isMarkedSupportedApp =
+    navigator.userAgent.includes("CesarStoreApp/Android") &&
+    window.localStorage.getItem(NATIVE_GOOGLE_AUTH_CAPABILITY_KEY) ===
+      NATIVE_GOOGLE_AUTH_CAPABILITY_VERSION;
+
+  if (isMarkedSupportedApp) return true;
 
   return (
     Capacitor.isNativePlatform() &&
@@ -194,12 +204,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [supabase, router]);
 
   useEffect(() => {
-    if (!isNativeGoogleAuthAvailable()) return;
-
     let isMounted = true;
     let listenerHandle: { remove: () => Promise<void> } | undefined;
+    let registrationStarted = false;
+    let intervalId: number | undefined;
+    let timeoutId: number | undefined;
 
     const registerNativeCallback = async () => {
+      if (registrationStarted || !isNativeGoogleAuthAvailable()) return;
+      registrationStarted = true;
+
       const { App } = await import("@capacitor/app");
 
       listenerHandle = await App.addListener("appUrlOpen", ({ url }) => {
@@ -214,12 +228,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    void registerNativeCallback().catch((error) => {
-      console.error("Unable to register native auth callback:", error);
-    });
+    const tryRegisterNativeCallback = () => {
+      void registerNativeCallback().catch((error) => {
+        registrationStarted = false;
+        console.error("Unable to register native auth callback:", error);
+      });
+    };
+
+    tryRegisterNativeCallback();
+    intervalId = window.setInterval(tryRegisterNativeCallback, 250);
+    timeoutId = window.setTimeout(() => {
+      if (intervalId !== undefined) window.clearInterval(intervalId);
+    }, 3000);
 
     return () => {
       isMounted = false;
+      if (intervalId !== undefined) window.clearInterval(intervalId);
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
       void listenerHandle?.remove();
     };
   }, [handleNativeGoogleCallback]);
