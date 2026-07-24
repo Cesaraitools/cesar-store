@@ -4,7 +4,10 @@ import { useEffect, useMemo, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
-import { useAuth } from "@/context/AuthContext";
+import {
+  isNativeGoogleAuthAvailable,
+  useAuth,
+} from "@/context/AuthContext";
 import { preserveGuestCartForAuth } from "@/context/CartContext";
 import { isValidEmail, normalizeEmail } from "@/lib/formValidation";
 
@@ -55,6 +58,7 @@ function LoginContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isMobileApp, setIsMobileApp] = useState(true);
+  const [nativeGoogleAuthReady, setNativeGoogleAuthReady] = useState(false);
   const [appDetectionReady, setAppDetectionReady] = useState(false);
   const cleanEmail = normalizeEmail(email);
   const canSubmit = isValidEmail(cleanEmail) && password.length > 0;
@@ -63,7 +67,11 @@ function LoginContent() {
 
   useEffect(() => {
     const detectMobileApp = () => {
-      setIsMobileApp(isAndroidAppEnvironment());
+      const mobileApp = isAndroidAppEnvironment();
+      setIsMobileApp(mobileApp);
+      setNativeGoogleAuthReady(
+        mobileApp && isNativeGoogleAuthAvailable()
+      );
       setAppDetectionReady(true);
     };
 
@@ -82,6 +90,14 @@ function LoginContent() {
       router.replace(target);
     }
   }, [authLoading, router, target, user]);
+
+  useEffect(() => {
+    if (searchParams.get("oauth_error") === "1") {
+      setError(
+        "تعذر إكمال تسجيل الدخول بجوجل داخل التطبيق. يمكنك المتابعة بالبريد الإلكتروني."
+      );
+    }
+  }, [searchParams]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -163,7 +179,7 @@ function LoginContent() {
 
         </form>
 
-        {appDetectionReady && !isMobileApp && (
+        {appDetectionReady && (!isMobileApp || nativeGoogleAuthReady) && (
           <>
         <div className="my-6 text-center text-sm text-gray-400">
           أو عبر

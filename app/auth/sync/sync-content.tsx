@@ -8,6 +8,9 @@ import { createClient } from "@/lib/supabase/client";
 
 const CART_STORAGE_KEY = "cesar_store_cart_v2";
 const OAUTH_GUEST_CART_STORAGE_KEY = "cesar_store_oauth_guest_cart";
+const NATIVE_OAUTH_GUEST_CART_STORAGE_KEY =
+  "cesar_store_native_oauth_guest_cart";
+const NATIVE_OAUTH_REDIRECT_STORAGE_KEY = "cesar_store_native_oauth_redirect";
 const OAUTH_MERGE_COMPLETE_USER_KEY = "cesar_store_oauth_merge_complete_user";
 
 function getSafeRedirectPath(redirect: string | null) {
@@ -42,7 +45,9 @@ function mapCartItemsForStorage(dbItems: any[]) {
 async function syncOauthGuestCart(session: Session) {
   if (typeof window === "undefined") return;
 
-  const rawBackup = sessionStorage.getItem(OAUTH_GUEST_CART_STORAGE_KEY);
+  const rawBackup =
+    sessionStorage.getItem(OAUTH_GUEST_CART_STORAGE_KEY) ||
+    localStorage.getItem(NATIVE_OAUTH_GUEST_CART_STORAGE_KEY);
   if (!rawBackup) return;
 
   let backup: any = null;
@@ -101,6 +106,7 @@ async function syncOauthGuestCart(session: Session) {
     })
   );
   sessionStorage.removeItem(OAUTH_GUEST_CART_STORAGE_KEY);
+  localStorage.removeItem(NATIVE_OAUTH_GUEST_CART_STORAGE_KEY);
   sessionStorage.setItem(OAUTH_MERGE_COMPLETE_USER_KEY, session.user.id);
 }
 
@@ -121,7 +127,8 @@ export default function SyncContent() {
       const storedRedirect =
         typeof window !== "undefined"
           ? sessionStorage.getItem("oauth_redirect") ||
-            sessionStorage.getItem("last_redirect")
+            sessionStorage.getItem("last_redirect") ||
+            localStorage.getItem(NATIVE_OAUTH_REDIRECT_STORAGE_KEY)
           : null;
       const redirect =
         getSafeRedirectPath(redirectParam) ||
@@ -177,6 +184,8 @@ export default function SyncContent() {
       if (typeof window !== "undefined") {
         sessionStorage.removeItem("oauth_redirect");
         sessionStorage.removeItem("last_redirect");
+        localStorage.removeItem(NATIVE_OAUTH_REDIRECT_STORAGE_KEY);
+        localStorage.removeItem(NATIVE_OAUTH_GUEST_CART_STORAGE_KEY);
       }
 
       router.replace(redirect);

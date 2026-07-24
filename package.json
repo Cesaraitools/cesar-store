@@ -10,6 +10,8 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/browser": "^8.0.4",
     "@capacitor/core": "^8.3.4",
     "@lottiefiles/lottie-player": "^2.0.12",
     "@react-pdf/renderer": "^4.3.2",
