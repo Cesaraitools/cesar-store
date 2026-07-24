@@ -6,7 +6,7 @@ import Image from "next/image";
 import { useLanguage } from "@/context/LanguageContext";
 import { ArrowLeft, ArrowRight, Sparkles, ShieldCheck, Zap, ChevronRight, ChevronLeft, Store, FileCheck2 } from "lucide-react";
 
-/* ---------------- Types ---------------- */
+/* ---------------- Types (Unchanged) ---------------- */
 type CategorySlide = {
   type: "category";
   id: string;
@@ -85,40 +85,40 @@ export default function LandingPage() {
   const isAr = lang === "ar";
   const [index, setIndex] = useState(0);
   const [slides, setSlides] = useState<Slide[]>([heroSlide]);
-
+  
   useEffect(() => {
-    if (typeof window === "undefined") return;
+  if (typeof window === "undefined") return;
 
-    const url = new URL(window.location.href);
-    const code = url.searchParams.get("code");
+  const url = new URL(window.location.href);
+  const code = url.searchParams.get("code");
 
-    if (code) {
-      const storedRedirect = sessionStorage.getItem("oauth_redirect");
-      const redirect =
-        storedRedirect && storedRedirect.startsWith("/") && !storedRedirect.startsWith("//")
-          ? storedRedirect
-          : "/checkout";
+  if (code) {
+    const storedRedirect = sessionStorage.getItem("oauth_redirect");
+    const redirect =
+      storedRedirect && storedRedirect.startsWith("/") && !storedRedirect.startsWith("//")
+        ? storedRedirect
+        : "/checkout";
 
-      window.location.replace(
-        `/auth/callback?code=${encodeURIComponent(code)}&redirect=${encodeURIComponent(redirect)}`
-      );
-    }
-  }, []);
+    window.location.replace(
+      `/auth/callback?code=${encodeURIComponent(code)}&redirect=${encodeURIComponent(redirect)}`
+    );
+  }
+}, []);
 
   useEffect(() => {
     let isCancelled = false;
 
     const loadCategories = () => {
       fetch("/api/categories")
-        .then((r) => r.json())
-        .then((categories: CategorySlide[]) => {
-          if (isCancelled) return;
-          setSlides([heroSlide, ...categories]);
-        })
-        .catch(() => {
-          if (isCancelled) return;
-          setSlides([heroSlide]);
-        });
+      .then((r) => r.json())
+      .then((categories: CategorySlide[]) => {
+        if (isCancelled) return;
+        setSlides([heroSlide, ...categories]);
+      })
+      .catch(() => {
+        if (isCancelled) return;
+        setSlides([heroSlide]);
+      });
     };
 
     const cancelDeferredLoad = scheduleAfterInitialPaint(loadCategories);
@@ -131,92 +131,83 @@ export default function LandingPage() {
 
   useEffect(() => {
     if (slides.length <= 1) return;
-    const timer = setInterval(() => setIndex((prev) => (prev + 1) % slides.length), 7000);
+    const timer = setInterval(() => setIndex((prev) => (prev + 1) % slides.length), 15000);
     return () => clearInterval(timer);
   }, [slides.length]);
 
   const t = content[lang];
+  const activeSlide = slides[index] ?? heroSlide;
+  const getSlideAlt = (slide: Slide) =>
+    slide.type === "hero"
+      ? isAr
+        ? "واجهة متجر سيزر لمنتجات وإكسسوارات السيارات"
+        : "Cesar Store automotive products and accessories"
+      : isAr
+      ? slide.ar.title
+      : slide.en.title;
 
   return (
     <div className="min-h-screen bg-[#F8FAFC]" dir={isAr ? "rtl" : "ltr"}>
       
       {/* Hero Slider Section */}
       <section className="relative h-[80vh] md:h-[90vh] w-full overflow-hidden bg-slate-900">
-        {slides.map((s, i) => {
-          const isActive = i === index;
-          return (
+        {[activeSlide].map((s) => (
+          <div
+            key={`${s.id}-${index}`}
+            className="absolute inset-0 z-10 scale-100 opacity-100 transition-all duration-1000 ease-out"
+          >
+            {/* Overlay Gradient لضمان وضوح النص */}
             <div
-              key={`${s.id}-${i}`}
-              className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
-                isActive ? "opacity-100 z-10 pointer-events-auto" : "opacity-0 z-0 pointer-events-none"
-              }`}
-            >
-              {/* Overlay Gradient لضمان وضوح النص */}
-              <div
-                className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black/70 z-10"
-                aria-hidden="true"
-              />
+              className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/10 to-black/40 z-10"
+              aria-hidden="true"
+            />
+            <Image
+              src={s.image}
+              alt={getSlideAlt(s)}
+              fill
+              priority={index === 0 && s.type === "hero"}
+              fetchPriority={index === 0 && s.type === "hero" ? "high" : "auto"}
+              loading={index === 0 && s.type === "hero" ? undefined : "lazy"}
+              sizes="100vw"
+              quality={75}
+              className="h-full w-full scale-110 object-cover transition-transform duration-[10000ms] ease-linear"
+            />
 
-              {/* الصورة مع تأثير التكبير التدريجي السلس بدون إخفاء الصورة */}
-              <Image
-                src={s.image}
-                alt={
-                  s.type === "hero"
-                    ? isAr
-                      ? "واجهة متجر سيزر لمنتجات وإكسسوارات السيارات"
-                      : "Cesar Store automotive products and accessories"
-                    : isAr
-                    ? s.ar.title
-                    : s.en.title
-                }
-                fill
-                priority={i === 0}
-                sizes="100vw"
-                quality={90}
-                className={`h-full w-full object-cover transition-transform duration-[7000ms] ease-out ${
-                  isActive ? "scale-110" : "scale-100"
-                }`}
-              />
-
-              <div className="absolute inset-0 z-20 flex items-center justify-center text-center px-6">
-                <div
-                  className={`max-w-5xl transition-all duration-1000 transform ${
-                    isActive ? "translate-y-0 opacity-100 scale-100" : "translate-y-10 opacity-0 scale-95"
-                  }`}
-                >
-                  {s.type === "hero" ? (
-                    <div className="space-y-6 md:space-y-8">
-                      <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-xl border border-white/20 px-5 py-2.5 rounded-full text-white text-[10px] md:text-xs font-bold uppercase tracking-widest shadow-2xl">
-                        <Sparkles size={16} className="text-blue-400 animate-pulse" />
-                        {isAr ? "مرحباً بك في عالم سيزر" : "Welcome to Cesar World"}
-                      </div>
-                      <h1 className="text-4xl md:text-8xl font-black text-white leading-[1.1] tracking-tight drop-shadow-md">
-                        {t.heroTitle.split(' ').map((word, idx) => (
-                          <span key={idx} className={idx === 1 ? "text-blue-500" : ""}>{word} </span>
-                        ))}
-                      </h1>
-                      <Link href="/categories" className="group relative inline-flex items-center gap-3 bg-blue-600 text-white px-8 py-4 md:px-12 md:py-6 rounded-2xl font-black text-lg transition-all hover:bg-blue-700 hover:shadow-[0_20px_50px_rgba(37,99,235,0.4)] active:scale-95">
-                        {t.shopNow}
-                        <span className="transition-transform group-hover:translate-x-1">
-                          {isAr ? <ArrowLeft size={22} /> : <ArrowRight size={22} />}
-                        </span>
-                      </Link>
+            <div className="absolute inset-0 z-20 flex items-center justify-center text-center px-6">
+              <div className="max-w-5xl translate-y-0 opacity-100 transition-all duration-1000 delay-300">
+                
+                {s.type === "hero" ? (
+                  <div className="space-y-6 md:space-y-8">
+                    <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-xl border border-white/20 px-4 py-2 rounded-full text-white text-[10px] md:text-xs font-bold uppercase tracking-widest">
+                      <Sparkles size={14} className="text-blue-400" />
+                      {isAr ? "مرحباً بك في عالم سيزر" : "Welcome to Cesar World"}
                     </div>
-                  ) : (
-                    <div className="space-y-6">
-                      <h2 className="text-4xl md:text-7xl font-black text-white drop-shadow-2xl">{isAr ? s.ar.title : s.en.title}</h2>
-                      <p className="text-lg md:text-2xl text-white/90 font-medium max-w-2xl mx-auto">{isAr ? s.ar.subtitle : s.en.subtitle}</p>
-                      <Link href={`/shop?category=${s.category}`} className="inline-block bg-white text-slate-900 px-10 py-5 rounded-2xl font-black text-lg hover:bg-blue-50 transition-all shadow-2xl active:scale-95">
-                        {t.explore}
-                      </Link>
-                    </div>
-                  )}
-                </div>
+                    <h1 className="text-4xl md:text-8xl font-black text-white leading-[1.1] tracking-tight">
+                      {t.heroTitle.split(' ').map((word, idx) => (
+                        <span key={idx} className={idx === 1 ? "text-blue-500" : ""}>{word} </span>
+                      ))}
+                    </h1>
+                    <Link href="/categories" className="group relative inline-flex items-center gap-3 bg-blue-600 text-white px-8 py-4 md:px-12 md:py-6 rounded-2xl font-black text-lg transition-all hover:bg-blue-700 hover:shadow-[0_20px_50px_rgba(37,99,235,0.3)] active:scale-95">
+                      {t.shopNow}
+                      <span className="transition-transform group-hover:translate-x-1">
+                        {isAr ? <ArrowLeft size={22} /> : <ArrowRight size={22} />}
+                      </span>
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <h2 className="text-4xl md:text-7xl font-black text-white drop-shadow-2xl">{isAr ? s.ar.title : s.en.title}</h2>
+                    <p className="text-lg md:text-2xl text-white/90 font-medium max-w-2xl mx-auto">{isAr ? s.ar.subtitle : s.en.subtitle}</p>
+                    <Link href={`/shop?category=${s.category}`} className="inline-block bg-white text-slate-900 px-10 py-5 rounded-2xl font-black text-lg hover:bg-blue-50 transition-all shadow-2xl active:scale-95">
+                      {t.explore}
+                    </Link>
+                  </div>
+                )}
               </div>
             </div>
-          );
-        })}
-
+          </div>
+        ))}
+        
         {/* Slider Indicators - Modern Style */}
         <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-30 flex gap-2">
           {slides.map((_, i) => (
@@ -228,8 +219,8 @@ export default function LandingPage() {
               className="flex h-11 min-w-11 items-center justify-center rounded-full transition-all duration-500"
             >
               <span
-                className={`h-2 rounded-full transition-all duration-500 ${
-                  i === index ? "w-10 bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.8)]" : "w-2 bg-white/50 hover:bg-white/80"
+                className={`h-1.5 rounded-full transition-all duration-500 ${
+                  i === index ? "w-10 bg-blue-600" : "w-2 bg-white/40"
                 }`}
                 aria-hidden="true"
               />
@@ -238,7 +229,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Features */}
+      {/* Features - تحسين الظلال والرموز */}
       <section className="py-24 px-6 max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
         {[
           { icon: ShieldCheck, title: isAr ? "جودة مضمونة" : "Guaranteed Quality", desc: isAr ? "منتجات أصلية 100% ومختارة بعناية" : "100% Original handpicked products" },
@@ -255,7 +246,6 @@ export default function LandingPage() {
         ))}
       </section>
 
-      {/* Wholesale Section */}
       <section className="px-6 pb-24">
         <div className="mx-auto grid max-w-7xl items-center gap-10 rounded-[2.5rem] border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/50 md:grid-cols-[1.1fr_0.9fr] md:p-12">
           <div className="space-y-5">
@@ -290,7 +280,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* About Section */}
+      {/* About Section - Minimalist approach */}
       <section className="py-24 px-6 relative overflow-hidden">
         <div className="max-w-4xl mx-auto text-center relative z-10">
           <span className="text-blue-600 font-black text-[20px] uppercase tracking-[0.3em] mb-4 block">
@@ -317,9 +307,10 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Bottom Banner */}
+      {/* Bottom Banner - High Impact */}
       <section className="px-6 mb-24">
         <div className="max-w-7xl mx-auto bg-slate-900 rounded-[3.5rem] py-20 px-10 text-center relative overflow-hidden">
+          {/* Decorative Elements */}
           <div
             className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/2"
             aria-hidden="true"
