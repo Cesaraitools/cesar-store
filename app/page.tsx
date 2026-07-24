@@ -140,21 +140,6 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-[#F8FAFC]" dir={isAr ? "rtl" : "ltr"}>
       
-      {/* Dynamic Keyframes for Ken Burns Effect */}
-      <style jsx global>{`
-        @keyframes kenburns {
-          0% {
-            transform: scale(1);
-          }
-          100% {
-            transform: scale(1.12);
-          }
-        }
-        .animate-kenburns {
-          animation: kenburns 8s ease-out infinite alternate;
-        }
-      `}</style>
-
       {/* Hero Slider Section */}
       <section className="relative h-[80vh] md:h-[90vh] w-full overflow-hidden bg-slate-900">
         {slides.map((s, i) => {
@@ -172,25 +157,26 @@ export default function LandingPage() {
                 aria-hidden="true"
               />
 
-              <div className={`relative h-full w-full ${isActive ? "animate-kenburns" : ""}`}>
-                <Image
-                  src={s.image}
-                  alt={
-                    s.type === "hero"
-                      ? isAr
-                        ? "واجهة متجر سيزر لمنتجات وإكسسوارات السيارات"
-                        : "Cesar Store automotive products and accessories"
-                      : isAr
-                      ? s.ar.title
-                      : s.en.title
-                  }
-                  fill
-                  priority={i === 0}
-                  sizes="100vw"
-                  quality={90}
-                  className="h-full w-full object-cover"
-                />
-              </div>
+              {/* الصورة مع تأثير التكبير التدريجي السلس بدون إخفاء الصورة */}
+              <Image
+                src={s.image}
+                alt={
+                  s.type === "hero"
+                    ? isAr
+                      ? "واجهة متجر سيزر لمنتجات وإكسسوارات السيارات"
+                      : "Cesar Store automotive products and accessories"
+                    : isAr
+                    ? s.ar.title
+                    : s.en.title
+                }
+                fill
+                priority={i === 0}
+                sizes="100vw"
+                quality={90}
+                className={`h-full w-full object-cover transition-transform duration-[7000ms] ease-out ${
+                  isActive ? "scale-110" : "scale-100"
+                }`}
+              />
 
               <div className="absolute inset-0 z-20 flex items-center justify-center text-center px-6">
                 <div
