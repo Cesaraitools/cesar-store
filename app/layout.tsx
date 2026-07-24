@@ -171,7 +171,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   };
 
   return (
-    <html lang="ar" className="scroll-smooth">
+    <html lang="ar" dir="rtl" className="scroll-smooth">
       <body className="bg-[#F8FAFC] min-h-screen text-slate-900 antialiased selection:bg-blue-600 selection:text-white">
         {googleTagLoaderId && (
           <>
