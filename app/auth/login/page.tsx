@@ -162,7 +162,7 @@ function LoginContent() {
 
         </form>
 
-        {appDetectionReady && !isMobileApp && (
+        {false && appDetectionReady && !isMobileApp && (
           <>
         <div className="my-6 text-center text-sm text-gray-400">
           أو عبر
