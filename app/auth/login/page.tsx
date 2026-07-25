@@ -1,13 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState, Suspense } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
-import {
-  isNativeGoogleAuthAvailable,
-  useAuth,
-} from "@/context/AuthContext";
+import { useAuth } from "@/context/AuthContext";
 import { preserveGuestCartForAuth } from "@/context/CartContext";
 import { isValidEmail, normalizeEmail } from "@/lib/formValidation";
 
@@ -48,7 +45,6 @@ function isAndroidAppEnvironment() {
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const supabase = useMemo(() => createClient(), []);
   const { signInWithGoogle, user, loading: authLoading } = useAuth();
 
   const redirectParam = searchParams.get("redirect");
@@ -58,7 +54,6 @@ function LoginContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isMobileApp, setIsMobileApp] = useState(true);
-  const [nativeGoogleAuthReady, setNativeGoogleAuthReady] = useState(false);
   const [appDetectionReady, setAppDetectionReady] = useState(false);
   const cleanEmail = normalizeEmail(email);
   const canSubmit = isValidEmail(cleanEmail) && password.length > 0;
@@ -67,11 +62,7 @@ function LoginContent() {
 
   useEffect(() => {
     const detectMobileApp = () => {
-      const mobileApp = isAndroidAppEnvironment();
-      setIsMobileApp(mobileApp);
-      setNativeGoogleAuthReady(
-        mobileApp && isNativeGoogleAuthAvailable()
-      );
+      setIsMobileApp(isAndroidAppEnvironment());
       setAppDetectionReady(true);
     };
 
@@ -90,14 +81,6 @@ function LoginContent() {
       router.replace(target);
     }
   }, [authLoading, router, target, user]);
-
-  useEffect(() => {
-    if (searchParams.get("oauth_error") === "1") {
-      setError(
-        "تعذر إكمال تسجيل الدخول بجوجل داخل التطبيق. يمكنك المتابعة بالبريد الإلكتروني."
-      );
-    }
-  }, [searchParams]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -179,7 +162,7 @@ function LoginContent() {
 
         </form>
 
-        {appDetectionReady && (!isMobileApp || nativeGoogleAuthReady) && (
+        {appDetectionReady && !isMobileApp && (
           <>
         <div className="my-6 text-center text-sm text-gray-400">
           أو عبر
