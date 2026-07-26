@@ -88,6 +88,7 @@ function LoginContent() {
   const canSubmit = isValidEmail(cleanEmail) && password.length > 0;
 
   const target = getSafeRedirectPath(redirectParam);
+  const registerHref = `/auth/register?redirect=${encodeURIComponent(target)}`;
 
   useEffect(() => {
     const detectMobileApp = () => {
@@ -228,7 +229,7 @@ function LoginContent() {
 
         <p className="text-center text-sm mt-6">
           ليس لديك حساب؟{" "}
-          <Link href="/auth/register" className="text-orange-600">
+          <Link href={registerHref} className="text-orange-600">
             إنشاء حساب
           </Link>
         </p>

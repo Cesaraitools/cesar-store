@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
 import {
@@ -9,7 +10,14 @@ import {
   normalizePhoneDigits,
 } from "@/lib/formValidation";
 
-export default function RegisterPage() {
+function getSafeRedirectPath(redirect: string | null, fallback = "/") {
+  if (!redirect) return fallback;
+  if (!redirect.startsWith("/") || redirect.startsWith("//")) return fallback;
+  return redirect;
+}
+
+function RegisterContent() {
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
@@ -20,6 +28,8 @@ export default function RegisterPage() {
   const cleanPhone = normalizePhoneDigits(phone);
   const canSubmit =
     isValidEmail(cleanEmail) && cleanPhone.length > 0 && password.length > 0;
+  const target = getSafeRedirectPath(searchParams.get("redirect"));
+  const loginHref = `/auth/login?redirect=${encodeURIComponent(target)}`;
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,7 +79,7 @@ export default function RegisterPage() {
       setSuccess(true);
 
       setTimeout(() => {
-        window.location.href = "/auth/login";
+        window.location.href = loginHref;
       }, 1500);
     } catch (err: any) {
       if (err.message.includes("already registered")) {
@@ -109,7 +119,7 @@ export default function RegisterPage() {
             </p>
 
             <Link
-              href="/auth/login"
+              href={loginHref}
               className="block w-full bg-black text-white py-4 rounded-2xl font-bold shadow-lg"
             >
               تسجيل الدخول
@@ -163,7 +173,7 @@ export default function RegisterPage() {
         {!success && (
           <div className="mt-8 text-center">
             <Link
-              href="/auth/login"
+              href={loginHref}
               className="text-gray-500 text-sm font-medium hover:text-black transition-colors"
             >
               عودة لتسجيل الدخول
@@ -172,5 +182,13 @@ export default function RegisterPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <RegisterContent />
+    </Suspense>
   );
 }
