@@ -9,7 +9,6 @@ import {
   useRef,
 } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { usePathname } from "next/navigation";
 import { trackAddToCart } from "@/lib/google-ads-tracking";
 import { createSafeUUID } from "@/lib/safe-uuid";
 import type { ProductVariantSnapshot } from "@/types/product";
@@ -48,8 +47,7 @@ type CartContextType = {
 };
 
 const CART_STORAGE_KEY = "cesar_store_cart_v2";
-const OAUTH_GUEST_CART_STORAGE_KEY = "cesar_store_oauth_guest_cart";
-const OAUTH_MERGE_COMPLETE_USER_KEY = "cesar_store_oauth_merge_complete_user";
+const AUTH_GUEST_CART_STORAGE_KEY = "cesar_store_auth_guest_cart";
 
 function generateUUID() {
   return createSafeUUID();
@@ -128,27 +126,24 @@ function loadCartFromStorage(): LocalCart {
 function saveCartToStorage(cart: LocalCart) {
   try {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
-    if (cart.ownerUserId === null && cart.items.length > 0) {
-      sessionStorage.setItem(OAUTH_GUEST_CART_STORAGE_KEY, JSON.stringify(cart));
-    }
   } catch {}
 }
 
-export function preserveGuestCartForAuth() {
+export function preserveGuestCartForCheckout() {
   try {
     const raw = localStorage.getItem(CART_STORAGE_KEY);
     if (!raw) return;
 
     const parsed = JSON.parse(raw) as Partial<LocalCart>;
     if (Array.isArray(parsed.items) && parsed.items.length > 0) {
-      sessionStorage.setItem(OAUTH_GUEST_CART_STORAGE_KEY, raw);
+      sessionStorage.setItem(AUTH_GUEST_CART_STORAGE_KEY, raw);
     }
   } catch {}
 }
 
-function loadOauthGuestCartBackup(): LocalCart | null {
+function loadAuthGuestCartBackup(): LocalCart | null {
   try {
-    const raw = sessionStorage.getItem(OAUTH_GUEST_CART_STORAGE_KEY);
+    const raw = sessionStorage.getItem(AUTH_GUEST_CART_STORAGE_KEY);
     if (!raw) return null;
 
     const parsed = JSON.parse(raw) as Partial<LocalCart>;
@@ -163,36 +158,15 @@ function loadOauthGuestCartBackup(): LocalCart | null {
   }
 }
 
-function clearOauthGuestCartBackup() {
+function clearAuthGuestCartBackup() {
   try {
-    sessionStorage.removeItem(OAUTH_GUEST_CART_STORAGE_KEY);
+    sessionStorage.removeItem(AUTH_GUEST_CART_STORAGE_KEY);
   } catch {}
 }
 
-function getOauthMergeCompleteUserId() {
-  try {
-    return sessionStorage.getItem(OAUTH_MERGE_COMPLETE_USER_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function clearOauthMergeCompleteUserId() {
-  try {
-    sessionStorage.removeItem(OAUTH_MERGE_COMPLETE_USER_KEY);
-  } catch {}
-}
-
-function getGuestCartForMerge(currentCart: LocalCart): LocalCart {
-  if (currentCart.items.length > 0) return currentCart;
-
-  const oauthBackup = loadOauthGuestCartBackup();
-  if (oauthBackup && oauthBackup.items.length > 0) return oauthBackup;
-
-  const storedCart = loadCartFromStorage();
-  if (storedCart.items.length > 0) return storedCart;
-
-  return currentCart;
+function getGuestCartForMerge(): LocalCart | null {
+  const authBackup = loadAuthGuestCartBackup();
+  return authBackup && authBackup.items.length > 0 ? authBackup : null;
 }
 
 function mapDbCartItems(dbItems: any[]): CartItem[] {
@@ -217,7 +191,6 @@ const CartContext = createContext<CartContextType | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const { user, session } = useAuth();
-  const pathname = usePathname();
 
   const [cart, setCart] = useState<LocalCart>({
     id: "",
@@ -263,10 +236,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return prev;
     }
 
-    if (prev.ownerUserId === null && prev.items.length > 0) {
+    const pendingGuestCart = loadAuthGuestCartBackup();
+
+    if (pendingGuestCart && pendingGuestCart.items.length > 0) {
       shouldMergeGuestCart.current = true;
       return {
-        ...prev,
+        ...pendingGuestCart,
         ownerUserId: currentUserId,
       };
     }
@@ -287,11 +262,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     if (previous === null) {
       previousUserId.current = currentUserId;
-      shouldMergeGuestCart.current = true;
-      setCart((prev) => ({
-        ...prev,
-        ownerUserId: currentUserId,
-      }));
+      const pendingGuestCart = loadAuthGuestCartBackup();
+      shouldMergeGuestCart.current = Boolean(pendingGuestCart);
+      setCart(
+        pendingGuestCart
+          ? {
+              ...pendingGuestCart,
+              ownerUserId: currentUserId,
+            }
+          : createEmptyCart(currentUserId)
+      );
       return;
     }
 
@@ -322,13 +302,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!cartLoaded) return;
     if (!user || !session) return;
-    if (pathname === "/auth/sync") return;
     if (isMerging.current) return;
     if (mergedForUserId.current === user.id) return;
 
-    const guestCartForMerge = getGuestCartForMerge(cart);
+    const guestCartForMerge = getGuestCartForMerge();
     const itemsToMerge =
-      shouldMergeGuestCart.current && guestCartForMerge.items.length > 0
+      shouldMergeGuestCart.current && guestCartForMerge
         ? guestCartForMerge.items.map((item) => ({
             product_id: item.product_id,
             quantity: item.quantity,
@@ -343,13 +322,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         setCartSyncing(true);
         mergedForUserId.current = user.id;
 
-        const oauthMergeAlreadyDone = getOauthMergeCompleteUserId() === user.id;
-
-        if (oauthMergeAlreadyDone) {
-          shouldMergeGuestCart.current = false;
-          clearOauthGuestCartBackup();
-          clearOauthMergeCompleteUserId();
-        } else if (itemsToMerge.length > 0) {
+        if (itemsToMerge.length > 0) {
           const mergeRes = await fetch("/api/cart/merge", {
             method: "POST",
             headers: {
@@ -367,7 +340,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }
 
         shouldMergeGuestCart.current = false;
-        clearOauthGuestCartBackup();
+        clearAuthGuestCartBackup();
 
         const itemsRes = await fetch("/api/cart/items", {
           headers: {
@@ -396,7 +369,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           setCart((prev) => ({
             ...prev,
             ownerUserId: user.id,
-            items: guestCartForMerge.items,
+            items: guestCartForMerge?.items ?? [],
           }));
         }
       } finally {
@@ -408,7 +381,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     mergeCart();
   // Guest cart merge must run only on login/session changes, not on every cart item mutation.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cartLoaded, pathname, user?.id, session?.access_token]);
+  }, [cartLoaded, user?.id, session?.access_token]);
 
   const addToCart = (product: any) => {
     const productStock = normalizeStockValue(product.stock);

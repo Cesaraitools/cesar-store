@@ -3,7 +3,7 @@ import { formatCurrency } from "@/lib/formatCurrency";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { preserveGuestCartForAuth, useCart } from "@/context/CartContext";
+import { preserveGuestCartForCheckout, useCart } from "@/context/CartContext";
 import {
   Trash2,
   Plus,
@@ -215,7 +215,7 @@ export default function CartPage() {
                   if (user) {
                     router.push("/checkout");
                   } else {
-                    preserveGuestCartForAuth();
+                    preserveGuestCartForCheckout();
                     router.push("/auth/login?redirect=/checkout");
                   }
                 }}

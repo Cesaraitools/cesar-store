@@ -19,19 +19,27 @@ type LanguageContextType = {
 const LanguageContext = createContext<LanguageContextType | undefined>(
   undefined
 );
+const LANGUAGE_STORAGE_KEY = "lang";
+const LANGUAGE_PREFERENCE_KEY = "cesar_store_language_selected";
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Language>("en");
+  const [lang, setLangState] = useState<Language>("ar");
 
   // تحميل اللغة المحفوظة (لو موجودة)
   useEffect(() => {
-    const savedLang =
-      typeof window !== "undefined"
-        ? (localStorage.getItem("lang") as Language | null)
-        : null;
+    const hasSelectedLanguage =
+      localStorage.getItem(LANGUAGE_PREFERENCE_KEY) === "true";
+    const savedLang = localStorage.getItem(
+      LANGUAGE_STORAGE_KEY
+    ) as Language | null;
 
-    if (savedLang === "ar" || savedLang === "en") {
+    if (
+      hasSelectedLanguage &&
+      (savedLang === "ar" || savedLang === "en")
+    ) {
       setLangState(savedLang);
+    } else {
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, "ar");
     }
   }, []);
 
@@ -41,14 +49,20 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
     document.documentElement.lang = lang;
     document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
-    localStorage.setItem("lang", lang);
   }, [lang]);
 
   const toggleLang = () => {
-    setLangState((prev) => (prev === "en" ? "ar" : "en"));
+    setLangState((prev) => {
+      const nextLang = prev === "en" ? "ar" : "en";
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, nextLang);
+      localStorage.setItem(LANGUAGE_PREFERENCE_KEY, "true");
+      return nextLang;
+    });
   };
 
   const setLang = (value: Language) => {
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, value);
+    localStorage.setItem(LANGUAGE_PREFERENCE_KEY, "true");
     setLangState(value);
   };
 

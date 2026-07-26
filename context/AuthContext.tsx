@@ -18,18 +18,10 @@ type AuthContextType = {
   session: Session | null;
   loading: boolean;
   signOut: () => Promise<void>;
-  signInWithGoogle: (redirect?: string) => Promise<void>;
+  signInWithPassword: (email: string, password: string) => Promise<string | null>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-const CART_STORAGE_KEY = "cesar_store_cart_v2";
-const OAUTH_GUEST_CART_STORAGE_KEY = "cesar_store_oauth_guest_cart";
-
-function getSafeRedirectPath(redirect?: string) {
-  if (!redirect) return "/checkout";
-  if (!redirect.startsWith("/") || redirect.startsWith("//")) return "/checkout";
-  return redirect;
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const supabase = useMemo(() => createClient(), []);
@@ -99,35 +91,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ensuredUserRef.current = false;
   };
 
-  const signInWithGoogle = async (redirect?: string) => {
-  setLoading(true);
+  const signInWithPassword = async (email: string, password: string) => {
+    setLoading(true);
 
-  const redirectPath = getSafeRedirectPath(redirect);
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-  if (typeof window !== "undefined") {
-    sessionStorage.setItem("oauth_redirect", redirectPath);
-    sessionStorage.setItem("last_redirect", redirectPath);
-
-    const guestCart = localStorage.getItem(CART_STORAGE_KEY);
-    if (guestCart) {
-      sessionStorage.setItem(OAUTH_GUEST_CART_STORAGE_KEY, guestCart);
-    } else {
-      sessionStorage.removeItem(OAUTH_GUEST_CART_STORAGE_KEY);
+    if (error) {
+      setLoading(false);
+      return error.message;
     }
-  }
 
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider: "google",
-    options: {
-      redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirectPath)}`
-    },
-  });
-
-  if (error) {
-    console.error("Google sign-in error:", error.message);
-    setLoading(false);
-  }
-};
+    return null;
+  };
 
   return (
     <AuthContext.Provider
@@ -136,7 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session,
         loading,
         signOut,
-        signInWithGoogle,
+        signInWithPassword,
       }}
     >
       {children}

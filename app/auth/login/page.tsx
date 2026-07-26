@@ -1,11 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState, Suspense } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
-import { preserveGuestCartForAuth } from "@/context/CartContext";
 import { isValidEmail, normalizeEmail } from "@/lib/formValidation";
 
 function getSafeRedirectPath(redirect: string | null, fallback = "/") {
@@ -14,39 +12,10 @@ function getSafeRedirectPath(redirect: string | null, fallback = "/") {
   return redirect;
 }
 
-function isAndroidAppEnvironment() {
-  if (typeof window === "undefined") return false;
-
-  const userAgent = navigator.userAgent || "";
-  const url = new URL(window.location.href);
-  const hasAppQuery =
-    url.searchParams.get("app") === "android" ||
-    url.searchParams.get("platform") === "android" ||
-    url.searchParams.get("mobile_app") === "android";
-  const hasAppUserAgent = userAgent.includes("CesarStoreApp/Android");
-  const hasAppFlag = window.localStorage.getItem("cesar_store_mobile_app") === "android";
-  const isCapacitorNative = Boolean(
-    (window as typeof window & {
-      Capacitor?: { isNativePlatform?: () => boolean };
-    }).Capacitor?.isNativePlatform?.()
-  );
-  const isAndroidWebView =
-    /\bAndroid\b/i.test(userAgent) &&
-    (/\bwv\b/i.test(userAgent) || /Version\/\d+\.\d+/i.test(userAgent));
-
-  if (hasAppQuery || hasAppUserAgent || hasAppFlag || isCapacitorNative || isAndroidWebView) {
-    window.localStorage.setItem("cesar_store_mobile_app", "android");
-    return true;
-  }
-
-  return false;
-}
-
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const supabase = useMemo(() => createClient(), []);
-  const { signInWithGoogle, user, loading: authLoading } = useAuth();
+  const { signInWithPassword, user, loading: authLoading } = useAuth();
 
   const redirectParam = searchParams.get("redirect");
 
@@ -54,28 +23,10 @@ function LoginContent() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isMobileApp, setIsMobileApp] = useState(true);
-  const [appDetectionReady, setAppDetectionReady] = useState(false);
   const cleanEmail = normalizeEmail(email);
   const canSubmit = isValidEmail(cleanEmail) && password.length > 0;
 
   const target = getSafeRedirectPath(redirectParam);
-
-  useEffect(() => {
-    const detectMobileApp = () => {
-      setIsMobileApp(isAndroidAppEnvironment());
-      setAppDetectionReady(true);
-    };
-
-    detectMobileApp();
-    const intervalId = window.setInterval(detectMobileApp, 250);
-    const timeoutId = window.setTimeout(() => window.clearInterval(intervalId), 3000);
-
-    return () => {
-      window.clearInterval(intervalId);
-      window.clearTimeout(timeoutId);
-    };
-  }, []);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -99,13 +50,7 @@ function LoginContent() {
 
     try {
       setLoading(true);
-      preserveGuestCartForAuth();
-
-      const { error: signInError } =
-        await supabase.auth.signInWithPassword({
-          email: cleanEmail,
-          password,
-        });
+      const signInError = await signInWithPassword(cleanEmail, password);
 
       if (signInError) throw signInError;
 
@@ -162,21 +107,6 @@ function LoginContent() {
           </button>
 
         </form>
-
-        {appDetectionReady && !isMobileApp && (
-          <>
-        <div className="my-6 text-center text-sm text-gray-400">
-          أو عبر
-        </div>
-
-        <button
-          onClick={() => signInWithGoogle(target)}
-          className="w-full border p-3 rounded-lg mb-3"
-        >
-          Google Login
-        </button>
-          </>
-        )}
 
         <p className="text-center text-sm mt-6">
           ليس لديك حساب؟{" "}

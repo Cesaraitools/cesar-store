@@ -87,25 +87,6 @@ export default function LandingPage() {
   const [slides, setSlides] = useState<Slide[]>([heroSlide]);
   
   useEffect(() => {
-  if (typeof window === "undefined") return;
-
-  const url = new URL(window.location.href);
-  const code = url.searchParams.get("code");
-
-  if (code) {
-    const storedRedirect = sessionStorage.getItem("oauth_redirect");
-    const redirect =
-      storedRedirect && storedRedirect.startsWith("/") && !storedRedirect.startsWith("//")
-        ? storedRedirect
-        : "/checkout";
-
-    window.location.replace(
-      `/auth/callback?code=${encodeURIComponent(code)}&redirect=${encodeURIComponent(redirect)}`
-    );
-  }
-}, []);
-
-  useEffect(() => {
     let isCancelled = false;
 
     const loadCategories = () => {

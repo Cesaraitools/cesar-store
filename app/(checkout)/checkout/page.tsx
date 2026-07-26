@@ -3,7 +3,7 @@ import { formatCurrency } from "@/lib/formatCurrency";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCheckout } from "@/context/CheckoutContext";
-import { preserveGuestCartForAuth, useCart } from "@/context/CartContext";
+import { preserveGuestCartForCheckout, useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { trackBeginCheckout } from "@/lib/google-ads-tracking";
 
@@ -41,7 +41,7 @@ export default function CheckoutPage() {
     if (!loading && !user) {
       const current = window.location.pathname;
       sessionStorage.setItem("last_redirect", window.location.pathname);
-      preserveGuestCartForAuth();
+      preserveGuestCartForCheckout();
       router.push(`/auth/login?redirect=${encodeURIComponent(current)}`);
     }
   }, [user, loading, router]);
