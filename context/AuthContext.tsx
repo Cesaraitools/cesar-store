@@ -32,6 +32,17 @@ function getSafeRedirectPath(redirect?: string) {
   return redirect;
 }
 
+function getGoogleCallbackUrl(redirectPath: string) {
+  const callbackUrl = new URL("/auth/callback", window.location.origin);
+
+  if (callbackUrl.hostname === "www.cesareshop.com") {
+    callbackUrl.hostname = "cesareshop.com";
+  }
+
+  callbackUrl.searchParams.set("redirect", redirectPath);
+  return callbackUrl.toString();
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
@@ -144,9 +155,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${
-          window.location.origin
-        }/auth/callback?redirect=${encodeURIComponent(redirectPath)}`,
+        redirectTo: getGoogleCallbackUrl(redirectPath),
       },
     });
 
