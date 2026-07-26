@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { useCart } from "@/context/CartContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useAuth } from "@/context/AuthContext";
@@ -16,6 +17,7 @@ import {
   Package,
   LogIn,
   Store,
+  LoaderCircle,
 } from "lucide-react";
 
 export default function Navbar() {
@@ -24,6 +26,7 @@ export default function Navbar() {
   const { lang, toggleLang } = useLanguage();
   const { user, loading, signOut } = useAuth();
   const pathname = usePathname();
+  const [pendingMobileHref, setPendingMobileHref] = useState<string | null>(null);
   const isAr = lang === "ar";
   const isWholesaleSection = pathname?.startsWith("/wholesale") || false;
   const homeHref = isWholesaleSection ? "/wholesale" : "/";
@@ -119,6 +122,20 @@ export default function Navbar() {
   const visibleMobileLinks = mobileNavigationLinks.filter(
     (link) => !link.authOnly || (!loading && user)
   );
+
+  useEffect(() => {
+    setPendingMobileHref(null);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!pendingMobileHref) return;
+
+    const recoveryTimer = window.setTimeout(() => {
+      setPendingMobileHref(null);
+    }, 4000);
+
+    return () => window.clearTimeout(recoveryTimer);
+  }, [pendingMobileHref]);
 
   return (
     <>
@@ -245,19 +262,31 @@ export default function Navbar() {
           const isActive =
             pathname === link.href ||
             (link.href !== "/" && pathname?.startsWith(link.href));
+          const isPending = pendingMobileHref === link.href;
 
           return (
             <Link
               key={link.href}
               href={link.href}
+              aria-current={isActive ? "page" : undefined}
+              aria-busy={isPending || undefined}
+              onClick={() => {
+                if (!isActive) {
+                  setPendingMobileHref(link.href);
+                }
+              }}
               className={`relative flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[10px] font-black transition-all active:scale-95 ${
-                isActive
+                isActive || isPending
                   ? "bg-blue-50 text-blue-700"
                   : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
-              }`}
+              } ${isPending ? "pointer-events-none" : ""}`}
             >
               <span className="relative">
-                <Icon size={20} strokeWidth={2.4} />
+                {isPending ? (
+                  <LoaderCircle size={20} strokeWidth={2.4} className="animate-spin" />
+                ) : (
+                  <Icon size={20} strokeWidth={2.4} />
+                )}
                 {typeof link.badge === "number" && link.badge > 0 ? (
                   <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-600 px-1 text-[9px] font-black text-white ring-2 ring-white">
                     {link.badge}

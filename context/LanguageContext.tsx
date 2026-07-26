@@ -22,24 +22,40 @@ const LanguageContext = createContext<LanguageContextType | undefined>(
 const LANGUAGE_STORAGE_KEY = "lang";
 const LANGUAGE_PREFERENCE_KEY = "cesar_store_language_selected";
 
+function loadSavedLanguage(): Language | null {
+  try {
+    const hasSelectedLanguage =
+      window.localStorage.getItem(LANGUAGE_PREFERENCE_KEY) === "true";
+    const savedLang = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+
+    return hasSelectedLanguage && (savedLang === "ar" || savedLang === "en")
+      ? savedLang
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveLanguage(value: Language, markAsSelected: boolean) {
+  try {
+    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, value);
+    if (markAsSelected) {
+      window.localStorage.setItem(LANGUAGE_PREFERENCE_KEY, "true");
+    }
+  } catch {}
+}
+
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Language>("ar");
 
   // تحميل اللغة المحفوظة (لو موجودة)
   useEffect(() => {
-    const hasSelectedLanguage =
-      localStorage.getItem(LANGUAGE_PREFERENCE_KEY) === "true";
-    const savedLang = localStorage.getItem(
-      LANGUAGE_STORAGE_KEY
-    ) as Language | null;
+    const savedLang = loadSavedLanguage();
 
-    if (
-      hasSelectedLanguage &&
-      (savedLang === "ar" || savedLang === "en")
-    ) {
+    if (savedLang) {
       setLangState(savedLang);
     } else {
-      localStorage.setItem(LANGUAGE_STORAGE_KEY, "ar");
+      saveLanguage("ar", false);
     }
   }, []);
 
@@ -52,17 +68,13 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, [lang]);
 
   const toggleLang = () => {
-    setLangState((prev) => {
-      const nextLang = prev === "en" ? "ar" : "en";
-      localStorage.setItem(LANGUAGE_STORAGE_KEY, nextLang);
-      localStorage.setItem(LANGUAGE_PREFERENCE_KEY, "true");
-      return nextLang;
-    });
+    const nextLang = lang === "en" ? "ar" : "en";
+    saveLanguage(nextLang, true);
+    setLangState(nextLang);
   };
 
   const setLang = (value: Language) => {
-    localStorage.setItem(LANGUAGE_STORAGE_KEY, value);
-    localStorage.setItem(LANGUAGE_PREFERENCE_KEY, "true");
+    saveLanguage(value, true);
     setLangState(value);
   };
 

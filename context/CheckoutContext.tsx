@@ -152,7 +152,9 @@ export function CheckoutProvider({ children }: { children: ReactNode }) {
       // مسح السلة والبيانات المحفوظة
       clearPendingOrderToken();
       await clearCart({ sync: false });
-      localStorage.removeItem(CHECKOUT_STORAGE_KEY);
+      try {
+        localStorage.removeItem(CHECKOUT_STORAGE_KEY);
+      } catch {}
       setCheckoutDataState({
         name: "",
         phone: "",
@@ -182,7 +184,9 @@ export function CheckoutProvider({ children }: { children: ReactNode }) {
       notes: "",
     });
     setError(null);
-    localStorage.removeItem(CHECKOUT_STORAGE_KEY);
+    try {
+      localStorage.removeItem(CHECKOUT_STORAGE_KEY);
+    } catch {}
   }, []);
 
   return (

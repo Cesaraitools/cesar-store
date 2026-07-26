@@ -40,7 +40,9 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (!loading && !user) {
       const current = window.location.pathname;
-      sessionStorage.setItem("last_redirect", window.location.pathname);
+      try {
+        sessionStorage.setItem("last_redirect", current);
+      } catch {}
       preserveGuestCartForCheckout();
       router.push(`/auth/login?redirect=${encodeURIComponent(current)}`);
     }
