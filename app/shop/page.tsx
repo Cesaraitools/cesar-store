@@ -155,7 +155,6 @@ export default function ShopPage({ searchParams }: Props) {
   const [selectedCategory, setSelectedCategory] = useState(
     searchParams.category || "all"
   );
-  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [promos, setPromos] = useState<PromoData[]>([]);
@@ -263,17 +262,8 @@ export default function ShopPage({ searchParams }: Props) {
   const rightPromo = promos.find(
     (promo) => promo.position === "shop_right" && promo.isActive
   );
-  const activeFilterCount =
-    Number(selectedCategory !== "all") +
-    Number(searchQuery.trim().length > 0) +
-    Number(sort !== "default");
-  const hasActiveFilters = activeFilterCount > 0;
-
-  const clearFilters = () => {
-    setSearchQuery("");
-    setSelectedCategory("all");
-    setSort("default");
-  };
+  const hasActiveFilters =
+    selectedCategory !== "all" || searchQuery.trim().length > 0;
 
   if (loading) {
     return (
@@ -329,129 +319,8 @@ export default function ShopPage({ searchParams }: Props) {
       </div>
 
       <div className="sticky top-20 z-30 border-b border-white/60 bg-white/82 shadow-[0_14px_50px_rgba(15,23,42,0.04)] backdrop-blur-xl">
-        <div className="mx-auto max-w-[1500px] px-4 py-3 sm:px-6 md:py-4">
-          <div className="md:hidden">
-            <button
-              type="button"
-              onClick={() => setMobileFiltersOpen((open) => !open)}
-              aria-expanded={mobileFiltersOpen}
-              aria-controls="mobile-shop-filters"
-              className="flex w-full items-center justify-between rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-800 shadow-sm transition-colors hover:bg-slate-50"
-            >
-              <span className="flex items-center gap-2">
-                <SlidersHorizontal size={18} className="text-blue-600" />
-                {isAr ? "البحث والفلترة" : "Search and filters"}
-              </span>
-              <span className="flex items-center gap-2">
-                {activeFilterCount > 0 && (
-                  <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-blue-600 px-1.5 text-xs text-white">
-                    {activeFilterCount}
-                  </span>
-                )}
-                <ChevronRight
-                  size={18}
-                  className={`transition-transform ${
-                    mobileFiltersOpen
-                      ? isAr
-                        ? "-rotate-90"
-                        : "rotate-90"
-                      : isAr
-                      ? "rotate-180"
-                      : ""
-                  }`}
-                />
-              </span>
-            </button>
-
-            {mobileFiltersOpen && (
-              <div
-                id="mobile-shop-filters"
-                className="mt-3 grid grid-cols-1 gap-3 rounded-3xl border border-slate-100 bg-white p-3 shadow-xl"
-              >
-                <div className="relative">
-                  <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-400">
-                    <Search size={18} />
-                  </div>
-                  <input
-                    type="search"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={isAr ? "ابحث باسم المنتج" : "Search by product name"}
-                    className="w-full rounded-full border border-slate-100 bg-slate-50 px-5 py-3.5 pr-12 text-sm font-bold text-slate-700 shadow-inner transition-all focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </div>
-
-                <div className="relative">
-                  <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-400">
-                    <Tag size={17} />
-                  </div>
-                  <select
-                    value={selectedCategory}
-                    onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="w-full cursor-pointer appearance-none rounded-full border border-slate-100 bg-slate-50 px-5 py-3.5 pr-12 text-sm font-bold text-slate-700 shadow-inner transition-all focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
-                  >
-                    <option value="all">
-                      {isAr ? "كل الأقسام" : "All Categories"}
-                    </option>
-                    {visibleCategories.map((category) => (
-                      <option key={category.id} value={category.category}>
-                        {isAr ? category.ar.title : category.en.title}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="relative">
-                  <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-400">
-                    <SlidersHorizontal size={17} />
-                  </div>
-                  <select
-                    value={sort}
-                    onChange={(e) => setSort(e.target.value as SortOption)}
-                    className="w-full cursor-pointer appearance-none rounded-full border border-slate-100 bg-slate-50 px-5 py-3.5 pr-12 text-sm font-bold text-slate-700 shadow-inner transition-all focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20"
-                  >
-                    <option value="default">
-                      {isAr ? "الترتيب الافتراضي" : "Default Sorting"}
-                    </option>
-                    <option value="price-asc">
-                      {isAr ? "السعر: من الأقل للأعلى" : "Price: Low to High"}
-                    </option>
-                    <option value="price-desc">
-                      {isAr ? "السعر: من الأعلى للأقل" : "Price: High to Low"}
-                    </option>
-                    <option value="featured">
-                      {isAr ? "الأكثر تميزاً" : "Featured Products"}
-                    </option>
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  {hasActiveFilters && (
-                    <button
-                      type="button"
-                      onClick={clearFilters}
-                      className="rounded-full border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-black text-rose-600"
-                    >
-                      {isAr ? "مسح الفلاتر" : "Clear filters"}
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setMobileFiltersOpen(false)}
-                    className={`rounded-full bg-slate-900 px-4 py-3 text-xs font-black text-white shadow-md active:scale-95 ${
-                      hasActiveFilters ? "" : "col-span-2"
-                    }`}
-                  >
-                    {isAr
-                      ? `عرض ${finalProducts.length} منتج`
-                      : `Show ${finalProducts.length} products`}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="hidden gap-3 md:grid md:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
+        <div className="mx-auto max-w-[1500px] px-4 py-4 sm:px-6">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
             <div className="relative">
               <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-400">
                 <Search size={18} />
@@ -512,7 +381,10 @@ export default function ShopPage({ searchParams }: Props) {
             {hasActiveFilters && (
               <button
                 type="button"
-                onClick={clearFilters}
+                onClick={() => {
+                  setSearchQuery("");
+                  setSelectedCategory("all");
+                }}
                 className="rounded-full border-2 border-dashed border-rose-200 bg-rose-50/70 px-6 py-2 text-xs font-black text-rose-500 transition-all hover:border-rose-300 hover:bg-rose-50 md:self-center"
               >
                 {isAr ? "مسح الفلاتر" : "Clear filters"}
