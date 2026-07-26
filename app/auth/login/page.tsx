@@ -12,10 +12,55 @@ function getSafeRedirectPath(redirect: string | null, fallback = "/") {
   return redirect;
 }
 
+function isAndroidAppEnvironment() {
+  if (typeof window === "undefined") return false;
+
+  const userAgent = navigator.userAgent || "";
+  const url = new URL(window.location.href);
+  const hasAppQuery =
+    url.searchParams.get("app") === "android" ||
+    url.searchParams.get("platform") === "android" ||
+    url.searchParams.get("mobile_app") === "android";
+  const hasAppUserAgent = userAgent.includes("CesarStoreApp/Android");
+  let hasAppFlag = false;
+  try {
+    hasAppFlag =
+      window.localStorage.getItem("cesar_store_mobile_app") === "android";
+  } catch {}
+  const isCapacitorNative = Boolean(
+    (window as typeof window & {
+      Capacitor?: { isNativePlatform?: () => boolean };
+    }).Capacitor?.isNativePlatform?.()
+  );
+  const isAndroidWebView =
+    /\bAndroid\b/i.test(userAgent) &&
+    (/\bwv\b/i.test(userAgent) || /Version\/\d+\.\d+/i.test(userAgent));
+
+  if (
+    hasAppQuery ||
+    hasAppUserAgent ||
+    hasAppFlag ||
+    isCapacitorNative ||
+    isAndroidWebView
+  ) {
+    try {
+      window.localStorage.setItem("cesar_store_mobile_app", "android");
+    } catch {}
+    return true;
+  }
+
+  return false;
+}
+
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signInWithPassword, user, loading: authLoading } = useAuth();
+  const {
+    signInWithGoogle,
+    signInWithPassword,
+    user,
+    loading: authLoading,
+  } = useAuth();
 
   const redirectParam = searchParams.get("redirect");
 
@@ -23,10 +68,39 @@ function LoginContent() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isMobileApp, setIsMobileApp] = useState(true);
+  const [appDetectionReady, setAppDetectionReady] = useState(false);
   const cleanEmail = normalizeEmail(email);
   const canSubmit = isValidEmail(cleanEmail) && password.length > 0;
 
   const target = getSafeRedirectPath(redirectParam);
+
+  useEffect(() => {
+    const detectMobileApp = () => {
+      setIsMobileApp(isAndroidAppEnvironment());
+      setAppDetectionReady(true);
+    };
+
+    detectMobileApp();
+    const intervalId = window.setInterval(detectMobileApp, 250);
+    const timeoutId = window.setTimeout(
+      () => window.clearInterval(intervalId),
+      3000
+    );
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.clearTimeout(timeoutId);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (searchParams.get("oauth_error") === "1") {
+      setError(
+        "تعذر تسجيل الدخول بجوجل. يمكنك المحاولة مرة أخرى أو استخدام البريد الإلكتروني."
+      );
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -58,6 +132,19 @@ function LoginContent() {
     } catch {
       setError("تعذر تسجيل الدخول. تأكد من البريد الإلكتروني وكلمة المرور ثم حاول مرة أخرى.");
     } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setError(null);
+    setLoading(true);
+
+    const signInError = await signInWithGoogle(target);
+    if (signInError) {
+      setError(
+        "تعذر تسجيل الدخول بجوجل. يمكنك المحاولة مرة أخرى أو استخدام البريد الإلكتروني."
+      );
       setLoading(false);
     }
   };
@@ -107,6 +194,23 @@ function LoginContent() {
           </button>
 
         </form>
+
+        {appDetectionReady && !isMobileApp && (
+          <>
+            <div className="my-6 text-center text-sm text-gray-400">
+              أو عبر
+            </div>
+
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={loading}
+              className="w-full border p-3 rounded-lg mb-3 disabled:opacity-60"
+            >
+              تسجيل الدخول بجوجل
+            </button>
+          </>
+        )}
 
         <p className="text-center text-sm mt-6">
           ليس لديك حساب؟{" "}

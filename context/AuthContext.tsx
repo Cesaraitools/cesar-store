@@ -19,9 +19,18 @@ type AuthContextType = {
   loading: boolean;
   signOut: () => Promise<void>;
   signInWithPassword: (email: string, password: string) => Promise<string | null>;
+  signInWithGoogle: (redirect?: string) => Promise<string | null>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const CART_STORAGE_KEY = "cesar_store_cart_v2";
+const AUTH_GUEST_CART_STORAGE_KEY = "cesar_store_auth_guest_cart";
+
+function getSafeRedirectPath(redirect?: string) {
+  if (!redirect) return "/";
+  if (!redirect.startsWith("/") || redirect.startsWith("//")) return "/";
+  return redirect;
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const supabase = useMemo(() => createClient(), []);
@@ -107,6 +116,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return null;
   };
 
+  const signInWithGoogle = async (redirect?: string) => {
+    setLoading(true);
+
+    const redirectPath = getSafeRedirectPath(redirect);
+
+    try {
+      sessionStorage.setItem("last_redirect", redirectPath);
+
+      const rawCart = localStorage.getItem(CART_STORAGE_KEY);
+      if (rawCart) {
+        const parsedCart = JSON.parse(rawCart) as { items?: unknown[] };
+        if (Array.isArray(parsedCart.items) && parsedCart.items.length > 0) {
+          sessionStorage.setItem(AUTH_GUEST_CART_STORAGE_KEY, rawCart);
+        } else {
+          sessionStorage.removeItem(AUTH_GUEST_CART_STORAGE_KEY);
+        }
+      } else {
+        sessionStorage.removeItem(AUTH_GUEST_CART_STORAGE_KEY);
+      }
+    } catch {
+      try {
+        sessionStorage.removeItem(AUTH_GUEST_CART_STORAGE_KEY);
+      } catch {}
+    }
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${
+          window.location.origin
+        }/auth/callback?redirect=${encodeURIComponent(redirectPath)}`,
+      },
+    });
+
+    if (error) {
+      setLoading(false);
+      return error.message;
+    }
+
+    return null;
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -115,6 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         signOut,
         signInWithPassword,
+        signInWithGoogle,
       }}
     >
       {children}
