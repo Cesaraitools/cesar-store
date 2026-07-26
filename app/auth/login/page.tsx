@@ -12,10 +12,14 @@ function getSafeRedirectPath(redirect: string | null, fallback = "/") {
   return redirect;
 }
 
-function isAndroidAppEnvironment() {
+function isMobileOrInstalledAppEnvironment() {
   if (typeof window === "undefined") return false;
 
   const userAgent = navigator.userAgent || "";
+  const navigatorWithMobileData = navigator as Navigator & {
+    userAgentData?: { mobile?: boolean };
+    standalone?: boolean;
+  };
   const url = new URL(window.location.href);
   const hasAppQuery =
     url.searchParams.get("app") === "android" ||
@@ -35,13 +39,23 @@ function isAndroidAppEnvironment() {
   const isAndroidWebView =
     /\bAndroid\b/i.test(userAgent) &&
     (/\bwv\b/i.test(userAgent) || /Version\/\d+\.\d+/i.test(userAgent));
+  const isMobileBrowser =
+    navigatorWithMobileData.userAgentData?.mobile === true ||
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobi/i.test(
+      userAgent
+    );
+  const isInstalledWebApp =
+    window.matchMedia?.("(display-mode: standalone)").matches === true ||
+    navigatorWithMobileData.standalone === true;
 
   if (
     hasAppQuery ||
     hasAppUserAgent ||
     hasAppFlag ||
     isCapacitorNative ||
-    isAndroidWebView
+    isAndroidWebView ||
+    isMobileBrowser ||
+    isInstalledWebApp
   ) {
     try {
       window.localStorage.setItem("cesar_store_mobile_app", "android");
@@ -68,7 +82,7 @@ function LoginContent() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isMobileApp, setIsMobileApp] = useState(true);
+  const [hideGoogleLogin, setHideGoogleLogin] = useState(true);
   const [appDetectionReady, setAppDetectionReady] = useState(false);
   const cleanEmail = normalizeEmail(email);
   const canSubmit = isValidEmail(cleanEmail) && password.length > 0;
@@ -77,7 +91,7 @@ function LoginContent() {
 
   useEffect(() => {
     const detectMobileApp = () => {
-      setIsMobileApp(isAndroidAppEnvironment());
+      setHideGoogleLogin(isMobileOrInstalledAppEnvironment());
       setAppDetectionReady(true);
     };
 
@@ -195,7 +209,7 @@ function LoginContent() {
 
         </form>
 
-        {appDetectionReady && !isMobileApp && (
+        {appDetectionReady && !hideGoogleLogin && (
           <>
             <div className="my-6 text-center text-sm text-gray-400">
               أو عبر
