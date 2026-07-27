@@ -11,3 +11,55 @@
 body {
   direction: rtl;
 }
+
+@keyframes homepage-slide-enter {
+  from {
+    opacity: 0;
+    transform: scale(1.05);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes homepage-slide-image {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.1);
+  }
+}
+
+@keyframes homepage-slide-copy {
+  from {
+    opacity: 0;
+    transform: translateY(3rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.homepage-slide-enter {
+  animation: homepage-slide-enter 1s ease-out both;
+}
+
+.homepage-slide-image {
+  animation: homepage-slide-image 10s linear both;
+  transform-origin: center;
+}
+
+.homepage-slide-copy {
+  animation: homepage-slide-copy 1s 300ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .homepage-slide-enter,
+  .homepage-slide-image,
+  .homepage-slide-copy {
+    animation: none;
+  }
+}

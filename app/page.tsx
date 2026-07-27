@@ -112,7 +112,7 @@ export default function LandingPage() {
 
   useEffect(() => {
     if (slides.length <= 1) return;
-    const timer = setInterval(() => setIndex((prev) => (prev + 1) % slides.length), 15000);
+    const timer = setInterval(() => setIndex((prev) => (prev + 1) % slides.length), 7000);
     return () => clearInterval(timer);
   }, [slides.length]);
 
@@ -135,7 +135,7 @@ export default function LandingPage() {
         {[activeSlide].map((s) => (
           <div
             key={`${s.id}-${index}`}
-            className="absolute inset-0 z-10 scale-100 opacity-100 transition-all duration-1000 ease-out"
+            className="homepage-slide-enter absolute inset-0 z-10"
           >
             {/* Overlay Gradient لضمان وضوح النص */}
             <div
@@ -151,11 +151,11 @@ export default function LandingPage() {
               loading={index === 0 && s.type === "hero" ? undefined : "lazy"}
               sizes="100vw"
               quality={75}
-              className="h-full w-full scale-110 object-cover transition-transform duration-[10000ms] ease-linear"
+              className="homepage-slide-image h-full w-full object-cover"
             />
 
             <div className="absolute inset-0 z-20 flex items-center justify-center text-center px-6">
-              <div className="max-w-5xl translate-y-0 opacity-100 transition-all duration-1000 delay-300">
+              <div className="homepage-slide-copy max-w-5xl">
                 
                 {s.type === "hero" ? (
                   <div className="space-y-6 md:space-y-8">
