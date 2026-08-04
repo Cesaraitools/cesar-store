@@ -104,6 +104,13 @@ export default function SiteFooter() {
             {isAr ? "سياسة الخصوصية" : "Privacy policy"}
           </Link>
           <Link
+            href="/terms-of-service"
+            prefetch={false}
+            className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
+          >
+            {isAr ? "شروط الخدمة" : "Terms of service"}
+          </Link>
+          <Link
             href="/data-deletion"
             prefetch={false}
             className="text-sm tracking-wide text-slate-700 transition hover:text-blue-700"
