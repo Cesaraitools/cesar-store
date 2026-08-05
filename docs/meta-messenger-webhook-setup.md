@@ -80,6 +80,85 @@ Comment automation safety:
   match are sent to human handoff instead of receiving an automatic public
   reply.
 
+Comment automation repair plan:
+
+Current confirmed gap:
+
+- A normal comment on the main Facebook post reaches the webhook and can receive
+  an automatic reply.
+- A comment added to an individual photo inside a multi-photo post can reach the
+  same `feed` webhook in a different payload shape.
+- Production logs confirmed that at least one received Page `feed` change was
+  rejected by the current normalizer with `reason: "not_a_comment"`.
+- The current normalizer only accepts `value.item === "comment"`. A child-photo
+  comment can therefore be rejected before intent classification, catalog
+  grounding, handoff, or reply delivery.
+- `META_COMMENTS_ALLOWED_POST_IDS` was not configured when this issue was
+  diagnosed, so the post allowlist was not the cause of the missed reply.
+
+Required repair:
+
+1. Capture the non-sensitive structure of controlled main-post and child-photo
+   comment webhook events, including `item`, `verb`, `comment_id`, `post_id`,
+   `parent_id`, and whether the event belongs to a photo attachment. Do not log
+   access tokens or full customer data.
+2. Extend comment normalization to recognize supported child-photo comment
+   events without broadly accepting unrelated Page feed changes.
+3. Resolve both identities for a child-photo comment:
+   - the exact photo or attachment that received the comment;
+   - the parent multi-photo post used for campaign context and optional
+     allowlist checks.
+4. Fetch photo-specific context first, then parent-post text and attachment
+   context. The reply must be grounded in the selected photo instead of assuming
+   that the customer means the whole post.
+5. Continue replying to the original `comment_id`; do not create a new
+   top-level post comment.
+6. Preserve all existing safeguards: page-authored comment filtering,
+   signature verification, deduplication, rate limits, AI/catalog grounding,
+   minimum-confidence handling, and Redis human handoff.
+7. Record a clear handoff reason when Meta does not provide enough attachment or
+   parent-post context. The system must not guess which product appears in the
+   selected photo.
+
+Phase 1 instrumentation:
+
+- Production now logs `META WEBHOOK FEED CHANGE SHAPE` before normalization.
+- The log includes only the event field names, `item`, `verb`, object ids,
+  message presence/length, and structural flags. It does not include the
+  comment text, actor id/name, access token, or application secrets.
+- Keep `META_COMMENTS_AUTO_REPLY=false` while capturing one controlled normal
+  post comment and one controlled child-photo comment. Use those two shapes to
+  implement the normalization and parent/attachment resolution without
+  guessing Meta's payload format.
+
+Controlled validation matrix:
+
+- Text comment on a normal single-photo post.
+- Text comment on the main body of a multi-photo post.
+- Text comment on the first, middle, and last child photo in a multi-photo post.
+- Short contextual comments such as "بكام؟", "متوفر؟", and "عايز ده".
+- Social comments that should receive a safe social reply.
+- Comments made by the Page itself, duplicate deliveries, edited/deleted
+  comments, empty comments, and non-comment `feed` events; all must remain
+  ignored as appropriate.
+- A child photo whose product cannot be identified confidently; it must create a
+  human handoff and must not send an invented product reply.
+- If `META_COMMENTS_ALLOWED_POST_IDS` is used during testing, verify that a child
+  photo is authorized through its parent post id rather than rejected because
+  its photo id differs.
+
+Acceptance criteria:
+
+- Every supported child-photo comment is either replied to once or stored once
+  as a clearly explained human handoff.
+- The reply is attached to the exact customer comment and uses the selected
+  photo's context.
+- No unrelated Page feed event is treated as a customer comment.
+- Existing normal-post and Messenger replies continue to work without behavior
+  changes.
+- The repair is deployed only after type checking, linting, diff checking, and
+  controlled Meta tests succeed.
+
 Meta subscriptions:
 
 - Messenger replies require the page webhook fields `messages` and

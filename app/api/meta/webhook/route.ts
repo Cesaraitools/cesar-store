@@ -5,6 +5,10 @@ import {
   CUSTOMER_QUERY_LEXICON_GUIDANCE,
 } from "@/lib/customer-query-lexicon";
 import { answerAutomationQuestion } from "@/lib/server/automation-agent";
+import {
+  summarizeMetaFeedChange,
+  type MetaFeedChange,
+} from "@/lib/server/meta-webhook-shape";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,22 +21,6 @@ type MetaMessagingEvent = {
     mid?: string;
     text?: string;
     is_echo?: boolean;
-  };
-};
-
-type MetaFeedChange = {
-  field?: string;
-  value?: {
-    item?: string;
-    verb?: string;
-    comment_id?: string;
-    post_id?: string;
-    parent_id?: string;
-    sender_id?: string;
-    from?: { id?: string; name?: string };
-    message?: string;
-    created_time?: number;
-    permalink_url?: string;
   };
 };
 
@@ -1899,6 +1887,10 @@ export async function POST(request: Request) {
 
     for (const change of feedChanges) {
       try {
+        console.info(
+          "META WEBHOOK FEED CHANGE SHAPE:",
+          summarizeMetaFeedChange(change)
+        );
         const result = await processCommentChange(change, request);
         console.info("META WEBHOOK COMMENT RESULT:", result);
       } catch (error) {
