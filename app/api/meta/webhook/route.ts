@@ -25,6 +25,15 @@ type MetaMessagingEvent = {
   };
 };
 
+type MetaPageLane = {
+  kind: "current" | "legacy";
+  pageId: string;
+  pageAccessToken: string;
+  messengerAutoReplyEnabled: boolean;
+  commentsAutoReplyEnabled: boolean;
+  allowedCommentPostIds: string[];
+};
+
 function textResponse(body: string, init?: ResponseInit) {
   const headers = new Headers(init?.headers);
   headers.set("Cache-Control", "no-store");
@@ -33,16 +42,65 @@ function textResponse(body: string, init?: ResponseInit) {
   return new Response(body, { ...init, headers });
 }
 
-function getVerifyToken() {
-  return process.env.META_WEBHOOK_VERIFY_TOKEN || process.env.META_VERIFY_TOKEN || "";
+function isEnabled(value: string | undefined, defaultValue = false) {
+  if (!value?.trim()) return defaultValue;
+  return /^(1|true|yes)$/i.test(value);
 }
 
-function getPageAccessToken() {
-  return process.env.META_PAGE_ACCESS_TOKEN || "";
+function splitIds(value: string | undefined) {
+  return (value || "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
 }
 
-function getPageId() {
-  return process.env.META_PAGE_ID || "";
+function getMetaPageLanes(): MetaPageLane[] {
+  const lanes: MetaPageLane[] = [
+    {
+      kind: "current",
+      pageId: process.env.META_PAGE_ID || "",
+      pageAccessToken: process.env.META_PAGE_ACCESS_TOKEN || "",
+      messengerAutoReplyEnabled: isEnabled(
+        process.env.META_MESSENGER_AUTO_REPLY
+      ),
+      commentsAutoReplyEnabled: isEnabled(process.env.META_COMMENTS_AUTO_REPLY),
+      allowedCommentPostIds: splitIds(
+        process.env.META_COMMENTS_ALLOWED_POST_IDS
+      ),
+    },
+    {
+      kind: "legacy",
+      pageId:
+        process.env.META_LEGACY_PAGE_ID || process.env.FACEBOOK_PAGE_ID || "",
+      pageAccessToken:
+        process.env.META_LEGACY_PAGE_ACCESS_TOKEN ||
+        process.env.FACEBOOK_PAGE_ACCESS_TOKEN ||
+        "",
+      messengerAutoReplyEnabled: isEnabled(
+        process.env.META_LEGACY_MESSENGER_AUTO_REPLY,
+        true
+      ),
+      commentsAutoReplyEnabled: isEnabled(
+        process.env.META_LEGACY_COMMENTS_AUTO_REPLY,
+        true
+      ),
+      allowedCommentPostIds: splitIds(
+        process.env.META_LEGACY_COMMENTS_ALLOWED_POST_IDS
+      ),
+    },
+  ];
+
+  const seenPageIds = new Set<string>();
+
+  return lanes.filter((lane) => {
+    if (!lane.pageId || seenPageIds.has(lane.pageId)) return false;
+    seenPageIds.add(lane.pageId);
+    return true;
+  });
+}
+
+function getMetaPageLane(pageId: string) {
+  return getMetaPageLanes().find((lane) => lane.pageId === pageId) || null;
 }
 
 function getGraphApiVersion() {
@@ -58,21 +116,30 @@ function getBaseUrl(request: Request) {
 }
 
 function verifyMetaSignature(request: Request, rawBody: string) {
-  const appSecret = process.env.META_APP_SECRET || "";
-  if (!appSecret) return false;
-
   const signature = request.headers.get("x-hub-signature-256") || "";
   if (!signature.startsWith("sha256=")) return false;
-
-  const expected =
-    "sha256=" + crypto.createHmac("sha256", appSecret).update(rawBody).digest("hex");
   const signatureBuffer = Buffer.from(signature);
-  const expectedBuffer = Buffer.from(expected);
-
-  return (
-    signatureBuffer.length === expectedBuffer.length &&
-    crypto.timingSafeEqual(signatureBuffer, expectedBuffer)
+  const appSecrets = Array.from(
+    new Set(
+      [
+        process.env.META_APP_SECRET,
+        process.env.META_LEGACY_APP_SECRET,
+        process.env.FACEBOOK_APP_SECRET,
+      ].filter((value): value is string => Boolean(value?.trim()))
+    )
   );
+
+  return appSecrets.some((appSecret) => {
+    const expected =
+      "sha256=" +
+      crypto.createHmac("sha256", appSecret).update(rawBody).digest("hex");
+    const expectedBuffer = Buffer.from(expected);
+
+    return (
+      signatureBuffer.length === expectedBuffer.length &&
+      crypto.timingSafeEqual(signatureBuffer, expectedBuffer)
+    );
+  });
 }
 
 function extractMessagingEvents(body: any): MetaMessagingEvent[] {
@@ -103,6 +170,13 @@ function summarizeWebhookBody(body: any, eventsCount: number, feedChangesCount: 
     entriesCount: Array.isArray(body?.entry) ? body.entry.length : 0,
     messagingEventsCount: eventsCount,
     feedChangesCount,
+    entryIds: Array.isArray(body?.entry)
+      ? body.entry
+          .map((entry: any) =>
+            typeof entry?.id === "string" ? entry.id : ""
+          )
+          .filter(Boolean)
+      : [],
     changeFields: Array.isArray(body?.entry)
       ? body.entry
           .flatMap((entry: any) => (Array.isArray(entry?.changes) ? entry.changes : []))
@@ -119,13 +193,14 @@ function normalizeEvent(event: MetaMessagingEvent) {
   const recipientId = event.recipient?.id || "";
   const messageId =
     event.message?.mid || `${senderId}:${event.timestamp || ""}:${messageText}`;
-  const pageId = getPageId();
 
   if (!senderId || !recipientId) {
     return { shouldProcess: false, reason: "missing_sender_or_recipient" };
   }
 
-  if (pageId && recipientId !== pageId) {
+  const pageLane = getMetaPageLane(recipientId);
+
+  if (!pageLane) {
     return { shouldProcess: false, reason: "wrong_page_recipient" };
   }
 
@@ -137,7 +212,7 @@ function normalizeEvent(event: MetaMessagingEvent) {
     return { shouldProcess: false, reason: "echo_message" };
   }
 
-  if (pageId && senderId === pageId) {
+  if (senderId === pageLane.pageId) {
     return { shouldProcess: false, reason: "page_sent_message" };
   }
 
@@ -148,6 +223,7 @@ function normalizeEvent(event: MetaMessagingEvent) {
     recipientId,
     messageId,
     messageText,
+    pageLane,
   };
 }
 
@@ -155,17 +231,18 @@ function normalizeCommentChange(change: MetaFeedChange) {
   const value = change.value || {};
   const messageText = typeof value.message === "string" ? value.message.trim() : "";
   const actorId = value.from?.id || value.sender_id || "";
-  const pageId = getPageId();
   const commentId = value.comment_id || "";
   const postId = value.post_id || value.parent_id || "";
   const eventId =
     commentId || `${postId}:${value.created_time || ""}:${messageText.slice(0, 80)}`;
 
-  if (pageId && !change.entryId) {
+  if (!change.entryId) {
     return { shouldProcess: false, reason: "missing_page_entry" };
   }
 
-  if (pageId && change.entryId !== pageId) {
+  const pageLane = getMetaPageLane(change.entryId);
+
+  if (!pageLane) {
     return { shouldProcess: false, reason: "wrong_page_entry" };
   }
 
@@ -185,7 +262,7 @@ function normalizeCommentChange(change: MetaFeedChange) {
     return { shouldProcess: false, reason: "empty_comment" };
   }
 
-  if (pageId && actorId === pageId) {
+  if (actorId === pageLane.pageId) {
     return { shouldProcess: false, reason: "page_comment" };
   }
 
@@ -198,6 +275,7 @@ function normalizeCommentChange(change: MetaFeedChange) {
     eventId,
     messageText,
     permalinkUrl: value.permalink_url || "",
+    pageLane,
   };
 }
 
@@ -231,12 +309,12 @@ async function markCommentSeen(eventId: string) {
   }
 }
 
-async function checkRateLimit(senderId: string) {
+async function checkRateLimit(senderId: string, pageId: string) {
   try {
     const redis = getRedis();
     const now = Date.now();
     const senderKey = `meta:messenger:rate:sender:${senderId}`;
-    const pageKey = "meta:messenger:rate:page";
+    const pageKey = `meta:messenger:rate:page:${pageId}`;
     const senderCount = await redis.incr(senderKey);
     const pageCount = await redis.incr(pageKey);
 
@@ -255,11 +333,11 @@ async function checkRateLimit(senderId: string) {
   }
 }
 
-async function checkCommentRateLimit(postId: string) {
+async function checkCommentRateLimit(postId: string, pageId: string) {
   try {
     const redis = getRedis();
     const postKey = `meta:comment:rate:post:${postId}`;
-    const pageKey = "meta:comment:rate:page";
+    const pageKey = `meta:comment:rate:page:${pageId}`;
     const postCount = await redis.incr(postKey);
     const pageCount = await redis.incr(pageKey);
 
@@ -278,32 +356,25 @@ async function checkCommentRateLimit(postId: string) {
   }
 }
 
-function isCommentAutoReplyEnabled() {
-  return /^(1|true|yes)$/i.test(process.env.META_COMMENTS_AUTO_REPLY || "");
+function isCommentPostAllowed(postId: string, pageLane: MetaPageLane) {
+  return (
+    !pageLane.allowedCommentPostIds.length ||
+    pageLane.allowedCommentPostIds.includes(postId)
+  );
 }
 
-function isMessengerAutoReplyEnabled() {
-  return /^(1|true|yes)$/i.test(process.env.META_MESSENGER_AUTO_REPLY || "");
-}
-
-function getAllowedCommentPostIds() {
-  return (process.env.META_COMMENTS_ALLOWED_POST_IDS || "")
-    .split(",")
-    .map((id) => id.trim())
-    .filter(Boolean);
-}
-
-function isCommentPostAllowed(postId: string) {
-  const allowedPostIds = getAllowedCommentPostIds();
-
-  return !allowedPostIds.length || allowedPostIds.includes(postId);
-}
-
-async function sendFacebookMessage(recipientId: string, text: string) {
-  const pageAccessToken = getPageAccessToken();
+async function sendFacebookMessage(
+  pageLane: MetaPageLane,
+  recipientId: string,
+  text: string
+) {
+  const pageAccessToken = pageLane.pageAccessToken;
 
   if (!pageAccessToken) {
-    console.warn("META WEBHOOK SKIPPED SEND: META_PAGE_ACCESS_TOKEN is missing");
+    console.warn("META WEBHOOK SKIPPED SEND: page access token is missing", {
+      lane: pageLane.kind,
+      pageId: pageLane.pageId,
+    });
     return { ok: false, skipped: true, status: 503 };
   }
 
@@ -331,11 +402,18 @@ async function sendFacebookMessage(recipientId: string, text: string) {
   return { ok: true, status: response.status };
 }
 
-async function sendFacebookCommentReply(commentId: string, text: string) {
-  const pageAccessToken = getPageAccessToken();
+async function sendFacebookCommentReply(
+  pageLane: MetaPageLane,
+  commentId: string,
+  text: string
+) {
+  const pageAccessToken = pageLane.pageAccessToken;
 
   if (!pageAccessToken) {
-    console.warn("META COMMENT SKIPPED SEND: META_PAGE_ACCESS_TOKEN is missing");
+    console.warn("META COMMENT SKIPPED SEND: page access token is missing", {
+      lane: pageLane.kind,
+      pageId: pageLane.pageId,
+    });
     return { ok: false, skipped: true, status: 503 };
   }
 
@@ -378,11 +456,18 @@ async function sendFacebookCommentReply(commentId: string, text: string) {
   return { ok: true, status: response.status };
 }
 
-async function sendFacebookCommentPrivateReply(commentId: string, text: string) {
-  const pageAccessToken = getPageAccessToken();
+async function sendFacebookCommentPrivateReply(
+  pageLane: MetaPageLane,
+  commentId: string,
+  text: string
+) {
+  const pageAccessToken = pageLane.pageAccessToken;
 
   if (!pageAccessToken) {
-    console.warn("META COMMENT PRIVATE REPLY SKIPPED: META_PAGE_ACCESS_TOKEN is missing");
+    console.warn("META COMMENT PRIVATE REPLY SKIPPED: page access token is missing", {
+      lane: pageLane.kind,
+      pageId: pageLane.pageId,
+    });
     return { ok: false, skipped: true, status: 503 };
   }
 
@@ -499,8 +584,11 @@ function compactContextText(parts: string[]) {
     .slice(0, 1800);
 }
 
-async function fetchFacebookPostContext(postId: string): Promise<MetaPostContext | null> {
-  const pageAccessToken = getPageAccessToken();
+async function fetchFacebookPostContext(
+  pageLane: MetaPageLane,
+  postId: string
+): Promise<MetaPostContext | null> {
+  const pageAccessToken = pageLane.pageAccessToken;
   if (!pageAccessToken) return null;
 
   const fields = [
@@ -1396,7 +1484,7 @@ async function processEvent(event: MetaMessagingEvent, request: Request) {
     return { processed: false, reason: normalized.reason };
   }
 
-  if (!isMessengerAutoReplyEnabled()) {
+  if (!normalized.pageLane.messengerAutoReplyEnabled) {
     return { processed: false, reason: "messenger_auto_reply_disabled" };
   }
 
@@ -1404,7 +1492,10 @@ async function processEvent(event: MetaMessagingEvent, request: Request) {
     return { processed: false, reason: "duplicate_message" };
   }
 
-  const rate = await checkRateLimit(normalized.senderId);
+  const rate = await checkRateLimit(
+    normalized.senderId,
+    normalized.pageLane.pageId
+  );
   if (!rate.ok) {
     return { processed: false, reason: "rate_limited" };
   }
@@ -1434,7 +1525,11 @@ async function processEvent(event: MetaMessagingEvent, request: Request) {
     };
   }
 
-  await sendFacebookMessage(normalized.senderId, result.suggestedReply);
+  await sendFacebookMessage(
+    normalized.pageLane,
+    normalized.senderId,
+    result.suggestedReply
+  );
 
   return {
     processed: true,
@@ -1454,7 +1549,10 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     return { processed: false, reason: "duplicate_comment" };
   }
 
-  const rate = await checkCommentRateLimit(normalized.postId);
+  const rate = await checkCommentRateLimit(
+    normalized.postId,
+    normalized.pageLane.pageId
+  );
   if (!rate.ok) {
     await recordCommentHandoff({
       reason: "rate_limited",
@@ -1467,7 +1565,7 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     return { processed: false, reason: "rate_limited" };
   }
 
-  if (!isCommentPostAllowed(normalized.postId)) {
+  if (!isCommentPostAllowed(normalized.postId, normalized.pageLane)) {
     await recordCommentHandoff({
       reason: "comment_post_not_allowed",
       commentId: normalized.commentId,
@@ -1482,7 +1580,10 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
   const baseUrl = getBaseUrl(request);
   let postContextUsed = false;
   let postContextSearchText = "";
-  const initialPostContext = await fetchFacebookPostContext(normalized.postId);
+  const initialPostContext = await fetchFacebookPostContext(
+    normalized.pageLane,
+    normalized.postId
+  );
 
   if (initialPostContext?.searchText) {
     postContextUsed = true;
@@ -1512,7 +1613,7 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     });
 
     if (commentIntent.action === "social_reply") {
-      if (!isCommentAutoReplyEnabled()) {
+      if (!normalized.pageLane.commentsAutoReplyEnabled) {
         await recordCommentHandoff({
           reason: "comment_auto_reply_disabled",
           commentId: normalized.commentId,
@@ -1573,7 +1674,11 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
         };
       }
 
-      await sendFacebookCommentReply(normalized.commentId, commentIntent.reply);
+      await sendFacebookCommentReply(
+        normalized.pageLane,
+        normalized.commentId,
+        commentIntent.reply
+      );
 
       return {
         processed: true,
@@ -1673,7 +1778,10 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     (result.meta.handoffReason === "post_context_required" ||
       shouldFetchPostContextForComment(normalized.messageText))
   ) {
-    const postContext = await fetchFacebookPostContext(normalized.postId);
+    const postContext = await fetchFacebookPostContext(
+      normalized.pageLane,
+      normalized.postId
+    );
 
     if (postContext?.searchText) {
       postContextUsed = true;
@@ -1737,7 +1845,7 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     };
   }
 
-  if (!isCommentAutoReplyEnabled()) {
+  if (!normalized.pageLane.commentsAutoReplyEnabled) {
     await recordCommentHandoff({
       reason: "comment_auto_reply_disabled",
       commentId: normalized.commentId,
@@ -1827,7 +1935,11 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     privatePriceAttempted = true;
 
     try {
-      await sendFacebookCommentPrivateReply(normalized.commentId, privatePriceReply);
+      await sendFacebookCommentPrivateReply(
+        normalized.pageLane,
+        normalized.commentId,
+        privatePriceReply
+      );
       privatePriceSent = true;
     } catch (error) {
       console.error("META COMMENT PRIVATE PRICE SEND ERROR:", {
@@ -1888,7 +2000,11 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     };
   }
 
-  await sendFacebookCommentReply(normalized.commentId, publicReply);
+  await sendFacebookCommentReply(
+    normalized.pageLane,
+    normalized.commentId,
+    publicReply
+  );
 
   return {
     processed: true,
@@ -1914,9 +2030,16 @@ export async function GET(request: Request) {
   const token = requestUrl.searchParams.get("hub.verify_token") || "";
   const challenge = requestUrl.searchParams.get("hub.challenge") || "";
 
-  const verifyToken = getVerifyToken();
+  const verifyTokens = new Set(
+    [
+      process.env.META_WEBHOOK_VERIFY_TOKEN,
+      process.env.META_VERIFY_TOKEN,
+      process.env.META_LEGACY_WEBHOOK_VERIFY_TOKEN,
+      process.env.FACEBOOK_VERIFY_TOKEN,
+    ].filter((value): value is string => Boolean(value?.trim()))
+  );
 
-  if (verifyToken && mode === "subscribe" && token === verifyToken) {
+  if (mode === "subscribe" && verifyTokens.has(token)) {
     return textResponse(challenge);
   }
 

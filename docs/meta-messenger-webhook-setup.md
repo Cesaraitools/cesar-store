@@ -27,6 +27,16 @@ META_MESSENGER_AUTO_REPLY=false
 META_COMMENTS_AUTO_REPLY=false
 META_COMMENTS_MIN_SCORE=10
 META_COMMENTS_ALLOWED_POST_IDS=
+
+# Optional isolated lane for the closed-admin legacy page
+META_LEGACY_WEBHOOK_VERIFY_TOKEN=<legacy app verify token>
+META_LEGACY_PAGE_ACCESS_TOKEN=<legacy Facebook page access token>
+META_LEGACY_PAGE_ID=<legacy Facebook page id>
+META_LEGACY_APP_SECRET=<legacy Meta app secret>
+META_LEGACY_MESSENGER_AUTO_REPLY=true
+META_LEGACY_COMMENTS_AUTO_REPLY=true
+META_LEGACY_COMMENTS_ALLOWED_POST_IDS=
+
 OPENAI_API_KEY=<OpenAI API key, optional for AI replies>
 OPENAI_MODEL=gpt-4o-mini
 OPENAI_MAX_OUTPUT_TOKENS=450
@@ -71,10 +81,20 @@ AI automation:
 - Messenger and public-comment events call the same OpenAI-backed server agent
   directly from `/api/meta/webhook`; n8n is not required in the live Meta reply
   path.
-- The webhook binds Messenger recipients and feed-entry ids to `META_PAGE_ID`,
-  so events delivered for another subscribed page are ignored.
-- Legacy `FACEBOOK_PAGE_ID` and `FACEBOOK_PAGE_ACCESS_TOKEN` fallbacks are not
-  supported. Only the current `META_*` page credentials can send replies.
+- The webhook routes Messenger recipients and feed-entry ids to an explicit
+  current or legacy page lane. Events for every other page are ignored.
+- The current page uses `META_*` credentials and starts with Messenger and
+  comment replies disabled.
+- The legacy page uses `META_LEGACY_*` credentials. Existing
+  `FACEBOOK_PAGE_ID`, `FACEBOOK_PAGE_ACCESS_TOKEN`, `FACEBOOK_APP_SECRET`, and
+  `FACEBOOK_VERIFY_TOKEN` values are accepted only as aliases for that isolated
+  legacy lane; they never fall back into the current page lane.
+- When a legacy page id is configured, its Messenger and comment replies remain
+  enabled by default to preserve lead handling while manager login is closed.
+  Set either `META_LEGACY_MESSENGER_AUTO_REPLY=false` or
+  `META_LEGACY_COMMENTS_AUTO_REPLY=false` to stop that lane independently.
+- App signatures are accepted only when they match the configured current or
+  legacy App Secret. Tokens and per-page rate limits never cross lanes.
 
 Comment automation safety:
 
@@ -196,7 +216,8 @@ If the Meta app is deleted and recreated:
 
 Important:
 
-- Keep `META_PAGE_ACCESS_TOKEN` only in Vercel environment variables.
+- Keep current and legacy page access tokens only in Vercel environment
+  variables.
 - Do not commit tokens into the repository.
 - After changing Meta callback URL or verify token, use Meta Developer Console to
   verify and subscribe the page webhook again.
