@@ -5,6 +5,7 @@ import {
   CUSTOMER_QUERY_LEXICON_GUIDANCE,
 } from "@/lib/customer-query-lexicon";
 import { answerAutomationQuestion } from "@/lib/server/automation-agent";
+import { validateMetaPublicReply } from "@/lib/server/meta-reply-safety";
 import {
   summarizeMetaFeedChange,
   type MetaFeedChange,
@@ -33,11 +34,7 @@ function textResponse(body: string, init?: ResponseInit) {
 }
 
 function getVerifyToken() {
-  return (
-    process.env.META_WEBHOOK_VERIFY_TOKEN ||
-    process.env.META_VERIFY_TOKEN ||
-    "cesar_verify_2026"
-  );
+  return process.env.META_WEBHOOK_VERIFY_TOKEN || process.env.META_VERIFY_TOKEN || "";
 }
 
 function getPageAccessToken() {
@@ -62,7 +59,7 @@ function getBaseUrl(request: Request) {
 
 function verifyMetaSignature(request: Request, rawBody: string) {
   const appSecret = process.env.META_APP_SECRET || "";
-  if (!appSecret) return true;
+  if (!appSecret) return false;
 
   const signature = request.headers.get("x-hub-signature-256") || "";
   if (!signature.startsWith("sha256=")) return false;
@@ -89,11 +86,15 @@ function extractMessagingEvents(body: any): MetaMessagingEvent[] {
 function extractFeedChanges(body: any): MetaFeedChange[] {
   if (body?.object !== "page" || !Array.isArray(body.entry)) return [];
 
-  return body.entry.flatMap((entry: any) =>
-    Array.isArray(entry?.changes)
-      ? entry.changes.filter((change: MetaFeedChange) => change?.field === "feed")
-      : []
-  );
+  return body.entry.flatMap((entry: any) => {
+    if (!Array.isArray(entry?.changes)) return [];
+
+    const entryId = typeof entry?.id === "string" ? entry.id : "";
+
+    return entry.changes
+      .filter((change: MetaFeedChange) => change?.field === "feed")
+      .map((change: MetaFeedChange) => ({ ...change, entryId }));
+  });
 }
 
 function summarizeWebhookBody(body: any, eventsCount: number, feedChangesCount: number) {
@@ -122,6 +123,10 @@ function normalizeEvent(event: MetaMessagingEvent) {
 
   if (!senderId || !recipientId) {
     return { shouldProcess: false, reason: "missing_sender_or_recipient" };
+  }
+
+  if (pageId && recipientId !== pageId) {
+    return { shouldProcess: false, reason: "wrong_page_recipient" };
   }
 
   if (!messageText) {
@@ -155,6 +160,14 @@ function normalizeCommentChange(change: MetaFeedChange) {
   const postId = value.post_id || value.parent_id || "";
   const eventId =
     commentId || `${postId}:${value.created_time || ""}:${messageText.slice(0, 80)}`;
+
+  if (pageId && !change.entryId) {
+    return { shouldProcess: false, reason: "missing_page_entry" };
+  }
+
+  if (pageId && change.entryId !== pageId) {
+    return { shouldProcess: false, reason: "wrong_page_entry" };
+  }
 
   if (value.item !== "comment") {
     return { shouldProcess: false, reason: "not_a_comment" };
@@ -267,6 +280,10 @@ async function checkCommentRateLimit(postId: string) {
 
 function isCommentAutoReplyEnabled() {
   return /^(1|true|yes)$/i.test(process.env.META_COMMENTS_AUTO_REPLY || "");
+}
+
+function isMessengerAutoReplyEnabled() {
+  return /^(1|true|yes)$/i.test(process.env.META_MESSENGER_AUTO_REPLY || "");
 }
 
 function getAllowedCommentPostIds() {
@@ -1379,6 +1396,10 @@ async function processEvent(event: MetaMessagingEvent, request: Request) {
     return { processed: false, reason: normalized.reason };
   }
 
+  if (!isMessengerAutoReplyEnabled()) {
+    return { processed: false, reason: "messenger_auto_reply_disabled" };
+  }
+
   if (!(await markMessageSeen(normalized.messageId))) {
     return { processed: false, reason: "duplicate_message" };
   }
@@ -1522,6 +1543,29 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
         return {
           processed: false,
           reason: "social_reply_low_confidence",
+          postContextUsed,
+          aiUsed: true,
+          aiAction: "handoff",
+          aiReason: commentIntent.reason,
+        };
+      }
+
+      const socialReplySafety = validateMetaPublicReply(commentIntent.reply);
+
+      if (!socialReplySafety.safe) {
+        const reason = `social_reply_${socialReplySafety.reason}`;
+
+        await recordCommentHandoff({
+          reason,
+          commentId: normalized.commentId,
+          postId: normalized.postId,
+          messageText: normalized.messageText,
+          permalinkUrl: normalized.permalinkUrl,
+        });
+
+        return {
+          processed: false,
+          reason,
           postContextUsed,
           aiUsed: true,
           aiAction: "handoff",
@@ -1802,9 +1846,26 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     privatePriceSent
   );
 
-  if (!publicReply) {
+  const publicReplyCategory =
+    result.products[0]?.category || result.meta.matchedCategory || "";
+  const publicReplyAllowedUrls = [
+    ...result.products.slice(0, 3).map((product) => product.productUrl),
+    buildShopUrl(baseUrl),
+    publicReplyCategory ? buildCategoryUrl(publicReplyCategory, baseUrl) : "",
+  ].filter(Boolean);
+  const publicReplySafety = validateMetaPublicReply(
+    publicReply,
+    publicReplyAllowedUrls
+  );
+
+  if (!publicReplySafety.safe) {
+    const reason =
+      publicReplySafety.reason === "empty_reply"
+        ? "ai_empty_public_reply"
+        : `ai_public_reply_${publicReplySafety.reason}`;
+
     await recordCommentHandoff({
-      reason: "ai_empty_public_reply",
+      reason,
       commentId: normalized.commentId,
       postId: normalized.postId,
       messageText: normalized.messageText,
@@ -1815,7 +1876,7 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
 
     return {
       processed: false,
-      reason: "ai_empty_public_reply",
+      reason,
       productsCount: result.products.length,
       bestScore: result.meta.bestScore,
       postContextUsed,
@@ -1853,7 +1914,9 @@ export async function GET(request: Request) {
   const token = requestUrl.searchParams.get("hub.verify_token") || "";
   const challenge = requestUrl.searchParams.get("hub.challenge") || "";
 
-  if (mode === "subscribe" && token === getVerifyToken()) {
+  const verifyToken = getVerifyToken();
+
+  if (verifyToken && mode === "subscribe" && token === verifyToken) {
     return textResponse(challenge);
   }
 

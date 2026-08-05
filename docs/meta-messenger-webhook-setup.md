@@ -21,8 +21,9 @@ Recommended Vercel environment variables:
 META_WEBHOOK_VERIFY_TOKEN=cesar_verify_2026
 META_PAGE_ACCESS_TOKEN=<Facebook page access token>
 META_PAGE_ID=<Facebook page id>
-META_APP_SECRET=<Meta app secret, optional but recommended>
+META_APP_SECRET=<Meta app secret, required for signed webhook delivery>
 META_GRAPH_API_VERSION=v20.0
+META_MESSENGER_AUTO_REPLY=false
 META_COMMENTS_AUTO_REPLY=false
 META_COMMENTS_MIN_SCORE=10
 META_COMMENTS_ALLOWED_POST_IDS=
@@ -51,6 +52,9 @@ AI automation:
 
 - `OPENAI_API_KEY` enables AI-written replies for Messenger, comments, and the
   secured product automation search endpoint.
+- `META_MESSENGER_AUTO_REPLY` and `META_COMMENTS_AUTO_REPLY` are independent
+  outbound kill switches. Keep both `false` until the internal AI preflight and
+  controlled Meta tests are complete.
 - `OPENAI_MODEL` is optional. Keep it configurable so the model can be changed
   in Vercel without code changes.
 - `OPENAI_MAX_OUTPUT_TOKENS` is optional. Keep it around `450` for concise,
@@ -64,15 +68,22 @@ AI automation:
   page, while still being restricted to catalog products and links.
 - The secured endpoint `/api/automation/products/search` keeps the old response
   fields and adds `meta.ai` so n8n or other callers can tell whether AI was used.
+- Messenger and public-comment events call the same OpenAI-backed server agent
+  directly from `/api/meta/webhook`; n8n is not required in the live Meta reply
+  path.
+- The webhook binds Messenger recipients and feed-entry ids to `META_PAGE_ID`,
+  so events delivered for another subscribed page are ignored.
 
 Comment automation safety:
 
 - `META_COMMENTS_AUTO_REPLY` is disabled by default. Keep it `false` until the
   comment flow is tested with controlled posts.
-- If AI is enabled and successfully writes a reply, the endpoint trusts the AI
-  action instead of blocking on `meta.bestScore`. If AI is disabled or fails,
-  deterministic replies still require at least one product and `meta.bestScore`
-  greater than or equal to `META_COMMENTS_MIN_SCORE`.
+- If AI is enabled and successfully writes a reply, its action can override the
+  deterministic score. Before publishing, code still rejects explicit prices,
+  currency, and URLs outside the selected Cesar Store product/category/shop
+  links. Rejected replies are stored as human handoffs. If AI is disabled or
+  fails, deterministic replies still require at least one product and
+  `meta.bestScore` greater than or equal to `META_COMMENTS_MIN_SCORE`.
 - To limit auto replies to controlled test posts, set
   `META_COMMENTS_ALLOWED_POST_IDS` to one or more comma-separated Facebook post
   ids. Leave it empty to allow all posts once the automation is ready.

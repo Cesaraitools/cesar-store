@@ -139,6 +139,23 @@ function parseAgentReply(text: string): AgentReply | null {
   }
 }
 
+function normalizeReplyUrl(value: string) {
+  const trimmed = value.replace(/[.,،؛:!?\])}]+$/g, "");
+
+  try {
+    const url = new URL(trimmed);
+    url.hash = "";
+
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return trimmed.replace(/\/$/, "");
+  }
+}
+
+function extractReplyUrls(value: string) {
+  return (value.match(/https?:\/\/[^\s<>"'`]+/gi) || []).map(normalizeReplyUrl);
+}
+
 function buildFallbackMeta(reason: string): AgentMeta {
   return {
     used: false,
@@ -176,6 +193,26 @@ function validateAgentReply(result: AutomationProductSearchResult, agentReply: A
 
   if (agentReply.action === "answer" && agentReply.needsHuman) {
     return "ai_conflicting_handoff_signal";
+  }
+
+  const candidateProductIds = new Set(result.products.map((product) => product.id));
+  if (agentReply.productIds.some((id) => !candidateProductIds.has(id))) {
+    return "ai_unknown_product_id";
+  }
+
+  if (
+    agentReply.action === "answer" &&
+    result.products.length > 0 &&
+    agentReply.productIds.length === 0
+  ) {
+    return "ai_answer_without_product_selection";
+  }
+
+  const allowedUrls = new Set(
+    result.products.map((product) => normalizeReplyUrl(product.productUrl))
+  );
+  if (extractReplyUrls(agentReply.reply).some((url) => !allowedUrls.has(url))) {
+    return "ai_reply_unapproved_url";
   }
 
   return null;

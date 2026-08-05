@@ -1,4 +1,5 @@
 export type MetaFeedChange = {
+  entryId?: string;
   field?: string;
   value?: {
     item?: string;
@@ -30,6 +31,7 @@ export function summarizeMetaFeedChange(change: MetaFeedChange) {
   const parentId = stringValue(value.parent_id);
 
   return {
+    hasEntryId: Boolean(stringValue(change.entryId)),
     field: stringValue(change.field),
     item: stringValue(value.item),
     verb: stringValue(value.verb),
