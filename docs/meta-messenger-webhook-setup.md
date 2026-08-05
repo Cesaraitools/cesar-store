@@ -73,6 +73,8 @@ AI automation:
   path.
 - The webhook binds Messenger recipients and feed-entry ids to `META_PAGE_ID`,
   so events delivered for another subscribed page are ignored.
+- Legacy `FACEBOOK_PAGE_ID` and `FACEBOOK_PAGE_ACCESS_TOKEN` fallbacks are not
+  supported. Only the current `META_*` page credentials can send replies.
 
 Comment automation safety:
 

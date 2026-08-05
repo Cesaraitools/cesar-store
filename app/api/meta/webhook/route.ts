@@ -38,11 +38,11 @@ function getVerifyToken() {
 }
 
 function getPageAccessToken() {
-  return process.env.META_PAGE_ACCESS_TOKEN || process.env.FACEBOOK_PAGE_ACCESS_TOKEN || "";
+  return process.env.META_PAGE_ACCESS_TOKEN || "";
 }
 
 function getPageId() {
-  return process.env.META_PAGE_ID || process.env.FACEBOOK_PAGE_ID || "";
+  return process.env.META_PAGE_ID || "";
 }
 
 function getGraphApiVersion() {
