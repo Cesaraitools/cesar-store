@@ -22,7 +22,7 @@ META_WEBHOOK_VERIFY_TOKEN=cesar_verify_2026
 META_PAGE_ACCESS_TOKEN=<Facebook page access token>
 META_PAGE_ID=<Facebook page id>
 META_APP_SECRET=<Meta app secret, required for signed webhook delivery>
-META_GRAPH_API_VERSION=v20.0
+META_GRAPH_API_VERSION=v26.0
 META_MESSENGER_AUTO_REPLY=false
 META_COMMENTS_AUTO_REPLY=false
 META_COMMENTS_MIN_SCORE=10
@@ -38,6 +38,8 @@ META_LEGACY_COMMENTS_AUTO_REPLY=true
 META_LEGACY_COMMENTS_ALLOWED_POST_IDS=
 
 OPENAI_API_KEY=<OpenAI API key, optional for AI replies>
+META_CURRENT_OPENAI_API_KEY=<dedicated OpenAI API key for the current page>
+META_LEGACY_OPENAI_API_KEY=<optional dedicated OpenAI API key for the legacy page>
 OPENAI_MODEL=gpt-4o-mini
 OPENAI_MAX_OUTPUT_TOKENS=450
 AUTOMATION_AI_ENABLED=true
@@ -62,6 +64,10 @@ AI automation:
 
 - `OPENAI_API_KEY` enables AI-written replies for Messenger, comments, and the
   secured product automation search endpoint.
+- `META_CURRENT_OPENAI_API_KEY` overrides `OPENAI_API_KEY` only for the current
+  page lane. `META_LEGACY_OPENAI_API_KEY` does the same for the legacy lane.
+  This keeps page usage and key rotation independent while preserving
+  `OPENAI_API_KEY` as a backward-compatible fallback.
 - `META_MESSENGER_AUTO_REPLY` and `META_COMMENTS_AUTO_REPLY` are independent
   outbound kill switches. Keep both `false` until the internal AI preflight and
   controlled Meta tests are complete.

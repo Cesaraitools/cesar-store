@@ -103,6 +103,20 @@ function getMetaPageLane(pageId: string) {
   return getMetaPageLanes().find((lane) => lane.pageId === pageId) || null;
 }
 
+function getPageOpenAiApiKey(pageLane: MetaPageLane) {
+  if (pageLane.kind === "current") {
+    return (
+      process.env.META_CURRENT_OPENAI_API_KEY ||
+      process.env.OPENAI_API_KEY ||
+      ""
+    );
+  }
+
+  return (
+    process.env.META_LEGACY_OPENAI_API_KEY || process.env.OPENAI_API_KEY || ""
+  );
+}
+
 function getGraphApiVersion() {
   return process.env.META_GRAPH_API_VERSION || "v20.0";
 }
@@ -1038,8 +1052,8 @@ function getAutomationAiModel() {
   return (process.env.OPENAI_MODEL || "gpt-4o-mini").trim();
 }
 
-function isAutomationAiEnabled() {
-  if (!process.env.OPENAI_API_KEY) return false;
+function isAutomationAiEnabled(apiKey: string) {
+  if (!apiKey) return false;
 
   return !/^(0|false|no|off)$/i.test(process.env.AUTOMATION_AI_ENABLED || "");
 }
@@ -1083,13 +1097,15 @@ function extractOpenAIText(data: any) {
   return typeof content?.text === "string" ? content.text : "";
 }
 
-async function classifyMetaCommentIntent(input: {
-  commentText: string;
-  postContext: string;
-}) {
-  if (!isAutomationAiEnabled()) return null;
+async function classifyMetaCommentIntent(
+  input: {
+    commentText: string;
+    postContext: string;
+  },
+  apiKey: string
+) {
+  if (!isAutomationAiEnabled(apiKey)) return null;
 
-  const apiKey = process.env.OPENAI_API_KEY || "";
   const model = getAutomationAiModel();
 
   try {
@@ -1278,20 +1294,23 @@ function shouldSendPrivatePriceReply(result: AutomationAnswer) {
   );
 }
 
-async function buildFacebookPrivatePriceReply(result: AutomationAnswer) {
+async function buildFacebookPrivatePriceReply(
+  result: AutomationAnswer,
+  apiKey: string
+) {
   const products = result.products
     .filter((product) => Number(product.price) > 0)
     .slice(0, 3);
 
   if (!products.length) return "";
 
-  if (!isAutomationAiEnabled()) return "";
+  if (!isAutomationAiEnabled(apiKey)) return "";
 
   try {
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY || ""}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -1365,10 +1384,11 @@ async function buildFacebookCommentReply(
   postContext: string,
   baseUrl: string,
   privatePriceSent: boolean,
+  apiKey: string,
 ) {
   if (!result.meta.ai.used) return "";
 
-  if (!isAutomationAiEnabled()) return "";
+  if (!isAutomationAiEnabled(apiKey)) return "";
 
   const products = result.products.slice(0, 3);
   const category = result.products[0]?.category || result.meta.matchedCategory || "";
@@ -1382,7 +1402,7 @@ async function buildFacebookCommentReply(
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY || ""}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -1484,6 +1504,8 @@ async function processEvent(event: MetaMessagingEvent, request: Request) {
     return { processed: false, reason: normalized.reason };
   }
 
+  const openAiApiKey = getPageOpenAiApiKey(normalized.pageLane);
+
   if (!normalized.pageLane.messengerAutoReplyEnabled) {
     return { processed: false, reason: "messenger_auto_reply_disabled" };
   }
@@ -1505,6 +1527,7 @@ async function processEvent(event: MetaMessagingEvent, request: Request) {
     requestedLanguage: "ar",
     limit: 3,
     baseUrl: getBaseUrl(request),
+    openAiApiKey,
   });
 
   if (!result.meta.ai.used) {
@@ -1544,6 +1567,8 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
   if (!normalized.shouldProcess) {
     return { processed: false, reason: normalized.reason };
   }
+
+  const openAiApiKey = getPageOpenAiApiKey(normalized.pageLane);
 
   if (!(await markCommentSeen(normalized.eventId))) {
     return { processed: false, reason: "duplicate_comment" };
@@ -1598,10 +1623,13 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     });
   }
 
-  const commentIntent = await classifyMetaCommentIntent({
-    commentText: normalized.messageText,
-    postContext: postContextSearchText,
-  });
+  const commentIntent = await classifyMetaCommentIntent(
+    {
+      commentText: normalized.messageText,
+      postContext: postContextSearchText,
+    },
+    openAiApiKey
+  );
 
   if (commentIntent) {
     console.info("META COMMENT INTENT DECISION:", {
@@ -1744,6 +1772,7 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     requestedLanguage: "ar",
     limit: 3,
     baseUrl,
+    openAiApiKey,
   };
   let result = await answerAutomationQuestion({
     ...baseAutomationInput,
@@ -1806,6 +1835,7 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     requestedLanguage: "ar",
     limit: 3,
     baseUrl,
+    openAiApiKey,
   });
 
   console.info("META COMMENT AUTOMATION DECISION:", {
@@ -1928,7 +1958,7 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
   let privatePriceAttempted = false;
   let privatePriceSent = false;
   const privatePriceReply = shouldSendPrivatePriceReply(result)
-    ? await buildFacebookPrivatePriceReply(result)
+    ? await buildFacebookPrivatePriceReply(result, openAiApiKey)
     : "";
 
   if (privatePriceReply) {
@@ -1955,7 +1985,8 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     normalized.messageText,
     postContextSearchText,
     baseUrl,
-    privatePriceSent
+    privatePriceSent,
+    openAiApiKey
   );
 
   const publicReplyCategory =

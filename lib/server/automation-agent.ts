@@ -44,6 +44,7 @@ type AgentInput = {
   limit?: number;
   baseUrl: string;
   skipAi?: boolean;
+  openAiApiKey?: string;
 };
 
 type OpenAIResponse = {
@@ -60,8 +61,8 @@ const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 const DEFAULT_MODEL = "gpt-4o-mini";
 const DEFAULT_MAX_OUTPUT_TOKENS = 450;
 
-function isAiEnabled() {
-  if (!process.env.OPENAI_API_KEY) return false;
+function isAiEnabled(apiKey: string) {
+  if (!apiKey) return false;
 
   return !/^(0|false|no|off)$/i.test(process.env.AUTOMATION_AI_ENABLED || "");
 }
@@ -258,8 +259,10 @@ function withAgentMeta(
   };
 }
 
-async function generateAiReply(result: AutomationProductSearchResult) {
-  const apiKey = process.env.OPENAI_API_KEY || "";
+async function generateAiReply(
+  result: AutomationProductSearchResult,
+  apiKey: string
+) {
   const model = getAiModel();
   console.info("AUTOMATION AI REQUEST STARTED:", {
     model,
@@ -390,8 +393,9 @@ async function generateAiReply(result: AutomationProductSearchResult) {
 
 export async function answerAutomationQuestion(input: AgentInput): Promise<AutomationAgentResult> {
   const result = await searchAutomationProducts(input);
+  const apiKey = input.openAiApiKey || process.env.OPENAI_API_KEY || "";
 
-  if (!isAiEnabled()) {
+  if (!isAiEnabled(apiKey)) {
     return withAgentMeta(result, buildFallbackMeta("ai_disabled_or_missing_key"));
   }
 
@@ -405,7 +409,7 @@ export async function answerAutomationQuestion(input: AgentInput): Promise<Autom
   }
 
   try {
-    const { model, agentReply } = await generateAiReply(result);
+    const { model, agentReply } = await generateAiReply(result, apiKey);
     const validationReason = validateAgentReply(result, agentReply);
 
     if (validationReason) {
