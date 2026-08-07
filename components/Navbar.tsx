@@ -150,16 +150,13 @@ export default function Navbar() {
           href={homeHref}
           className="flex items-center gap-3 transition-transform active:scale-95"
         >
-          <div className="relative w-14 h-14 flex items-center justify-center">
-            <Image
-              src="/navlogo.jpg"
-              alt="Cesar Store Logo"
-              width={56}
-              height={56}
-              priority
-              className="w-full h-full object-contain drop-shadow-sm rounded-full"
-            />
-          </div>
+          <Image
+            src="/navlogo.png"
+            alt="Cesar Store Logo"
+            width={40}
+            height={40}
+            className="w-10 h-10 object-contain drop-shadow-sm"
+          />
           <span className="text-xl font-black text-gray-900 tracking-tighter">
             {isAr ? "متجر سيزر" : "CESAR STORE"}
           </span>
