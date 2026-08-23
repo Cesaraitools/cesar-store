@@ -11,6 +11,8 @@ import {
   SOCIAL_PROFILES,
 } from "@/lib/seo";
 
+const COPYRIGHT_YEAR = "2026";
+
 export default function SiteFooter() {
   const { lang } = useLanguage();
   const isAr = lang === "ar";
@@ -232,7 +234,7 @@ export default function SiteFooter() {
 
         <div className="space-y-1 text-xs font-semibold text-slate-600">
           <p>
-            © {new Date().getFullYear()}{" "}
+            © {COPYRIGHT_YEAR}{" "}
             {isAr ? "متجر سيزر. جميع الحقوق محفوظة." : "Cesar Store. All rights reserved."}
           </p>
           <p>{creditText}</p>
