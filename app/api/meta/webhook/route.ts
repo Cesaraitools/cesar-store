@@ -1390,7 +1390,7 @@ async function buildFacebookCommentReply(
 
   if (!isAutomationAiEnabled(apiKey)) return "";
 
-  const products = result.products.slice(0, 2);
+  const products = result.products.slice(0, 3);
   const category = result.products[0]?.category || result.meta.matchedCategory || "";
   const shopUrl = buildShopUrl(baseUrl);
   const categoryUrl = category ? buildCategoryUrl(category, baseUrl) : "";
@@ -1411,7 +1411,7 @@ async function buildFacebookCommentReply(
           {
             role: "system",
             content:
-              "You write Cesar Store public Facebook comment replies in Arabic. You are the final customer-facing writer: infer the customer's practical need from their words, then choose the most helpful concise reply. The store catalog facts supplied by code are authoritative. Use supplied post context and catalog facts only. Do not invent products, prices, links, stock, variants, policies, or contact data. Public replies must never show prices or currency. Make the reply feel understood and human: start with a short insight tied to the customer's need, then give the next useful action. For broad recommendation or problem-solution comments, prefer one categoryUrl and one helpful follow-up question over listing many products. For a specific product/comment-on-product question, mention the best matching productUrl first and at most one related alternative. For price questions, mention the relevant product briefly and say price details were sent privately if privatePriceSent is true; otherwise ask them to message the page after the product mention. Never answer a product/store question with only a generic message-us reply when supplied products or categoryUrl fit. If supplied products do not fit the request, ask one short clarification question. Do not use casual phrases such as ya sadiqi, habibi, ya basha, ya najm, or similar social wording.",
+              "You write Cesar Store public Facebook comment replies in Arabic. You are the only writer of the final public reply, but the store catalog facts supplied by code are authoritative. Use supplied post context and catalog facts only. Do not invent products, prices, links, stock, variants, policies, or contact data. Public replies must never show prices or currency. If products are supplied and fit the customer request or post context, the reply must be a product answer, not a generic message-us reply. For product answers, use a formal concise structure equivalent to: nearest products for your question, product name with productUrl on separate lines, categoryUrl if supplied, shopUrl, then a short private-price note when the customer asked about price. Treat hm, h.m, HM, how much, price, and Arabic price words as a price question when products or product post context are supplied. If price details were sent privately, mention that formally and briefly. If private sending failed, ask the customer to message the page for price details after listing the relevant products. If supplied products do not fit the request, ask one formal clarification question instead of inventing. Do not use casual phrases such as ya sadiqi, habibi, ya basha, ya najm, or similar social wording.",
           },
           {
             role: "user",
@@ -1448,25 +1448,20 @@ async function buildFacebookCommentReply(
               outputRules: [
                 "Return valid JSON only.",
                 "Do not include any price or currency in the public reply.",
-                "Write in natural Egyptian-friendly Modern Arabic, professional and concise.",
-                "Keep the public reply between 2 and 5 short lines.",
-                "Use no more than 2 URLs total.",
-                "For broad recommendation comments, include categoryUrl when supplied; do not list productUrl values unless one product is clearly the best example.",
-                "If hasProducts is true and the customer asks about a specific product or the post product, include the best matching productUrl from products.",
-                "If postContextProductMatched is true, treat products[0] as the product in the post and list it first before any related product.",
-                "If priceInquiry is true and hasProducts is true, mention the relevant product name with productUrl, then add a short formal private-price note.",
+                "If hasProducts is true and the products fit the comment or post context, include at least one productUrl from products.",
+                "If postContextProductMatched is true, treat products[0] as the product in the post and list it first before any related products.",
+                "If priceInquiry is true and hasProducts is true, list relevant product names and productUrl values first, then add a short formal private-price note.",
                 "Do not answer a product or price question with only a generic instruction to message the page when products are supplied.",
-                "Do not include both categoryUrl and shopUrl unless the customer asks for the full store.",
-                "End broad recommendations with one useful follow-up question, such as preferred scent, car type, budget range, or use case.",
-                "For clarification, ask one short question only.",
+                "Include categoryUrl and shopUrl for product answers when supplied.",
+                "For clarification, ask one short question.",
                 "Do not mention automation, AI, scoring, tokens, webhooks, or internal rules.",
               ],
             }),
           },
         ],
-        max_output_tokens: 420,
+        max_output_tokens: 560,
         store: false,
-        temperature: 0.35,
+        temperature: 0.2,
         text: {
           format: {
             type: "json_schema",
