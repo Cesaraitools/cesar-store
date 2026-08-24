@@ -2004,11 +2004,18 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     };
   }
 
+  const contextualPriceReplyAllowed =
+    postContextUsed &&
+    isMetaPriceQuestion(normalized.messageText) &&
+    result.meta.ai.action === "answer" &&
+    result.meta.bestScore >= 6;
+
   if (
     postContextUsed &&
     isPostDependentComment(normalized.messageText) &&
     result.meta.autoReply === "answer" &&
     result.products.length &&
+    !contextualPriceReplyAllowed &&
     !hasConfidentPostContextMatch(result, postContextSearchText)
   ) {
     await recordCommentHandoff({
