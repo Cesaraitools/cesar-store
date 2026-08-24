@@ -246,6 +246,7 @@ function normalizeCommentChange(change: MetaFeedChange) {
   const messageText = typeof value.message === "string" ? value.message.trim() : "";
   const actorId = value.from?.id || value.sender_id || "";
   const commentId = value.comment_id || "";
+  const parentId = value.parent_id || "";
   const postId = value.post_id || value.parent_id || "";
   const eventId =
     commentId || `${postId}:${value.created_time || ""}:${messageText.slice(0, 80)}`;
@@ -285,6 +286,7 @@ function normalizeCommentChange(change: MetaFeedChange) {
     reason: "ok",
     actorId,
     commentId,
+    parentId,
     postId,
     eventId,
     messageText,
@@ -654,6 +656,52 @@ async function fetchFacebookPostContext(
     };
   } catch (error) {
     console.warn("META COMMENT POST CONTEXT FETCH ERROR:", error);
+    return null;
+  }
+}
+
+async function fetchFacebookCommentContext(
+  pageLane: MetaPageLane,
+  commentId: string
+): Promise<MetaPostContext | null> {
+  const pageAccessToken = pageLane.pageAccessToken;
+  if (!pageAccessToken || !commentId) return null;
+
+  const fields = ["message", "permalink_url"].join(",");
+  const url = new URL(`https://graph.facebook.com/${getGraphApiVersion()}/${commentId}`);
+  url.searchParams.set("fields", fields);
+
+  try {
+    const response = await fetch(url.toString(), {
+      headers: {
+        Authorization: `Bearer ${pageAccessToken}`,
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      const responseText = await response.text();
+      console.warn("META COMMENT PARENT CONTEXT FETCH FAILED:", {
+        commentId,
+        status: response.status,
+        body: responseText.slice(0, 300),
+      });
+      return null;
+    }
+
+    const data = (await response.json()) as {
+      message?: string;
+      permalink_url?: string;
+    };
+    const searchText = compactContextText([data.message || ""]);
+    if (!searchText) return null;
+
+    return {
+      searchText,
+      permalinkUrl: data.permalink_url || "",
+    };
+  } catch (error) {
+    console.warn("META COMMENT PARENT CONTEXT FETCH ERROR:", error);
     return null;
   }
 }
@@ -1621,6 +1669,35 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
       contextLength: initialPostContext.searchText.length,
       source: "intent_gate",
     });
+  }
+
+  if (
+    normalized.parentId &&
+    normalized.parentId !== normalized.postId &&
+    normalized.parentId !== normalized.commentId
+  ) {
+    const parentCommentContext = await fetchFacebookCommentContext(
+      normalized.pageLane,
+      normalized.parentId
+    );
+
+    if (parentCommentContext?.searchText) {
+      postContextUsed = true;
+      postContextSearchText = compactContextText([
+        parentCommentContext.searchText,
+        postContextSearchText,
+      ]);
+      normalized.permalinkUrl =
+        normalized.permalinkUrl || parentCommentContext.permalinkUrl;
+
+      console.info("META COMMENT PARENT CONTEXT USED:", {
+        commentId: normalized.commentId,
+        parentId: normalized.parentId,
+        postId: normalized.postId,
+        contextLength: parentCommentContext.searchText.length,
+        combinedContextLength: postContextSearchText.length,
+      });
+    }
   }
 
   const commentIntent = await classifyMetaCommentIntent(
