@@ -493,7 +493,7 @@ async function sendFacebookCommentPrivateReply(
   });
 
   const response = await fetch(
-    `https://graph.facebook.com/${getGraphApiVersion()}/${commentId}/private_replies`,
+    `https://graph.facebook.com/${getGraphApiVersion()}/${pageLane.pageId}/messages`,
     {
       method: "POST",
       headers: {
@@ -501,7 +501,9 @@ async function sendFacebookCommentPrivateReply(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        message: text.slice(0, 1900),
+        recipient: { comment_id: commentId },
+        messaging_type: "RESPONSE",
+        message: { text: text.slice(0, 1900) },
       }),
     }
   );
