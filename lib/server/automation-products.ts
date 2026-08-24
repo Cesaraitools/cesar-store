@@ -1005,6 +1005,61 @@ function uniqueRepresentativeProducts(products: AutomationProduct[], limit: numb
   return unique;
 }
 
+function isAvailableProductRow(product: ProductRow) {
+  return Boolean(product.is_active) && Number(product.stock || 0) > 0;
+}
+
+function productRowSearchText(product: ProductRow) {
+  return normalizeSearchText(
+    [
+      product.name_ar,
+      product.name_en,
+      product.description_ar,
+      product.description_en,
+      getProductVariantSearchText(product),
+    ]
+      .filter(Boolean)
+      .join(" ")
+  );
+}
+
+function findComplementaryProductRows(
+  selectedProducts: ProductRow[],
+  allProducts: ProductRow[],
+  limit: number
+) {
+  if (!selectedProducts.length || limit <= 1) return selectedProducts.slice(0, limit);
+
+  const primaryCategory = normalizeCategory(selectedProducts[0].category || "");
+  const selectedIds = new Set(selectedProducts.map((product) => product.id));
+  const baseProducts = selectedProducts.slice(0, limit);
+
+  if (primaryCategory !== "detergent") return baseProducts;
+
+  const towelKeywords = [
+    "\u0641\u0648\u0637\u0629",
+    "\u0641\u0648\u0637\u0647",
+    "\u0641\u0648\u0637",
+    "\u0645\u064a\u0643\u0631\u0648",
+    "\u0645\u0627\u064a\u0643\u0631\u0648",
+    "microfiber",
+    "micro fiber",
+    "towel",
+  ].map(normalizeSearchText);
+  const complementary = allProducts.find((product) => {
+    if (selectedIds.has(product.id)) return false;
+    if (!isAvailableProductRow(product)) return false;
+    if (normalizeCategory(product.category || "") !== "detergent") return false;
+
+    const searchText = productRowSearchText(product);
+    return towelKeywords.some((keyword) => keyword && searchText.includes(keyword));
+  });
+
+  if (!complementary) return baseProducts;
+
+  return [...baseProducts.slice(0, Math.max(limit - 1, 1)), complementary];
+}
+
 function absoluteUrl(pathOrUrl: string, baseUrl: string) {
   if (!pathOrUrl) return "";
   if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")) {
@@ -1260,16 +1315,23 @@ export async function searchAutomationProducts(input: {
       return Number(b.product.stock || 0) - Number(a.product.stock || 0);
   });
   const bestScore = scoredProducts[0]?.score || 0;
+  const bestContextScore = scoredProducts[0]?.contextScore || 0;
   const broadCategoryQuery = isBroadCategoryQuery(query, detectedCategory);
   const categoryMode =
     Boolean(detectedCategory) &&
     Boolean(scoredProducts.length) &&
     (bestScore < 16 || (broadCategoryQuery && bestScore < 20));
+  const contextBackedPriceQuestion =
+    Boolean(contextQuery) &&
+    commentUnderstanding.hasPriceIntent &&
+    scoredProducts.length > 0 &&
+    (bestContextScore >= 45 || bestScore >= MIN_DIRECT_PRODUCT_SCORE);
   const needsPostContext =
     commentUnderstanding.needsPostContext && !contextQuery && !detectedCategory && bestScore < 10;
   const shouldClarify =
     !humanHandoff &&
     !needsPostContext &&
+    !contextBackedPriceQuestion &&
     (Boolean(clarifyIntent && bestScore < 16) ||
       (!categoryMode && bestScore > 0 && bestScore < MIN_DIRECT_PRODUCT_SCORE) ||
       (!scoredProducts.length && productRequest));
@@ -1282,9 +1344,17 @@ export async function searchAutomationProducts(input: {
     : scoredProducts.length
     ? "product"
     : "clarify";
-  const products = (shouldClarify || humanHandoff || needsPostContext ? [] : scoredProducts)
-    .slice(0, limit)
-    .map((item) => toAutomationProduct(item.product, language, input.baseUrl));
+  const selectedProductRows =
+    shouldClarify || humanHandoff || needsPostContext
+      ? []
+      : findComplementaryProductRows(
+          scoredProducts.map((item) => item.product),
+          (data || []) as ProductRow[],
+          limit
+        );
+  const products = selectedProductRows.map((product) =>
+    toAutomationProduct(product, language, input.baseUrl)
+  );
   const effectiveBestScore =
     intent === "category" && products.length
       ? Math.max(bestScore, 12)
