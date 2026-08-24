@@ -2008,7 +2008,8 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     postContextUsed &&
     isMetaPriceQuestion(normalized.messageText) &&
     result.meta.ai.action === "answer" &&
-    result.meta.bestScore >= 6;
+    result.meta.ai.confidence !== "low" &&
+    result.products.length > 0;
 
   if (
     postContextUsed &&
