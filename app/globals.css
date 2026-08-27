@@ -56,6 +56,14 @@ body {
   animation: homepage-slide-copy 1s 300ms ease-out both;
 }
 
+@media (max-width: 767px) {
+  .homepage-slide-enter,
+  .homepage-slide-image,
+  .homepage-slide-copy {
+    animation: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .homepage-slide-enter,
   .homepage-slide-image,

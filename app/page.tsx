@@ -80,6 +80,26 @@ function scheduleAfterInitialPaint(callback: () => void) {
   return () => window.clearTimeout(id);
 }
 
+function scheduleAfterPageLoad(callback: () => void) {
+  if (typeof window === "undefined") return () => {};
+
+  let cancelIdleWork = () => {};
+  const scheduleIdleWork = () => {
+    cancelIdleWork = scheduleAfterInitialPaint(callback);
+  };
+
+  if (document.readyState === "complete") {
+    scheduleIdleWork();
+  } else {
+    window.addEventListener("load", scheduleIdleWork, { once: true });
+  }
+
+  return () => {
+    window.removeEventListener("load", scheduleIdleWork);
+    cancelIdleWork();
+  };
+}
+
 export default function LandingPage() {
   const { lang } = useLanguage();
   const isAr = lang === "ar";
@@ -102,7 +122,7 @@ export default function LandingPage() {
       });
     };
 
-    const cancelDeferredLoad = scheduleAfterInitialPaint(loadCategories);
+    const cancelDeferredLoad = scheduleAfterPageLoad(loadCategories);
 
     return () => {
       isCancelled = true;
@@ -212,6 +232,9 @@ export default function LandingPage() {
 
       {/* Features - تحسين الظلال والرموز */}
       <section className="py-24 px-6 max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
+        <h2 className="sr-only">
+          {isAr ? "مميزات متجر سيزر" : "Why choose Cesar Store"}
+        </h2>
         {[
           { icon: ShieldCheck, title: isAr ? "جودة مضمونة" : "Guaranteed Quality", desc: isAr ? "منتجات أصلية 100% ومختارة بعناية" : "100% Original handpicked products" },
           { icon: Zap, title: isAr ? "توصيل سريع" : "Fast Delivery", desc: isAr ? "شحن آمن لجميع محافظات مصر" : "Safe shipping across Egypt" },

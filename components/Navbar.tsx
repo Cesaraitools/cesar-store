@@ -151,7 +151,7 @@ export default function Navbar() {
           className="flex items-center gap-3 transition-transform active:scale-95"
         >
           <Image
-            src="/navlogo.png"
+            src="/icon-192.png"
             alt="Cesar Store Logo"
             width={40}
             height={40}
