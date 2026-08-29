@@ -20,6 +20,7 @@ type HeroSlide = {
   type: "hero";
   id: "hero";
   image: string;
+  mobileImage: string;
 };
 
 type Slide = HeroSlide | CategorySlide;
@@ -61,6 +62,7 @@ const heroSlide: HeroSlide = {
   type: "hero",
   id: "hero",
   image: "/slides/hero.jpg",
+  mobileImage: "/slides/hero-mobile.jpg",
 };
 
 function scheduleAfterInitialPaint(callback: () => void) {
@@ -149,6 +151,20 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC]" dir={isAr ? "rtl" : "ltr"}>
+      <link
+        rel="preload"
+        as="image"
+        href={heroSlide.mobileImage}
+        media="(max-width: 767px)"
+        fetchPriority="high"
+      />
+      <link
+        rel="preload"
+        as="image"
+        href={heroSlide.image}
+        media="(min-width: 768px)"
+        fetchPriority="high"
+      />
       
       {/* Hero Slider Section */}
       <section className="relative h-[80vh] md:h-[90vh] w-full overflow-hidden bg-slate-900">
@@ -162,17 +178,24 @@ export default function LandingPage() {
               className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/10 to-black/40 z-10"
               aria-hidden="true"
             />
-            <Image
-              src={s.image}
-              alt={getSlideAlt(s)}
-              fill
-              priority={index === 0 && s.type === "hero"}
-              fetchPriority={index === 0 && s.type === "hero" ? "high" : "auto"}
-              loading={index === 0 && s.type === "hero" ? undefined : "lazy"}
-              sizes="100vw"
-              quality={75}
-              className="homepage-slide-image h-full w-full object-cover"
-            />
+            <picture className="absolute inset-0">
+              {s.type === "hero" ? (
+                <source
+                  media="(max-width: 767px)"
+                  srcSet={s.mobileImage}
+                />
+              ) : null}
+              <Image
+                src={s.image}
+                alt={getSlideAlt(s)}
+                fill
+                fetchPriority={index === 0 && s.type === "hero" ? "high" : "auto"}
+                loading={index === 0 && s.type === "hero" ? "eager" : "lazy"}
+                sizes="100vw"
+                quality={75}
+                className="homepage-slide-image h-full w-full object-cover"
+              />
+            </picture>
 
             <div className="absolute inset-0 z-20 flex items-center justify-center text-center px-6">
               <div className="homepage-slide-copy max-w-5xl">

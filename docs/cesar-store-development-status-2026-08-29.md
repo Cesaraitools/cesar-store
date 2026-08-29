@@ -33,8 +33,15 @@ detailed implementation references; this file is the current routing summary.
 - Last Google Search Console evidence supplied on 2026-08-27 showed 219 indexed
   pages and 143 not indexed pages. This dashboard count must be refreshed before
   treating it as the current count.
-- Last mobile PageSpeed evidence supplied before the performance deployment was:
-  score 56, FCP 2.9 s, LCP 6.0 s, TBT 550 ms, and CLS 0.009.
+- Mobile PageSpeed baseline supplied on 2026-08-27 was: score 56, FCP 2.9 s,
+  LCP 6.0 s, TBT 550 ms, and CLS 0.009.
+- The first post-deployment mobile PageSpeed run supplied on 2026-08-29 was:
+  score 65, FCP 3.7 s, LCP 5.7 s, TBT 230 ms, CLS 0.009, and estimated image
+  savings reduced from 412 KiB to 94 KiB. Accessibility, Best Practices, and SEO
+  each scored 100.
+- The 28-day field-data panel in that report showed origin LCP 3.7 s, INP 222 ms,
+  CLS 0.02, FCP 3.0 s, and TTFB 0.9 s. These field values include visits from
+  before the deployment and cannot validate a new change immediately.
 - Account-only states below are not marked complete unless supported by a recent
   dashboard check or controlled test.
 
@@ -76,6 +83,10 @@ detailed implementation references; this file is the current routing summary.
   or removed.
 - The homepage heading sequence was corrected for accessibility.
 - TypeScript and lint completed successfully before commit `9945509` was pushed.
+- The first post-deployment lab run improved the performance score from 56 to
+  65 and reduced Total Blocking Time from 550 ms to 230 ms.
+- A second mobile pass adds a 20 KiB portrait crop of the same hero image while
+  preserving the original desktop image and high-priority responsive loading.
 
 ### Wholesale core and admin
 
@@ -104,13 +115,14 @@ detailed implementation references; this file is the current routing summary.
 
 ## Next — execution order
 
-### 1. Verify the mobile performance deployment
+### 1. Verify the second mobile LCP image pass
 
-- Run a fresh PageSpeed mobile test after deployment.
-- Record the new score, FCP, LCP, TBT, CLS, image-delivery savings, unused JS,
-  and render-blocking requests beside the 2026-08-27 baseline.
-- Only make another code change if the new report identifies a specific current
-  bottleneck; preserve retail behavior and conversion tracking.
+- Run PageSpeed mobile again after that asset deploys and compare it with the
+  2026-08-29 score-65 result.
+- Record score, FCP, LCP, TBT, CLS, image-delivery savings, unused JS, and
+  render-blocking requests. Only continue changing code when the current report
+  identifies a specific bottleneck; preserve retail behavior and conversion
+  tracking.
 
 ### 2. Audit desktop performance
 
@@ -223,4 +235,3 @@ healthy or broken without a current dashboard snapshot.
   `git diff --check`; do not run a local production build unless requested.
 - Treat each implementation as a small reviewed commit with production
   verification appropriate to its risk.
-
