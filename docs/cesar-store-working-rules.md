@@ -3,6 +3,9 @@
 Use these rules before starting any new Cesar Store task, especially in a new
 chat:
 
+Current unified roadmap and verified status:
+`docs/cesar-store-development-status-2026-08-29.md`.
+
 1. Continue from the latest confirmed state. Do not repeat completed steps.
 2. Treat the production site as live and sensitive.
 3. Make every change surgically after reading the relevant code and its
