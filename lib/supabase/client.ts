@@ -1,6 +1,7 @@
 // /lib/supabase/client.ts
 
 import { createBrowserClient } from "@supabase/ssr";
+import { processLock } from "@supabase/auth-js";
 import type { SupabaseClient, SupabaseClientOptions } from "@supabase/supabase-js";
 
 /**
@@ -14,6 +15,9 @@ let browserClient: SupabaseClient | null = null;
 
 const browserAuthOptions = {
   detectSessionInUrl: false,
+  // Navigator LockManager can reject with SecurityError in restricted mobile browsers.
+  // Supabase now recommends its process-scoped lock for browser auth coordination.
+  lock: processLock,
   // Supported by auth-js at runtime; this package version does not expose it in supabase-js types.
   lockAcquireTimeout: 30000,
 } as unknown as SupabaseClientOptions<"public">["auth"];
