@@ -5,7 +5,7 @@ import {
   normalizeProductVariantOptions,
   normalizeProductVariants,
 } from "@/lib/product-variants";
-import { createServiceRoleClient } from "@/lib/supabase/runtime";
+import { createAnonServerClient } from "@/lib/supabase/runtime";
 import type { Product } from "@/types/product";
 
 export type CatalogCategory = {
@@ -82,7 +82,7 @@ function toProduct(row: ProductRow): Product {
 
 export async function getActiveProducts(limit = 1000) {
   noStore();
-  const supabase = createServiceRoleClient();
+  const supabase = createAnonServerClient();
   const { data, error } = await supabase
     .from("products")
     .select("*")
@@ -98,7 +98,7 @@ export async function getActiveProducts(limit = 1000) {
 
 export async function getActiveProductById(id: string) {
   noStore();
-  const supabase = createServiceRoleClient();
+  const supabase = createAnonServerClient();
   const { data, error } = await supabase
     .from("products")
     .select("*")
@@ -114,7 +114,7 @@ export async function getActiveProductById(id: string) {
 
 export async function getActiveCategories() {
   noStore();
-  const supabase = createServiceRoleClient();
+  const supabase = createAnonServerClient();
   const { data, error } = await supabase
     .from("categories")
     .select("*")

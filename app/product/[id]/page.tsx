@@ -64,7 +64,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function ProductPage({ params }: Props) {
   const [product, categories] = await Promise.all([
     getActiveProductById(params.id),
-    getActiveCategories(),
+    getActiveCategories().catch((error) => {
+      console.error("PRODUCT CATEGORIES ERROR:", error);
+      return [];
+    }),
   ]);
 
   if (!product) {
