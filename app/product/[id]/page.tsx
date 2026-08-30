@@ -155,12 +155,17 @@ export default async function ProductPage({ params }: Props) {
   return (
     <>
       <script
+        id="product-structured-data"
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify([productStructuredData, breadcrumbStructuredData]).replace(
-            /</g,
-            "\\u003c"
-          ),
+          __html: JSON.stringify(productStructuredData).replace(/</g, "\\u003c"),
+        }}
+      />
+      <script
+        id="product-breadcrumb-structured-data"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(breadcrumbStructuredData).replace(/</g, "\\u003c"),
         }}
       />
       <ProductPageClient product={product} categories={categories} />

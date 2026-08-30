@@ -212,12 +212,17 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           </Script>
         )}
         <script
+          id="store-structured-data"
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify([storeStructuredData, websiteStructuredData]).replace(
-              /</g,
-              "\\u003c"
-            ),
+            __html: JSON.stringify(storeStructuredData).replace(/</g, "\\u003c"),
+          }}
+        />
+        <script
+          id="website-structured-data"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(websiteStructuredData).replace(/</g, "\\u003c"),
           }}
         />
         <AuthProvider>
