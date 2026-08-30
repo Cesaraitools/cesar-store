@@ -26,6 +26,31 @@ function isFacebookIosWebKitBridgeNoise(event: Sentry.Event) {
   });
 }
 
+function isFacebookAndroidNavigationBridgeNoise(event: Sentry.Event) {
+  const exceptionValues = event.exception?.values ?? [];
+
+  return exceptionValues.some((exception) => {
+    const value = exception.value ?? "";
+    const frames = exception.stacktrace?.frames ?? [];
+    const hasFacebookNavigationBridgeFrame = frames.some((frame) => {
+      const filename = (frame.filename ?? "").replace(/^app:\/\/\/?/, "");
+      const functionName = frame.function ?? "";
+
+      return (
+        filename === "navigation_performance_logger_android" &&
+        (functionName === "sendDataToNative" ||
+          functionName === "sendJsBlockingTimeMessage")
+      );
+    });
+
+    return (
+      exception.type === "Error" &&
+      value === "Error invoking postMessage: Java object is gone" &&
+      hasFacebookNavigationBridgeFrame
+    );
+  });
+}
+
 function isInjectedPanelNullReadNoise(event: Sentry.Event) {
   const noisyMessages = new Set([
     "Cannot read properties of null (reading 'document')",
@@ -94,6 +119,7 @@ Sentry.init({
   beforeSend(event) {
     if (
       isFacebookIosWebKitBridgeNoise(event) ||
+      isFacebookAndroidNavigationBridgeNoise(event) ||
       isInjectedPanelNullReadNoise(event) ||
       isVercelLiveFeedbackRangeNoise(event)
     ) {
