@@ -28,6 +28,10 @@ type GoogleEcommerceItem = {
 
 type GtagCommand = "js" | "config" | "event";
 
+type MetaPixelEventOptions = {
+  eventID?: string;
+};
+
 declare global {
   interface Window {
     dataLayer?: unknown[];
@@ -35,6 +39,12 @@ declare global {
       command: GtagCommand,
       target: string | Date,
       params?: Record<string, unknown>
+    ) => void;
+    fbq?: (
+      command: "track",
+      eventName: string,
+      params?: Record<string, unknown>,
+      options?: MetaPixelEventOptions
     ) => void;
   }
 }
@@ -52,6 +62,14 @@ function getItemName(item: GoogleEcommerceItemInput) {
 
 function getItemId(item: GoogleEcommerceItemInput) {
   return String(item.product_id || item.id || getItemName(item));
+}
+
+function getCatalogItemId(item: GoogleEcommerceItemInput) {
+  const itemId = item.product_id ?? item.id;
+  if (itemId === null || itemId === undefined) return null;
+
+  const normalizedItemId = String(itemId).trim();
+  return normalizedItemId || null;
 }
 
 function getItemVariant(item: GoogleEcommerceItemInput) {
@@ -100,6 +118,70 @@ function gtagEvent(eventName: string, params: Record<string, unknown>) {
   }
 }
 
+function metaPixelEvent(
+  eventName: string,
+  params: Record<string, unknown>,
+  options?: MetaPixelEventOptions
+) {
+  if (typeof window === "undefined" || typeof window.fbq !== "function") return;
+
+  try {
+    window.fbq("track", eventName, params, options);
+  } catch (error) {
+    console.warn("Meta Pixel tracking event failed", eventName, error);
+  }
+}
+
+function getMetaProductParams(item: GoogleEcommerceItemInput) {
+  const contentId = getCatalogItemId(item);
+  if (!contentId) return null;
+
+  const price = normalizeNumber(item.price);
+  const params: Record<string, unknown> = {
+    content_ids: [contentId],
+    content_type: "product",
+    content_name: getItemName(item),
+    currency: DEFAULT_CURRENCY,
+  };
+
+  if (typeof price === "number") params.value = price;
+  if (item.category) params.content_category = item.category;
+
+  return params;
+}
+
+function getMetaCartParams(
+  items: GoogleEcommerceItemInput[],
+  value: number
+) {
+  const contents = items.flatMap((item) => {
+    const id = getCatalogItemId(item);
+    if (!id) return [];
+
+    const quantity = normalizeNumber(item.quantity) ?? 1;
+    const price = normalizeNumber(item.price);
+
+    return [
+      {
+        id,
+        quantity,
+        ...(typeof price === "number" ? { item_price: price } : {}),
+      },
+    ];
+  });
+
+  if (!contents.length) return null;
+
+  return {
+    content_ids: contents.map((item) => item.id),
+    content_type: "product",
+    contents,
+    num_items: contents.reduce((total, item) => total + item.quantity, 0),
+    currency: DEFAULT_CURRENCY,
+    value,
+  };
+}
+
 export function trackViewItem(item: GoogleEcommerceItemInput) {
   const googleItem = toGoogleItem({ ...item, quantity: item.quantity ?? 1 });
 
@@ -108,6 +190,9 @@ export function trackViewItem(item: GoogleEcommerceItemInput) {
     value: googleItem.price,
     items: [googleItem],
   });
+
+  const metaParams = getMetaProductParams(item);
+  if (metaParams) metaPixelEvent("ViewContent", metaParams);
 }
 
 export function trackAddToCart(item: GoogleEcommerceItemInput) {
@@ -118,6 +203,9 @@ export function trackAddToCart(item: GoogleEcommerceItemInput) {
     value: googleItem.price,
     items: [googleItem],
   });
+
+  const metaParams = getMetaProductParams(item);
+  if (metaParams) metaPixelEvent("AddToCart", metaParams);
 }
 
 export function trackBeginCheckout(
@@ -131,6 +219,9 @@ export function trackBeginCheckout(
     value,
     items: items.map(toGoogleItem),
   });
+
+  const metaParams = getMetaCartParams(items, value);
+  if (metaParams) metaPixelEvent("InitiateCheckout", metaParams);
 }
 
 export function trackPurchase({
@@ -152,6 +243,11 @@ export function trackPurchase({
     value,
     items: googleItems,
   });
+
+  const metaParams = getMetaCartParams(items, value);
+  if (metaParams) {
+    metaPixelEvent("Purchase", metaParams, { eventID: transactionId });
+  }
 
   const conversionTarget = getPurchaseConversionTarget();
   if (!conversionTarget) return;
