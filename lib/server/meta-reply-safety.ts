@@ -39,14 +39,43 @@ function containsPublicPrice(value: string) {
   );
 }
 
+function normalizeDigits(value: string) {
+  return value
+    .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
+    .replace(/٬/g, ",")
+    .replace(/٫/g, ".");
+}
+
+function containsKnownPrice(value: string, forbiddenPrices: number[]) {
+  const textWithoutUrls = normalizeDigits(value.replace(URL_PATTERN, " "));
+
+  return forbiddenPrices.some((price) => {
+    if (!Number.isFinite(price) || price <= 0) return false;
+
+    const variants = new Set([
+      String(price),
+      price.toFixed(2),
+      price.toLocaleString("en-US", { maximumFractionDigits: 2 }),
+    ]);
+
+    return Array.from(variants).some((variant) => {
+      const escaped = variant.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return new RegExp(`(^|[^\\d])${escaped}(?=$|[^\\d])`, "u").test(
+        textWithoutUrls
+      );
+    });
+  });
+}
+
 export function validateMetaPublicReply(
   reply: string,
-  allowedUrls: string[] = []
+  allowedUrls: string[] = [],
+  forbiddenPrices: number[] = []
 ): MetaReplySafetyResult {
   const text = reply.trim();
   if (!text) return { safe: false, reason: "empty_reply" };
 
-  if (containsPublicPrice(text)) {
+  if (containsPublicPrice(text) || containsKnownPrice(text, forbiddenPrices)) {
     return { safe: false, reason: "public_price_detected" };
   }
 

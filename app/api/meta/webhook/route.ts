@@ -5,6 +5,16 @@ import {
   CUSTOMER_QUERY_LEXICON_GUIDANCE,
 } from "@/lib/customer-query-lexicon";
 import { answerAutomationQuestion } from "@/lib/server/automation-agent";
+import {
+  buildMetaAttachmentMessage,
+  buildMetaPrivatePriceFallback,
+  buildMetaPublicProductFallback,
+  buildMetaReactionFallback,
+  detectMetaReactionTone,
+  isMetaPriceQuestion,
+  shouldSendMetaPrivatePriceReply,
+  type MetaAttachmentKind,
+} from "@/lib/server/meta-customer-intelligence";
 import { validateMetaPublicReply } from "@/lib/server/meta-reply-safety";
 import {
   summarizeMetaFeedChange,
@@ -22,6 +32,10 @@ type MetaMessagingEvent = {
     mid?: string;
     text?: string;
     is_echo?: boolean;
+    attachments?: Array<{
+      type?: string;
+      payload?: Record<string, unknown>;
+    }>;
   };
 };
 
@@ -201,8 +215,13 @@ function summarizeWebhookBody(body: any, eventsCount: number, feedChangesCount: 
 }
 
 function normalizeEvent(event: MetaMessagingEvent) {
-  const messageText =
+  const explicitMessageText =
     typeof event.message?.text === "string" ? event.message.text.trim() : "";
+  const attachmentType = event.message?.attachments?.[0]?.type || "";
+  const attachmentKind = normalizeMetaAttachmentKind(attachmentType);
+  const messageText =
+    explicitMessageText ||
+    (attachmentKind ? buildMetaAttachmentMessage(attachmentKind) : "");
   const senderId = event.sender?.id || "";
   const recipientId = event.recipient?.id || "";
   const messageId =
@@ -237,13 +256,35 @@ function normalizeEvent(event: MetaMessagingEvent) {
     recipientId,
     messageId,
     messageText,
+    attachmentKind,
     pageLane,
   };
 }
 
+function normalizeMetaAttachmentKind(value: string): MetaAttachmentKind | null {
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return null;
+  if (normalized === "image") return "image";
+  if (normalized === "video") return "video";
+  if (normalized === "audio") return "audio";
+  if (normalized === "file") return "file";
+  return "unknown";
+}
+
 function normalizeCommentChange(change: MetaFeedChange) {
   const value = change.value || {};
-  const messageText = typeof value.message === "string" ? value.message.trim() : "";
+  const explicitMessageText =
+    typeof value.message === "string" ? value.message.trim() : "";
+  const attachmentKind: MetaAttachmentKind | null = value.photo_id
+    ? "image"
+    : value.video_id
+    ? "video"
+    : value.object_id
+    ? "unknown"
+    : null;
+  const messageText =
+    explicitMessageText ||
+    (attachmentKind ? buildMetaAttachmentMessage(attachmentKind) : "");
   const actorId = value.from?.id || value.sender_id || "";
   const commentId = value.comment_id || "";
   const parentId = value.parent_id || "";
@@ -290,6 +331,7 @@ function normalizeCommentChange(change: MetaFeedChange) {
     postId,
     eventId,
     messageText,
+    attachmentKind,
     permalinkUrl: value.permalink_url || "",
     pageLane,
   };
@@ -756,18 +798,6 @@ function hasAnyCustomerIntent(value: string, groups: Array<readonly string[]>) {
   return groups.some((phrases) => includesCustomerIntentPhrase(value, phrases));
 }
 
-function isMetaPriceQuestion(messageText: string) {
-  const normalized = messageText.trim().toLowerCase();
-  if (!normalized) return false;
-  if (includesCustomerIntentPhrase(normalized, CUSTOMER_QUERY_LEXICON.price)) {
-    return true;
-  }
-
-  return /(?:^|\b)(hm|h\.m|how much|price)(?:\b|$)|\u0628\u0643\u0627\u0645|\u0628\u0643\u0645|\u0643\u0627\u0645|\u0627\u0644\u0633\u0639\u0631|\u0633\u0639\u0631/.test(
-    normalized
-  );
-}
-
 function isPostDependentComment(messageText: string) {
   const normalized = messageText.trim().toLowerCase();
   if (
@@ -1151,6 +1181,7 @@ async function classifyMetaCommentIntent(
   input: {
     commentText: string;
     postContext: string;
+    attachmentKind?: MetaAttachmentKind | null;
   },
   apiKey: string
 ) {
@@ -1177,13 +1208,15 @@ async function classifyMetaCommentIntent(
           {
             role: "system",
             content:
-              "You are Cesar Store's Arabic Facebook page assistant. Classify each public comment before any product automation. If the comment is about products, prices, stock, ordering, shipping, returns, variants, or store service, choose commerce. Very short price questions such as hm, h.m, Hm, HM, how much, price, بكام, بكم, كام, السعر, or سعر must be classified as commerce when the post context is a product, promotion, store post, product image, or product link. Do not treat those price tokens as greetings or social chat. If the comment is normal social engagement related to a non-product post, such as football predictions, greetings, jokes, thanks, or contest participation, choose social_reply and write a short natural Arabic public reply. If a safe public reply is not useful, choose ignore. If it needs a human, choose handoff. Never force unrelated comments into products. Never include product links unless action is commerce, and for social_reply do not mention products or prices.",
+              "You are Cesar Store's Arabic Facebook page assistant. Classify each public comment before any product automation. If the comment is about products, prices, stock, ordering, shipping, returns, variants, or store service, choose commerce. Very short price questions such as hm, h.m, h m, h-m, h/m, Hm, HM, how much, price, بكام, بكم, كام, السعر, or سعر must be classified as commerce when the post context is a product, promotion, store post, product image, or product link. Do not treat those price tokens as greetings or social chat. If the comment is normal social engagement related to a non-product post, such as football predictions, greetings, jokes, thanks, contest participation, or a positive reaction, choose social_reply and write a short natural Arabic public reply. A heart, fire, applause, like, celebration, or similar positive emoji is support: thank the customer warmly and naturally. An angry, dislike, sad, or similar negative emoji needs a calm empathetic reply asking what did not meet their expectations so the page can improve. If the customer attaches an image without text, acknowledge it naturally and ask how the page can help without claiming to see details that were not supplied. If a safe public reply is not useful, choose ignore. If it needs a human, choose handoff. Never force unrelated comments into products. Never include product links unless action is commerce, and for social_reply do not mention products or prices.",
           },
           {
             role: "user",
             content: JSON.stringify({
               commentText: input.commentText,
               postContext: input.postContext,
+              attachmentKind: input.attachmentKind || null,
+              reactionTone: detectMetaReactionTone(input.commentText),
               customerIntentGuidance: CUSTOMER_QUERY_LEXICON_GUIDANCE,
               customerIntentLexicon: {
                 price: CUSTOMER_QUERY_LEXICON.price,
@@ -1197,7 +1230,9 @@ async function classifyMetaCommentIntent(
                 "Use clear Arabic suitable for a business page.",
                 "For product/store comments, use a formal business tone.",
                 "Never use casual phrases such as يا صديقي, إيه يا صديقي, حبيبي, يا باشا, يا نجم, or similar social wording.",
-                "Treat hm/h.m/how much/price/بكام/بكم/كام/السعر/سعر as commerce, not social_reply, when postContext is related to a product or store offer.",
+                "Treat hm/h.m/h m/h-m/h/m/how much/price/بكام/بكم/كام/السعر/سعر as commerce, not social_reply, when postContext is related to a product or store offer.",
+                "Reply naturally to positive and negative emoji reactions according to reactionTone; do not use a fixed canned phrase when AI is available.",
+                "For an attachment without text, acknowledge the attachment but never invent its visual contents.",
                 "For football score predictions or match comments, reply in a friendly fan tone without claiming certainty.",
                 "For social_reply, keep the reply under 160 Arabic characters.",
                 "For commerce, leave reply empty.",
@@ -1336,14 +1371,6 @@ function hasConfidentPostContextMatch(result: AutomationAnswer, postContext: str
   );
 }
 
-function shouldSendPrivatePriceReply(result: AutomationAnswer) {
-  return (
-    result.meta.ai.used &&
-    result.meta.autoReply === "answer" &&
-    result.products.some((product) => Number(product.price) > 0)
-  );
-}
-
 async function buildFacebookPrivatePriceReply(
   result: AutomationAnswer,
   apiKey: string
@@ -1354,7 +1381,9 @@ async function buildFacebookPrivatePriceReply(
 
   if (!products.length) return "";
 
-  if (!isAutomationAiEnabled(apiKey)) return "";
+  const deterministicFallback = buildMetaPrivatePriceFallback(products);
+
+  if (!isAutomationAiEnabled(apiKey)) return deterministicFallback;
 
   try {
     const response = await fetch("https://api.openai.com/v1/responses", {
@@ -1421,10 +1450,89 @@ async function buildFacebookPrivatePriceReply(
       reply?: unknown;
     };
 
-    return typeof parsed.reply === "string" ? parsed.reply.trim().slice(0, 1200) : "";
+    return typeof parsed.reply === "string" && parsed.reply.trim()
+      ? parsed.reply.trim().slice(0, 1200)
+      : deterministicFallback;
   } catch (error) {
     console.error("META COMMENT PRIVATE PRICE AI ERROR:", formatErrorForLog(error));
-    return "";
+    return deterministicFallback;
+  }
+}
+
+async function buildMetaMessengerFallbackReply(
+  messageText: string,
+  attachmentKind: MetaAttachmentKind | null,
+  apiKey: string
+) {
+  const reactionTone = detectMetaReactionTone(messageText);
+  const deterministicFallback = attachmentKind
+    ? "شكرًا لإرسال المرفق. من فضلك وضّح لحضرتك ما الذي تريد معرفته عنه حتى نساعدك بدقة."
+    : buildMetaReactionFallback(reactionTone);
+
+  if (!isAutomationAiEnabled(apiKey)) return deterministicFallback;
+
+  try {
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: getAutomationAiModel(),
+        input: [
+          {
+            role: "system",
+            content:
+              "You write natural Arabic Messenger replies for Cesar Store. Understand Arabic and English shorthand, greetings, thanks, complaints, and emoji reactions. For positive reactions, thank the customer warmly. For angry or negative reactions, respond calmly, show empathy, and ask what went wrong. If the customer asks about a product or price but no verified catalog facts are supplied, ask for the product name, link, or image. If the message concerns an order or private service issue, ask for the minimum useful detail and never invent an order status, policy, price, product, or contact information. If there is an attachment without readable details, acknowledge it without pretending to see its contents. Keep the reply concise and professional.",
+          },
+          {
+            role: "user",
+            content: JSON.stringify({
+              customerMessage: messageText,
+              attachmentKind,
+              reactionTone,
+              rules: [
+                "Return valid JSON only.",
+                "Write one useful Arabic reply under 500 characters.",
+                "Do not invent products, prices, links, stock, policies, or order status.",
+                "Do not mention AI, automation, prompts, or internal rules.",
+              ],
+            }),
+          },
+        ],
+        max_output_tokens: 220,
+        store: false,
+        temperature: 0.35,
+        text: {
+          format: {
+            type: "json_schema",
+            name: "meta_messenger_fallback_reply",
+            strict: true,
+            schema: {
+              type: "object",
+              additionalProperties: false,
+              required: ["reply"],
+              properties: { reply: { type: "string" } },
+            },
+          },
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI Messenger fallback failed with status ${response.status}`);
+    }
+
+    const parsed = JSON.parse(extractOpenAIText(await response.json())) as {
+      reply?: unknown;
+    };
+    return typeof parsed.reply === "string" && parsed.reply.trim()
+      ? parsed.reply.trim().slice(0, 500)
+      : deterministicFallback;
+  } catch (error) {
+    console.error("META MESSENGER FALLBACK AI ERROR:", formatErrorForLog(error));
+    return deterministicFallback;
   }
 }
 
@@ -1476,7 +1584,6 @@ async function buildFacebookCommentReply(
                 options: CUSTOMER_QUERY_LEXICON.options,
                 postReference: CUSTOMER_QUERY_LEXICON.postReference,
               },
-              aiDraft: result.suggestedReply,
               aiAction: result.meta.ai.action,
               aiConfidence: result.meta.ai.confidence,
               privatePriceSent,
@@ -1582,7 +1689,13 @@ async function processEvent(event: MetaMessagingEvent, request: Request) {
   });
 
   if (!result.meta.ai.used) {
-    console.warn("META MESSENGER AI-ONLY SKIPPED SEND:", {
+    const fallbackReply = await buildMetaMessengerFallbackReply(
+      normalized.messageText,
+      normalized.attachmentKind,
+      openAiApiKey
+    );
+
+    console.warn("META MESSENGER COMMERCE AI FALLBACK:", {
       senderId: normalized.senderId,
       messageId: normalized.messageId,
       aiReason: result.meta.ai.reason,
@@ -1590,13 +1703,23 @@ async function processEvent(event: MetaMessagingEvent, request: Request) {
       bestScore: result.meta.bestScore,
     });
 
-    return {
-      processed: false,
-      reason: "ai_required_no_reply_sent",
-      productsCount: result.products.length,
-      aiUsed: false,
-      aiReason: result.meta.ai.reason,
-    };
+    if (fallbackReply) {
+      await sendFacebookMessage(
+        normalized.pageLane,
+        normalized.senderId,
+        fallbackReply
+      );
+
+      return {
+        processed: true,
+        reason: "fallback_reply_sent",
+        productsCount: result.products.length,
+        aiUsed: false,
+        aiReason: result.meta.ai.reason,
+      };
+    }
+
+    return { processed: false, reason: "fallback_reply_unavailable" };
   }
 
   await sendFacebookMessage(
@@ -1707,6 +1830,7 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     {
       commentText: normalized.messageText,
       postContext: postContextSearchText,
+      attachmentKind: normalized.attachmentKind,
     },
     openAiApiKey
   );
@@ -1829,7 +1953,34 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
         aiReason: commentIntent.reason,
       };
     }
-  } else if (isLikelySocialComment(normalized.messageText, postContextSearchText)) {
+  } else if (
+    isLikelySocialComment(normalized.messageText, postContextSearchText) ||
+    detectMetaReactionTone(normalized.messageText) !== "none" ||
+    Boolean(normalized.attachmentKind)
+  ) {
+    const fallbackReply = normalized.attachmentKind
+      ? "شكرًا لمشاركة المرفق. ممكن توضح لنا كيف يمكننا مساعدة حضرتك بخصوصه؟"
+      : buildMetaReactionFallback(detectMetaReactionTone(normalized.messageText));
+
+    if (normalized.pageLane.commentsAutoReplyEnabled) {
+      const fallbackSafety = validateMetaPublicReply(fallbackReply);
+      if (fallbackSafety.safe) {
+        await sendFacebookCommentReply(
+          normalized.pageLane,
+          normalized.commentId,
+          fallbackReply
+        );
+
+        return {
+          processed: true,
+          reason: "comment_social_fallback_sent",
+          postContextUsed,
+          aiUsed: false,
+          aiReason: "comment_intent_ai_unavailable",
+        };
+      }
+    }
+
     await recordCommentHandoff({
       reason: "social_comment_ai_unavailable",
       commentId: normalized.commentId,
@@ -2045,7 +2196,13 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
 
   let privatePriceAttempted = false;
   let privatePriceSent = false;
-  const privatePriceReply = shouldSendPrivatePriceReply(result)
+  const priceInquiry = isMetaPriceQuestion(normalized.messageText);
+  const privatePriceReply = shouldSendMetaPrivatePriceReply({
+    priceInquiry,
+    aiUsed: result.meta.ai.used,
+    autoReply: result.meta.autoReply,
+    productPrices: result.products.map((product) => Number(product.price)),
+  })
     ? await buildFacebookPrivatePriceReply(result, openAiApiKey)
     : "";
 
@@ -2068,7 +2225,7 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     }
   }
 
-  const publicReply = await buildFacebookCommentReply(
+  let publicReply = await buildFacebookCommentReply(
     result,
     normalized.messageText,
     postContextSearchText,
@@ -2084,10 +2241,37 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     buildShopUrl(baseUrl),
     publicReplyCategory ? buildCategoryUrl(publicReplyCategory, baseUrl) : "",
   ].filter(Boolean);
-  const publicReplySafety = validateMetaPublicReply(
+  let publicReplySafety = validateMetaPublicReply(
     publicReply,
-    publicReplyAllowedUrls
+    publicReplyAllowedUrls,
+    result.products.map((product) => Number(product.price)).filter(Number.isFinite)
   );
+
+  if (!publicReplySafety.safe) {
+    console.warn("META COMMENT PUBLIC REPLY REPLACED BY SAFE FALLBACK:", {
+      commentId: normalized.commentId,
+      postId: normalized.postId,
+      safetyReason: publicReplySafety.reason,
+      privatePriceSent,
+    });
+
+    publicReply = buildMetaPublicProductFallback({
+      products: result.products.slice(0, 3).map((product) => ({
+        name: product.name,
+        productUrl: product.productUrl,
+      })),
+      shopUrl: buildShopUrl(baseUrl),
+      categoryUrl: publicReplyCategory
+        ? buildCategoryUrl(publicReplyCategory, baseUrl)
+        : "",
+      priceInquiry,
+      privatePriceSent,
+    });
+    publicReplySafety = validateMetaPublicReply(
+      publicReply,
+      publicReplyAllowedUrls
+    );
+  }
 
   if (!publicReplySafety.safe) {
     const reason =
@@ -2184,7 +2368,8 @@ export async function POST(request: Request) {
 
     for (const event of events) {
       try {
-        await processEvent(event, request);
+        const result = await processEvent(event, request);
+        console.info("META WEBHOOK MESSAGE RESULT:", result);
       } catch (error) {
         console.error("META WEBHOOK EVENT ERROR:", error);
       }

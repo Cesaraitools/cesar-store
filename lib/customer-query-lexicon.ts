@@ -2,7 +2,11 @@ export const CUSTOMER_QUERY_LEXICON = {
   price: [
     "hm",
     "h.m",
+    "h m",
+    "h-m",
+    "h/m",
     "how much",
+    "howmuch",
     "price",
     "cost",
     "price please",

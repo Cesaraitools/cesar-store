@@ -29,6 +29,11 @@ export function summarizeMetaFeedChange(change: MetaFeedChange) {
   const commentId = stringValue(value.comment_id);
   const postId = stringValue(value.post_id);
   const parentId = stringValue(value.parent_id);
+  const hasAttachment = Boolean(
+    stringValue(value.photo_id) ||
+      stringValue(value.video_id) ||
+      stringValue(value.object_id)
+  );
 
   return {
     hasEntryId: Boolean(stringValue(change.entryId)),
@@ -42,11 +47,12 @@ export function summarizeMetaFeedChange(change: MetaFeedChange) {
     videoId: stringValue(value.video_id),
     objectId: stringValue(value.object_id),
     hasMessage: Boolean(message.trim()),
+    hasAttachment,
     messageLength: message.length,
     hasActor: Boolean(value.from || value.sender_id),
     valueKeys: Object.keys(value).sort().slice(0, 40),
     structurallyCommentLike: Boolean(
-      commentId && (postId || parentId) && message.trim()
+      commentId && (postId || parentId) && (message.trim() || hasAttachment)
     ),
   };
 }

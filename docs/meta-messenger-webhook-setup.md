@@ -23,7 +23,7 @@ META_PAGE_ACCESS_TOKEN=<Facebook page access token>
 META_PAGE_ID=<Facebook page id>
 META_APP_SECRET=<Meta app secret, required for signed webhook delivery>
 META_GRAPH_API_VERSION=v26.0
-META_MESSENGER_AUTO_REPLY=false
+META_MESSENGER_AUTO_REPLY=true
 META_COMMENTS_AUTO_REPLY=false
 META_COMMENTS_MIN_SCORE=10
 META_COMMENTS_ALLOWED_POST_IDS=
@@ -69,8 +69,9 @@ AI automation:
   This keeps page usage and key rotation independent while preserving
   `OPENAI_API_KEY` as a backward-compatible fallback.
 - `META_MESSENGER_AUTO_REPLY` and `META_COMMENTS_AUTO_REPLY` are independent
-  outbound kill switches. Keep both `false` until the internal AI preflight and
-  controlled Meta tests are complete.
+  outbound kill switches. Messenger can be enabled after its controlled test;
+  keep comments restricted to controlled posts until their public/private flow
+  is verified.
 - `OPENAI_MODEL` is optional. Keep it configurable so the model can be changed
   in Vercel without code changes.
 - `OPENAI_MAX_OUTPUT_TOKENS` is optional. Keep it around `450` for concise,
@@ -87,10 +88,20 @@ AI automation:
 - Messenger and public-comment events call the same OpenAI-backed server agent
   directly from `/api/meta/webhook`; n8n is not required in the live Meta reply
   path.
+- A public price question receives a public reply with product links but no
+  price. Its exact price is sent only through the comment private-reply channel.
+  A private price message is never generated for a non-price comment.
+- If an AI-written public reply contains a currency or a known catalog price,
+  the webhook replaces it with a deterministic price-free public reply instead
+  of silently leaving only the private message.
+- Messenger accepts text and attachment-only messages. When the catalog agent
+  cannot produce a grounded answer, a restricted conversational fallback handles
+  greetings, positive/negative emoji reactions, complaints, and clarification
+  without inventing product or order facts.
 - The webhook routes Messenger recipients and feed-entry ids to an explicit
   current or legacy page lane. Events for every other page are ignored.
-- The current page uses `META_*` credentials and starts with Messenger and
-  comment replies disabled.
+- The current page uses `META_*` credentials; each outbound channel remains
+  controlled by its explicit environment flag.
 - The legacy page uses `META_LEGACY_*` credentials. Existing
   `FACEBOOK_PAGE_ID`, `FACEBOOK_PAGE_ACCESS_TOKEN`, `FACEBOOK_APP_SECRET`, and
   `FACEBOOK_VERIFY_TOKEN` values are accepted only as aliases for that isolated
@@ -108,8 +119,10 @@ Comment automation safety:
   comment flow is tested with controlled posts.
 - If AI is enabled and successfully writes a reply, its action can override the
   deterministic score. Before publishing, code still rejects explicit prices,
-  currency, and URLs outside the selected Cesar Store product/category/shop
-  links. Rejected replies are stored as human handoffs. If AI is disabled or
+  known catalog price numbers, currency, and URLs outside the selected Cesar
+  Store product/category/shop links. Unsafe product replies are replaced by a
+  deterministic price-free reply; replies that remain unsafe are stored as
+  human handoffs. If AI is disabled or
   fails, deterministic replies still require at least one product and
   `meta.bestScore` greater than or equal to `META_COMMENTS_MIN_SCORE`.
 - To limit auto replies to controlled test posts, set
