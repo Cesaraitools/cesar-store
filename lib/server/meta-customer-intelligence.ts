@@ -3,6 +3,9 @@ import { CUSTOMER_QUERY_LEXICON } from "../customer-query-lexicon";
 export type MetaAttachmentKind = "image" | "video" | "file" | "audio" | "unknown";
 export type MetaReactionTone = "positive" | "negative" | "mixed" | "none";
 
+export const META_PRIVATE_CONTACT_PUBLIC_ACK =
+  "تم التواصل مع حضرتك على الخاص";
+
 type PublicReplyProduct = {
   name: string;
   productUrl: string;
@@ -48,6 +51,23 @@ export function isMetaPriceQuestion(messageText: string) {
   return /(?:^|[^a-z0-9])h[\s._\-/]*m(?:[^a-z0-9]|$)|how\s*[-_.\/]?\s*much|price|cost|\u0628\s*\u0643\s*\u0627\s*\u0645|\u0628\u0643\u0645|\u0643\u0627\u0645|\u0627\u0644\u0633\u0639\u0631|\u0633\u0639\u0631/u.test(
     normalized
   );
+}
+
+export function isMetaPriceOnlyQuestion(messageText: string) {
+  if (!isMetaPriceQuestion(messageText)) return false;
+
+  const remaining = normalizeIntentText(messageText)
+    .replace(/(?:^|[^a-z0-9])h[\s._\-/]*m(?:[^a-z0-9]|$)/giu, " ")
+    .replace(/how\s*[-_.\/]?\s*much(?:\s+is\s+it)?/giu, " ")
+    .replace(/\b(?:price|cost)(?:\s+please)?\b/giu, " ")
+    .replace(/\u0628\s*\u0643\s*\u0627\s*\u0645|\u0628\u0643\u0645|\u0627\u0644\u0633\u0639\u0631|\u0633\u0639\u0631\u0647\u0627|\u0633\u0639\u0631\u0647|\u0633\u0639\u0631|\u0643\u0627\u0645|\u0643\u0645/gu, " ")
+    .replace(/\u0644\u0648\s+\u0633\u0645\u062d\u062a|\u0645\u0646\s+\u0641\u0636\u0644\u0643|\u0627\u0644\u0645\u0646\u062a\u062c|\u062f\u0647|\u062f\u0627|\u062f\u064a|\u062f\u0649|\u0647\u0648|\u0647\u064a/gu, " ")
+    .replace(/\b(?:please|pls|this|it)\b/giu, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return remaining.length === 0;
 }
 
 export function detectMetaReactionTone(value: string): MetaReactionTone {

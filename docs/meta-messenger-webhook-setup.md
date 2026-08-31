@@ -91,6 +91,10 @@ AI automation:
 - A public price question receives a public reply with product links but no
   price. Its exact price is sent only through the comment private-reply channel.
   A private price message is never generated for a non-price comment.
+- For a price-only comment, once the private price message succeeds, the public
+  reply is the immediate deterministic acknowledgement
+  `تم التواصل مع حضرتك على الخاص`. Mixed questions such as price plus stock or
+  specifications keep the fuller price-free public product reply.
 - If an AI-written public reply contains a currency or a known catalog price,
   the webhook replaces it with a deterministic price-free public reply instead
   of silently leaving only the private message.

@@ -3,7 +3,9 @@ import {
   buildMetaPrivatePriceFallback,
   buildMetaPublicProductFallback,
   detectMetaReactionTone,
+  isMetaPriceOnlyQuestion,
   isMetaPriceQuestion,
+  META_PRIVATE_CONTACT_PUBLIC_ACK,
   shouldSendMetaPrivatePriceReply,
 } from "../lib/server/meta-customer-intelligence";
 import { validateMetaPublicReply } from "../lib/server/meta-reply-safety";
@@ -29,6 +31,26 @@ for (const message of priceQuestions) {
 
 assert.equal(isMetaPriceQuestion("جامد جدًا 🔥"), false);
 assert.equal(isMetaPriceQuestion("شكرًا لكم"), false);
+for (const message of [
+  "Hm",
+  "H.M?",
+  "بكام؟",
+  "بكام المنتج ده لو سمحت",
+  "السعر كام؟",
+  "price please",
+]) {
+  assert.equal(
+    isMetaPriceOnlyQuestion(message),
+    true,
+    `Expected price-only intent for ${message}`
+  );
+}
+assert.equal(isMetaPriceOnlyQuestion("بكام وهل متوفر؟"), false);
+assert.equal(isMetaPriceOnlyQuestion("السعر مع الشحن كام؟"), false);
+assert.equal(
+  META_PRIVATE_CONTACT_PUBLIC_ACK,
+  "تم التواصل مع حضرتك على الخاص"
+);
 assert.equal(detectMetaReactionTone("❤️🔥"), "positive");
 assert.equal(detectMetaReactionTone("😡👎"), "negative");
 assert.equal(detectMetaReactionTone("❤️😡"), "mixed");

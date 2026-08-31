@@ -11,7 +11,9 @@ import {
   buildMetaPublicProductFallback,
   buildMetaReactionFallback,
   detectMetaReactionTone,
+  isMetaPriceOnlyQuestion,
   isMetaPriceQuestion,
+  META_PRIVATE_CONTACT_PUBLIC_ACK,
   shouldSendMetaPrivatePriceReply,
   type MetaAttachmentKind,
 } from "@/lib/server/meta-customer-intelligence";
@@ -2197,6 +2199,7 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
   let privatePriceAttempted = false;
   let privatePriceSent = false;
   const priceInquiry = isMetaPriceQuestion(normalized.messageText);
+  const priceOnlyInquiry = isMetaPriceOnlyQuestion(normalized.messageText);
   const privatePriceReply = shouldSendMetaPrivatePriceReply({
     priceInquiry,
     aiUsed: result.meta.ai.used,
@@ -2225,14 +2228,17 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     }
   }
 
-  let publicReply = await buildFacebookCommentReply(
-    result,
-    normalized.messageText,
-    postContextSearchText,
-    baseUrl,
-    privatePriceSent,
-    openAiApiKey
-  );
+  const privateContactPublicAck = priceOnlyInquiry && privatePriceSent;
+  let publicReply = privateContactPublicAck
+    ? META_PRIVATE_CONTACT_PUBLIC_ACK
+    : await buildFacebookCommentReply(
+        result,
+        normalized.messageText,
+        postContextSearchText,
+        baseUrl,
+        privatePriceSent,
+        openAiApiKey
+      );
 
   const publicReplyCategory =
     result.products[0]?.category || result.meta.matchedCategory || "";
@@ -2312,7 +2318,9 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
   return {
     processed: true,
     reason:
-      result.meta.autoReply === "clarify"
+      privateContactPublicAck
+        ? "comment_private_contact_ack_sent"
+        : result.meta.autoReply === "clarify"
         ? "comment_clarification_sent"
         : "comment_reply_sent",
     productsCount: result.products.length,
@@ -2323,6 +2331,7 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     aiReason: result.meta.ai.reason,
     privatePriceAttempted,
     privatePriceSent,
+    privateContactPublicAck,
   };
 
 }
