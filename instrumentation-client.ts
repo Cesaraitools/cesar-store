@@ -3,6 +3,9 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from "@sentry/nextjs";
+import {
+  isInjectedRuntimeStreamReaderNoise,
+} from "@/lib/sentry-client-noise-filters";
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -121,7 +124,8 @@ Sentry.init({
       isFacebookIosWebKitBridgeNoise(event) ||
       isFacebookAndroidNavigationBridgeNoise(event) ||
       isInjectedPanelNullReadNoise(event) ||
-      isVercelLiveFeedbackRangeNoise(event)
+      isVercelLiveFeedbackRangeNoise(event) ||
+      isInjectedRuntimeStreamReaderNoise(event)
     ) {
       return null;
     }
