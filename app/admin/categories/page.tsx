@@ -26,12 +26,37 @@ export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/categories?admin=true")
-      .then((r) => r.json())
-      .then((data) => setCategories(data))
-      .catch((err) => console.error("Failed to load categories", err))
+    const storedNotice = window.sessionStorage.getItem("category-admin-notice");
+    if (storedNotice) {
+      setNotice(storedNotice);
+      window.sessionStorage.removeItem("category-admin-notice");
+    }
+
+    fetch("/api/categories?admin=true", {
+      cache: "no-store",
+      credentials: "include",
+    })
+      .then(async (response) => {
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to load categories");
+        }
+
+        if (!Array.isArray(data)) {
+          throw new Error("Invalid categories response");
+        }
+
+        setCategories(data);
+      })
+      .catch((err) => {
+        console.error("Failed to load categories", err);
+        setLoadError("Failed to load categories. Please refresh and try again.");
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -81,6 +106,25 @@ export default function AdminCategoriesPage() {
           + Add Category
         </Link>
       </div>
+
+      {notice && (
+        <div
+          className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800"
+          role="status"
+          aria-live="polite"
+        >
+          {notice}
+        </div>
+      )}
+
+      {loadError && (
+        <div
+          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800"
+          role="alert"
+        >
+          {loadError}
+        </div>
+      )}
 
       <div className="overflow-x-auto rounded-xl border bg-white">
         <table className="w-full text-sm">

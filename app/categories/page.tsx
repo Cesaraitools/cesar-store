@@ -17,7 +17,7 @@ export default function CategoriesPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/categories").then((r) => r.json()),
+      fetch("/api/categories", { cache: "no-store" }).then((r) => r.json()),
       fetch("/api/promos").then((r) => r.json()),
     ])
       .then(([categoriesData, promosData]) => {

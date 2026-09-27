@@ -49,7 +49,10 @@ export default function EditCategoryPage() {
   const [preview, setPreview] = useState<string>("");
 
   useEffect(() => {
-    fetch("/api/categories?admin=true")
+    fetch("/api/categories?admin=true", {
+      cache: "no-store",
+      credentials: "include",
+    })
       .then((r) => r.json())
       .then((data: Category[]) => {
         const cat = data.find((c) => c.id === id);
@@ -169,13 +172,19 @@ export default function EditCategoryPage() {
         }),
       });
 
+      const data = await res.json();
+
       if (!res.ok) {
-        const err = await res.json();
-        alert(err.error || "Failed to update category");
+        alert(data.error || "Failed to update category");
         return;
       }
 
-      router.push("/admin/categories");
+      window.sessionStorage.setItem(
+        "category-admin-notice",
+        `Category “${data.category}” was updated successfully.`
+      );
+      router.replace("/admin/categories");
+      router.refresh();
     } catch {
       alert("Unexpected error occurred");
     } finally {

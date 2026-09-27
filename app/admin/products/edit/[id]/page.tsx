@@ -63,7 +63,7 @@ export default function EditProductPage({ params }: Props) {
 
     Promise.all([
       fetch("/api/products").then((r) => r.json()),
-      fetch("/api/categories").then((r) => r.json()),
+      fetch("/api/categories", { cache: "no-store" }).then((r) => r.json()),
     ])
       .then(([products, categoriesData]) => {
         const normalizedParamId = params.id.toLowerCase();

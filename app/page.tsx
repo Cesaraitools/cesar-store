@@ -112,7 +112,7 @@ export default function LandingPage() {
     let isCancelled = false;
 
     const loadCategories = () => {
-      fetch("/api/categories")
+      fetch("/api/categories", { cache: "no-store" })
       .then((r) => r.json())
       .then((categories: CategorySlide[]) => {
         if (isCancelled) return;

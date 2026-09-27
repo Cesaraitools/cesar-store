@@ -117,13 +117,20 @@ export default function AddCategoryPage() {
         }),
       });
 
+      const data = await res.json();
+
       if (!res.ok) {
-        const err = await res.json();
+        const err = data;
         alert(err.error || "Failed to create category");
         return;
       }
 
-      router.push("/admin/categories");
+      window.sessionStorage.setItem(
+        "category-admin-notice",
+        `Category “${data.category}” was created successfully and is now live.`
+      );
+      router.replace("/admin/categories");
+      router.refresh();
     } catch {
       alert("Unexpected error occurred");
     } finally {

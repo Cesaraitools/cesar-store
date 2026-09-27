@@ -38,7 +38,7 @@ export default function AddProductPage() {
   const [previews, setPreviews] = useState<string[]>([]);
 
   useEffect(() => {
-    fetch("/api/categories")
+    fetch("/api/categories", { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => {
         const activeCategories = data
