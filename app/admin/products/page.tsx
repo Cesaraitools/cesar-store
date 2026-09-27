@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import * as XLSX from "xlsx";
 import type { Product } from "@/types/product";
@@ -120,6 +120,7 @@ export default function AdminProductsPage() {
   
   const [stockFilter, setStockFilter] = useState<"all" | "out" | "low" | "in">("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   const [categoryFilter, setCategoryFilter] = useState("all");
   
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -328,10 +329,14 @@ export default function AdminProductsPage() {
   }, [products]);
 
   const sortedProducts = useMemo(() => {
+    const normalizedSearchQuery = deferredSearchQuery.trim().toLowerCase();
+
     return [...products]
       .filter((product) => {
-        const matchesSearch = product.name.ar.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                             (product.name.en?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
+        const matchesSearch =
+          !normalizedSearchQuery ||
+          product.name.ar.toLowerCase().includes(normalizedSearchQuery) ||
+          (product.name.en?.toLowerCase().includes(normalizedSearchQuery) ?? false);
         const matchesCategory = categoryFilter === "all" || product.category === categoryFilter;
         
         const displayStock = getDisplayStock(product);
@@ -351,7 +356,7 @@ export default function AdminProductsPage() {
         if (aStatus !== bStatus) return bStatus - aStatus;
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       });
-  }, [products, stockFilter, searchQuery, categoryFilter]);
+  }, [products, stockFilter, deferredSearchQuery, categoryFilter]);
 
   const stats = useMemo(() => ({
     total: products.length,
@@ -516,7 +521,10 @@ export default function AdminProductsPage() {
           </div>
 
           {/* Data Table */}
-          <div className={`bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden relative transition-opacity ${isRefreshing ? "opacity-50" : "opacity-100"}`}>
+          <div
+            aria-busy={searchQuery !== deferredSearchQuery || isRefreshing}
+            className={`bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden relative transition-opacity ${isRefreshing ? "opacity-50" : "opacity-100"}`}
+          >
             <table className="w-full text-right text-sm">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>

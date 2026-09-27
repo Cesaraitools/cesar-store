@@ -155,6 +155,7 @@ export default function Navbar() {
             alt="Cesar Store Logo"
             width={40}
             height={40}
+            priority
             className="w-10 h-10 object-contain drop-shadow-sm"
           />
           <span className="text-xl font-black text-gray-900 tracking-tighter">

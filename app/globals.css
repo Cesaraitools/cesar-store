@@ -45,15 +45,19 @@ body {
 
 .homepage-slide-enter {
   animation: homepage-slide-enter 1s ease-out both;
+  contain: paint;
+  will-change: opacity, transform;
 }
 
 .homepage-slide-image {
   animation: homepage-slide-image 10s linear both;
   transform-origin: center;
+  will-change: transform;
 }
 
 .homepage-slide-copy {
   animation: homepage-slide-copy 1s 300ms ease-out both;
+  will-change: opacity, transform;
 }
 
 @media (max-width: 767px) {
