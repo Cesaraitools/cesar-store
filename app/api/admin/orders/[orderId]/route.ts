@@ -54,7 +54,15 @@ export async function GET(
       .select(`
         id,
         status,
+        subtotal,
+        shipping_fee,
+        shipping_status,
+        discount,
+        discount_reason,
         total,
+        pricing_version,
+        pricing_updated_at,
+        pricing_updated_by,
         currency,
         created_at,
         customer_snapshot,
@@ -92,6 +100,19 @@ export async function GET(
       .eq("order_id", orderId)
       .order("created_at", { ascending: true });
 
+    const { data: pricingHistory, error: pricingHistoryError } = await supabase
+      .from("admin_audit_logs")
+      .select("admin_email, created_at, payload")
+      .eq("entity", "order")
+      .eq("entity_id", orderId)
+      .eq("action", "order_pricing_updated")
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    if (pricingHistoryError) {
+      console.warn("Failed to load order pricing history", pricingHistoryError);
+    }
+
     /* -------- Latest Status -------- */
     const latestStatus =
       resolveOrderStatus(
@@ -102,12 +123,21 @@ export async function GET(
     return NextResponse.json({
       order: {
         id: order.id,
+        subtotal: Number(order.subtotal || 0),
+        shipping_fee: Number(order.shipping_fee || 0),
+        shipping_status: order.shipping_status || "pending",
+        discount: Number(order.discount || 0),
+        discount_reason: order.discount_reason || "",
         total: order.total,
+        pricing_version: Number(order.pricing_version || 0),
+        pricing_updated_at: order.pricing_updated_at,
+        pricing_updated_by: order.pricing_updated_by,
         currency: order.currency,
         created_at: order.created_at,
         customer_snapshot: order.customer_snapshot,
         items,
         tracking: tracking || [],
+        pricing_history: pricingHistory || [],
         status: latestStatus,
       },
     });

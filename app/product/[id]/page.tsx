@@ -104,18 +104,6 @@ export default async function ProductPage({ params }: Props) {
           ? "https://schema.org/InStock"
           : "https://schema.org/OutOfStock",
       itemCondition: "https://schema.org/NewCondition",
-      shippingDetails: {
-        "@type": "OfferShippingDetails",
-        shippingRate: {
-          "@type": "MonetaryAmount",
-          value: 70,
-          currency: "EGP",
-        },
-        shippingDestination: {
-          "@type": "DefinedRegion",
-          addressCountry: "EG",
-        },
-      },
       hasMerchantReturnPolicy: {
         "@type": "MerchantReturnPolicy",
         applicableCountry: "EG",

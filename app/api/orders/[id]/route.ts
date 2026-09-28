@@ -77,7 +77,7 @@ export async function GET(
       .select("*")
       .eq("id", orderId)
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle();
 
     if (orderError) {
       console.error("Order query error:", orderError);
@@ -147,8 +147,9 @@ export async function GET(
           variant: item.variant ?? null,
         })),
         subtotal: order.subtotal ?? 0,
-        shipping_fee: 0,
-        discount: 0,
+        shipping_fee: Number(order.shipping_fee ?? 0),
+        shipping_status: order.shipping_status || "pending",
+        discount: Number(order.discount ?? 0),
         total: order.total ?? 0,
         timeline,
       },

@@ -22,6 +22,11 @@ const A = {
   qty: "\u0627\u0644\u0643\u0645\u064a\u0629",
   price: "\u0627\u0644\u0633\u0639\u0631",
   total: "\u0627\u0644\u0625\u062c\u0645\u0627\u0644\u064a",
+  subtotal: "\u0645\u062c\u0645\u0648\u0639 \u0627\u0644\u0645\u0646\u062a\u062c\u0627\u062a",
+  shipping: "\u0627\u0644\u0634\u062d\u0646",
+  discount: "\u0627\u0644\u062e\u0635\u0645",
+  shippingPending: "\u064a\u062d\u062f\u062f \u062d\u0633\u0628 \u0627\u0644\u0645\u0646\u0637\u0642\u0629",
+  freeShipping: "\u0645\u062c\u0627\u0646\u064a",
   qrNote:
     "\u0627\u0645\u0633\u062d \u0627\u0644\u0631\u0645\u0632 \u0644\u062a\u062a\u0628\u0639 \u0627\u0644\u0637\u0644\u0628 \u0628\u0639\u062f \u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644",
   print: "\u0637\u0628\u0627\u0639\u0629 \u0627\u0644\u062a\u0642\u0631\u064a\u0631",
@@ -124,6 +129,15 @@ function renderPrintableOrderReport(params: {
       `;
     })
     .join("");
+  const shippingStatus = order.shipping_status || "pending";
+  const shippingText =
+    shippingStatus === "pending"
+      ? A.shippingPending
+      : shippingStatus === "waived"
+      ? A.freeShipping
+      : shippingStatus === "legacy"
+      ? A.empty
+      : `${Number(order.shipping_fee || 0).toFixed(2)} ${currency}`;
 
   return `<!doctype html>
 <html lang="ar" dir="rtl">
@@ -295,7 +309,8 @@ function renderPrintableOrderReport(params: {
       border: 1px solid #dbeafe;
       border-radius: 12px;
       color: #0f172a;
-      display: inline-block;
+      display: grid;
+      gap: 8px;
       font-size: 15px;
       font-weight: 900;
       margin-top: 18px;
@@ -303,6 +318,8 @@ function renderPrintableOrderReport(params: {
       padding: 14px 18px;
       text-align: right;
     }
+    .total-row { display: flex; justify-content: space-between; gap: 20px; }
+    .total-row.final { border-top: 1px solid #bfdbfe; margin-top: 4px; padding-top: 8px; }
     .footer {
       border-top: 1px solid #f1f5f9;
       color: #94a3b8;
@@ -371,7 +388,12 @@ function renderPrintableOrderReport(params: {
         <tbody>${rows}</tbody>
       </table>
     </section>
-    <div class="total-box">${escapeHtml(A.total)}: ${escapeHtml(order.total)} ${escapeHtml(currency)}</div>
+    <div class="total-box">
+      <div class="total-row"><span>${escapeHtml(A.subtotal)}</span><span>${escapeHtml(Number(order.subtotal || 0).toFixed(2))} ${escapeHtml(currency)}</span></div>
+      <div class="total-row"><span>${escapeHtml(A.shipping)}</span><span>${escapeHtml(shippingText)}</span></div>
+      ${Number(order.discount || 0) > 0 ? `<div class="total-row"><span>${escapeHtml(A.discount)}</span><span>-${escapeHtml(Number(order.discount).toFixed(2))} ${escapeHtml(currency)}</span></div>` : ""}
+      <div class="total-row final"><span>${escapeHtml(A.total)}</span><span>${escapeHtml(Number(order.total || 0).toFixed(2))} ${escapeHtml(currency)}</span></div>
+    </div>
     <footer class="footer">Printed ${escapeHtml(new Date().toLocaleString("en-GB"))} - ${escapeHtml(trackingUrl)}</footer>
   </main>
 </body>
@@ -390,7 +412,7 @@ export async function GET(
     const { data: order, error } = await supabase
       .from("orders")
       .select(
-        "id, order_number, status, total, currency, created_at, customer_snapshot, items_snapshot"
+        "id, order_number, status, subtotal, shipping_fee, shipping_status, discount, total, currency, created_at, customer_snapshot, items_snapshot"
       )
       .eq("id", params.orderId)
       .maybeSingle();

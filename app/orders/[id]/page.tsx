@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { CheckCircle2, Circle, Clock, Package, Truck, Check, AlertCircle } from "lucide-react";
 import { formatVariantSnapshot } from "@/lib/product-variants";
+import { formatOrderMoney, type ShippingStatus } from "@/lib/order-pricing";
 
 /* ================================
 Types
@@ -27,6 +28,7 @@ type OrderDetails = {
   items: OrderItemDTO[];
   subtotal: number;
   shipping_fee: number;
+  shipping_status: ShippingStatus;
   discount: number;
   total: number;
   timeline: Array<{
@@ -166,16 +168,7 @@ export default function OrderDetailsPage() {
 
       const json = (await res.json()) as OrderDetailsResponse;
       if (json.order) {
-        const subtotal = json.order.subtotal ?? 0;
-        const total = json.order.total ?? 0;
-        const shipping = json.order.shipping_fee && json.order.shipping_fee > 0
-            ? json.order.shipping_fee
-            : Math.max(total - subtotal, 0);
-
-        setOrder({
-          ...json.order,
-          shipping_fee: shipping,
-        });
+        setOrder(json.order);
       }
     } catch (err: any) {
       setError(err.message ?? "Unknown error");
@@ -192,7 +185,7 @@ export default function OrderDetailsPage() {
     if (!orderId) return;
 
     const channel = supabase
-      .channel("order-tracking")
+      .channel(`order-live-${orderId}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "order_tracking_events" },
@@ -211,6 +204,30 @@ export default function OrderDetailsPage() {
             });
             return { ...prev, status, timeline: updatedTimeline };
           });
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "orders",
+          filter: `id=eq.${orderId}`,
+        },
+        (payload) => {
+          const updated = payload.new as any;
+          setOrder((previous) =>
+            previous
+              ? {
+                  ...previous,
+                  subtotal: Number(updated.subtotal ?? previous.subtotal),
+                  shipping_fee: Number(updated.shipping_fee ?? previous.shipping_fee),
+                  shipping_status: updated.shipping_status || previous.shipping_status,
+                  discount: Number(updated.discount ?? previous.discount),
+                  total: Number(updated.total ?? previous.total),
+                }
+              : previous
+          );
         }
       )
       .subscribe();
@@ -350,21 +367,41 @@ export default function OrderDetailsPage() {
             <div className="bg-gray-50/50 p-6 space-y-3">
               <div className="flex justify-between text-sm text-gray-600">
                 <span>المجموع الفرعي</span>
-                <span>{order.subtotal.toFixed(2)} {order.currency}</span>
+                <span>{formatOrderMoney(order.subtotal, order.currency)}</span>
               </div>
               <div className="flex justify-between text-sm text-gray-600">
                 <span>رسوم الشحن</span>
-                <span>{order.shipping_fee.toFixed(2)} {order.currency}</span>
+                <span className={order.shipping_status === "pending" ? "font-bold text-amber-600" : ""}>
+                  {order.shipping_status === "pending"
+                    ? "جاري تحديدها حسب المنطقة"
+                    : order.shipping_status === "waived"
+                    ? "مجاني"
+                    : order.shipping_status === "legacy"
+                    ? "غير مسجلة للطلب التاريخي"
+                    : formatOrderMoney(order.shipping_fee, order.currency)}
+                </span>
               </div>
+              {order.discount > 0 && (
+                <div className="flex justify-between text-sm font-bold text-rose-600">
+                  <span>الخصم</span>
+                  <span>-{formatOrderMoney(order.discount, order.currency)}</span>
+                </div>
+              )}
               <div className="pt-3 border-t flex justify-between items-end">
                 <div className="space-y-0.5">
-                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-tight">الإجمالي النهائي</p>
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-tight">
+                    {order.shipping_status === "pending" ? "الإجمالي الحالي قبل اعتماد الشحن" : "الإجمالي النهائي"}
+                  </p>
                   <p className="text-2xl font-black text-blue-600 leading-none">
-                    {order.total.toFixed(2)}
-                    <span className="text-xs font-bold text-blue-400 mr-1">{order.currency}</span>
+                    {formatOrderMoney(order.total, order.currency)}
                   </p>
                 </div>
               </div>
+              {order.shipping_status === "pending" && (
+                <p className="rounded-xl bg-amber-50 p-3 text-xs font-bold leading-6 text-amber-800">
+                  سيتواصل معك المتجر لتأكيد تكلفة الشحن حسب المنطقة، ثم ستتحدث هذه الصفحة والفاتورة تلقائيًا.
+                </p>
+              )}
             </div>
           </div>
         </div>

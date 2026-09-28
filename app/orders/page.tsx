@@ -12,6 +12,7 @@ type OrderListItem = {
   status: string | null;
   total: number;
   currency: string;
+  shipping_status: "pending" | "set" | "waived" | "legacy";
 };
 
 type OrdersResponse = {
@@ -132,6 +133,11 @@ export default function OrdersPage() {
               <div className="text-sm font-black text-slate-900">
                 {order.total.toFixed(2)} <span className="text-[10px] text-slate-400 mr-1">{order.currency}</span>
               </div>
+              {order.shipping_status === "pending" && (
+                <span className="rounded-lg bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-700">
+                  الإجمالي قبل اعتماد الشحن
+                </span>
+              )}
 
               {/* ===== ACTION BUTTONS ===== */}
               <div className="flex items-center gap-2">

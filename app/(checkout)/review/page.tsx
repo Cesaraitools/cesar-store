@@ -232,7 +232,8 @@ export default function ReviewPage() {
 🛒 المنتجات:
 ${productsText}
 
-💰 الإجمالي: ${formatCurrency(total)}`;
+💰 مجموع المنتجات: ${formatCurrency(total)}
+🚚 الشحن: يتم تحديده حسب المنطقة بعد التواصل`;
 
       const enhancedMessage = `${message}
 
@@ -407,7 +408,7 @@ if (whatsappWindow) {
               <div className="flex justify-between items-center mb-8">
 
                 <span className="text-xl font-black text-slate-900">
-                  الإجمالي الصافي
+                  الإجمالي الحالي
                 </span>
 
                 <span className="text-3xl font-black text-blue-600 tracking-tighter">
@@ -415,6 +416,10 @@ if (whatsappWindow) {
                 </span>
 
               </div>
+
+              <p className="mb-6 rounded-xl bg-amber-50 p-3 text-xs font-bold leading-6 text-amber-800">
+                هذا المبلغ هو مجموع المنتجات فقط. سيتم تأكيد تكلفة الشحن حسب منطقتك وإضافتها إلى تفاصيل الطلب قبل الشحن.
+              </p>
 
               <button
                 onClick={handleConfirmOrder}

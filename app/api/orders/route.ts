@@ -204,7 +204,7 @@ export async function GET(request: Request) {
 
     const { data, error } = await serviceSupabase
       .from("orders")
-      .select("id, order_number, created_at, status, total, currency")
+      .select("id, order_number, created_at, status, total, currency, shipping_status")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 

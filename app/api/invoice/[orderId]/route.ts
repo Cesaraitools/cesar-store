@@ -6,6 +6,7 @@ import {
   CONTACT_EMAIL,
   CONTACT_PHONE_DISPLAY,
 } from "@/lib/seo";
+import { resolveRequestUser } from "@/lib/auth/resolveRequestUser";
 
 /* ================= Supabase Service Client ================= */
 
@@ -25,6 +26,11 @@ export async function GET(
 ) {
   try {
     const { orderId } = params;
+    const user = await resolveRequestUser(request);
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const { searchParams } = new URL(request.url);
     const lang = searchParams.get("lang") ?? "ar";
@@ -39,13 +45,17 @@ export async function GET(
         created_at,
         currency,
         subtotal,
+        shipping_fee,
+        shipping_status,
+        discount,
         total,
         customer_snapshot,
         items_snapshot
       `
       )
       .eq("id", orderId)
-      .single();
+      .eq("user_id", user.id)
+      .maybeSingle();
 
     if (error || !order) {
       return NextResponse.json(
@@ -89,8 +99,9 @@ export async function GET(
 
       totals: {
         subtotal: order.subtotal,
-        shipping: 0,
-        discount: 0,
+        shipping: Number(order.shipping_fee || 0),
+        shipping_status: order.shipping_status || "pending",
+        discount: Number(order.discount || 0),
         total: order.total,
       },
 

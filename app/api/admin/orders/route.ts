@@ -69,6 +69,7 @@ export async function GET(req: NextRequest) {
         id,
         status,
         total,
+        shipping_status,
         currency,
         created_at,
         customer_snapshot
@@ -125,6 +126,7 @@ export async function GET(req: NextRequest) {
     const result = (orders || []).map((o) => ({
       id: o.id,
       total: o.total,
+      shipping_status: o.shipping_status || "pending",
       currency: o.currency,
       created_at: o.created_at,
       customer_snapshot: o.customer_snapshot,

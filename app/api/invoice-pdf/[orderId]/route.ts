@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { createClient } from "@supabase/supabase-js";
 import { CONTACT_EMAIL } from "@/lib/seo";
+import { resolveRequestUser } from "@/lib/auth/resolveRequestUser";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -21,6 +22,12 @@ const A = {
   qty: "الكمية",
   price: "السعر",
   total: "الإجمالي",
+  subtotal: "مجموع المنتجات",
+  shipping: "الشحن",
+  discount: "الخصم",
+  shippingPending: "يحدد حسب المنطقة",
+  freeShipping: "مجاني",
+  currentTotal: "الإجمالي الحالي قبل اعتماد الشحن",
   thanks: "شكرًا لاختيارك متجر سيزر.",
   empty: "غير متوفر",
 };
@@ -110,6 +117,15 @@ function renderInvoiceHtml(order: any, requestUrl: string) {
       `;
     })
     .join("");
+  const shippingStatus = order.shipping_status || "pending";
+  const shippingText =
+    shippingStatus === "pending"
+      ? A.shippingPending
+      : shippingStatus === "waived"
+      ? A.freeShipping
+      : shippingStatus === "legacy"
+      ? A.empty
+      : `${Number(order.shipping_fee || 0).toFixed(2)} ${currency}`;
 
   return `<!doctype html>
 <html lang="ar" dir="rtl">
@@ -229,12 +245,12 @@ function renderInvoiceHtml(order: any, requestUrl: string) {
     }
     .summary-box {
       min-width: 220px;
-      display: flex;
-      justify-content: space-between;
-      gap: 18px;
-      font-size: 16px;
-      font-weight: 900;
+      display: grid;
+      gap: 9px;
+      font-size: 13px;
     }
+    .summary-row { display: flex; justify-content: space-between; gap: 18px; }
+    .summary-row.final { border-top: 1px solid #e2e8f0; font-size: 16px; font-weight: 900; padding-top: 10px; }
     .summary-value { color: #2563eb; direction: ltr; }
     .footer {
       border-top: 1px solid #f1f5f9;
@@ -294,8 +310,13 @@ function renderInvoiceHtml(order: any, requestUrl: string) {
     </table>
     <section class="summary">
       <div class="summary-box">
-        <span>${escapeHtml(A.total)}</span>
-        <span class="summary-value">${escapeHtml(order.total)} ${escapeHtml(currency)}</span>
+        <div class="summary-row"><span>${escapeHtml(A.subtotal)}</span><span>${escapeHtml(Number(order.subtotal || 0).toFixed(2))} ${escapeHtml(currency)}</span></div>
+        <div class="summary-row"><span>${escapeHtml(A.shipping)}</span><span>${escapeHtml(shippingText)}</span></div>
+        ${Number(order.discount || 0) > 0 ? `<div class="summary-row"><span>${escapeHtml(A.discount)}</span><span>-${escapeHtml(Number(order.discount).toFixed(2))} ${escapeHtml(currency)}</span></div>` : ""}
+        <div class="summary-row final">
+          <span>${escapeHtml(shippingStatus === "pending" ? A.currentTotal : A.total)}</span>
+          <span class="summary-value">${escapeHtml(Number(order.total || 0).toFixed(2))} ${escapeHtml(currency)}</span>
+        </div>
       </div>
     </section>
     <footer class="footer">${escapeHtml(A.thanks)} ${escapeHtml(CONTACT_EMAIL)} - Printed ${escapeHtml(new Date().toLocaleString("en-GB"))} - ${escapeHtml(requestUrl)}</footer>
@@ -308,11 +329,17 @@ export async function GET(req: Request, { params }: { params: { orderId: string 
   const orderId = params.orderId;
 
   try {
+    const user = await resolveRequestUser(req);
+    if (!user) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { data: order, error } = await supabase
       .from("orders")
-      .select("id, created_at, currency, total, customer_snapshot, items_snapshot")
+      .select("id, user_id, created_at, currency, subtotal, shipping_fee, shipping_status, discount, total, customer_snapshot, items_snapshot")
       .eq("id", orderId)
-      .single();
+      .eq("user_id", user.id)
+      .maybeSingle();
 
     if (error || !order) {
       return Response.json({ error: "Order not found" }, { status: 404 });

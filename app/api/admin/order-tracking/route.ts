@@ -328,7 +328,7 @@ export async function POST(req: NextRequest) {
 
     const { data: order, error: orderError } = await supabase
       .from("orders")
-      .select("id, items_snapshot")
+      .select("id, items_snapshot, shipping_status")
       .eq("id", orderId)
       .single();
 
@@ -357,6 +357,16 @@ export async function POST(req: NextRequest) {
           error: `Invalid transition: ${currentStatus} → ${safeEvent}`,
         },
         { status: 400 }
+      );
+    }
+
+    if (safeEvent === "shipped" && order.shipping_status === "pending") {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "حدد تكلفة الشحن أو اختر إعفاء العميل قبل شحن الطلب",
+        },
+        { status: 409 }
       );
     }
 

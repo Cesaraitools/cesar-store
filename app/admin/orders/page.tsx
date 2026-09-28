@@ -26,6 +26,7 @@ type OrderRow = {
   currency: string;
   created_at: string;
   status: string;
+  shipping_status: "pending" | "set" | "waived" | "legacy";
   customer_snapshot?: {
     name?: string;
     email?: string;
@@ -367,6 +368,9 @@ async function confirmDelete() {
                   </td>
                   <td className="px-6 py-5 font-black text-sm text-gray-900">
                     {Number(o.total).toLocaleString()} <span className="text-[10px] text-gray-400 mr-0.5">{o.currency}</span>
+                    {o.shipping_status === "pending" && (
+                      <div className="mt-1 text-[10px] font-bold text-amber-600">الشحن قيد التحديد</div>
+                    )}
                   </td>
                   <td className="px-6 py-5"><StatusBadge status={o.status} /></td>
                   <td className="px-6 py-5 flex gap-3 justify-end">
