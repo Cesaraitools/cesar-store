@@ -9,6 +9,9 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export async function POST(req: Request) {
   const ip = req.headers.get("x-forwarded-for") || "unknown";
   const now = Date.now();
@@ -45,31 +48,45 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No ids" }, { status: 400 });
     }
 
-    for (const id of ids) {
-      if (typeof id !== "string" || id.length < 10) {
+    const uniqueIds = [...new Set(ids)];
+
+    if (uniqueIds.length !== ids.length) {
+      return NextResponse.json({ error: "Duplicate ids" }, { status: 400 });
+    }
+
+    for (const id of uniqueIds) {
+      if (typeof id !== "string" || !UUID_PATTERN.test(id)) {
         return NextResponse.json({ error: "Invalid id value" }, { status: 400 });
       }
     }
 
-    const { error } = await supabase
-      .from("orders")
-      .update({ archived_at: new Date().toISOString() })
-      .in("id", ids);
-
-    if (error) {
-      return NextResponse.json({ error: "Archive failed" }, { status: 500 });
-    }
-
-    await supabase.from("admin_audit_logs").insert(
-      ids.map((id: string) => ({
-        admin_email: "admin",
-        action: "archive",
-        entity: "orders",
-        entity_id: id,
-      }))
+    const { data, error } = await supabase.rpc(
+      "set_retail_orders_archived_atomic",
+      {
+        p_order_ids: uniqueIds,
+        p_archived: true,
+        p_admin_email: guard.access.userEmail,
+      }
     );
 
-    return NextResponse.json({ success: true });
+    if (error) {
+      console.error("Archive failed:", error);
+      return NextResponse.json(
+        { error: "Archive failed", code: error.message },
+        { status: error.message.includes("ORDER_") ? 409 : 500 }
+      );
+    }
+
+    const archivedIds = Array.isArray(data) ? data.map(String) : [];
+
+    if (archivedIds.length !== uniqueIds.length) {
+      return NextResponse.json(
+        { error: "Archive verification failed" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ success: true, archivedIds });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

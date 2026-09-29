@@ -7,28 +7,61 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export async function POST(req: Request) {
   try {
     const guard = await requireAdminRole(["full"]);
     if (guard.response) return guard.response;
 
-    const { id } = await req.json();
+    const body = await req.json();
+    const ids = Array.isArray(body?.ids)
+      ? body.ids
+      : body?.id
+      ? [body.id]
+      : [];
 
-    if (!id) {
-      return NextResponse.json({ error: "Missing id" }, { status: 400 });
+    if (!ids.length || ids.length > 50) {
+      return NextResponse.json({ error: "Invalid ids" }, { status: 400 });
     }
 
-    const { error } = await supabase
-      .from("orders")
-      .update({ archived_at: null })
-      .eq("id", id);
+    const uniqueIds = [...new Set(ids)];
+
+    if (
+      uniqueIds.length !== ids.length ||
+      uniqueIds.some((id) => typeof id !== "string" || !UUID_PATTERN.test(id))
+    ) {
+      return NextResponse.json({ error: "Invalid id value" }, { status: 400 });
+    }
+
+    const { data, error } = await supabase.rpc(
+      "set_retail_orders_archived_atomic",
+      {
+        p_order_ids: uniqueIds,
+        p_archived: false,
+        p_admin_email: guard.access.userEmail,
+      }
+    );
 
     if (error) {
       console.error("Restore Error:", error);
-      return NextResponse.json({ error: "Restore failed" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Restore failed", code: error.message },
+        { status: error.message.includes("ORDER_") ? 409 : 500 }
+      );
     }
 
-    return NextResponse.json({ success: true });
+    const restoredIds = Array.isArray(data) ? data.map(String) : [];
+
+    if (restoredIds.length !== uniqueIds.length) {
+      return NextResponse.json(
+        { error: "Restore verification failed" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ success: true, restoredIds });
 
   } catch (err) {
     console.error("Restore API Crash:", err);
