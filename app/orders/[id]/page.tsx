@@ -153,7 +153,12 @@ export default function OrderDetailsPage() {
       setError(null);
 
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("User not authenticated");
+      if (!session) {
+        router.replace(
+          `/auth/login?redirect=${encodeURIComponent(`/orders/${orderId}`)}`
+        );
+        return;
+      }
 
       const res = await fetch(`/api/orders/${orderId}`, {
         headers: { Authorization: `Bearer ${session.access_token}` },

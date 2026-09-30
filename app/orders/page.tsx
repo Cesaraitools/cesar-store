@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { ChevronLeft, ChevronRight, ChevronLast, ChevronFirst } from "lucide-react";
@@ -44,6 +45,7 @@ function formatDate(value: string) {
 }
 
 export default function OrdersPage() {
+  const router = useRouter();
   const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +58,10 @@ export default function OrdersPage() {
       setLoading(true);
       setError(null);
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("User not authenticated");
+      if (!session) {
+        router.replace("/auth/login?redirect=/orders");
+        return;
+      }
 
       const res = await fetch("/api/orders", {
         headers: { Authorization: `Bearer ${session.access_token}` },
