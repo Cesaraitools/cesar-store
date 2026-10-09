@@ -2,14 +2,17 @@
 // The added config here will be used whenever a users loads a page in their browser.
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
-import * as Sentry from "@sentry/nextjs";
+import type { Event as SentryEvent } from "@sentry/nextjs";
 import {
   isInjectedRuntimeStreamReaderNoise,
 } from "@/lib/sentry-client-noise-filters";
 
-const isProduction = process.env.NODE_ENV === "production";
+const MAX_QUEUED_ERRORS = 10;
+const SENTRY_FALLBACK_DELAY_MS = 60_000;
+const queuedErrors: unknown[] = [];
+let sentryInitializationStarted = false;
 
-function isFacebookIosWebKitBridgeNoise(event: Sentry.Event) {
+function isFacebookIosWebKitBridgeNoise(event: SentryEvent) {
   const exceptionValues = event.exception?.values ?? [];
 
   return exceptionValues.some((exception) => {
@@ -29,7 +32,7 @@ function isFacebookIosWebKitBridgeNoise(event: Sentry.Event) {
   });
 }
 
-function isFacebookAndroidNavigationBridgeNoise(event: Sentry.Event) {
+function isFacebookAndroidNavigationBridgeNoise(event: SentryEvent) {
   const exceptionValues = event.exception?.values ?? [];
 
   return exceptionValues.some((exception) => {
@@ -54,7 +57,7 @@ function isFacebookAndroidNavigationBridgeNoise(event: Sentry.Event) {
   });
 }
 
-function isInjectedPanelNullReadNoise(event: Sentry.Event) {
+function isInjectedPanelNullReadNoise(event: SentryEvent) {
   const noisyMessages = new Set([
     "Cannot read properties of null (reading 'document')",
     "Cannot read properties of null (reading 'live')",
@@ -77,7 +80,7 @@ function isInjectedPanelNullReadNoise(event: Sentry.Event) {
   });
 }
 
-function isVercelLiveFeedbackRangeNoise(event: Sentry.Event) {
+function isVercelLiveFeedbackRangeNoise(event: SentryEvent) {
   const exceptionValues = event.exception?.values ?? [];
 
   return exceptionValues.some((exception) => {
@@ -97,41 +100,86 @@ function isVercelLiveFeedbackRangeNoise(event: Sentry.Event) {
   });
 }
 
-Sentry.init({
-  dsn: "https://c66fec97c01df290b8e7884f524c864d@o4511319727865856.ingest.de.sentry.io/4511319729766480",
+function enqueueError(value: unknown) {
+  if (queuedErrors.length < MAX_QUEUED_ERRORS) {
+    queuedErrors.push(value);
+  }
+}
 
-  // Add optional integrations for additional features
-  integrations: [Sentry.replayIntegration()],
+function handleEarlyError(event: ErrorEvent) {
+  enqueueError(event.error ?? new Error(event.message));
+}
 
-  // Keep error monitoring active while reducing production tracing overhead.
-  tracesSampleRate: isProduction ? 0.1 : 1,
-  // Enable logs to be sent to Sentry
-  enableLogs: !isProduction,
+function handleEarlyRejection(event: PromiseRejectionEvent) {
+  enqueueError(event.reason);
+}
 
-  // Define how likely Replay events are sampled.
-  // Avoid recording normal production sessions; keep error replays enabled below.
-  replaysSessionSampleRate: isProduction ? 0 : 0.1,
+async function initializeSentry() {
+  if (sentryInitializationStarted) return;
+  sentryInitializationStarted = true;
 
-  // Define how likely Replay events are sampled when an error occurs.
-  replaysOnErrorSampleRate: 1.0,
+  try {
+    const Sentry = await import("@sentry/nextjs");
 
-  // Enable sending user PII (Personally Identifiable Information)
-  // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
-  sendDefaultPii: true,
+    Sentry.init({
+      dsn: "https://c66fec97c01df290b8e7884f524c864d@o4511319727865856.ingest.de.sentry.io/4511319729766480",
 
-  beforeSend(event) {
-    if (
-      isFacebookIosWebKitBridgeNoise(event) ||
-      isFacebookAndroidNavigationBridgeNoise(event) ||
-      isInjectedPanelNullReadNoise(event) ||
-      isVercelLiveFeedbackRangeNoise(event) ||
-      isInjectedRuntimeStreamReaderNoise(event)
-    ) {
-      return null;
-    }
+      // Browser error reporting stays enabled, but Replay and client-side
+      // tracing are intentionally omitted. Server/edge tracing remains active
+      // in sentry.server.config.ts and sentry.edge.config.ts.
+      enableLogs: process.env.NODE_ENV !== "production",
 
-    return event;
-  },
-});
+      // Enable sending user PII (Personally Identifiable Information)
+      // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
+      sendDefaultPii: true,
 
-export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
+      beforeSend(event) {
+        if (
+          isFacebookIosWebKitBridgeNoise(event) ||
+          isFacebookAndroidNavigationBridgeNoise(event) ||
+          isInjectedPanelNullReadNoise(event) ||
+          isVercelLiveFeedbackRangeNoise(event) ||
+          isInjectedRuntimeStreamReaderNoise(event)
+        ) {
+          return null;
+        }
+
+        return event;
+      },
+    });
+
+    queuedErrors.splice(0).forEach((error) => {
+      Sentry.captureException(error);
+    });
+  } finally {
+    window.removeEventListener("error", handleEarlyError);
+    window.removeEventListener("unhandledrejection", handleEarlyRejection);
+  }
+}
+
+function initializeWhenIdle() {
+  if ("requestIdleCallback" in window) {
+    window.requestIdleCallback(() => void initializeSentry(), { timeout: 3_000 });
+    return;
+  }
+
+  globalThis.setTimeout(() => void initializeSentry(), 1_000);
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("error", handleEarlyError);
+  window.addEventListener("unhandledrejection", handleEarlyRejection);
+
+  (["pointerdown", "keydown", "touchstart"] as const).forEach((eventName) => {
+    window.addEventListener(eventName, initializeWhenIdle, {
+      once: true,
+      passive: true,
+    });
+  });
+
+  window.setTimeout(() => void initializeSentry(), SENTRY_FALLBACK_DELAY_MS);
+}
+
+// Navigation tracing is intentionally disabled; exporting the hook keeps the
+// Next.js/Sentry integration contract explicit without adding tracing code.
+export function onRouterTransitionStart() {}

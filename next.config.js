@@ -157,6 +157,10 @@ module.exports = withSentryConfig(module.exports, {
     treeshake: {
       // Automatically tree-shake Sentry logger statements to reduce bundle size
       removeDebugLogging: true,
+      // Storefront performance traces are disabled in instrumentation-client.ts.
+      // Removing their implementation keeps browser error reporting while
+      // avoiding the tracing payload on every customer visit.
+      removeTracing: true,
     },
   },
 });
