@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import Image, { getImageProps } from "next/image";
+import Image from "next/image";
 import { useLanguage } from "@/context/LanguageContext";
 import { ArrowLeft, ArrowRight, Sparkles, ShieldCheck, Zap, ChevronRight, ChevronLeft, Store, FileCheck2 } from "lucide-react";
 
@@ -109,11 +109,11 @@ function HeroCarousel({ lang }: { lang: SiteLanguage }) {
   const t = content[lang];
   const [index, setIndex] = useState(0);
   const [slides, setSlides] = useState<Slide[]>([heroSlide]);
+  const [hasChangedSlide, setHasChangedSlide] = useState(false);
+  const [autoPlayEnabled, setAutoPlayEnabled] = useState(false);
 
   useEffect(() => {
     let isCancelled = false;
-    let cancelImagePreload = () => {};
-    let preloadedImages: HTMLImageElement[] = [];
 
     const loadCategories = () => {
       fetch("/api/categories", { cache: "no-store" })
@@ -122,25 +122,6 @@ function HeroCarousel({ lang }: { lang: SiteLanguage }) {
           if (isCancelled) return;
 
           setSlides([heroSlide, ...categories]);
-          cancelImagePreload = scheduleAfterInitialPaint(() => {
-            preloadedImages = categories.map((slide) => {
-              const { props } = getImageProps({
-                src: slide.image,
-                alt: "",
-                fill: true,
-                sizes: "100vw",
-                quality: 75,
-              });
-              const image = new window.Image();
-              image.decoding = "async";
-              image.fetchPriority = "low";
-              image.sizes = props.sizes ?? "100vw";
-              image.srcset = props.srcSet ?? "";
-              image.src = props.src;
-              void image.decode().catch(() => undefined);
-              return image;
-            });
-          });
         })
         .catch(() => {
           if (isCancelled) return;
@@ -153,19 +134,54 @@ function HeroCarousel({ lang }: { lang: SiteLanguage }) {
     return () => {
       isCancelled = true;
       cancelDeferredLoad();
-      cancelImagePreload();
-      preloadedImages.length = 0;
     };
   }, []);
 
   useEffect(() => {
-    if (slides.length <= 1) return;
+    if (slides.length <= 1 || autoPlayEnabled) return;
+
+    const enableAutoPlay = () => {
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      setAutoPlayEnabled(true);
+    };
+
+    window.addEventListener("pointerdown", enableAutoPlay, {
+      once: true,
+      passive: true,
+    });
+    window.addEventListener("keydown", enableAutoPlay, { once: true });
+
+    return () => {
+      window.removeEventListener("pointerdown", enableAutoPlay);
+      window.removeEventListener("keydown", enableAutoPlay);
+    };
+  }, [autoPlayEnabled, slides.length]);
+
+  useEffect(() => {
+    if (!autoPlayEnabled || slides.length <= 1) return;
+
+    const nextSlide = slides[(index + 1) % slides.length];
+    const image = new window.Image();
+    image.decoding = "async";
+    image.fetchPriority = "low";
+    image.src =
+      nextSlide.type === "hero" && window.matchMedia("(max-width: 767px)").matches
+        ? nextSlide.mobileImage
+        : nextSlide.image;
+  }, [autoPlayEnabled, index, slides]);
+
+  useEffect(() => {
+    if (!autoPlayEnabled || slides.length <= 1) return;
+
     const timer = window.setInterval(
-      () => setIndex((previous) => (previous + 1) % slides.length),
+      () => {
+        setHasChangedSlide(true);
+        setIndex((previous) => (previous + 1) % slides.length);
+      },
       7000
     );
     return () => window.clearInterval(timer);
-  }, [slides.length]);
+  }, [autoPlayEnabled, slides.length]);
 
   const activeSlide = slides[index] ?? heroSlide;
   const getSlideAlt = (slide: Slide) =>
@@ -181,7 +197,9 @@ function HeroCarousel({ lang }: { lang: SiteLanguage }) {
     <section className="relative h-[80vh] w-full overflow-hidden bg-slate-900 md:h-[90vh]">
       <div
         key={`${activeSlide.id}-${index}`}
-        className="homepage-slide-enter absolute inset-0 z-10"
+        className={`${
+          hasChangedSlide ? "homepage-slide-enter " : ""
+        }absolute inset-0 z-10`}
       >
         <div
           className="absolute inset-0 z-10 bg-gradient-to-b from-black/30 via-black/10 to-black/40"
@@ -203,12 +221,18 @@ function HeroCarousel({ lang }: { lang: SiteLanguage }) {
             }
             sizes="100vw"
             quality={75}
-            className="homepage-slide-image h-full w-full object-cover"
+            className={`${
+              hasChangedSlide ? "homepage-slide-image " : ""
+            }h-full w-full object-cover`}
           />
         </picture>
 
         <div className="absolute inset-0 z-20 flex items-center justify-center px-6 text-center">
-          <div className="homepage-slide-copy max-w-5xl">
+          <div
+            className={`${
+              hasChangedSlide ? "homepage-slide-copy " : ""
+            }max-w-5xl`}
+          >
             {activeSlide.type === "hero" ? (
               <div className="space-y-6 md:space-y-8">
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-white backdrop-blur-xl md:text-xs">
@@ -260,7 +284,10 @@ function HeroCarousel({ lang }: { lang: SiteLanguage }) {
           <button
             key={slide.id}
             type="button"
-            onClick={() => setIndex(slideIndex)}
+            onClick={() => {
+              setHasChangedSlide(true);
+              setIndex(slideIndex);
+            }}
             aria-label={
               isAr
                 ? `عرض الشريحة ${slideIndex + 1}`
