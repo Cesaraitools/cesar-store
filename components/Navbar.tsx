@@ -201,8 +201,7 @@ export default function Navbar() {
 
           {/* Auth Section */}
           <div className="flex items-center gap-3">
-            {!loading && (
-              <>
+            <>
                 {user ? (
                   <div className="flex items-center gap-3 bg-gray-50 p-1 pr-3 rounded-full border border-gray-100">
                     <span className="hidden lg:block text-[11px] font-black text-gray-400 truncate max-w-[120px]">
@@ -231,7 +230,6 @@ export default function Navbar() {
                   </div>
                 )}
               </>
-            )}
 
             {/* Cart Button */}
             <Link

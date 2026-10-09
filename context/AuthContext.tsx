@@ -2,16 +2,15 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
-  useMemo,
   useRef,
   useState,
   ReactNode,
 } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { Session, User } from "@supabase/supabase-js";
-import { useRouter } from "next/navigation";
+import type { Session, SupabaseClient, User } from "@supabase/supabase-js";
+import { usePathname, useRouter } from "next/navigation";
 
 type AuthContextType = {
   user: User | null;
@@ -25,6 +24,33 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const CART_STORAGE_KEY = "cesar_store_cart_v2";
 const AUTH_GUEST_CART_STORAGE_KEY = "cesar_store_auth_guest_cart";
+const AUTH_FALLBACK_DELAY_MS = 60_000;
+
+function hasPersistedSessionHint() {
+  try {
+    const hasAuthCookie = document.cookie
+      .split(";")
+      .some((cookie) => /^\s*sb-.+-auth-token(?:\.|=)/.test(cookie));
+    const hasAuthStorage = Object.keys(localStorage).some((key) =>
+      /^sb-.+-auth-token$/.test(key)
+    );
+
+    return hasAuthCookie || hasAuthStorage;
+  } catch {
+    return false;
+  }
+}
+
+function requiresImmediateAuth(pathname: string) {
+  return (
+    pathname.startsWith("/auth/") ||
+    pathname.startsWith("/orders") ||
+    pathname.startsWith("/checkout") ||
+    pathname.startsWith("/confirm") ||
+    pathname.startsWith("/review") ||
+    pathname.startsWith("/wholesale")
+  );
+}
 
 function getSafeRedirectPath(redirect?: string) {
   if (!redirect) return "/";
@@ -44,8 +70,9 @@ function getGoogleCallbackUrl(redirectPath: string) {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
+  const pathname = usePathname();
+  const supabaseRef = useRef<SupabaseClient | null>(null);
 
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -53,11 +80,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const ensuredUserRef = useRef(false);
 
+  const getSupabase = useCallback(async () => {
+    if (supabaseRef.current) return supabaseRef.current;
+
+    const { createClient } = await import("@/lib/supabase/client");
+    const client = createClient();
+    supabaseRef.current = client;
+    return client;
+  }, []);
+
   useEffect(() => {
     let isMounted = true;
+    let initStarted = false;
+    let unsubscribe: (() => void) | undefined;
+    const interactionEvents = [
+      "pointerdown",
+      "keydown",
+      "touchstart",
+    ] as const;
 
     const init = async () => {
+      if (initStarted) return;
+      initStarted = true;
+
       try {
+        const supabase = await getSupabase();
+        if (!isMounted) return;
+
         const { data } = await supabase.auth.getSession();
 
         if (!isMounted) return;
@@ -66,6 +115,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
+        const {
+          data: { subscription },
+        } = supabase.auth.onAuthStateChange((event, session) => {
+          setSession(session);
+          setUser(session?.user ?? null);
+          setLoading(false);
+
+          if (!session?.user) {
+            ensuredUserRef.current = false;
+          }
+
+          if (event === "SIGNED_OUT") {
+            router.push("/");
+          }
+        });
+        unsubscribe = () => subscription.unsubscribe();
       } catch (error) {
         console.warn("Unable to initialize auth session", error);
 
@@ -80,31 +145,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    init();
+    const startAuth = () => void init();
+    const shouldStartImmediately =
+      requiresImmediateAuth(pathname) || hasPersistedSessionHint();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
+    if (shouldStartImmediately) {
+      startAuth();
+    } else {
+      interactionEvents.forEach((eventName) =>
+        window.addEventListener(eventName, startAuth, {
+          once: true,
+          passive: true,
+        })
+      );
+    }
 
-      if (!session?.user) {
-        ensuredUserRef.current = false;
-      }
-
-      if (event === "SIGNED_OUT") {
-        router.push("/");
-      }
-    });
+    const fallbackTimer = window.setTimeout(startAuth, AUTH_FALLBACK_DELAY_MS);
 
     return () => {
       isMounted = false;
-      subscription.unsubscribe();
+      window.clearTimeout(fallbackTimer);
+      interactionEvents.forEach((eventName) =>
+        window.removeEventListener(eventName, startAuth)
+      );
+      unsubscribe?.();
     };
-  }, [supabase, router]);
+  }, [getSupabase, pathname, router]);
 
   const signOut = async () => {
+    const supabase = await getSupabase();
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
@@ -113,6 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithPassword = async (email: string, password: string) => {
     setLoading(true);
+    const supabase = await getSupabase();
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -129,6 +199,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = async (redirect?: string) => {
     setLoading(true);
+    const supabase = await getSupabase();
 
     const redirectPath = getSafeRedirectPath(redirect);
 

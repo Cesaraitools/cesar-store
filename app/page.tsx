@@ -251,6 +251,7 @@ function HeroCarousel({ lang }: { lang: SiteLanguage }) {
                 </h1>
                 <Link
                   href="/categories"
+                  prefetch={false}
                   className="group relative inline-flex items-center gap-3 rounded-2xl bg-blue-600 px-8 py-4 text-lg font-black text-white transition-all hover:bg-blue-700 hover:shadow-[0_20px_50px_rgba(37,99,235,0.3)] active:scale-95 md:px-12 md:py-6"
                 >
                   {t.shopNow}
@@ -269,6 +270,7 @@ function HeroCarousel({ lang }: { lang: SiteLanguage }) {
                 </p>
                 <Link
                   href={`/shop?category=${activeSlide.category}`}
+                  prefetch={false}
                   className="inline-block rounded-2xl bg-white px-10 py-5 text-lg font-black text-slate-900 shadow-2xl transition-all hover:bg-blue-50 active:scale-95"
                 >
                   {t.explore}
