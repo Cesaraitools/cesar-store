@@ -148,6 +148,7 @@ export default function Navbar() {
         {/* Logo Section */}
         <Link
           href={homeHref}
+          prefetch={false}
           className="flex items-center gap-3 transition-transform active:scale-95"
         >
           <Image
@@ -177,6 +178,7 @@ export default function Navbar() {
                   <Link
                     key={link.href}
                     href={link.href}
+                    prefetch={false}
                     className="flex items-center gap-1.5 text-sm font-black text-gray-500 hover:text-blue-600 transition-colors"
                   >
                     {Icon ? <Icon size={16} /> : null}
@@ -219,6 +221,7 @@ export default function Navbar() {
                   <div className="flex items-center gap-2">
                     <Link
                       href="/auth/login"
+                      prefetch={false}
                       className="p-2.5 text-gray-400 hover:text-blue-600 transition-colors"
                       aria-label={isAr ? "تسجيل الدخول" : "Log in"}
                       title={isAr ? "تسجيل الدخول" : "Login"}
@@ -233,6 +236,7 @@ export default function Navbar() {
             {/* Cart Button */}
             <Link
               href={cartHref}
+              prefetch={false}
               className="relative group p-2.5 bg-gray-900 text-white rounded-2xl shadow-lg shadow-gray-200 hover:bg-blue-600 transition-all active:scale-90"
               aria-label={isAr ? "فتح السلة" : "Open cart"}
             >
@@ -269,6 +273,7 @@ export default function Navbar() {
             <Link
               key={link.href}
               href={link.href}
+              prefetch={false}
               aria-current={isActive ? "page" : undefined}
               aria-busy={isPending || undefined}
               onClick={() => {
