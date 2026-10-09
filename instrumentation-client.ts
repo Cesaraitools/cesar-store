@@ -1,169 +1,66 @@
-// This file configures the initialization of Sentry on the client.
-// The added config here will be used whenever a users loads a page in their browser.
-// https://docs.sentry.io/platforms/javascript/guides/nextjs/
+// Lightweight browser error capture. The full Sentry SDK stays on the server
+// so storefront visitors do not pay its download and main-thread cost.
 
-import type { Event as SentryEvent } from "@sentry/nextjs";
 import {
-  isInjectedRuntimeStreamReaderNoise,
-} from "@/lib/sentry-client-noise-filters";
+  reportClientError,
+  type ClientErrorContext,
+} from "@/lib/client-error-reporting";
 
 const MAX_QUEUED_ERRORS = 10;
-const SENTRY_FALLBACK_DELAY_MS = 60_000;
-const queuedErrors: unknown[] = [];
-let sentryInitializationStarted = false;
+const REPORTING_FALLBACK_DELAY_MS = 60_000;
 
-function isFacebookIosWebKitBridgeNoise(event: SentryEvent) {
-  const exceptionValues = event.exception?.values ?? [];
+type QueuedError = {
+  context: ClientErrorContext;
+  error: unknown;
+};
 
-  return exceptionValues.some((exception) => {
-    const value = exception.value ?? "";
-    const frames = exception.stacktrace?.frames ?? [];
-    const hasWebKitMessageHandlersError = value.includes(
-      "window.webkit.messageHandlers"
-    );
-    const hasFacebookBridgeFrame = frames.some((frame) => {
-      const filename = frame.filename ?? "";
-      const functionName = frame.function ?? "";
+const queuedErrors: QueuedError[] = [];
+let reportingActive = false;
+let activationScheduled = false;
 
-      return filename.startsWith("app:///") || functionName === "sendDataToNative";
-    });
+function captureError(error: unknown, context: ClientErrorContext) {
+  if (reportingActive) {
+    void reportClientError(error, context);
+    return;
+  }
 
-    return hasWebKitMessageHandlersError && hasFacebookBridgeFrame;
-  });
-}
-
-function isFacebookAndroidNavigationBridgeNoise(event: SentryEvent) {
-  const exceptionValues = event.exception?.values ?? [];
-
-  return exceptionValues.some((exception) => {
-    const value = exception.value ?? "";
-    const frames = exception.stacktrace?.frames ?? [];
-    const hasFacebookNavigationBridgeFrame = frames.some((frame) => {
-      const filename = (frame.filename ?? "").replace(/^app:\/\/\/?/, "");
-      const functionName = frame.function ?? "";
-
-      return (
-        filename === "navigation_performance_logger_android" &&
-        (functionName === "sendDataToNative" ||
-          functionName === "sendJsBlockingTimeMessage")
-      );
-    });
-
-    return (
-      exception.type === "Error" &&
-      value === "Error invoking postMessage: Java object is gone" &&
-      hasFacebookNavigationBridgeFrame
-    );
-  });
-}
-
-function isInjectedPanelNullReadNoise(event: SentryEvent) {
-  const noisyMessages = new Set([
-    "Cannot read properties of null (reading 'document')",
-    "Cannot read properties of null (reading 'live')",
-  ]);
-  const exceptionValues = event.exception?.values ?? [];
-
-  return exceptionValues.some((exception) => {
-    const value = exception.value ?? "";
-    const frames = exception.stacktrace?.frames ?? [];
-    const hasInjectedPanelFrame = frames.some((frame) => {
-      const filename = frame.filename ?? "";
-
-      return (
-        filename === "app:///panel.js" ||
-        filename === "app:///vendors-async.js"
-      );
-    });
-
-    return noisyMessages.has(value) && hasInjectedPanelFrame;
-  });
-}
-
-function isVercelLiveFeedbackRangeNoise(event: SentryEvent) {
-  const exceptionValues = event.exception?.values ?? [];
-
-  return exceptionValues.some((exception) => {
-    const value = exception.value ?? "";
-    const frames = exception.stacktrace?.frames ?? [];
-    const hasLiveFeedbackFrame = frames.some((frame) => {
-      const filename = frame.filename ?? "";
-
-      return filename.startsWith("app:///_next-live/feedback/");
-    });
-
-    return (
-      exception.type === "InvalidNodeTypeError" &&
-      value.includes("Failed to execute 'selectNode' on 'Range'") &&
-      hasLiveFeedbackFrame
-    );
-  });
-}
-
-function enqueueError(value: unknown) {
   if (queuedErrors.length < MAX_QUEUED_ERRORS) {
-    queuedErrors.push(value);
+    queuedErrors.push({ error, context });
   }
 }
 
 function handleEarlyError(event: ErrorEvent) {
-  enqueueError(event.error ?? new Error(event.message));
+  captureError(event.error ?? new Error(event.message), {
+    kind: "error",
+    source: event.filename,
+    line: event.lineno,
+    column: event.colno,
+  });
 }
 
 function handleEarlyRejection(event: PromiseRejectionEvent) {
-  enqueueError(event.reason);
+  captureError(event.reason, { kind: "unhandled-rejection" });
 }
 
-async function initializeSentry() {
-  if (sentryInitializationStarted) return;
-  sentryInitializationStarted = true;
+function activateReporting() {
+  if (reportingActive) return;
+  reportingActive = true;
 
-  try {
-    const Sentry = await import("@sentry/nextjs");
-
-    Sentry.init({
-      dsn: "https://c66fec97c01df290b8e7884f524c864d@o4511319727865856.ingest.de.sentry.io/4511319729766480",
-
-      // Browser error reporting stays enabled, but Replay and client-side
-      // tracing are intentionally omitted. Server/edge tracing remains active
-      // in sentry.server.config.ts and sentry.edge.config.ts.
-      enableLogs: process.env.NODE_ENV !== "production",
-
-      // Enable sending user PII (Personally Identifiable Information)
-      // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
-      sendDefaultPii: true,
-
-      beforeSend(event) {
-        if (
-          isFacebookIosWebKitBridgeNoise(event) ||
-          isFacebookAndroidNavigationBridgeNoise(event) ||
-          isInjectedPanelNullReadNoise(event) ||
-          isVercelLiveFeedbackRangeNoise(event) ||
-          isInjectedRuntimeStreamReaderNoise(event)
-        ) {
-          return null;
-        }
-
-        return event;
-      },
-    });
-
-    queuedErrors.splice(0).forEach((error) => {
-      Sentry.captureException(error);
-    });
-  } finally {
-    window.removeEventListener("error", handleEarlyError);
-    window.removeEventListener("unhandledrejection", handleEarlyRejection);
-  }
+  queuedErrors.splice(0).forEach(({ error, context }) => {
+    void reportClientError(error, context);
+  });
 }
 
-function initializeWhenIdle() {
+function activateWhenIdle() {
+  if (activationScheduled || reportingActive) return;
+  activationScheduled = true;
+
   if ("requestIdleCallback" in window) {
-    window.requestIdleCallback(() => void initializeSentry(), { timeout: 3_000 });
+    window.requestIdleCallback(activateReporting, { timeout: 3_000 });
     return;
   }
 
-  globalThis.setTimeout(() => void initializeSentry(), 1_000);
+  globalThis.setTimeout(activateReporting, 1_000);
 }
 
 if (typeof window !== "undefined") {
@@ -171,15 +68,14 @@ if (typeof window !== "undefined") {
   window.addEventListener("unhandledrejection", handleEarlyRejection);
 
   (["pointerdown", "keydown", "touchstart"] as const).forEach((eventName) => {
-    window.addEventListener(eventName, initializeWhenIdle, {
+    window.addEventListener(eventName, activateWhenIdle, {
       once: true,
       passive: true,
     });
   });
 
-  window.setTimeout(() => void initializeSentry(), SENTRY_FALLBACK_DELAY_MS);
+  window.setTimeout(activateReporting, REPORTING_FALLBACK_DELAY_MS);
 }
 
-// Navigation tracing is intentionally disabled; exporting the hook keeps the
-// Next.js/Sentry integration contract explicit without adding tracing code.
+// Navigation performance tracing is intentionally disabled.
 export function onRouterTransitionStart() {}
