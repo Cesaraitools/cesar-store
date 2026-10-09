@@ -190,7 +190,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <>
             <Script
               src={`https://www.googletagmanager.com/gtag/js?id=${googleTagLoaderId}`}
-              strategy="afterInteractive"
+              strategy="lazyOnload"
             />
             <Script id="google-tag" strategy="afterInteractive">
               {`
@@ -214,7 +214,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           </Script>
         )}
         {metaPixelId && (
-          <Script id="meta-pixel" strategy="afterInteractive">
+          <Script id="meta-pixel" strategy="lazyOnload">
             {`
               !function(f,b,e,v,n,t,s)
               {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
