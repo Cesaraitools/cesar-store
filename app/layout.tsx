@@ -2,9 +2,9 @@ import "./globals.css";
 import type { ReactNode } from "react";
 import type { Metadata, Viewport } from "next";
 import * as Sentry from "@sentry/nextjs";
-import { Toaster } from "react-hot-toast";
 
 import DeferredMarketingScripts from "@/components/DeferredMarketingScripts";
+import DeferredToaster from "@/components/DeferredToaster";
 import Navbar from "@/components/Navbar";
 import SiteFooter from "@/components/SiteFooter";
 import { AuthProvider } from "@/context/AuthContext";
@@ -212,13 +212,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                   <Navbar />
 
                   <main className="flex-grow pt-5 md:pt-7">{children}</main>
-                  <Toaster
-                    position="top-center"
-                    containerStyle={{ zIndex: 2147483647 }}
-                    toastOptions={{
-                      duration: 3000,
-                    }}
-                  />
+                  <DeferredToaster />
                   <SiteFooter />
                 </div>
               </WholesaleCartProvider>

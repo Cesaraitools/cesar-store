@@ -9,9 +9,9 @@ import {
   useMemo,
   useState,
 } from "react";
-import toast from "react-hot-toast";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { showErrorToast, showSuccessToast } from "@/lib/client-toast";
 import type { WholesaleCartItem, WholesaleCatalogProduct } from "@/types/wholesale";
 import type { ProductVariantSnapshot } from "@/types/product";
 
@@ -75,7 +75,7 @@ function getProductName(product: WholesaleCatalogProduct) {
 }
 
 function showWholesaleCartToast(message: string) {
-  toast.success(message, {
+  void showSuccessToast(message, {
     duration: 3000,
     style: {
       direction: "rtl",
@@ -152,22 +152,22 @@ export function WholesaleCartProvider({ children }: { children: ReactNode }) {
       const hasVariants = Boolean(product.variantOptions?.length && product.variants?.length);
 
       if (!user?.id) {
-        toast.error("يجب تسجيل الدخول بحساب جملة مفعل قبل إضافة المنتجات");
+        void showErrorToast("يجب تسجيل الدخول بحساب جملة مفعل قبل إضافة المنتجات");
         return;
       }
 
       if (!product.priceVisible || !product.wholesalePrice || product.wholesalePrice <= 0) {
-        toast.error("سعر الجملة غير متاح لهذا المنتج حاليا");
+        void showErrorToast("سعر الجملة غير متاح لهذا المنتج حاليا");
         return;
       }
 
       if (safeUnits < minimumUnits && !(hasVariants && variantKey)) {
-        toast.error(`أقل كمية شراء للمنتج "${productName}" هي ${minimumUnits} قطعة`);
+        void showErrorToast(`أقل كمية شراء للمنتج "${productName}" هي ${minimumUnits} قطعة`);
         return;
       }
 
       if (product.stock <= 0 || safeUnits > product.stock) {
-        toast.error(`الكمية المطلوبة من "${productName}" غير متاحة حاليا`);
+        void showErrorToast(`الكمية المطلوبة من "${productName}" غير متاحة حاليا`);
         return;
       }
 
@@ -192,7 +192,7 @@ export function WholesaleCartProvider({ children }: { children: ReactNode }) {
           applyPayloadItems(payload?.items);
           showWholesaleCartToast("تم تحديث سلة طلب الجملة");
         } catch (error) {
-          toast.error(
+          void showErrorToast(
             error instanceof Error ? error.message : "تعذر إضافة الصنف لسلة الجملة"
           );
         }
@@ -228,7 +228,7 @@ export function WholesaleCartProvider({ children }: { children: ReactNode }) {
 
           applyPayloadItems(payload?.items);
         } catch (error) {
-          toast.error(
+          void showErrorToast(
             error instanceof Error ? error.message : "تعذر تحديث سلة الجملة"
           );
           void refreshCart();
@@ -257,7 +257,7 @@ export function WholesaleCartProvider({ children }: { children: ReactNode }) {
 
           applyPayloadItems(payload?.items);
         } catch (error) {
-          toast.error(
+          void showErrorToast(
             error instanceof Error ? error.message : "تعذر حذف الصنف من سلة الجملة"
           );
           void refreshCart();
@@ -312,7 +312,7 @@ export function WholesaleCartProvider({ children }: { children: ReactNode }) {
 
         applyPayloadItems(payload?.items);
       } catch (error) {
-        toast.error(
+        void showErrorToast(
           error instanceof Error ? error.message : "تعذر تصفير سلة الجملة"
         );
         void refreshCart();

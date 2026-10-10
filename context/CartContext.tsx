@@ -11,8 +11,12 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { trackAddToCart } from "@/lib/google-ads-tracking";
 import { createSafeUUID } from "@/lib/safe-uuid";
+import {
+  dismissToast,
+  showErrorToast,
+  showSuccessToast,
+} from "@/lib/client-toast";
 import type { ProductVariantSnapshot } from "@/types/product";
-import toast from "react-hot-toast";
 
 export type CartItem = {
   id: string;
@@ -86,7 +90,7 @@ function getStockExceededMessage(available?: number) {
 }
 
 function showAddedToCartToast() {
-  return toast.success("تم إضافة الصنف إلى السلة بنجاح", {
+  return showSuccessToast("تم إضافة الصنف إلى السلة بنجاح", {
     duration: 3000,
     style: {
       direction: "rtl",
@@ -387,7 +391,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const productStock = normalizeStockValue(product.stock);
 
     if (productStock !== null && productStock <= 0) {
-      toast.error("هذا المنتج غير متوفر حاليًا");
+      void showErrorToast("هذا المنتج غير متوفر حاليًا");
       return;
     }
 
@@ -398,7 +402,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         normalizeVariantKey(item.variant_key) === variantKey
     );
     if (existing) {
-      toast.error("المنتج موجود بالفعل في السلة");
+      void showErrorToast("المنتج موجود بالفعل في السلة");
       return;
     }
 
@@ -445,12 +449,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
           const payload = await response.json().catch(() => null);
 
           if (!response.ok) {
-            toast.dismiss(successToastId);
+            void dismissToast(successToastId);
 
             if (response.status === 409 || payload?.code === "ALREADY_IN_CART") {
-              toast.error("المنتج موجود بالفعل في السلة");
+              void showErrorToast("المنتج موجود بالفعل في السلة");
             } else {
-              toast.error(getStockExceededMessage(payload?.available));
+              void showErrorToast(getStockExceededMessage(payload?.available));
             }
 
             setCart((current) => ({
@@ -481,8 +485,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
           }
         } catch {
           console.warn("Cart sync failed (POST)");
-          toast.dismiss(successToastId);
-          toast.error("تعذرت مزامنة السلة، حاول مرة أخرى");
+          void dismissToast(successToastId);
+          void showErrorToast("تعذرت مزامنة السلة، حاول مرة أخرى");
           setCart((current) => ({
             ...current,
             items: current.items.filter(
@@ -510,12 +514,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const isIncrease = normalizedQuantity > item.quantity;
 
     if (isIncrease && knownStock !== null && normalizedQuantity > knownStock) {
-      toast.error(getStockExceededMessage(knownStock));
+      void showErrorToast(getStockExceededMessage(knownStock));
       return;
     }
 
     if (isIncrease && knownStock === null) {
-      toast.error("تعذر التحقق من المخزون الحالي لهذا المنتج");
+      void showErrorToast("تعذر التحقق من المخزون الحالي لهذا المنتج");
       return;
     }
 
@@ -556,7 +560,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
           if (!response.ok) {
             if (response.status === 429) {
-              toast.error("Ù…Ù‡Ù„Ù‹Ø§ØŒ Ø­Ø§ÙˆÙ„ Ù…Ø±Ø© Ø£Ø®Ø±Ù‰ Ø¨Ø¹Ø¯ Ø«ÙˆØ§Ù†Ù");
+              void showErrorToast("Ù…Ù‡Ù„Ù‹Ø§ØŒ Ø­Ø§ÙˆÙ„ Ù…Ø±Ø© Ø£Ø®Ø±Ù‰ Ø¨Ø¹Ø¯ Ø«ÙˆØ§Ù†Ù");
               return;
             }
 
@@ -578,11 +582,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
                   (cartItem) => cartItem.id !== cartItemId
                 ),
               }));
-              toast.error("ØªÙ… ØªØ­Ø¯ÙŠØ« Ø§Ù„Ø³Ù„Ø©ØŒ Ø§Ù„Ù…Ù†ØªØ¬ Ù„Ù… ÙŠØ¹Ø¯ Ù…ÙˆØ¬ÙˆØ¯Ù‹Ø§");
+              void showErrorToast("ØªÙ… ØªØ­Ø¯ÙŠØ« Ø§Ù„Ø³Ù„Ø©ØŒ Ø§Ù„Ù…Ù†ØªØ¬ Ù„Ù… ÙŠØ¹Ø¯ Ù…ÙˆØ¬ÙˆØ¯Ù‹Ø§");
               return;
             }
 
-            toast.error(
+            void showErrorToast(
               getStockExceededMessage(
                 typeof payload?.available === "number"
                   ? payload.available
