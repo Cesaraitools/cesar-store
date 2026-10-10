@@ -65,7 +65,7 @@ const heroSlide: HeroSlide = {
   mobileImage: "/slides/hero-mobile.jpg",
 };
 
-const CATEGORY_FALLBACK_DELAY_MS = 15_000;
+const CATEGORY_FALLBACK_DELAY_MS = 12_000;
 
 type SiteLanguage = keyof typeof content;
 
@@ -75,7 +75,6 @@ function HeroCarousel({ lang }: { lang: SiteLanguage }) {
   const [index, setIndex] = useState(0);
   const [slides, setSlides] = useState<Slide[]>([heroSlide]);
   const [hasChangedSlide, setHasChangedSlide] = useState(false);
-  const [hasInteracted, setHasInteracted] = useState(false);
   const [autoPlayEnabled, setAutoPlayEnabled] = useState(false);
 
   useEffect(() => {
@@ -83,16 +82,34 @@ function HeroCarousel({ lang }: { lang: SiteLanguage }) {
     let loadStarted = false;
     const interactionEvents = ["pointerdown", "keydown", "touchstart"] as const;
 
-    const loadCategories = () => {
+    const loadCategories = (advanceOnLoad: boolean) => {
       if (loadStarted) return;
       loadStarted = true;
 
       fetch("/api/categories", { cache: "no-store" })
-        .then((response) => response.json())
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`Categories request failed: ${response.status}`);
+          }
+
+          return response.json();
+        })
         .then((categories: CategorySlide[]) => {
           if (isCancelled) return;
 
           setSlides([heroSlide, ...categories]);
+
+          if (
+            categories.length > 0 &&
+            !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          ) {
+            setAutoPlayEnabled(true);
+
+            if (advanceOnLoad) {
+              setHasChangedSlide(true);
+              setIndex(1);
+            }
+          }
         })
         .catch(() => {
           if (isCancelled) return;
@@ -100,10 +117,16 @@ function HeroCarousel({ lang }: { lang: SiteLanguage }) {
         });
     };
 
-    const loadAfterInteraction = () => {
-      setHasInteracted(true);
-      loadCategories();
-    };
+    function removeInteractionListeners() {
+      interactionEvents.forEach((eventName) =>
+        window.removeEventListener(eventName, loadAfterInteraction)
+      );
+    }
+
+    function loadAfterInteraction() {
+      removeInteractionListeners();
+      loadCategories(false);
+    }
 
     interactionEvents.forEach((eventName) =>
       window.addEventListener(eventName, loadAfterInteraction, {
@@ -111,44 +134,16 @@ function HeroCarousel({ lang }: { lang: SiteLanguage }) {
         passive: true,
       })
     );
-    const fallbackTimer = window.setTimeout(
-      loadCategories,
-      CATEGORY_FALLBACK_DELAY_MS
-    );
+    const fallbackTimer = window.setTimeout(() => {
+      loadCategories(true);
+    }, CATEGORY_FALLBACK_DELAY_MS);
 
     return () => {
       isCancelled = true;
       window.clearTimeout(fallbackTimer);
-      interactionEvents.forEach((eventName) =>
-        window.removeEventListener(eventName, loadAfterInteraction)
-      );
+      removeInteractionListeners();
     };
   }, []);
-
-  useEffect(() => {
-    if (slides.length <= 1 || autoPlayEnabled) return;
-
-    const enableAutoPlay = () => {
-      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-      setAutoPlayEnabled(true);
-    };
-
-    if (hasInteracted) {
-      enableAutoPlay();
-      return;
-    }
-
-    window.addEventListener("pointerdown", enableAutoPlay, {
-      once: true,
-      passive: true,
-    });
-    window.addEventListener("keydown", enableAutoPlay, { once: true });
-
-    return () => {
-      window.removeEventListener("pointerdown", enableAutoPlay);
-      window.removeEventListener("keydown", enableAutoPlay);
-    };
-  }, [autoPlayEnabled, hasInteracted, slides.length]);
 
   useEffect(() => {
     if (!autoPlayEnabled || slides.length <= 1) return;
