@@ -65,42 +65,7 @@ const heroSlide: HeroSlide = {
   mobileImage: "/slides/hero-mobile.jpg",
 };
 
-function scheduleAfterInitialPaint(callback: () => void) {
-  if (typeof window === "undefined") return () => {};
-
-  const idleWindow = window as Window & {
-    requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
-    cancelIdleCallback?: (id: number) => void;
-  };
-
-  if (typeof idleWindow.requestIdleCallback === "function") {
-    const id = idleWindow.requestIdleCallback(callback, { timeout: 2500 });
-    return () => idleWindow.cancelIdleCallback?.(id);
-  }
-
-  const id = window.setTimeout(callback, 1200);
-  return () => window.clearTimeout(id);
-}
-
-function scheduleAfterPageLoad(callback: () => void) {
-  if (typeof window === "undefined") return () => {};
-
-  let cancelIdleWork = () => {};
-  const scheduleIdleWork = () => {
-    cancelIdleWork = scheduleAfterInitialPaint(callback);
-  };
-
-  if (document.readyState === "complete") {
-    scheduleIdleWork();
-  } else {
-    window.addEventListener("load", scheduleIdleWork, { once: true });
-  }
-
-  return () => {
-    window.removeEventListener("load", scheduleIdleWork);
-    cancelIdleWork();
-  };
-}
+const CATEGORY_FALLBACK_DELAY_MS = 15_000;
 
 type SiteLanguage = keyof typeof content;
 
@@ -110,12 +75,18 @@ function HeroCarousel({ lang }: { lang: SiteLanguage }) {
   const [index, setIndex] = useState(0);
   const [slides, setSlides] = useState<Slide[]>([heroSlide]);
   const [hasChangedSlide, setHasChangedSlide] = useState(false);
+  const [hasInteracted, setHasInteracted] = useState(false);
   const [autoPlayEnabled, setAutoPlayEnabled] = useState(false);
 
   useEffect(() => {
     let isCancelled = false;
+    let loadStarted = false;
+    const interactionEvents = ["pointerdown", "keydown", "touchstart"] as const;
 
     const loadCategories = () => {
+      if (loadStarted) return;
+      loadStarted = true;
+
       fetch("/api/categories", { cache: "no-store" })
         .then((response) => response.json())
         .then((categories: CategorySlide[]) => {
@@ -129,11 +100,28 @@ function HeroCarousel({ lang }: { lang: SiteLanguage }) {
         });
     };
 
-    const cancelDeferredLoad = scheduleAfterPageLoad(loadCategories);
+    const loadAfterInteraction = () => {
+      setHasInteracted(true);
+      loadCategories();
+    };
+
+    interactionEvents.forEach((eventName) =>
+      window.addEventListener(eventName, loadAfterInteraction, {
+        once: true,
+        passive: true,
+      })
+    );
+    const fallbackTimer = window.setTimeout(
+      loadCategories,
+      CATEGORY_FALLBACK_DELAY_MS
+    );
 
     return () => {
       isCancelled = true;
-      cancelDeferredLoad();
+      window.clearTimeout(fallbackTimer);
+      interactionEvents.forEach((eventName) =>
+        window.removeEventListener(eventName, loadAfterInteraction)
+      );
     };
   }, []);
 
@@ -145,6 +133,11 @@ function HeroCarousel({ lang }: { lang: SiteLanguage }) {
       setAutoPlayEnabled(true);
     };
 
+    if (hasInteracted) {
+      enableAutoPlay();
+      return;
+    }
+
     window.addEventListener("pointerdown", enableAutoPlay, {
       once: true,
       passive: true,
@@ -155,7 +148,7 @@ function HeroCarousel({ lang }: { lang: SiteLanguage }) {
       window.removeEventListener("pointerdown", enableAutoPlay);
       window.removeEventListener("keydown", enableAutoPlay);
     };
-  }, [autoPlayEnabled, slides.length]);
+  }, [autoPlayEnabled, hasInteracted, slides.length]);
 
   useEffect(() => {
     if (!autoPlayEnabled || slides.length <= 1) return;
