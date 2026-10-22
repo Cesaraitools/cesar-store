@@ -294,11 +294,13 @@ export default function OrderItemsEditor({
   }
 
   return (
-    <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100">
+    <div className="overflow-hidden rounded-3xl border border-slate-100 bg-white p-6 shadow-sm md:p-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="font-black text-slate-900">تفاصيل الطلب</h2>
-          <p className="mt-1 text-xs text-slate-400">
+        <div className="min-w-0">
+          <h2 className="text-lg font-black leading-7 text-slate-900">
+            تفاصيل أصناف الطلب
+          </h2>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
             أي حفظ هنا يحدّث المخزون والفواتير والتقارير تلقائيًا.
           </p>
         </div>
@@ -331,66 +333,81 @@ export default function OrderItemsEditor({
           return (
             <div
               key={key}
-              className="grid gap-4 rounded-2xl border border-slate-100 bg-slate-50 p-4 md:grid-cols-[1fr_auto_auto] md:items-center"
+              className="grid gap-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-center"
             >
-              <div>
-                <p className="font-bold text-slate-900">{item.name}</p>
+              <div className="min-w-0">
+                <p className="break-words text-base font-black leading-7 text-slate-900">
+                  {item.name}
+                </p>
                 {formatVariantSnapshot(item.variant, "ar") ? (
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 break-words text-sm leading-6 text-slate-600">
                     {formatVariantSnapshot(item.variant, "ar")}
                   </p>
                 ) : null}
-                <p className="mt-1 text-xs text-slate-400">
+                <p className="mt-2 text-xs font-bold leading-5 text-slate-500">
                   سعر الوحدة: {formatOrderMoney(item.price, currency)}
                 </p>
               </div>
 
-              <div className="flex items-center gap-2" aria-label={`كمية ${item.name}`}>
-                <button
-                  type="button"
-                  onClick={() => updateQuantity(key, item.quantity - 1)}
-                  disabled={locked || saving || item.quantity <= 1}
-                  aria-label={`تقليل كمية ${item.name}`}
-                  className="rounded-lg border border-slate-200 bg-white p-2 text-slate-700 disabled:opacity-40"
+              <div className="space-y-2">
+                <p className="text-xs font-black text-slate-500">الكمية</p>
+                <div
+                  className="flex items-center gap-2"
+                  aria-label={`كمية ${item.name}`}
                 >
-                  <Minus size={15} />
-                </button>
-                <input
-                  type="number"
-                  min="1"
-                  max="9999"
-                  inputMode="numeric"
-                  value={item.quantity}
-                  disabled={locked || saving}
-                  onChange={(event) =>
-                    updateQuantity(key, Number(event.target.value))
-                  }
-                  aria-label={`الكمية المطلوبة من ${item.name}`}
-                  className="w-20 rounded-lg border border-slate-200 bg-white px-2 py-2 text-center font-black"
-                />
-                <button
-                  type="button"
-                  onClick={() => updateQuantity(key, item.quantity + 1)}
-                  disabled={locked || saving || item.quantity >= 9999}
-                  aria-label={`زيادة كمية ${item.name}`}
-                  className="rounded-lg border border-slate-200 bg-white p-2 text-slate-700 disabled:opacity-40"
-                >
-                  <Plus size={15} />
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => updateQuantity(key, item.quantity - 1)}
+                    disabled={locked || saving || item.quantity <= 1}
+                    aria-label={`تقليل كمية ${item.name}`}
+                    title="تقليل الكمية"
+                    className="rounded-lg border border-slate-200 bg-white p-2 text-slate-700 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Minus size={15} />
+                  </button>
+                  <input
+                    type="number"
+                    min="1"
+                    max="9999"
+                    inputMode="numeric"
+                    value={item.quantity}
+                    disabled={locked || saving}
+                    onChange={(event) =>
+                      updateQuantity(key, Number(event.target.value))
+                    }
+                    aria-label={`الكمية المطلوبة من ${item.name}`}
+                    className="w-20 rounded-lg border border-slate-200 bg-white px-2 py-2 text-center font-black"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => updateQuantity(key, item.quantity + 1)}
+                    disabled={locked || saving || item.quantity >= 9999}
+                    aria-label={`زيادة كمية ${item.name}`}
+                    title="زيادة الكمية"
+                    className="rounded-lg border border-slate-200 bg-white p-2 text-slate-700 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Plus size={15} />
+                  </button>
+                </div>
               </div>
 
-              <div className="flex items-center justify-between gap-4 md:justify-end">
-                <p className="font-black text-slate-900">
-                  {formatOrderMoney(item.price * item.quantity, currency)}
-                </p>
+              <div className="flex flex-wrap items-end justify-between gap-3 lg:flex-col lg:items-end">
+                <div>
+                  <p className="text-xs font-black text-slate-500">إجمالي الصنف</p>
+                  <p className="mt-1 whitespace-nowrap text-base font-black text-slate-900">
+                    {formatOrderMoney(item.price * item.quantity, currency)}
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={() => removeItem(key)}
                   disabled={locked || saving}
                   aria-label={`حذف ${item.name} من الطلب`}
-                  className="rounded-lg border border-rose-200 bg-white p-2 text-rose-600 hover:bg-rose-50 disabled:opacity-40"
+                  title="حذف الصنف من الطلب"
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm font-black text-rose-700 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <Trash2 size={16} />
+                  حذف الصنف
                 </button>
               </div>
             </div>

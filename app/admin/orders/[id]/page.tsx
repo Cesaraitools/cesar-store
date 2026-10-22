@@ -627,45 +627,47 @@ export default function AdminOrderDetailsPage() {
             )}
           </div>
 
-            {/* Order Items */}
-            <OrderItemsEditor
-              key={`${order.id}-${order.pricing_version}`}
-              orderId={order.id}
-              currency={order.currency}
-              expectedVersion={order.pricing_version}
-              items={order.items || []}
-              locked={pricingLocked}
-              onSaved={loadInitialData}
-            />
+          <div className="space-y-6 lg:col-span-3">
+              {/* Order Items */}
+              <OrderItemsEditor
+                key={`${order.id}-${order.pricing_version}`}
+                orderId={order.id}
+                currency={order.currency}
+                expectedVersion={order.pricing_version}
+                items={order.items || []}
+                locked={pricingLocked}
+                onSaved={loadInitialData}
+              />
 
-            <div className="space-y-3 rounded-3xl border border-slate-100 bg-white p-6 text-sm shadow-sm md:p-8">
-              <div className="flex justify-between text-slate-600">
-                <span>مجموع المنتجات</span>
-                <span>{formatOrderMoney(order.subtotal, order.currency)}</span>
-              </div>
-              <div className="flex justify-between text-slate-600">
-                <span>الشحن</span>
-                <span>
-                  {order.shipping_status === "pending"
-                    ? "جاري تحديده"
-                    : order.shipping_status === "waived"
-                    ? "مجاني"
-                    : order.shipping_status === "legacy"
-                    ? "غير مسجل تاريخيًا"
-                    : formatOrderMoney(order.shipping_fee, order.currency)}
-                </span>
-              </div>
-              {order.discount > 0 && (
-                <div className="flex justify-between text-rose-600">
-                  <span>الخصم</span>
-                  <span>-{formatOrderMoney(order.discount, order.currency)}</span>
+              <div className="space-y-3 rounded-3xl border border-slate-100 bg-white p-6 text-sm shadow-sm md:p-8">
+                <div className="flex justify-between gap-4 text-slate-600">
+                  <span>مجموع المنتجات</span>
+                  <span className="whitespace-nowrap font-bold">{formatOrderMoney(order.subtotal, order.currency)}</span>
                 </div>
-              )}
-              <div className="flex justify-between border-t pt-3 text-lg font-black text-slate-900">
-                <span>{order.shipping_status === "pending" ? "الإجمالي الحالي" : "الإجمالي النهائي"}</span>
-                <span>{formatOrderMoney(order.total, order.currency)}</span>
+                <div className="flex justify-between gap-4 text-slate-600">
+                  <span>الشحن</span>
+                  <span className="text-left font-bold">
+                    {order.shipping_status === "pending"
+                      ? "جاري تحديده"
+                      : order.shipping_status === "waived"
+                      ? "مجاني"
+                      : order.shipping_status === "legacy"
+                      ? "غير مسجل تاريخيًا"
+                      : formatOrderMoney(order.shipping_fee, order.currency)}
+                  </span>
+                </div>
+                {order.discount > 0 && (
+                  <div className="flex justify-between gap-4 text-rose-600">
+                    <span>الخصم</span>
+                    <span className="whitespace-nowrap font-bold">-{formatOrderMoney(order.discount, order.currency)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between gap-4 border-t pt-3 text-lg font-black text-slate-900">
+                  <span>{order.shipping_status === "pending" ? "الإجمالي الحالي" : "الإجمالي النهائي"}</span>
+                  <span className="whitespace-nowrap">{formatOrderMoney(order.total, order.currency)}</span>
+                </div>
               </div>
-            </div>
+          </div>
         </div>
       </div>
     </div>
