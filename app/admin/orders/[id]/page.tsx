@@ -7,7 +7,6 @@ import {
   subscribeToOrderTrackingEvents,
   unsubscribeFromChannel,
 } from "@/lib/supabaseClient";
-import { formatVariantSnapshot } from "@/lib/product-variants";
 import {
   formatOrderMoney,
   shippingStatusLabel,
@@ -21,6 +20,9 @@ import {
   BadgePercent,
   Save,
 } from "lucide-react";
+import OrderItemsEditor, {
+  type EditableOrderItem,
+} from "./OrderItemsEditor";
 
 /* ---------------- Types ---------------- */
 type TrackingEvent = {
@@ -57,12 +59,7 @@ type OrderDetails = {
     phone?: string;
     address?: string;
   };
-  items?: {
-    name: string;
-    price: number;
-    quantity: number;
-    variant?: any;
-  }[];
+  items?: EditableOrderItem[];
   tracking?: TrackingEvent[];
   pricing_history?: Array<{
     admin_email?: string | null;
@@ -70,6 +67,22 @@ type OrderDetails = {
     payload?: {
       before?: Record<string, unknown>;
       after?: Record<string, unknown>;
+    } | null;
+  }>;
+  item_history?: Array<{
+    admin_email?: string | null;
+    created_at?: string | null;
+    payload?: {
+      before?: {
+        items?: unknown[];
+        subtotal?: number;
+        total?: number;
+      };
+      after?: {
+        items?: unknown[];
+        subtotal?: number;
+        total?: number;
+      };
     } | null;
   }>;
 };
@@ -587,53 +600,45 @@ export default function AdminOrderDetailsPage() {
                 </div>
               </div>
             )}
+
+            {order.item_history && order.item_history.length > 0 && (
+              <div className="mt-8 border-t border-slate-100 pt-6">
+                <p className="mb-4 text-xs font-black text-slate-500">سجل تعديلات الأصناف</p>
+                <div className="space-y-3">
+                  {order.item_history.map((entry, index) => {
+                    const after = entry.payload?.after;
+                    const itemCount = Array.isArray(after?.items)
+                      ? after.items.length
+                      : 0;
+                    return (
+                      <div key={`${entry.created_at || "items"}-${index}`} className="rounded-xl bg-slate-50 p-3 text-xs">
+                        <p className="font-bold text-slate-700">
+                          {itemCount} صنف · الإجمالي {formatOrderMoney(Number(after?.total || 0), order.currency)}
+                        </p>
+                        <p className="mt-1 text-slate-400">
+                          {entry.created_at ? new Date(entry.created_at).toLocaleString("ar-EG") : "—"}
+                          {entry.admin_email ? ` · ${entry.admin_email}` : ""}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
             {/* Order Items */}
-            <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
-              <div className="flex items-center gap-2 mb-6 font-black text-slate-800">
-                 تفاصيل الطلب
-              </div>
+            <OrderItemsEditor
+              key={`${order.id}-${order.pricing_version}`}
+              orderId={order.id}
+              currency={order.currency}
+              expectedVersion={order.pricing_version}
+              items={order.items || []}
+              locked={pricingLocked}
+              onSaved={loadInitialData}
+            />
 
-              <div className="space-y-4">
-                {order.items && order.items.length > 0 ? (
-                  order.items.map((item, index) => (
-                    <div
-                      key={index}
-                      className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl border border-slate-100"
-                    >
-                      <div>
-                        <p className="font-bold text-slate-900">
-                          {item.name}
-                        </p>
-                        {formatVariantSnapshot(item.variant, "ar") && (
-                          <p className="text-xs text-slate-400">
-                            {formatVariantSnapshot(item.variant, "ar")}
-                          </p>
-                        )}
-                        <p className="text-xs text-slate-400">
-                          الكمية: {item.quantity}
-                        </p>
-                      </div>
-
-                      <div className="text-left">
-                       <p className="font-bold text-slate-900">
-                         {item.price} {order.currency}
-                       </p>
-                       <p className="text-xs text-slate-400">
-                         الإجمالي: {item.price * item.quantity}
-                       </p>
-                     </div>
-                   </div>
-                 ))
-              ) : (
-                <div className="text-center py-6 text-slate-400">
-                  لا توجد عناصر
-                </div>
-              )}
-            </div>
-
-            <div className="mt-6 space-y-3 border-t pt-4 text-sm">
+            <div className="space-y-3 rounded-3xl border border-slate-100 bg-white p-6 text-sm shadow-sm md:p-8">
               <div className="flex justify-between text-slate-600">
                 <span>مجموع المنتجات</span>
                 <span>{formatOrderMoney(order.subtotal, order.currency)}</span>
@@ -661,7 +666,6 @@ export default function AdminOrderDetailsPage() {
                 <span>{formatOrderMoney(order.total, order.currency)}</span>
               </div>
             </div>
-          </div>
         </div>
       </div>
     </div>

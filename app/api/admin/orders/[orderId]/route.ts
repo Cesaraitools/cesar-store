@@ -8,6 +8,9 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdminRole } from "@/lib/admin/permissions";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -80,6 +83,7 @@ export async function GET(
 
     /* -------- Safe Items -------- */
     const items = (order.items_snapshot || []).map((item: any) => ({
+      product_id: item?.product_id || null,
       name:
   item?.name ||
   item?.name_ar ||
@@ -90,6 +94,8 @@ export async function GET(
   "—",
       price: Number(item?.price || 0),
       quantity: Number(item?.quantity || 0),
+      image: item?.image || null,
+      variant_key: item?.variant_key || item?.variant?.key || "",
       variant: item?.variant || null,
     }));
 
@@ -113,6 +119,19 @@ export async function GET(
       console.warn("Failed to load order pricing history", pricingHistoryError);
     }
 
+    const { data: itemHistory, error: itemHistoryError } = await supabase
+      .from("admin_audit_logs")
+      .select("admin_email, created_at, payload")
+      .eq("entity", "order")
+      .eq("entity_id", orderId)
+      .eq("action", "order_items_updated")
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    if (itemHistoryError) {
+      console.warn("Failed to load order item history", itemHistoryError);
+    }
+
     /* -------- Latest Status -------- */
     const latestStatus =
       resolveOrderStatus(
@@ -120,8 +139,9 @@ export async function GET(
         tracking && tracking.length ? tracking[tracking.length - 1].status : null
       );
 
-    return NextResponse.json({
-      order: {
+    return NextResponse.json(
+      {
+        order: {
         id: order.id,
         subtotal: Number(order.subtotal || 0),
         shipping_fee: Number(order.shipping_fee || 0),
@@ -138,9 +158,12 @@ export async function GET(
         items,
         tracking: tracking || [],
         pricing_history: pricingHistory || [],
+        item_history: itemHistory || [],
         status: latestStatus,
+        },
       },
-    });
+      { headers: { "Cache-Control": "private, no-store" } }
+    );
 
   } catch (err: any) {
     console.error("Admin Order Details Crash:", err);

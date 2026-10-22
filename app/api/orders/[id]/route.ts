@@ -4,6 +4,9 @@ import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const serviceSupabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -155,7 +158,9 @@ export async function GET(
       },
     };
 
-    return NextResponse.json(response);
+    return NextResponse.json(response, {
+      headers: { "Cache-Control": "private, no-store" },
+    });
 
   } catch (error) {
     console.error("Order details error:", error);

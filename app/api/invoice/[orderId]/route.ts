@@ -8,6 +8,9 @@ import {
 } from "@/lib/seo";
 import { resolveRequestUser } from "@/lib/auth/resolveRequestUser";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /* ================= Supabase Service Client ================= */
 
 const supabase = createClient(
@@ -111,7 +114,9 @@ export async function GET(
       },
     };
 
-    return NextResponse.json(invoiceData);
+    return NextResponse.json(invoiceData, {
+      headers: { "Cache-Control": "private, no-store" },
+    });
   } catch (err) {
     console.error("Invoice API error:", err);
     return NextResponse.json(
