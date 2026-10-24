@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useLanguage } from "@/context/LanguageContext";
+import OrbitLandingHero from "@/components/landing/OrbitLandingHero";
 import { ArrowLeft, ArrowRight, Sparkles, ShieldCheck, Zap, ChevronRight, ChevronLeft, Store, FileCheck2 } from "lucide-react";
 
 /* ---------------- Types (Unchanged) ---------------- */
@@ -306,22 +307,7 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC]" dir={isAr ? "rtl" : "ltr"}>
-      <link
-        rel="preload"
-        as="image"
-        href={heroSlide.mobileImage}
-        media="(max-width: 767px)"
-        fetchPriority="high"
-      />
-      <link
-        rel="preload"
-        as="image"
-        href={heroSlide.image}
-        media="(min-width: 768px)"
-        fetchPriority="high"
-      />
-      
-      <HeroCarousel lang={lang} />
+      <OrbitLandingHero lang={lang} />
 
       {/* Features - تحسين الظلال والرموز */}
       <section className="py-24 px-6 max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">

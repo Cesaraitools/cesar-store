@@ -12,6 +12,57 @@ body {
   direction: rtl;
 }
 
+.orbit-hero {
+  cursor: grab;
+}
+
+.orbit-hero:active {
+  cursor: grabbing;
+}
+
+.orbit-category-card {
+  transform-style: preserve-3d;
+  user-select: none;
+  will-change: transform, opacity;
+  transition: opacity 180ms ease, filter 240ms ease, box-shadow 240ms ease;
+}
+
+.orbit-category-card:hover,
+.orbit-category-card:focus-visible {
+  filter: saturate(1.08) contrast(1.02);
+  box-shadow: 0 38px 90px rgb(15 23 42 / 32%);
+}
+
+.orbit-product-backdrop {
+  opacity: 0.78;
+  filter: saturate(0.96) contrast(0.98);
+  box-shadow:
+    0 3px 0 rgb(255 255 255 / 78%),
+    0 26px 38px rgb(15 23 42 / 22%),
+    0 48px 90px rgb(15 23 42 / 14%);
+  transform-style: preserve-3d;
+  will-change: auto;
+}
+
+@media (max-width: 767px) {
+  .orbit-product-backdrop:nth-child(n + 8) {
+    display: none;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .orbit-product-backdrop:nth-child(n + 13) {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbit-category-card,
+  .orbit-category-card img {
+    transition: none !important;
+  }
+}
+
 @keyframes homepage-slide-enter {
   from {
     opacity: 0;
