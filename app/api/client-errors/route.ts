@@ -1,6 +1,8 @@
 import * as Sentry from "@sentry/nextjs";
 import { NextRequest, NextResponse } from "next/server";
 
+import { isKnownClientErrorNoise } from "@/lib/client-error-noise";
+
 export const runtime = "nodejs";
 
 const MAX_BODY_BYTES = 12_000;
@@ -74,6 +76,22 @@ export async function POST(request: NextRequest) {
       ? (payload.context as Record<string, unknown>)
       : {};
 
+  const stack = text(payload.stack, 8_000);
+  if (
+    isKnownClientErrorNoise(
+      { message, stack },
+      {
+        kind: text(context.kind, 40),
+        source: text(context.source, 500),
+        line: typeof context.line === "number" ? context.line : undefined,
+        column:
+          typeof context.column === "number" ? context.column : undefined,
+      }
+    )
+  ) {
+    return new NextResponse(null, { status: 204 });
+  }
+
   Sentry.captureMessage(`Client error: ${message}`, {
     level: "error",
     tags: {
@@ -82,7 +100,7 @@ export async function POST(request: NextRequest) {
     },
     extra: {
       name: text(payload.name, 100),
-      stack: text(payload.stack, 8_000),
+      stack,
       page: text(payload.page, 500),
       userAgent: text(payload.userAgent, 500),
       source: text(context.source, 500),

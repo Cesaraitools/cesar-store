@@ -1,5 +1,7 @@
 "use client";
 
+import { isKnownClientErrorNoise } from "@/lib/client-error-noise";
+
 export type ClientErrorContext = {
   column?: number;
   kind?: "error" | "global-error" | "unhandled-rejection";
@@ -30,26 +32,6 @@ function serializeError(error: unknown) {
   }
 }
 
-function isKnownInjectedNoise(message: string, stack = "") {
-  const combined = `${message}\n${stack}`;
-
-  return (
-    (/window\.webkit\.messageHandlers/.test(message) &&
-      /sendDataToNative|app:\/\//.test(stack)) ||
-    (message === "Error invoking postMessage: Java object is gone" &&
-      /navigation_performance_logger_android/.test(stack)) ||
-    (/Cannot read properties of null \(reading '(document|live)'\)/.test(
-      message
-    ) && /panel\.js|vendors-async\.js/.test(stack)) ||
-    (/Failed to execute 'selectNode' on 'Range'/.test(message) &&
-      /_next-live\/feedback/.test(stack)) ||
-    (/Cannot read properties of undefined \(reading 'getReader'\)/.test(
-      message
-    ) && /ext:core\/01_core\.js|<script>/.test(stack)) ||
-    /chrome-extension:|moz-extension:/.test(combined)
-  );
-}
-
 export async function reportClientError(
   error: unknown,
   context: ClientErrorContext = {}
@@ -57,7 +39,7 @@ export async function reportClientError(
   if (typeof window === "undefined") return;
 
   const details = serializeError(error);
-  if (isKnownInjectedNoise(details.message, details.stack)) return;
+  if (isKnownClientErrorNoise(details, context)) return;
 
   const payload = JSON.stringify({
     ...details,
