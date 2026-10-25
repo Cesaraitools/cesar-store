@@ -266,7 +266,7 @@ export default function OrbitLandingHero({ lang, initialShowcase }: Props) {
   return (
     <section
       ref={stageRef}
-      className="orbit-hero relative isolate h-[calc(100svh-4.5rem)] min-h-[620px] max-h-[720px] w-full touch-pan-y overflow-hidden bg-white text-slate-950 md:h-[calc(100svh-5rem)] md:min-h-[640px] md:max-h-[780px]"
+      className="orbit-hero relative isolate h-[calc(100svh+2.5rem)] min-h-[732px] max-h-[832px] w-full touch-pan-y overflow-hidden bg-white text-slate-950 md:h-[calc(100svh+2rem)] md:min-h-[752px] md:max-h-[892px]"
       dir={isAr ? "rtl" : "ltr"}
       aria-roledescription={isAr ? "عرض دائري للأقسام" : "Category orbit carousel"}
       aria-label={isAr ? "أقسام متجر سيزر" : "Cesar Store categories"}
@@ -284,7 +284,7 @@ export default function OrbitLandingHero({ lang, initialShowcase }: Props) {
       }}
     >
       <div
-        className="pointer-events-none absolute inset-x-0 bottom-36 top-0 z-0 overflow-hidden bg-[#dff7fa] md:bottom-40"
+        className="pointer-events-none absolute inset-x-0 bottom-28 top-0 z-0 overflow-hidden bg-[#dff7fa]"
         style={{ borderRadius: "0 0 50% 50% / 0 0 10% 10%" }}
         aria-hidden="true"
       >
@@ -369,22 +369,22 @@ export default function OrbitLandingHero({ lang, initialShowcase }: Props) {
         </div>
       </div>
 
-      <div className="absolute inset-x-5 bottom-2 z-30 mx-auto flex max-w-4xl items-center justify-center gap-3 rounded-[2rem] border border-slate-100 bg-white px-5 py-4 shadow-[0_18px_55px_rgba(15,23,42,0.14)] md:bottom-3">
+      <div className="absolute inset-x-5 bottom-1 z-30 mx-auto flex max-w-3xl items-center justify-center gap-2 rounded-[1.5rem] border border-slate-100 bg-white px-4 py-2 shadow-[0_16px_45px_rgba(15,23,42,0.12)] md:bottom-2 md:py-2.5">
         <button
           type="button"
           onPointerDown={(event) => event.stopPropagation()}
           onClick={() => rotateBy(isAr ? 1 : -1)}
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-800 shadow-lg transition hover:-translate-y-0.5 hover:border-blue-300 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-200"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-800 shadow-md transition hover:-translate-y-0.5 hover:border-blue-300 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-200"
           aria-label={isAr ? "القسم السابق" : "Previous category"}
         >
-          {isAr ? <ChevronRight size={22} /> : <ChevronLeft size={22} />}
+          {isAr ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
         </button>
 
         <div className="min-w-0 flex-1 text-center">
-          <p className="truncate text-xl font-black text-slate-950 md:text-3xl">
+          <p className="truncate text-base font-black text-slate-950 md:text-xl">
             {activeCopy?.title}
           </p>
-          <p className="mx-auto mt-1 line-clamp-1 max-w-xl text-xs font-bold text-slate-500 md:text-sm">
+          <p className="mx-auto mt-1 line-clamp-1 max-w-lg text-[11px] font-bold text-slate-500 md:text-xs">
             {activeCopy?.subtitle}
           </p>
           {activeCategory ? (
@@ -392,10 +392,10 @@ export default function OrbitLandingHero({ lang, initialShowcase }: Props) {
               href={`/shop?category=${encodeURIComponent(activeCategory.category)}`}
               prefetch={false}
               onPointerDown={(event) => event.stopPropagation()}
-              className="mt-3 inline-flex items-center gap-2 rounded-full bg-slate-950 px-6 py-3 text-sm font-black text-white shadow-xl transition hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-200"
+              className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-slate-950 px-4 py-2 text-xs font-black text-white shadow-lg transition hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-200"
             >
               {isAr ? "استكشف القسم" : "Explore category"}
-              {isAr ? <ArrowLeft size={17} /> : <ArrowRight size={17} />}
+              {isAr ? <ArrowLeft size={15} /> : <ArrowRight size={15} />}
             </Link>
           ) : null}
         </div>
@@ -404,10 +404,10 @@ export default function OrbitLandingHero({ lang, initialShowcase }: Props) {
           type="button"
           onPointerDown={(event) => event.stopPropagation()}
           onClick={() => rotateBy(isAr ? -1 : 1)}
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-800 shadow-lg transition hover:-translate-y-0.5 hover:border-blue-300 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-200"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-800 shadow-md transition hover:-translate-y-0.5 hover:border-blue-300 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-200"
           aria-label={isAr ? "القسم التالي" : "Next category"}
         >
-          {isAr ? <ChevronLeft size={22} /> : <ChevronRight size={22} />}
+          {isAr ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
         </button>
       </div>
     </section>
