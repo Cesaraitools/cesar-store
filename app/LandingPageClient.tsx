@@ -5,10 +5,10 @@ import {
   ChevronLeft,
   ChevronRight,
   FileCheck2,
+  Headphones,
   ShieldCheck,
-  Sparkles,
   Store,
-  Zap,
+  Truck,
 } from "lucide-react";
 import OrbitLandingHero from "@/components/landing/OrbitLandingHero";
 import { useLanguage } from "@/context/LanguageContext";
@@ -55,64 +55,76 @@ export default function LandingPageClient({
   const t = content[lang];
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC]" dir={isAr ? "rtl" : "ltr"}>
+    <div className="min-h-screen bg-[#F7F8FC]" dir={isAr ? "rtl" : "ltr"}>
       <OrbitLandingHero lang={lang} initialShowcase={initialShowcase} />
 
-      <section className="mx-auto grid max-w-7xl grid-cols-1 gap-8 px-6 py-24 md:grid-cols-3">
+      <section className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-6 py-20 md:grid-cols-3">
         <h2 className="sr-only">
           {isAr ? "مميزات متجر سيزر" : "Why choose Cesar Store"}
         </h2>
         {[
+          {
+            icon: Truck,
+            title: isAr ? "توصيل سريع" : "Fast Delivery",
+            desc: isAr
+              ? "شحن آمن لجميع محافظات مصر"
+              : "Safe shipping across Egypt",
+            cardClass: "bg-[#3448E5]",
+            iconClass: "bg-white/15 text-[#FFE35B]",
+          },
           {
             icon: ShieldCheck,
             title: isAr ? "جودة مضمونة" : "Guaranteed Quality",
             desc: isAr
               ? "منتجات أصلية 100% ومختارة بعناية"
               : "100% Original handpicked products",
+            cardClass: "bg-[#182338]",
+            iconClass: "bg-[#6B4E10]/70 text-[#FFC928]",
           },
           {
-            icon: Zap,
-            title: isAr ? "توصيل سريع" : "Fast Delivery",
-            desc: isAr
-              ? "شحن آمن لجميع محافظات مصر"
-              : "Safe shipping across Egypt",
-          },
-          {
-            icon: Sparkles,
+            icon: Headphones,
             title: isAr ? "دعم متميز" : "Expert Support",
             desc: isAr
               ? "فريق فني متخصص لخدمتكم"
               : "Technical team at your service",
+            cardClass: "bg-[#FF7800]",
+            iconClass: "bg-white/20 text-white",
           },
         ].map((feature) => (
           <div
             key={feature.title}
-            className="group relative flex flex-col items-center space-y-4 rounded-[2rem] border border-slate-100 bg-white p-8 text-center transition-all duration-500 hover:shadow-xl hover:shadow-slate-200/50"
+            className={`group relative min-h-[172px] overflow-hidden rounded-[1.75rem] px-7 py-7 text-white shadow-[0_20px_45px_-28px_rgba(15,23,42,0.7)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_52px_-26px_rgba(15,23,42,0.7)] ${feature.cardClass}`}
           >
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-50 text-blue-600 transition-all duration-500 group-hover:rotate-[10deg] group-hover:bg-blue-600 group-hover:text-white">
-              <feature.icon size={32} />
+            <div className="flex items-start gap-4">
+              <div
+                className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl transition-transform duration-300 group-hover:-rotate-6 ${feature.iconClass}`}
+              >
+                <feature.icon size={28} strokeWidth={2.25} />
+              </div>
+              <div className="pt-1 text-start">
+                <h3 className="text-xl font-black leading-snug md:text-2xl">
+                  {feature.title}
+                </h3>
+                <p className="mt-3 text-sm font-semibold leading-6 text-white/90">
+                  {feature.desc}
+                </p>
+              </div>
             </div>
-            <h3 className="text-xl font-black text-slate-900">
-              {feature.title}
-            </h3>
-            <p className="text-sm font-medium leading-relaxed text-slate-500">
-              {feature.desc}
-            </p>
           </div>
         ))}
       </section>
 
       <section className="px-6 pb-16">
-        <div className="mx-auto grid max-w-5xl items-center gap-6 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-lg shadow-slate-200/40 md:grid-cols-[1.1fr_0.9fr] md:p-8">
+        <div className="mx-auto grid max-w-5xl items-center gap-8 rounded-[2rem] bg-[#182338] p-7 text-white shadow-[0_24px_60px_-34px_rgba(15,23,42,0.78)] md:grid-cols-[1.1fr_0.9fr] md:p-9">
           <div className="space-y-3">
-            <span className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-blue-700">
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-[#FFD23F]">
               <Store size={14} />
               {t.wholesaleEyebrow}
             </span>
-            <h2 className="text-2xl font-black leading-tight text-slate-950 md:text-3xl">
+            <h2 className="text-2xl font-black leading-tight text-white md:text-3xl">
               {t.wholesaleTitle}
             </h2>
-            <p className="max-w-2xl text-sm font-semibold leading-7 text-slate-600 md:text-base">
+            <p className="max-w-2xl text-sm font-semibold leading-7 text-white/75 md:text-base">
               {t.wholesaleDescription}
             </p>
           </div>
@@ -120,14 +132,14 @@ export default function LandingPageClient({
           <div className="grid gap-3">
             <Link
               href="/wholesale"
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-xs font-black text-white transition hover:bg-blue-700"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#FF7800] px-5 py-3.5 text-xs font-black text-white shadow-lg shadow-orange-950/20 transition hover:-translate-y-0.5 hover:bg-[#E96E00]"
             >
               <Store size={16} />
               {t.wholesalePrimary}
             </Link>
             <Link
               href="/wholesale/apply"
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-5 py-3 text-xs font-black text-slate-900 transition hover:border-blue-200 hover:bg-blue-50"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-5 py-3.5 text-xs font-black text-white transition hover:-translate-y-0.5 hover:bg-white/15"
             >
               <FileCheck2 size={16} />
               {t.wholesaleSecondary}
@@ -136,50 +148,35 @@ export default function LandingPageClient({
         </div>
       </section>
 
-      <section className="relative overflow-hidden px-6 py-16">
-        <div className="relative z-10 mx-auto max-w-3xl text-center">
-          <span className="mb-3 block text-sm font-black uppercase tracking-[0.24em] text-blue-600 md:text-base">
+      <section className="px-6 pb-16">
+        <div className="mx-auto max-w-5xl rounded-[2rem] bg-[#3448E5] px-7 py-10 text-center text-white shadow-[0_24px_60px_-34px_rgba(52,72,229,0.75)] md:px-12 md:py-12">
+          <span className="mb-3 block text-xs font-black uppercase tracking-[0.24em] text-[#FFE35B] md:text-sm">
             {isAr ? "قصتنا" : "OUR STORY"}
           </span>
-          <p className="text-xl font-bold leading-snug tracking-tight text-slate-800 md:text-2xl">
+          <p className="mx-auto max-w-3xl text-xl font-black leading-snug tracking-tight md:text-2xl">
             {t.about}
           </p>
-          <p className="mx-auto mt-4 max-w-2xl text-sm font-semibold leading-7 text-slate-500 md:text-base">
+          <p className="mx-auto mt-4 max-w-2xl text-sm font-semibold leading-7 text-white/80 md:text-base">
             {t.searchHint}
           </p>
           <Link
             href="/search-guide"
-            className="mt-6 inline-flex rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-black text-white transition hover:bg-blue-700"
+            className="mt-6 inline-flex rounded-2xl bg-white px-6 py-3 text-xs font-black text-[#182338] shadow-lg shadow-blue-950/20 transition hover:-translate-y-0.5 hover:bg-[#FFF4D7]"
           >
             {isAr ? "دليل البحث عن سيزر" : "Cesar search guide"}
           </Link>
         </div>
-        <div
-          className="absolute left-1/2 top-1/2 -z-0 -translate-x-1/2 -translate-y-1/2 select-none text-[10rem] font-black text-slate-50/50"
-          aria-hidden="true"
-        >
-          CESAR
-        </div>
       </section>
 
       <section className="mb-16 px-6">
-        <div className="relative mx-auto max-w-5xl overflow-hidden rounded-[2.5rem] bg-slate-900 px-8 py-12 text-center">
-          <div
-            className="absolute right-0 top-0 h-[500px] w-[500px] -translate-y-1/2 translate-x-1/2 rounded-full bg-blue-600/10 blur-[120px]"
-            aria-hidden="true"
-          />
-          <div
-            className="absolute bottom-0 left-0 h-[300px] w-[300px] -translate-x-1/2 translate-y-1/2 rounded-full bg-blue-500/10 blur-[100px]"
-            aria-hidden="true"
-          />
-
-          <div className="relative z-10 space-y-6">
+        <div className="mx-auto max-w-5xl overflow-hidden rounded-[2rem] bg-[#FF7800] px-8 py-11 text-center text-white shadow-[0_24px_60px_-34px_rgba(234,88,12,0.78)]">
+          <div className="space-y-6">
             <h2 className="mx-auto max-w-2xl text-2xl font-black leading-tight text-white md:text-3xl">
               {t.banner}
             </h2>
             <Link
               href="/shop"
-              className="inline-flex items-center gap-2 rounded-xl bg-white px-8 py-3 text-sm font-black text-slate-900 transition-all hover:-translate-y-0.5 hover:shadow-[0_0_32px_rgba(255,255,255,0.18)]"
+              className="inline-flex items-center gap-2 rounded-2xl bg-white px-8 py-3.5 text-sm font-black text-[#182338] shadow-lg shadow-orange-950/20 transition-all hover:-translate-y-0.5 hover:bg-[#FFF4D7]"
             >
               {isAr ? "ابدأ التسوق الآن" : "Start Shopping Now"}
               {isAr ? <ChevronLeft size={17} /> : <ChevronRight size={17} />}
