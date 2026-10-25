@@ -495,7 +495,10 @@ export default function OrbitLandingHero({ lang }: Props) {
                 draggable={false}
                 onDragStart={(event) => event.preventDefault()}
                 onPointerDown={(event) => {
-                  if (event.pointerType === "mouse") event.stopPropagation();
+                  if (event.pointerType === "mouse") {
+                    dragMovedRef.current = false;
+                    event.stopPropagation();
+                  }
                 }}
                 onClick={(event) => {
                   if (dragMovedRef.current) event.preventDefault();
