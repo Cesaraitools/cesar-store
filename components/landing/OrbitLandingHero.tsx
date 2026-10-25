@@ -11,112 +11,12 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-
-type LocalizedCopy = {
-  title: string;
-  subtitle: string;
-};
-
-type OrbitCategory = {
-  id: string;
-  category: string;
-  image: string;
-  ar: LocalizedCopy;
-  en: LocalizedCopy;
-};
-
-type BackdropProduct = {
-  id: string;
-  image: string;
-  category: string;
-  name: { ar: string; en: string };
-};
-
-type LandingShowcaseResponse = {
-  categories?: OrbitCategory[];
-  products?: BackdropProduct[];
-};
+import type { LandingShowcase } from "@/lib/landing-showcase";
 
 type Props = {
   lang: "ar" | "en";
+  initialShowcase: LandingShowcase;
 };
-
-const FALLBACK_CATEGORIES: OrbitCategory[] = [
-  {
-    id: "fallback-accessories",
-    category: "cars-accessories",
-    image: "/categories/10-Must-Have-Iron-Man-Car-Accessories-in-2025.webp",
-    ar: { title: "إكسسوارات السيارات", subtitle: "تفاصيل تصنع تجربة قيادة أرقى" },
-    en: { title: "Car Accessories", subtitle: "Details that elevate every drive" },
-  },
-  {
-    id: "fallback-lights",
-    category: "cars-lights",
-    image: "/categories/lights.jpg",
-    ar: { title: "إضاءة السيارات", subtitle: "رؤية أوضح وحضور أقوى" },
-    en: { title: "Car Lighting", subtitle: "Clearer vision and a stronger presence" },
-  },
-  {
-    id: "fallback-additives",
-    category: "additives-fluids",
-    image: "/categories/additives-fluids.jpg",
-    ar: { title: "سوائل وإضافات", subtitle: "عناية متقدمة لمحرك سيارتك" },
-    en: { title: "Fluids & Additives", subtitle: "Advanced care for your engine" },
-  },
-  {
-    id: "fallback-fresheners",
-    category: "air-fresheners",
-    image: "/categories/air-fresheners.jpg",
-    ar: { title: "معطرات السيارات", subtitle: "أجواء منعشة في كل رحلة" },
-    en: { title: "Air Fresheners", subtitle: "A fresh atmosphere on every trip" },
-  },
-  {
-    id: "fallback-equipment",
-    category: "equipment",
-    image: "/categories/equipment-tools.jpg",
-    ar: { title: "معدات وأدوات", subtitle: "كل ما تحتاجه جاهز للاستخدام" },
-    en: { title: "Equipment & Tools", subtitle: "Everything you need, ready to work" },
-  },
-];
-
-const FALLBACK_PRODUCTS: BackdropProduct[] = [
-  {
-    id: "backdrop-accessories",
-    image: "/products/accessories/1.jpeg",
-    category: "cars-accessories",
-    name: { ar: "إكسسوارات سيارات", en: "Car accessories" },
-  },
-  {
-    id: "backdrop-additives",
-    image: "/products/additives-fluids/1.jpg",
-    category: "additives-fluids",
-    name: { ar: "إضافات المحرك", en: "Engine additives" },
-  },
-  {
-    id: "backdrop-freshener",
-    image: "/products/air-fresheners/1.jpeg",
-    category: "air-fresheners",
-    name: { ar: "معطرات السيارات", en: "Car fresheners" },
-  },
-  {
-    id: "backdrop-lights",
-    image: "/products/cars-lights/1900.jpg",
-    category: "cars-lights",
-    name: { ar: "إضاءة السيارات", en: "Car lights" },
-  },
-  {
-    id: "backdrop-cleaner",
-    image: "/products/detergent/1.jpg",
-    category: "detergent",
-    name: { ar: "منظفات السيارات", en: "Car cleaners" },
-  },
-  {
-    id: "backdrop-equipment",
-    image: "/products/equipment/1.jpg",
-    category: "equipment",
-    name: { ar: "معدات السيارات", en: "Car equipment" },
-  },
-];
 
 const BACKDROP_LAYOUT = [
   { left: "-4%", top: "5%", width: "14rem", rotate: "-15deg" },
@@ -148,10 +48,10 @@ const normalizePhase = (value: number, count: number) => {
   return ((value % count) + count) % count;
 };
 
-export default function OrbitLandingHero({ lang }: Props) {
+export default function OrbitLandingHero({ lang, initialShowcase }: Props) {
   const isAr = lang === "ar";
-  const [categories, setCategories] = useState(FALLBACK_CATEGORIES);
-  const [products, setProducts] = useState(FALLBACK_PRODUCTS);
+  const [categories, setCategories] = useState(initialShowcase.categories);
+  const [products, setProducts] = useState(initialShowcase.products);
   const [activeIndex, setActiveIndex] = useState(0);
   const activeIndexRef = useRef(0);
   const stageRef = useRef<HTMLElement | null>(null);
@@ -175,61 +75,45 @@ export default function OrbitLandingHero({ lang }: Props) {
   const reducedMotionRef = useRef(false);
 
   const visibleProducts = useMemo(() => {
-    const source = products.length ? products : FALLBACK_PRODUCTS;
-    const layoutCount = products === FALLBACK_PRODUCTS ? 8 : BACKDROP_LAYOUT.length;
-    return BACKDROP_LAYOUT.slice(0, layoutCount).map(
-      (_, index) => source[index % source.length]
+    if (!products.length) return [];
+
+    return BACKDROP_LAYOUT.map(
+      (_, index) => products[index % products.length]
     );
   }, [products]);
 
   useEffect(() => {
+    if (categories.length >= 3) return;
+
     let cancelled = false;
-    let loadTimer: number | null = null;
 
-    const loadShowcase = () => {
-      fetch("/api/landing-showcase", { cache: "no-store" })
-        .then((response) => {
-          if (!response.ok) throw new Error("Landing showcase request failed");
-          return response.json() as Promise<LandingShowcaseResponse>;
-        })
-        .then((payload) => {
-          if (cancelled) return;
+    fetch("/api/landing-showcase", { cache: "no-store" })
+      .then((response) => {
+        if (!response.ok) throw new Error("Landing showcase request failed");
+        return response.json() as Promise<LandingShowcase>;
+      })
+      .then((payload) => {
+        if (cancelled) return;
 
-          if (
-            Array.isArray(payload.categories) &&
-            payload.categories.length >= 3
-          ) {
-            setCategories(payload.categories.slice(0, 7));
-            phaseRef.current = 0;
-            activeIndexRef.current = 0;
-            setActiveIndex(0);
-          }
+        if (payload.categories.length >= 3) {
+          setCategories(payload.categories.slice(0, 7));
+          phaseRef.current = 0;
+          activeIndexRef.current = 0;
+          setActiveIndex(0);
+        }
 
-          if (Array.isArray(payload.products) && payload.products.length) {
-            setProducts(payload.products.slice(0, BACKDROP_LAYOUT.length));
-          }
-        })
-        .catch(() => {
-          // The local fallback keeps the hero complete if the catalog is unavailable.
-        });
-    };
-
-    const scheduleShowcase = () => {
-      loadTimer = window.setTimeout(loadShowcase, 700);
-    };
-
-    if (document.readyState === "complete") {
-      scheduleShowcase();
-    } else {
-      window.addEventListener("load", scheduleShowcase, { once: true });
-    }
+        if (payload.products.length) {
+          setProducts(payload.products.slice(0, BACKDROP_LAYOUT.length));
+        }
+      })
+      .catch(() => {
+        // Keep the stable red canvas if both server loading and the retry fail.
+      });
 
     return () => {
       cancelled = true;
-      window.removeEventListener("load", scheduleShowcase);
-      if (loadTimer !== null) window.clearTimeout(loadTimer);
     };
-  }, []);
+  }, [categories.length]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
