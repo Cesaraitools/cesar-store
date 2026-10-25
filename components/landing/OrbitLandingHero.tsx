@@ -417,7 +417,7 @@ export default function OrbitLandingHero({ lang }: Props) {
   return (
     <section
       ref={stageRef}
-      className="orbit-hero relative isolate h-[calc(100svh-4.5rem)] min-h-[620px] max-h-[720px] w-full touch-pan-y overflow-hidden bg-[#f7f4ec] text-slate-950 md:h-[calc(100svh-5rem)] md:min-h-[640px] md:max-h-[780px]"
+      className="orbit-hero relative isolate h-[calc(100svh-4.5rem)] min-h-[620px] max-h-[720px] w-full touch-pan-y overflow-hidden bg-[#650d15] text-white md:h-[calc(100svh-5rem)] md:min-h-[640px] md:max-h-[780px]"
       dir={isAr ? "rtl" : "ltr"}
       aria-roledescription={isAr ? "عرض دائري للأقسام" : "Category orbit carousel"}
       aria-label={isAr ? "أقسام متجر سيزر" : "Cesar Store categories"}
@@ -464,17 +464,17 @@ export default function OrbitLandingHero({ lang }: Props) {
         })}
       </div>
 
-      <div className="pointer-events-none absolute inset-0 z-[1] bg-white/[0.46]" aria-hidden="true" />
+      <div className="pointer-events-none absolute inset-0 z-[1] bg-[#3f070c]/[0.22]" aria-hidden="true" />
 
       <div className="relative z-10 mx-auto flex max-w-7xl flex-col items-center px-4 pt-10 text-center sm:px-6 md:pt-14">
         <div className="pointer-events-none max-w-3xl">
-          <p className="mb-3 text-xs font-black uppercase tracking-[0.28em] text-blue-700 md:text-sm">
+          <p className="mb-3 text-xs font-black uppercase tracking-[0.28em] text-white/80 drop-shadow-md md:text-sm">
             {isAr ? "اكتشف عالم سيزر" : "Discover Cesar World"}
           </p>
-          <h1 className="text-4xl font-black leading-[1.08] tracking-tight text-slate-950 md:text-6xl lg:text-7xl">
+          <h1 className="text-4xl font-black leading-[1.08] tracking-tight text-white drop-shadow-[0_4px_18px_rgba(0,0,0,0.45)] md:text-6xl lg:text-7xl">
             {isAr ? "حرّك المؤشر واكتشف ما يناسب سيارتك" : "Move, explore, and elevate your car"}
           </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-sm font-bold leading-7 text-slate-600 md:text-lg">
+          <p className="mx-auto mt-4 max-w-2xl text-sm font-bold leading-7 text-white/85 drop-shadow-md md:text-lg">
             {isAr
               ? "حرّك الفأرة يمينًا أو يسارًا، أو اسحب البطاقات لاكتشاف أقسام المتجر."
               : "Move your pointer left or right, or drag the cards to explore the store."}
