@@ -284,7 +284,7 @@ export default function OrbitLandingHero({ lang, initialShowcase }: Props) {
       }}
     >
       <div
-        className="pointer-events-none absolute inset-0 z-0 overflow-hidden bg-[#dff7fa]"
+        className="pointer-events-none absolute inset-x-0 bottom-36 top-0 z-0 overflow-hidden bg-[#dff7fa] md:bottom-40"
         style={{ borderRadius: "0 0 50% 50% / 0 0 10% 10%" }}
         aria-hidden="true"
       >
@@ -369,7 +369,7 @@ export default function OrbitLandingHero({ lang, initialShowcase }: Props) {
         </div>
       </div>
 
-      <div className="absolute inset-x-5 bottom-5 z-30 mx-auto flex max-w-4xl items-center justify-center gap-3 rounded-[2rem] border border-white bg-white/95 px-5 py-4 shadow-[0_22px_70px_rgba(15,23,42,0.18)] md:bottom-7">
+      <div className="absolute inset-x-5 bottom-2 z-30 mx-auto flex max-w-4xl items-center justify-center gap-3 rounded-[2rem] border border-slate-100 bg-white px-5 py-4 shadow-[0_18px_55px_rgba(15,23,42,0.14)] md:bottom-3">
         <button
           type="button"
           onPointerDown={(event) => event.stopPropagation()}
