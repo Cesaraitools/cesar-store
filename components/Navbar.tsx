@@ -159,17 +159,17 @@ export default function Navbar() {
         <Link
           href={homeHref}
           prefetch={false}
-          className="flex shrink-0 items-center gap-2 rounded-[1.35rem] border border-rose-200 bg-rose-50 px-2.5 py-2 shadow-sm transition-all hover:-translate-y-0.5 hover:border-rose-300 hover:bg-rose-100 hover:shadow-md active:scale-95 md:gap-3 md:px-4"
+          className="flex shrink-0 items-center gap-2 transition-all hover:opacity-80 active:scale-95 md:gap-3"
         >
           <Image
-            src="/icon-192.png"
+            src="/cesar-logo-nav.png"
             alt="Cesar Store Logo"
             width={56}
             height={56}
             priority
-            className="h-11 w-11 object-contain drop-shadow-sm md:h-14 md:w-14"
+            className="h-12 w-12 object-contain md:h-16 md:w-16"
           />
-          <span className="hidden text-base font-black tracking-tight text-rose-950 min-[390px]:inline sm:text-lg md:text-2xl">
+          <span className="hidden text-base font-black tracking-tight text-slate-950 min-[390px]:inline sm:text-lg md:text-2xl">
             {isAr ? "متجر سيزر" : "CESAR STORE"}
           </span>
         </Link>

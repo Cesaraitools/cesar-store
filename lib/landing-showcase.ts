@@ -11,14 +11,6 @@ export type LandingOrbitCategory = {
   en: LandingLocalizedCopy;
 };
 
-export type LandingBackdropProduct = {
-  id: string;
-  image: string;
-  category: string;
-  name: { ar: string; en: string };
-};
-
 export type LandingShowcase = {
   categories: LandingOrbitCategory[];
-  products: LandingBackdropProduct[];
 };

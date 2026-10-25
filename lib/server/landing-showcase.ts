@@ -1,5 +1,4 @@
 import { unstable_noStore as noStore } from "next/cache";
-import { normalizeImagesArray } from "@/lib/image-normalizer";
 import type { LandingShowcase } from "@/lib/landing-showcase";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
 
@@ -13,48 +12,18 @@ function normalizeLocalizedContent(value: unknown) {
   };
 }
 
-function normalizeCategoryKey(value: unknown) {
-  const key = String(value ?? "")
-    .trim()
-    .toLocaleLowerCase("en")
-    .replace(/[\s_-]+/g, "");
-
-  if (key === "accessories" || key === "carsaccessories") {
-    return "carsaccessories";
-  }
-
-  return key;
-}
-
-function isOffersCategory(value: unknown) {
-  const key = String(value ?? "").toLocaleLowerCase("en");
-  return /offer|discount|promo|sale|عرض|تخفيض/.test(key);
-}
-
 export async function getLandingShowcase(): Promise<LandingShowcase> {
   noStore();
   const supabase = createServiceRoleClient();
 
-  const [categoriesResult, productsResult] = await Promise.all([
-    supabase
-      .from("categories")
-      .select("id, category, image, ar, en, order")
-      .eq("active", true)
-      .order("order", { ascending: true })
-      .limit(7),
-    supabase
-      .from("products")
-      .select(
-        "id, name_ar, name_en, image_url, images_json, category, created_at"
-      )
-      .eq("is_active", true)
-      .gt("stock", 0)
-      .order("created_at", { ascending: false })
-      .limit(120),
-  ]);
+  const categoriesResult = await supabase
+    .from("categories")
+    .select("id, category, image, ar, en, order")
+    .eq("active", true)
+    .order("order", { ascending: true })
+    .limit(7);
 
   if (categoriesResult.error) throw categoriesResult.error;
-  if (productsResult.error) throw productsResult.error;
 
   const categories = (categoriesResult.data || [])
     .map((category) => ({
@@ -72,40 +41,5 @@ export async function getLandingShowcase(): Promise<LandingShowcase> {
         category.en.title
     );
 
-  const productPool = (productsResult.data || []).flatMap((product) => {
-    const images = normalizeImagesArray(
-      Array.isArray(product.images_json) && product.images_json.length
-        ? product.images_json
-        : product.image_url
-        ? [product.image_url]
-        : []
-    );
-
-    if (!images[0]) return [];
-
-    return [
-      {
-        id: String(product.id),
-        image: images[0],
-        category: String(product.category || ""),
-        name: {
-          ar: String(product.name_ar || ""),
-          en: String(product.name_en || product.name_ar || ""),
-        },
-      },
-    ];
-  });
-
-  const products = categories.flatMap((category) => {
-    const categoryKey = normalizeCategoryKey(category.category);
-    const limit = isOffersCategory(category.category) ? 1 : 3;
-
-    return productPool
-      .filter(
-        (product) => normalizeCategoryKey(product.category) === categoryKey
-      )
-      .slice(0, limit);
-  });
-
-  return { categories, products };
+  return { categories };
 }

@@ -6,7 +6,6 @@ import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
@@ -17,28 +16,6 @@ type Props = {
   lang: "ar" | "en";
   initialShowcase: LandingShowcase;
 };
-
-const BACKDROP_LAYOUT = [
-  { left: "-4%", top: "5%", width: "14rem", rotate: "-15deg" },
-  { left: "7%", top: "-10%", width: "11rem", rotate: "9deg" },
-  { left: "19%", top: "12%", width: "9rem", rotate: "-6deg" },
-  { left: "31%", top: "-8%", width: "12rem", rotate: "13deg" },
-  { left: "44%", top: "6%", width: "9rem", rotate: "-10deg" },
-  { right: "34%", top: "-12%", width: "12rem", rotate: "11deg" },
-  { right: "22%", top: "10%", width: "10rem", rotate: "-8deg" },
-  { right: "10%", top: "-8%", width: "12rem", rotate: "14deg" },
-  { right: "-3%", top: "12%", width: "14rem", rotate: "-14deg" },
-  { left: "-5%", bottom: "4%", width: "13rem", rotate: "11deg" },
-  { left: "9%", bottom: "-8%", width: "11rem", rotate: "-13deg" },
-  { left: "22%", bottom: "8%", width: "9rem", rotate: "8deg" },
-  { left: "35%", bottom: "-10%", width: "12rem", rotate: "-6deg" },
-  { right: "38%", bottom: "6%", width: "10rem", rotate: "12deg" },
-  { right: "27%", bottom: "-10%", width: "12rem", rotate: "6deg" },
-  { right: "15%", bottom: "8%", width: "10rem", rotate: "-9deg" },
-  { right: "3%", bottom: "-8%", width: "13rem", rotate: "14deg" },
-  { left: "45%", top: "22%", width: "8rem", rotate: "6deg" },
-  { right: "44%", bottom: "15%", width: "8rem", rotate: "-4deg" },
-] as const;
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
@@ -51,12 +28,9 @@ const normalizePhase = (value: number, count: number) => {
 export default function OrbitLandingHero({ lang, initialShowcase }: Props) {
   const isAr = lang === "ar";
   const [categories, setCategories] = useState(initialShowcase.categories);
-  const [products, setProducts] = useState(initialShowcase.products);
   const [activeIndex, setActiveIndex] = useState(0);
   const activeIndexRef = useRef(0);
   const stageRef = useRef<HTMLElement | null>(null);
-  const stageBoundsRef = useRef<DOMRect | null>(null);
-  const spotlightRef = useRef<HTMLDivElement | null>(null);
   const cardRefs = useRef<Array<HTMLAnchorElement | null>>([]);
   const phaseRef = useRef(0);
   const velocityRef = useRef(0);
@@ -73,14 +47,6 @@ export default function OrbitLandingHero({ lang, initialShowcase }: Props) {
   const dragCapturedRef = useRef(false);
   const hoveredCardRef = useRef(false);
   const reducedMotionRef = useRef(false);
-
-  const visibleProducts = useMemo(() => {
-    if (!products.length) return [];
-
-    return BACKDROP_LAYOUT.map(
-      (_, index) => products[index % products.length]
-    );
-  }, [products]);
 
   useEffect(() => {
     if (categories.length >= 3) return;
@@ -102,12 +68,9 @@ export default function OrbitLandingHero({ lang, initialShowcase }: Props) {
           setActiveIndex(0);
         }
 
-        if (payload.products.length) {
-          setProducts(payload.products.slice(0, BACKDROP_LAYOUT.length));
-        }
       })
       .catch(() => {
-        // Keep the stable red canvas if both server loading and the retry fail.
+        // Keep the server-rendered category set if the retry fails.
       });
 
     return () => {
@@ -218,20 +181,6 @@ export default function OrbitLandingHero({ lang, initialShowcase }: Props) {
   const handlePointerMove = (event: ReactPointerEvent<HTMLElement>) => {
     const now = performance.now();
 
-    if (event.pointerType === "mouse" && spotlightRef.current) {
-      const stageBounds =
-        stageBoundsRef.current ?? event.currentTarget.getBoundingClientRect();
-      stageBoundsRef.current = stageBounds;
-      spotlightRef.current.style.setProperty(
-        "--orbit-spotlight-x",
-        `${event.clientX - stageBounds.left}px`
-      );
-      spotlightRef.current.style.setProperty(
-        "--orbit-spotlight-y",
-        `${event.clientY - stageBounds.top}px`
-      );
-    }
-
     if (draggingRef.current) {
       const distance = event.clientX - dragStartXRef.current;
       if (Math.abs(distance) > 8) {
@@ -317,65 +266,31 @@ export default function OrbitLandingHero({ lang, initialShowcase }: Props) {
   return (
     <section
       ref={stageRef}
-      className="orbit-hero relative isolate h-[calc(100svh-4.5rem)] min-h-[620px] max-h-[720px] w-full touch-pan-y overflow-hidden bg-[#eef8f3] bg-cover bg-center bg-no-repeat text-slate-950 md:h-[calc(100svh-5rem)] md:min-h-[640px] md:max-h-[780px]"
-      style={{ backgroundImage: "url('/landing/orbit-background.webp')" }}
+      className="orbit-hero relative isolate h-[calc(100svh-4.5rem)] min-h-[620px] max-h-[720px] w-full touch-pan-y overflow-hidden bg-[#dff7fa] text-slate-950 md:h-[calc(100svh-5rem)] md:min-h-[640px] md:max-h-[780px]"
       dir={isAr ? "rtl" : "ltr"}
       aria-roledescription={isAr ? "عرض دائري للأقسام" : "Category orbit carousel"}
       aria-label={isAr ? "أقسام متجر سيزر" : "Cesar Store categories"}
-      onPointerEnter={(event) => {
-        if (event.pointerType === "mouse") {
-          stageBoundsRef.current = event.currentTarget.getBoundingClientRect();
-        }
-      }}
       onPointerMove={handlePointerMove}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
       onPointerLeave={() => {
-        stageBoundsRef.current = null;
         lastPointerXRef.current = null;
         targetVelocityRef.current = 0;
-        spotlightRef.current?.style.setProperty("--orbit-spotlight-x", "-999px");
-        spotlightRef.current?.style.setProperty("--orbit-spotlight-y", "-999px");
         if (!dragCapturedRef.current) {
           draggingRef.current = false;
           dragPointerIdRef.current = null;
         }
       }}
     >
-      <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden" aria-hidden="true">
-        {visibleProducts.map((product, index) => {
-          const layout = BACKDROP_LAYOUT[index];
-          return (
-            <div
-              key={`${product.id}-${index}`}
-              className="orbit-product-backdrop absolute aspect-[4/5] overflow-hidden rounded-[1.6rem] border border-white/80 bg-white shadow-[0_28px_70px_rgba(15,23,42,0.16)]"
-              style={{
-                left: "left" in layout ? layout.left : undefined,
-                right: "right" in layout ? layout.right : undefined,
-                top: "top" in layout ? layout.top : undefined,
-                bottom: "bottom" in layout ? layout.bottom : undefined,
-                width: layout.width,
-                transform: `rotate(${layout.rotate})`,
-              }}
-            >
-              <Image
-                src={product.image || "/placeholder.png"}
-                alt=""
-                fill
-                sizes="(max-width: 768px) 28vw, 15vw"
-                loading="lazy"
-                fetchPriority="low"
-                className="object-cover"
-              />
-            </div>
-          );
-        })}
-      </div>
-
-      <div
-        ref={spotlightRef}
-        className="orbit-spotlight-dimmer pointer-events-none absolute inset-0 z-[1]"
+      <Image
+        src="/slides/hero.jpg"
+        alt=""
+        fill
+        priority
+        unoptimized
+        sizes="100vw"
+        className="pointer-events-none absolute inset-0 z-0 select-none object-contain object-center"
         aria-hidden="true"
       />
 
@@ -449,13 +364,7 @@ export default function OrbitLandingHero({ lang, initialShowcase }: Props) {
         </div>
       </div>
 
-      <div
-        className="absolute inset-x-[-12%] bottom-[-20rem] z-20 h-[28rem] border-t border-slate-200 bg-white shadow-[0_-28px_80px_rgba(15,23,42,0.12)] md:bottom-[-19rem] md:h-[29rem]"
-        style={{ borderRadius: "50% 50% 0 0 / 24% 24% 0 0" }}
-        aria-hidden="true"
-      />
-
-      <div className="absolute inset-x-0 bottom-7 z-30 mx-auto flex max-w-4xl items-center justify-center gap-3 px-5 md:bottom-10">
+      <div className="absolute inset-x-5 bottom-5 z-30 mx-auto flex max-w-4xl items-center justify-center gap-3 rounded-[2rem] border border-white bg-white/95 px-5 py-4 shadow-[0_22px_70px_rgba(15,23,42,0.18)] md:bottom-7">
         <button
           type="button"
           onPointerDown={(event) => event.stopPropagation()}

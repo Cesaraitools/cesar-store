@@ -5,7 +5,7 @@ import { getLandingShowcase } from "@/lib/server/landing-showcase";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const EMPTY_SHOWCASE: LandingShowcase = { categories: [], products: [] };
+const EMPTY_SHOWCASE: LandingShowcase = { categories: [] };
 
 export default async function LandingPage() {
   let initialShowcase = EMPTY_SHOWCASE;
