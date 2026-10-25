@@ -48,7 +48,7 @@ body {
   --orbit-spotlight-x: -999px;
   --orbit-spotlight-y: -999px;
   --orbit-spotlight-radius: 77.5px;
-  background: rgb(63 7 12 / 56%);
+  background: rgb(170 7 33 / 56%);
   -webkit-mask-image: radial-gradient(
     circle var(--orbit-spotlight-radius) at var(--orbit-spotlight-x) var(--orbit-spotlight-y),
     transparent 0,

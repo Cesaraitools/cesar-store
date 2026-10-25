@@ -433,7 +433,7 @@ export default function OrbitLandingHero({ lang }: Props) {
   return (
     <section
       ref={stageRef}
-      className="orbit-hero relative isolate h-[calc(100svh-4.5rem)] min-h-[620px] max-h-[720px] w-full touch-pan-y overflow-hidden bg-[#650d15] text-white md:h-[calc(100svh-5rem)] md:min-h-[640px] md:max-h-[780px]"
+      className="orbit-hero relative isolate h-[calc(100svh-4.5rem)] min-h-[620px] max-h-[720px] w-full touch-pan-y overflow-hidden bg-[#AA0721] text-white md:h-[calc(100svh-5rem)] md:min-h-[640px] md:max-h-[780px]"
       dir={isAr ? "rtl" : "ltr"}
       aria-roledescription={isAr ? "عرض دائري للأقسام" : "Category orbit carousel"}
       aria-label={isAr ? "أقسام متجر سيزر" : "Cesar Store categories"}
@@ -494,22 +494,17 @@ export default function OrbitLandingHero({ lang }: Props) {
         aria-hidden="true"
       />
 
-      <div className="relative z-10 mx-auto flex max-w-7xl flex-col items-center px-4 pt-10 text-center sm:px-6 md:pt-14">
+      <div className="relative z-10 mx-auto flex max-w-7xl flex-col items-center px-4 pt-16 text-center sm:px-6 md:pt-20">
         <div className="pointer-events-none max-w-3xl">
-          <p className="mb-3 text-xs font-black uppercase tracking-[0.28em] text-white/80 drop-shadow-md md:text-sm">
+          <p className="mb-3 text-lg font-black uppercase tracking-[0.22em] text-white/85 drop-shadow-md md:text-2xl">
             {isAr ? "اكتشف عالم سيزر" : "Discover Cesar World"}
           </p>
           <h1 className="text-4xl font-black leading-[1.08] tracking-tight text-white drop-shadow-[0_4px_18px_rgba(0,0,0,0.45)] md:text-6xl lg:text-7xl">
             {isAr ? "حرّك المؤشر واكتشف ما يناسب سيارتك" : "Move, explore, and elevate your car"}
           </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-sm font-bold leading-7 text-white/85 drop-shadow-md md:text-lg">
-            {isAr
-              ? "حرّك الفأرة يمينًا أو يسارًا، أو اسحب البطاقات لاكتشاف أقسام المتجر."
-              : "Move your pointer left or right, or drag the cards to explore the store."}
-          </p>
         </div>
 
-        <div className="relative mt-5 h-[300px] w-full max-w-6xl [perspective:1400px] md:mt-7 md:h-[350px] lg:h-[380px]">
+        <div className="relative mt-8 h-[300px] w-full max-w-6xl [perspective:1400px] md:mt-10 md:h-[350px] lg:h-[380px]">
           {categories.map((category, index) => {
             const copy = category[lang] || category.ar;
             return (
