@@ -329,34 +329,34 @@ export default function LandingPage() {
         ))}
       </section>
 
-      <section className="px-6 pb-24">
-        <div className="mx-auto grid max-w-7xl items-center gap-10 rounded-[2.5rem] border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/50 md:grid-cols-[1.1fr_0.9fr] md:p-12">
-          <div className="space-y-5">
-            <span className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-blue-700">
-              <Store size={16} />
+      <section className="px-6 pb-16">
+        <div className="mx-auto grid max-w-5xl items-center gap-6 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-lg shadow-slate-200/40 md:grid-cols-[1.1fr_0.9fr] md:p-8">
+          <div className="space-y-3">
+            <span className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-blue-700">
+              <Store size={14} />
               {t.wholesaleEyebrow}
             </span>
-            <h2 className="text-3xl font-black leading-tight text-slate-950 md:text-5xl">
+            <h2 className="text-2xl font-black leading-tight text-slate-950 md:text-3xl">
               {t.wholesaleTitle}
             </h2>
-            <p className="max-w-2xl text-base font-semibold leading-8 text-slate-600 md:text-lg">
+            <p className="max-w-2xl text-sm font-semibold leading-7 text-slate-600 md:text-base">
               {t.wholesaleDescription}
             </p>
           </div>
 
-          <div className="grid gap-4">
+          <div className="grid gap-3">
             <Link
               href="/wholesale"
-              className="inline-flex items-center justify-center gap-3 rounded-2xl bg-slate-950 px-6 py-5 text-sm font-black text-white transition hover:bg-blue-700"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-xs font-black text-white transition hover:bg-blue-700"
             >
-              <Store size={20} />
+              <Store size={16} />
               {t.wholesalePrimary}
             </Link>
             <Link
               href="/wholesale/apply"
-              className="inline-flex items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-6 py-5 text-sm font-black text-slate-900 transition hover:border-blue-200 hover:bg-blue-50"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-5 py-3 text-xs font-black text-slate-900 transition hover:border-blue-200 hover:bg-blue-50"
             >
-              <FileCheck2 size={20} />
+              <FileCheck2 size={16} />
               {t.wholesaleSecondary}
             </Link>
           </div>
@@ -364,26 +364,26 @@ export default function LandingPage() {
       </section>
 
       {/* About Section - Minimalist approach */}
-      <section className="py-24 px-6 relative overflow-hidden">
-        <div className="max-w-4xl mx-auto text-center relative z-10">
-          <span className="text-blue-600 font-black text-[20px] uppercase tracking-[0.3em] mb-4 block">
+      <section className="relative overflow-hidden px-6 py-16">
+        <div className="relative z-10 mx-auto max-w-3xl text-center">
+          <span className="mb-3 block text-sm font-black uppercase tracking-[0.24em] text-blue-600 md:text-base">
             {isAr ? "قصتنا" : "OUR STORY"}
           </span>
-          <p className="text-2xl md:text-4xl font-bold text-slate-800 leading-tight tracking-tight">
+          <p className="text-xl font-bold leading-snug tracking-tight text-slate-800 md:text-2xl">
             {t.about}
           </p>
-          <p className="mx-auto mt-6 max-w-3xl text-base font-semibold leading-8 text-slate-500 md:text-lg">
+          <p className="mx-auto mt-4 max-w-2xl text-sm font-semibold leading-7 text-slate-500 md:text-base">
             {t.searchHint}
           </p>
           <Link
             href="/search-guide"
-            className="mt-8 inline-flex rounded-2xl bg-slate-900 px-6 py-3 text-sm font-black text-white transition hover:bg-blue-700"
+            className="mt-6 inline-flex rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-black text-white transition hover:bg-blue-700"
           >
             {isAr ? "دليل البحث عن سيزر" : "Cesar search guide"}
           </Link>
         </div>
         <div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-slate-50/50 font-black text-[15rem] -z-0 select-none"
+          className="absolute left-1/2 top-1/2 -z-0 -translate-x-1/2 -translate-y-1/2 select-none text-[10rem] font-black text-slate-50/50"
           aria-hidden="true"
         >
           CESAR
@@ -391,8 +391,8 @@ export default function LandingPage() {
       </section>
 
       {/* Bottom Banner - High Impact */}
-      <section className="px-6 mb-24">
-        <div className="max-w-7xl mx-auto bg-slate-900 rounded-[3.5rem] py-20 px-10 text-center relative overflow-hidden">
+      <section className="mb-16 px-6">
+        <div className="relative mx-auto max-w-5xl overflow-hidden rounded-[2.5rem] bg-slate-900 px-8 py-12 text-center">
           {/* Decorative Elements */}
           <div
             className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/2"
@@ -403,13 +403,13 @@ export default function LandingPage() {
             aria-hidden="true"
           ></div>
           
-          <div className="relative z-10 space-y-10">
-            <h2 className="text-3xl md:text-5xl font-black text-white max-w-3xl mx-auto leading-tight">
+          <div className="relative z-10 space-y-6">
+            <h2 className="mx-auto max-w-2xl text-2xl font-black leading-tight text-white md:text-3xl">
               {t.banner}
             </h2>
-            <Link href="/shop" className="inline-flex items-center gap-3 bg-white text-slate-900 px-14 py-5 rounded-2xl font-black text-base hover:shadow-[0_0_40px_rgba(255,255,255,0.2)] transition-all hover:-translate-y-1">
+            <Link href="/shop" className="inline-flex items-center gap-2 rounded-xl bg-white px-8 py-3 text-sm font-black text-slate-900 transition-all hover:-translate-y-0.5 hover:shadow-[0_0_32px_rgba(255,255,255,0.18)]">
               {isAr ? "ابدأ التسوق الآن" : "Start Shopping Now"}
-              {isAr ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
+              {isAr ? <ChevronLeft size={17} /> : <ChevronRight size={17} />}
             </Link>
           </div>
         </div>

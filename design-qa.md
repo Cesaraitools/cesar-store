@@ -62,14 +62,23 @@ The orbit and curved base were inspected separately at the top and bottom of the
 - Performance guardrail: Catalog loading starts after `window.load` plus 700ms; background images use lazy loading with low fetch priority; CSS hides cards 8-19 on mobile and 13-19 on tablet.
 - Post-fix evidence: `orbit-desktop-products-19.png` shows the complete scattered background; `orbit-mobile-products-7.png` confirms the responsive density limit and accessible controls.
 
+### Iteration 4
+
+- Source visual truth: `C:\Users\AHMEDA~1\AppData\Local\Temp\codex-clipboard-a40178e0-895e-4b74-835d-e4e93773232f.png`.
+- Finding [P2]: The wholesale card, story block, and closing CTA banner were visually oversized compared with the compact landing-page header.
+- Fix: Reduced each section's maximum width, padding, vertical spacing, heading/body scale, button size, corner radius, and decorative text scale while preserving the existing content, links, colors, hierarchy, and responsive behavior.
+- Post-fix evidence: Browser-rendered comparison is unavailable because the owner explicitly requested that Cesar Store browser testing remain user-operated.
+
 ## Residual test gap
 
-- No remaining responsive-layout blocker was found in the tested 390 x 844 mobile viewport. Physical touch-device testing remains an owner acceptance step, not a code blocker.
+- The earlier Orbit desktop/mobile evidence remains valid for the hero itself.
+- The three newly rescaled lower-page regions have not received a rendered comparison because browser testing is explicitly reserved for the owner.
 
 ## Findings
 
 - No remaining actionable desktop P0/P1/P2 findings.
 - No remaining actionable desktop or mobile P0/P1/P2 finding in the implemented hero.
+- Visual acceptance of the lower-page scale correction is pending owner review on the deployed page.
 
 ## Implementation checklist
 
@@ -84,4 +93,6 @@ The orbit and curved base were inspected separately at the top and bottom of the
 
 - Consider adjusting individual live catalog image focal points if the owner prefers different crops after reviewing real mobile screenshots.
 
-final result: pass
+final result: blocked
+
+Blocker: Post-change browser comparison for Iteration 4 was intentionally not run, following the owner's instruction not to control a browser for Cesar Store testing.
