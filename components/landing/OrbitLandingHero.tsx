@@ -266,7 +266,7 @@ export default function OrbitLandingHero({ lang, initialShowcase }: Props) {
   return (
     <section
       ref={stageRef}
-      className="orbit-hero relative isolate h-[calc(100svh-4.5rem)] min-h-[620px] max-h-[720px] w-full touch-pan-y overflow-hidden bg-[#dff7fa] text-slate-950 md:h-[calc(100svh-5rem)] md:min-h-[640px] md:max-h-[780px]"
+      className="orbit-hero relative isolate h-[calc(100svh-4.5rem)] min-h-[620px] max-h-[720px] w-full touch-pan-y overflow-hidden bg-white text-slate-950 md:h-[calc(100svh-5rem)] md:min-h-[640px] md:max-h-[780px]"
       dir={isAr ? "rtl" : "ltr"}
       aria-roledescription={isAr ? "عرض دائري للأقسام" : "Category orbit carousel"}
       aria-label={isAr ? "أقسام متجر سيزر" : "Cesar Store categories"}
@@ -283,16 +283,21 @@ export default function OrbitLandingHero({ lang, initialShowcase }: Props) {
         }
       }}
     >
-      <Image
-        src="/slides/hero.jpg"
-        alt=""
-        fill
-        priority
-        unoptimized
-        sizes="100vw"
-        className="pointer-events-none absolute inset-0 z-0 select-none object-contain object-center"
+      <div
+        className="pointer-events-none absolute inset-0 z-0 overflow-hidden bg-[#dff7fa]"
+        style={{ borderRadius: "0 0 50% 50% / 0 0 10% 10%" }}
         aria-hidden="true"
-      />
+      >
+        <Image
+          src="/slides/hero.jpg"
+          alt=""
+          fill
+          priority
+          unoptimized
+          sizes="100vw"
+          className="select-none object-contain object-center"
+        />
+      </div>
 
       <div className="relative z-10 mx-auto flex max-w-7xl flex-col items-center px-4 pt-16 text-center sm:px-6 md:pt-20">
         <div className="pointer-events-none max-w-3xl">
