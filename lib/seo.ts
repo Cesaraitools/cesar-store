@@ -118,7 +118,7 @@ export const WHOLESALE_WHATSAPP_NUMBER =
 export const WHOLESALE_WHATSAPP_URL = `https://wa.me/${WHOLESALE_WHATSAPP_NUMBER}`;
 
 export const SOCIAL_PROFILES = {
-  facebook: "https://www.facebook.com/share/18xg7Rwgfu/",
+  facebook: "https://www.facebook.com/profile.php?id=1280670305123141",
   instagram: "https://www.instagram.com/cesarstore3652026/",
   tiktok: "https://www.tiktok.com/@cesarstore365",
   youtube: "",
