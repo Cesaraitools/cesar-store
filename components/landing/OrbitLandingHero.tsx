@@ -155,6 +155,8 @@ export default function OrbitLandingHero({ lang }: Props) {
   const [activeIndex, setActiveIndex] = useState(0);
   const activeIndexRef = useRef(0);
   const stageRef = useRef<HTMLElement | null>(null);
+  const stageBoundsRef = useRef<DOMRect | null>(null);
+  const spotlightRef = useRef<HTMLDivElement | null>(null);
   const cardRefs = useRef<Array<HTMLAnchorElement | null>>([]);
   const phaseRef = useRef(0);
   const velocityRef = useRef(0);
@@ -332,6 +334,20 @@ export default function OrbitLandingHero({ lang }: Props) {
   const handlePointerMove = (event: ReactPointerEvent<HTMLElement>) => {
     const now = performance.now();
 
+    if (event.pointerType === "mouse" && spotlightRef.current) {
+      const stageBounds =
+        stageBoundsRef.current ?? event.currentTarget.getBoundingClientRect();
+      stageBoundsRef.current = stageBounds;
+      spotlightRef.current.style.setProperty(
+        "--orbit-spotlight-x",
+        `${event.clientX - stageBounds.left}px`
+      );
+      spotlightRef.current.style.setProperty(
+        "--orbit-spotlight-y",
+        `${event.clientY - stageBounds.top}px`
+      );
+    }
+
     if (draggingRef.current) {
       const distance = event.clientX - dragStartXRef.current;
       if (Math.abs(distance) > 8) {
@@ -421,13 +437,21 @@ export default function OrbitLandingHero({ lang }: Props) {
       dir={isAr ? "rtl" : "ltr"}
       aria-roledescription={isAr ? "عرض دائري للأقسام" : "Category orbit carousel"}
       aria-label={isAr ? "أقسام متجر سيزر" : "Cesar Store categories"}
+      onPointerEnter={(event) => {
+        if (event.pointerType === "mouse") {
+          stageBoundsRef.current = event.currentTarget.getBoundingClientRect();
+        }
+      }}
       onPointerMove={handlePointerMove}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
       onPointerLeave={() => {
+        stageBoundsRef.current = null;
         lastPointerXRef.current = null;
         targetVelocityRef.current = 0;
+        spotlightRef.current?.style.setProperty("--orbit-spotlight-x", "-999px");
+        spotlightRef.current?.style.setProperty("--orbit-spotlight-y", "-999px");
         if (!dragCapturedRef.current) {
           draggingRef.current = false;
           dragPointerIdRef.current = null;
@@ -464,7 +488,11 @@ export default function OrbitLandingHero({ lang }: Props) {
         })}
       </div>
 
-      <div className="pointer-events-none absolute inset-0 z-[1] bg-[#3f070c]/[0.22]" aria-hidden="true" />
+      <div
+        ref={spotlightRef}
+        className="orbit-spotlight-dimmer pointer-events-none absolute inset-0 z-[1]"
+        aria-hidden="true"
+      />
 
       <div className="relative z-10 mx-auto flex max-w-7xl flex-col items-center px-4 pt-10 text-center sm:px-6 md:pt-14">
         <div className="pointer-events-none max-w-3xl">
