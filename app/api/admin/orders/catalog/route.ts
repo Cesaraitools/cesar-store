@@ -20,6 +20,7 @@ export async function GET() {
       .select(
         "id, name_ar, name_en, price, image_url, images_json, stock, is_active, variant_options_json, variants_json"
       )
+      .is("deleted_at", null)
       .order("name_ar", { ascending: true });
 
     if (error) throw error;

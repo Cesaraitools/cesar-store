@@ -74,6 +74,7 @@ export async function GET() {
     const { data, error } = await supabase
       .from("products")
       .select("*")
+      .is("deleted_at", null)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -127,7 +128,8 @@ export async function POST(request: Request) {
 
     const { data: existingProducts, error: existingProductsError } = await supabase
       .from("products")
-      .select("name_ar, category");
+      .select("name_ar, category")
+      .is("deleted_at", null);
 
     if (existingProductsError) {
       throw existingProductsError;
@@ -324,6 +326,29 @@ export async function DELETE(request: Request) {
       .delete()
       .eq("id", id);
 
+    if (deleteError?.code === "23503") {
+      const deletedAt = new Date().toISOString();
+      const { error: archiveError } = await supabase
+        .from("products")
+        .update({
+          is_active: false,
+          stock: 0,
+          deleted_at: deletedAt,
+          updated_at: deletedAt,
+        })
+        .eq("id", id);
+
+      if (archiveError) {
+        throw archiveError;
+      }
+
+      return Response.json({
+        message: "Product removed from catalog; historical order data was preserved",
+        mode: "archived",
+        deletedImages: 0,
+      });
+    }
+
     if (deleteError) {
       throw deleteError;
     }
@@ -332,6 +357,7 @@ export async function DELETE(request: Request) {
 
     return Response.json({
       message: "Product deleted safely",
+      mode: "deleted",
       deletedImages: cleanup.deletedPaths.length,
     });
   } catch (error) {

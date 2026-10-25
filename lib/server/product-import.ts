@@ -215,7 +215,8 @@ export async function createProductImportJob(input: {
 
   const { data: existingProducts, error: existingProductsError } = await supabase
     .from("products")
-    .select("name_ar, category");
+    .select("name_ar, category")
+    .is("deleted_at", null);
 
   if (existingProductsError) {
     throw existingProductsError;

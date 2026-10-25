@@ -86,6 +86,7 @@ export async function getActiveProducts(limit = 1000) {
   const { data, error } = await supabase
     .from("products")
     .select("*")
+    .is("deleted_at", null)
     .eq("is_active", true)
     .gt("stock", 0)
     .order("updated_at", { ascending: false })
@@ -103,6 +104,7 @@ export async function getActiveProductById(id: string) {
     .from("products")
     .select("*")
     .eq("id", id)
+    .is("deleted_at", null)
     .eq("is_active", true)
     .gt("stock", 0)
     .single();

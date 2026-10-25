@@ -20,6 +20,7 @@ export async function GET(
   .from("products")
   .select("*")
   .eq("id", params.id)
+  .is("deleted_at", null)
   .eq("is_active", true)
   .gt("stock", 0)
   .single();

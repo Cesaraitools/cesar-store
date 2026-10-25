@@ -332,7 +332,8 @@ async function hydratePromosWithProducts(promos: PromoData[]) {
   const { data: productRows, error: productsError } = await supabase
     .from("products")
     .select("*")
-    .in("id", selectedIds);
+    .in("id", selectedIds)
+    .is("deleted_at", null);
 
   if (productsError) {
     throw productsError;

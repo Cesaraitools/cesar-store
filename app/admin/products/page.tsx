@@ -83,6 +83,21 @@ async function processImportJob(jobId: string) {
   return payload.job as ProductImportJobSnapshot;
 }
 
+async function requestProductDeletion(id: string) {
+  const response = await fetch("/api/products", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id }),
+  });
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(payload?.error || "تعذر حذف المنتج");
+  }
+
+  return payload as { mode?: "deleted" | "archived" };
+}
+
 function hasProductVariants(product: Product) {
   return Boolean(product.variantOptions?.length && product.variants?.length);
 }
@@ -103,6 +118,10 @@ export default function AdminProductsPage() {
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -142,22 +161,32 @@ export default function AdminProductsPage() {
 
   async function handleBulkDelete() {
     if (!selectedIds.length) return;
-    if (!confirm(`هل أنت متأكد من حذف ${selectedIds.length} منتج؟ لا يمكن التراجع عن هذا الإجراء.`)) return;
+    if (!confirm(`هل أنت متأكد من حذف ${selectedIds.length} منتج؟ سيتم الاحتفاظ بسجلات الطلبات السابقة.`)) return;
 
-    try {
-      for (const id of selectedIds) {
-        await fetch("/api/products", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id }),
-        });
+    const removedIds: string[] = [];
+    let archivedCount = 0;
+
+    for (const id of selectedIds) {
+      try {
+        const result = await requestProductDeletion(id);
+        removedIds.push(id);
+        if (result.mode === "archived") archivedCount += 1;
+      } catch (deleteError) {
+        console.error("Bulk delete failed", deleteError);
       }
-
-      setProducts((prev) => prev.filter((product) => !selectedIds.includes(product.id)));
-      setSelectedIds([]);
-    } catch (deleteError) {
-      console.error("Bulk delete failed", deleteError);
     }
+
+    setProducts((prev) => prev.filter((product) => !removedIds.includes(product.id)));
+    setSelectedIds((prev) => prev.filter((id) => !removedIds.includes(id)));
+    setActionFeedback({
+      type: removedIds.length === selectedIds.length ? "success" : "error",
+      message:
+        removedIds.length === selectedIds.length
+          ? `تم حذف ${removedIds.length} منتج من المتجر${
+              archivedCount ? ` مع حفظ بيانات ${archivedCount} منها داخل الطلبات السابقة` : ""
+            }.`
+          : `تم حذف ${removedIds.length} من ${selectedIds.length} منتج. تعذر حذف الباقي، حاول مرة أخرى.`,
+    });
   }
 
   async function fetchProducts(isInitial = false) {
@@ -208,14 +237,25 @@ export default function AdminProductsPage() {
 
     try {
       setDeletingId(id);
-      const response = await fetch("/api/products", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
-      });
-
-      if (!response.ok) throw new Error();
+      setActionFeedback(null);
+      const result = await requestProductDeletion(id);
       setProducts((prev) => prev.filter((product) => product.id !== id));
+      setActionFeedback({
+        type: "success",
+        message:
+          result.mode === "archived"
+            ? "تم حذف المنتج من المتجر مع الاحتفاظ به داخل الطلبات والفواتير السابقة."
+            : "تم حذف المنتج بنجاح.",
+      });
+    } catch (deleteError) {
+      console.error("Product delete failed", deleteError);
+      setActionFeedback({
+        type: "error",
+        message:
+          deleteError instanceof Error
+            ? deleteError.message
+            : "تعذر حذف المنتج. حاول مرة أخرى.",
+      });
     } finally {
       setDeletingId(null);
     }
@@ -379,6 +419,18 @@ export default function AdminProductsPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto" dir="rtl">
+      {actionFeedback ? (
+        <div
+          role="status"
+          className={`mb-4 rounded-xl border px-4 py-3 text-sm font-bold ${
+            actionFeedback.type === "success"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : "border-red-200 bg-red-50 text-red-700"
+          }`}
+        >
+          {actionFeedback.message}
+        </div>
+      ) : null}
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
         <div>
