@@ -52,15 +52,21 @@ body {
   -webkit-mask-image: radial-gradient(
     circle var(--orbit-spotlight-radius) at var(--orbit-spotlight-x) var(--orbit-spotlight-y),
     transparent 0,
-    transparent calc(var(--orbit-spotlight-radius) - 14px),
-    rgb(0 0 0 / 35%) calc(var(--orbit-spotlight-radius) - 7px),
+    transparent calc(var(--orbit-spotlight-radius) - 24px),
+    rgb(0 0 0 / 8%) calc(var(--orbit-spotlight-radius) - 20px),
+    rgb(0 0 0 / 22%) calc(var(--orbit-spotlight-radius) - 15px),
+    rgb(0 0 0 / 45%) calc(var(--orbit-spotlight-radius) - 10px),
+    rgb(0 0 0 / 72%) calc(var(--orbit-spotlight-radius) - 5px),
     #000 var(--orbit-spotlight-radius)
   );
   mask-image: radial-gradient(
     circle var(--orbit-spotlight-radius) at var(--orbit-spotlight-x) var(--orbit-spotlight-y),
     transparent 0,
-    transparent calc(var(--orbit-spotlight-radius) - 14px),
-    rgb(0 0 0 / 35%) calc(var(--orbit-spotlight-radius) - 7px),
+    transparent calc(var(--orbit-spotlight-radius) - 24px),
+    rgb(0 0 0 / 8%) calc(var(--orbit-spotlight-radius) - 20px),
+    rgb(0 0 0 / 22%) calc(var(--orbit-spotlight-radius) - 15px),
+    rgb(0 0 0 / 45%) calc(var(--orbit-spotlight-radius) - 10px),
+    rgb(0 0 0 / 72%) calc(var(--orbit-spotlight-radius) - 5px),
     #000 var(--orbit-spotlight-radius)
   );
 }
