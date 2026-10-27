@@ -301,10 +301,10 @@ export default function OrbitLandingHero({ lang, initialShowcase }: Props) {
 
       <div className="relative z-10 mx-auto flex max-w-7xl flex-col items-center px-4 pt-16 text-center sm:px-6 md:pt-20">
         <div className="pointer-events-none max-w-3xl">
-          <p className="mb-3 text-lg font-black uppercase tracking-[0.22em] text-slate-900/80 drop-shadow-[0_2px_10px_rgba(255,255,255,0.95)] md:text-2xl">
+          <p className="mb-3 text-lg font-black uppercase tracking-[0.22em] text-white drop-shadow-[0_2px_10px_rgba(15,23,42,0.85)] md:text-2xl">
             {isAr ? "اكتشف عالم سيزر" : "Discover Cesar World"}
           </p>
-          <h1 className="text-4xl font-black leading-[1.08] tracking-tight text-slate-950 drop-shadow-[0_3px_14px_rgba(255,255,255,0.95)] md:text-6xl lg:text-7xl">
+          <h1 className="text-4xl font-black leading-[1.08] tracking-tight text-white drop-shadow-[0_3px_14px_rgba(15,23,42,0.9)] md:text-6xl lg:text-7xl">
             {isAr ? "حرّك المؤشر واكتشف ما يناسب سيارتك" : "Move, explore, and elevate your car"}
           </h1>
         </div>
