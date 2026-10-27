@@ -105,7 +105,7 @@ export default function AdminClientLayout({
 
   return (
     <div className="flex min-h-screen bg-[#F8FAFC]">
-      <aside className="w-72 bg-white border-l border-gray-200 flex flex-col shadow-sm">
+      <aside className="admin-sidebar w-72 bg-white border-l border-gray-200 flex flex-col shadow-sm">
         <div className="p-8">
           <h2 className="text-2xl font-black text-blue-600 tracking-tighter">
             CESAR <span className="text-gray-900">ADMIN</span>
@@ -142,7 +142,7 @@ export default function AdminClientLayout({
       </aside>
 
       <div className="flex-1 flex flex-col">
-        <header className="h-20 bg-white/80 backdrop-blur-md border-b border-gray-100 flex items-center justify-between px-10 sticky top-0 z-30">
+        <header className="admin-topbar h-20 bg-white/80 backdrop-blur-md border-b border-gray-100 flex items-center justify-between px-10 sticky top-0 z-30">
           <div className="flex items-center gap-2 text-gray-400">
             <UserCircle className="w-5 h-5 text-blue-600" />
             <span className="text-sm font-medium">
@@ -162,7 +162,7 @@ export default function AdminClientLayout({
           </button>
         </header>
 
-        <main className="p-10 max-w-7xl">{children}</main>
+        <main className="admin-main p-10 max-w-7xl">{children}</main>
       </div>
     </div>
   );

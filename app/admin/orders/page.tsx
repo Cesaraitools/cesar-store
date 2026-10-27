@@ -16,7 +16,8 @@ import {
   ChevronFirst,
   TrendingUp,
   CheckCircle,
-  XCircle
+  XCircle,
+  FileText
 } from "lucide-react";
 
 /* ---------------- Types ---------------- */
@@ -262,13 +263,22 @@ async function confirmDelete() {
             متابعة حركة المبيعات وتحديثات الشحن مباشرة
           </p>
         </div>
-        <button 
-          onClick={() => exportOrdersToCSV(filteredOrders)}
-          className="flex items-center gap-2 bg-white border border-gray-200 px-5 py-2.5 rounded-xl text-sm font-bold text-gray-700 hover:bg-gray-50 transition-all shadow-sm"
-        >
-          <Download className="w-4 h-4 text-blue-600" />
-          تصدير البيانات (CSV)
-        </button>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href="/admin/orders/received-report"
+            className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-emerald-700"
+          >
+            <FileText className="h-4 w-4" />
+            تقرير الطلبات المستلمة
+          </Link>
+          <button
+            onClick={() => exportOrdersToCSV(filteredOrders)}
+            className="flex items-center gap-2 bg-white border border-gray-200 px-5 py-2.5 rounded-xl text-sm font-bold text-gray-700 hover:bg-gray-50 transition-all shadow-sm"
+          >
+            <Download className="w-4 h-4 text-blue-600" />
+            تصدير البيانات (CSV)
+          </button>
+        </div>
       </div>
 
       {/* Metrics Grid */}
