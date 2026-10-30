@@ -43,8 +43,13 @@ META_PUBLISHER_GRAPH_API_VERSION=v26.0
 CRON_SECRET=
 ```
 
-ينبغي أن يكون `CRON_SECRET` قيمة عشوائية طويلة. Vercel يرسلها تلقائيًا في رأس
-`Authorization: Bearer ...` إلى مسار Cron.
+ينبغي أن يكون `CRON_SECRET` قيمة عشوائية طويلة. نفس القيمة محفوظة مشفرة في
+Supabase Vault باسم `cesar_social_publisher_cron_secret`، ويستخدمها Supabase Cron
+كل 15 دقيقة في رأس `Authorization: Bearer ...` لاستدعاء عامل النشر. لا تُكتب
+القيمة نفسها في أي migration أو ملف داخل المستودع.
+
+اختيرت جدولة Supabase لأن حساب Vercel الحالي من نوع Hobby ويقبل Cron مرة واحدة
+يوميًا فقط؛ بهذه الطريقة تظل مواعيد النشر المتعددة مدعومة دون ترقية مدفوعة.
 
 ## التشغيل
 
