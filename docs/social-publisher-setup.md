@@ -63,6 +63,9 @@ Supabase Vault باسم `cesar_social_publisher_cron_secret`، ويستخدمه�
 
 لا يقبل الخادم حفظ وضع `live` إلا بعد تنفيذ اختبار هوية حقيقي للمنصات المفعلة؛
 وجود أسماء المتغيرات وحده لا يكفي لتشغيل النشر.
+ويتحقق الاختبار أيضًا من صلاحية الرمز، وملكيته للتطبيق الجديد، وتوفر صلاحيات
+`pages_show_list` و`pages_read_engagement` و`pages_manage_posts` و
+`instagram_basic` و`instagram_content_publish` بحسب المنصات المفعلة.
 
 ## منع النشر المكرر عند الانقطاع
 

@@ -19,6 +19,13 @@ type MetaResponse = {
     id?: string;
     username?: string;
   };
+  data?: {
+    app_id?: string;
+    is_valid?: boolean;
+    scopes?: string[];
+    expires_at?: number;
+    data_access_expires_at?: number;
+  };
   error?: {
     message?: string;
     type?: string;
@@ -188,10 +195,59 @@ export async function publishToMeta(input: {
 export async function testMetaPublisherConnection(
   platforms: SocialPlatform[]
 ) {
+  const primaryPlatform = platforms[0];
+  if (!primaryPlatform) throw new Error("Select at least one Meta platform.");
+
+  const primaryConfig = requireMetaPublisherConfig(primaryPlatform);
+  const requiredScopes = new Set<string>(["pages_show_list", "pages_read_engagement"]);
+  if (platforms.includes("facebook")) requiredScopes.add("pages_manage_posts");
+  if (platforms.includes("instagram")) {
+    requiredScopes.add("instagram_basic");
+    requiredScopes.add("instagram_content_publish");
+  }
+
+  const debugUrl = new URL(
+    `https://graph.facebook.com/${primaryConfig.graphApiVersion}/debug_token`
+  );
+  debugUrl.searchParams.set("input_token", primaryConfig.accessToken);
+  debugUrl.searchParams.set(
+    "access_token",
+    `${primaryConfig.appId}|${primaryConfig.appSecret}`
+  );
+  const tokenDebug = await getJson(debugUrl.toString());
+
+  if (!tokenDebug.data?.is_valid) {
+    throw new Error("The Meta Page access token is invalid or expired.");
+  }
+  if (tokenDebug.data.app_id && tokenDebug.data.app_id !== primaryConfig.appId) {
+    throw new Error("The Meta token belongs to a different application.");
+  }
+
+  const grantedScopes = new Set(tokenDebug.data.scopes || []);
+  const missingScopes = [...requiredScopes].filter(
+    (permission) => !grantedScopes.has(permission)
+  );
+  if (missingScopes.length) {
+    throw new Error(`Missing Meta permissions: ${missingScopes.join(", ")}`);
+  }
+
   const result: {
     facebook?: { id: string; name: string; linkedInstagramId: string | null };
     instagram?: { id: string; username: string };
-  } = {};
+    token: {
+      valid: true;
+      scopes: string[];
+      expiresAt: number | null;
+      dataAccessExpiresAt: number | null;
+    };
+  } = {
+    token: {
+      valid: true,
+      scopes: [...requiredScopes],
+      expiresAt: tokenDebug.data.expires_at || null,
+      dataAccessExpiresAt: tokenDebug.data.data_access_expires_at || null,
+    },
+  };
 
   if (platforms.includes("facebook")) {
     const config = requireMetaPublisherConfig("facebook");
