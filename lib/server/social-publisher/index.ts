@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { normalizeImagesArray } from "@/lib/image-normalizer";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
 import { getMetaPublisherReadiness, getSiteOrigin } from "./config";
-import { publishToMeta } from "./meta";
+import { publishToMeta, testMetaPublisherConnection } from "./meta";
 import type {
   SocialPlatform,
   SocialPostQueueRow,
@@ -244,10 +244,18 @@ export async function updatePublisherSettings(input: {
   if (next.instagram_enabled) enabledPlatforms.push("instagram");
 
   if (next.enabled && next.mode === "live") {
+    if (!enabledPlatforms.length) {
+      throw new Error("Enable at least one publishing platform before live mode.");
+    }
+
     const readiness = getMetaPublisherReadiness(enabledPlatforms);
     if (!readiness.configured) {
       throw new Error(`Missing Meta configuration: ${readiness.missing.join(", ")}`);
     }
+
+    // Live mode is gated by a real read-only Meta identity check, not merely by
+    // the presence of environment-variable names.
+    await testMetaPublisherConnection(enabledPlatforms);
   }
 
   const supabase = createServiceRoleClient();
@@ -391,6 +399,7 @@ export async function updateQueueItem(input: {
     changes = {
       status: "queued",
       scheduled_for: new Date().toISOString(),
+      attempt_count: 0,
       locked_at: null,
       locked_by: null,
       last_error: null,
@@ -401,10 +410,14 @@ export async function updateQueueItem(input: {
     .from("social_post_queue")
     .update({ ...changes, updated_at: new Date().toISOString() })
     .eq("id", input.queueId)
+    .eq("status", current.status)
     .select("*")
-    .single();
+    .maybeSingle();
 
-  if (error || !data) throw error || new Error("Failed to update queue item.");
+  if (error) throw error;
+  if (!data) {
+    throw new Error("Queue item changed while this action was running. Refresh and try again.");
+  }
 
   await recordEvent({
     queueId: input.queueId,
@@ -520,10 +533,15 @@ async function releaseStaleClaims() {
   const { error } = await supabase
     .from("social_post_queue")
     .update({
-      status: "queued",
+      // A stale claim has an ambiguous external outcome: Meta may have accepted
+      // the post before the worker stopped. Never retry it automatically because
+      // that could publish a duplicate. An administrator can verify Meta first,
+      // then explicitly retry the row if no post exists.
+      status: "failed",
       locked_at: null,
       locked_by: null,
-      last_error: "Recovered after an interrupted worker.",
+      last_error:
+        "Worker interrupted with an unknown Meta outcome. Verify the social account before retrying.",
       updated_at: new Date().toISOString(),
     })
     .eq("status", "processing")
@@ -549,7 +567,7 @@ async function finishClaim(
   details: Record<string, unknown> = {}
 ) {
   const supabase = createServiceRoleClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("social_post_queue")
     .update({
       ...changes,
@@ -558,9 +576,14 @@ async function finishClaim(
       updated_at: new Date().toISOString(),
     })
     .eq("id", row.id)
-    .eq("status", "processing");
+    .eq("status", "processing")
+    .select("id")
+    .maybeSingle();
 
   if (error) throw error;
+  if (!data) {
+    throw new Error("The claimed queue item could not be finalized safely.");
+  }
   await recordEvent({
     queueId: row.id,
     eventType,
@@ -603,33 +626,14 @@ async function processClaimedPost(
   const caption = buildProductCaption(product);
   const price = Math.max(0, Number(product.price) || 0);
 
+  let result: Awaited<ReturnType<typeof publishToMeta>>;
+
   try {
-    const result = await publishToMeta({
+    result = await publishToMeta({
       platform: row.platform,
       imageUrl,
       caption,
     });
-
-    await finishClaim(
-      row,
-      {
-        status: "published",
-        caption,
-        product_name: productName(product),
-        price_snapshot: price,
-        stock_snapshot: stock,
-        image_url: imageUrl,
-        product_url: productUrl(product),
-        external_post_id: result.externalPostId,
-        external_post_url: result.externalPostUrl,
-        published_at: new Date().toISOString(),
-        last_error: null,
-      },
-      "published",
-      { externalPostId: result.externalPostId }
-    );
-
-    return "published" as const;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown Meta error";
     const canRetry = row.attempt_count < row.max_attempts;
@@ -650,6 +654,30 @@ async function processClaimedPost(
 
     return canRetry ? ("retry" as const) : ("failed" as const);
   }
+
+  // Finalization happens outside the Meta-request catch. If Meta succeeded but
+  // the local database cannot confirm it, the claim remains ambiguous and is
+  // moved to manual review by releaseStaleClaims instead of being auto-retried.
+  await finishClaim(
+    row,
+    {
+      status: "published",
+      caption,
+      product_name: productName(product),
+      price_snapshot: price,
+      stock_snapshot: stock,
+      image_url: imageUrl,
+      product_url: productUrl(product),
+      external_post_id: result.externalPostId,
+      external_post_url: result.externalPostUrl,
+      published_at: new Date().toISOString(),
+      last_error: null,
+    },
+    "published",
+    { externalPostId: result.externalPostId }
+  );
+
+  return "published" as const;
 }
 
 export async function runPublisherWorker(options?: { maxPosts?: number }) {

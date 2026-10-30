@@ -9,10 +9,16 @@ type MetaSuccess = {
 
 type MetaResponse = {
   id?: string;
+  name?: string;
+  username?: string;
   post_id?: string;
   status_code?: string;
   status?: string;
   permalink?: string;
+  instagram_business_account?: {
+    id?: string;
+    username?: string;
+  };
   error?: {
     message?: string;
     type?: string;
@@ -36,6 +42,7 @@ async function postForm(url: string, values: Record<string, string>) {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams(values),
     cache: "no-store",
+    signal: AbortSignal.timeout(15_000),
   });
   const payload = (await response.json()) as MetaResponse;
 
@@ -47,7 +54,10 @@ async function postForm(url: string, values: Record<string, string>) {
 }
 
 async function getJson(url: string) {
-  const response = await fetch(url, { cache: "no-store" });
+  const response = await fetch(url, {
+    cache: "no-store",
+    signal: AbortSignal.timeout(15_000),
+  });
   const payload = (await response.json()) as MetaResponse;
 
   if (!response.ok || payload.error) {
@@ -173,4 +183,67 @@ export async function publishToMeta(input: {
   }
 
   return publishInstagram(input.imageUrl, input.caption);
+}
+
+export async function testMetaPublisherConnection(
+  platforms: SocialPlatform[]
+) {
+  const result: {
+    facebook?: { id: string; name: string; linkedInstagramId: string | null };
+    instagram?: { id: string; username: string };
+  } = {};
+
+  if (platforms.includes("facebook")) {
+    const config = requireMetaPublisherConfig("facebook");
+    const baseUrl = `https://graph.facebook.com/${config.graphApiVersion}`;
+    const page = await getJson(
+      `${baseUrl}/${encodeURIComponent(
+        config.pageId
+      )}?fields=id,name,instagram_business_account{id,username}&access_token=${encodeURIComponent(
+        config.accessToken
+      )}&appsecret_proof=${encodeURIComponent(
+        appSecretProof(config.accessToken, config.appSecret)
+      )}`
+    );
+
+    if (!page.id || page.id !== config.pageId) {
+      throw new Error("Meta returned a different Facebook Page identity.");
+    }
+
+    result.facebook = {
+      id: page.id,
+      name: page.name || "Facebook Page",
+      linkedInstagramId: page.instagram_business_account?.id || null,
+    };
+  }
+
+  if (platforms.includes("instagram")) {
+    const config = requireMetaPublisherConfig("instagram");
+    const baseUrl = `https://graph.facebook.com/${config.graphApiVersion}`;
+    const account = await getJson(
+      `${baseUrl}/${encodeURIComponent(
+        config.instagramUserId
+      )}?fields=id,username&access_token=${encodeURIComponent(
+        config.accessToken
+      )}&appsecret_proof=${encodeURIComponent(
+        appSecretProof(config.accessToken, config.appSecret)
+      )}`
+    );
+
+    if (!account.id || account.id !== config.instagramUserId) {
+      throw new Error("Meta returned a different Instagram account identity.");
+    }
+
+    const linkedInstagramId = result.facebook?.linkedInstagramId;
+    if (linkedInstagramId && linkedInstagramId !== account.id) {
+      throw new Error("The configured Instagram account is not linked to this Facebook Page.");
+    }
+
+    result.instagram = {
+      id: account.id,
+      username: account.username || "Instagram professional account",
+    };
+  }
+
+  return result;
 }

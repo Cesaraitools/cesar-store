@@ -9,6 +9,7 @@ import {
   updateQueueItem,
 } from "@/lib/server/social-publisher";
 import type { SocialPlatform } from "@/lib/server/social-publisher/types";
+import { testMetaPublisherConnection } from "@/lib/server/social-publisher/meta";
 
 export const dynamic = "force-dynamic";
 
@@ -152,6 +153,27 @@ export async function POST(request: Request) {
         adminEmail: guard.access.userEmail,
         action: "social_publisher_manual_run",
         payload: { result },
+      });
+      return noStore({ result });
+    }
+
+    if (action === "test_connection") {
+      const overview = await getPublisherOverview();
+      const platforms: SocialPlatform[] = [];
+      if (overview.settings.facebook_enabled) platforms.push("facebook");
+      if (overview.settings.instagram_enabled) platforms.push("instagram");
+      if (!platforms.length) {
+        throw new Error("فعّل منصة واحدة على الأقل قبل اختبار الاتصال.");
+      }
+
+      const result = await testMetaPublisherConnection(platforms);
+      await writeAdminAudit({
+        adminEmail: guard.access.userEmail,
+        action: "social_publisher_connection_tested",
+        payload: {
+          facebookPageId: result.facebook?.id || null,
+          instagramUserId: result.instagram?.id || null,
+        },
       });
       return noStore({ result });
     }

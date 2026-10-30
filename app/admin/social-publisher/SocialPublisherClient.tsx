@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Save,
   Send,
+  ShieldCheck,
   XCircle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -201,8 +202,20 @@ export default function SocialPublisherClient() {
     try {
       setBusy(queueId ? `${action}:${queueId}` : action);
       setError("");
-      await request({ action, queueId }, "POST");
-      setNotice(action === "run" ? "اكتملت دورة التشغيل." : "تم تحديث المنشور.");
+      const payload = await request({ action, queueId }, "POST");
+      if (action === "run") {
+        setNotice("اكتملت دورة التشغيل.");
+      } else if (action === "test_connection") {
+        const facebookName = payload.result?.facebook?.name;
+        const instagramUsername = payload.result?.instagram?.username;
+        setNotice(
+          `تم التحقق من اتصال Meta بنجاح${
+            facebookName ? ` — Facebook: ${facebookName}` : ""
+          }${instagramUsername ? ` — Instagram: @${instagramUsername}` : ""}`
+        );
+      } else {
+        setNotice("تم تحديث المنشور.");
+      }
       await load();
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : "تعذر تنفيذ الإجراء.");
@@ -250,6 +263,19 @@ export default function SocialPublisherClient() {
           >
             {busy === "run" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
             تشغيل دورة الآن
+          </button>
+          <button
+            type="button"
+            onClick={() => runAction("test_connection")}
+            disabled={busy === "test_connection" || !overview.readiness.configured}
+            className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {busy === "test_connection" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ShieldCheck className="h-4 w-4" />
+            )}
+            اختبار اتصال Meta
           </button>
         </div>
       </section>
