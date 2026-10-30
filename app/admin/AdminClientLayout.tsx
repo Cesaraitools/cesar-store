@@ -20,6 +20,7 @@ import {
   RotateCcw,
   FileText,
   Settings,
+  Send,
   ShieldAlert, // ✅ أضف ده
 } from "lucide-react";
 import type { AdminRole } from "@/lib/admin/permissions";
@@ -58,6 +59,7 @@ export default function AdminClientLayout({
     { name: "SEO Audit", href: "/admin/seo", icon: SearchCheck },
     { name: "Errors", href: "/admin/errors", icon: ShieldAlert },
     { name: "Meta Replies", href: "/admin/meta-handoffs", icon: MessageSquareWarning },
+    { name: "Social Publisher", href: "/admin/social-publisher", icon: Send },
     { name: "Categories", href: "/admin/categories", icon: Tag },
     { name: "Orders", href: "/admin/orders", icon: Package },
     { name: "Archive", href: "/admin/orders/archive", icon: Package },
