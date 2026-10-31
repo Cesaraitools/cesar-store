@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import { rateLimit } from "@/lib/rateLimit";
+import {
+  DELIVERY_NOTICE_AR,
+  isAvailableDeliveryGovernorate,
+} from "@/lib/delivery-governorates";
 import * as Sentry from "@sentry/nextjs";
 
 const serviceSupabase = createClient(
@@ -255,6 +259,13 @@ let activeCartIds: string[] = [];
     }
 
     const { currency = "EGP", customer, items } = body;
+
+    if (!isAvailableDeliveryGovernorate(customer?.city)) {
+      return NextResponse.json(
+        { error: DELIVERY_NOTICE_AR },
+        { status: 400 }
+      );
+    }
   
     if (!Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
@@ -345,7 +356,9 @@ finalItems = mergeDuplicateItems(finalItems);
     const customer_snapshot = {
   name: customer?.name ?? "",
   phone: customer?.phone ?? "",
+  city: customer.city.trim(),
   address: customer?.address ?? "",
+  notes: customer?.notes ?? "",
 };
 
 // ===== RPC MODE (SAFE TEST) =====

@@ -11,6 +11,10 @@ import { useAuth } from "@/context/AuthContext";
 import { trackPurchase } from "@/lib/google-ads-tracking";
 import { CONTACT_WHATSAPP_URL } from "@/lib/seo";
 import { createSafeUUID } from "@/lib/safe-uuid";
+import {
+  DELIVERY_NOTICE_AR,
+  isAvailableDeliveryGovernorate,
+} from "@/lib/delivery-governorates";
 import toast from "react-hot-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { 
@@ -118,6 +122,12 @@ export default function ReviewPage() {
 
     if (isSubmitting) return;
 
+    if (!isAvailableDeliveryGovernorate(checkoutData.city)) {
+      toast.error(DELIVERY_NOTICE_AR);
+      router.push("/checkout");
+      return;
+    }
+
     const whatsappWindow = window.open("", "_blank");
 
     setIsSubmitting(true);
@@ -139,7 +149,9 @@ export default function ReviewPage() {
       const customerSnapshot = {
         name: checkoutData.name,
         phone: checkoutData.phone,
+        city: checkoutData.city,
         address: checkoutData.address,
+        notes: checkoutData.notes,
       };
       const orderToken = getPendingOrderToken();
      const itemsSnapshot = cartItems.map((item) => ({
@@ -227,7 +239,9 @@ export default function ReviewPage() {
 
 👤 الاسم: ${checkoutData.name}
 📞 الهاتف: ${checkoutData.phone}
+🏙️ المحافظة: ${checkoutData.city}
 📍 العنوان: ${checkoutData.address}
+${checkoutData.notes ? `📝 ملاحظات: ${checkoutData.notes}\n` : ""}
 
 🛒 المنتجات:
 ${productsText}
@@ -350,6 +364,15 @@ if (whatsappWindow) {
                     </p>
                     <p className="font-bold text-slate-700">
                       {checkoutData.name}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                      المحافظة
+                    </p>
+                    <p className="font-bold text-slate-700">
+                      {checkoutData.city}
                     </p>
                   </div>
 

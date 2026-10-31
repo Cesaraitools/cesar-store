@@ -6,6 +6,11 @@ import { useCheckout } from "@/context/CheckoutContext";
 import { preserveGuestCartForCheckout, useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { trackBeginCheckout } from "@/lib/google-ads-tracking";
+import {
+  DELIVERY_NOTICE_AR,
+  EGYPT_GOVERNORATES,
+  isAvailableDeliveryGovernorate,
+} from "@/lib/delivery-governorates";
 
 import {
   User,
@@ -62,15 +67,27 @@ export default function CheckoutPage() {
   );
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = () => {
-    if (!formData.name || !formData.phone || !formData.address) {
-      alert("من فضلك املأ الاسم ورقم الهاتف والعنوان");
+    if (
+      !formData.name ||
+      !formData.phone ||
+      !formData.city ||
+      !formData.address
+    ) {
+      alert("من فضلك املأ الاسم ورقم الهاتف والمحافظة والعنوان");
+      return;
+    }
+
+    if (!isAvailableDeliveryGovernorate(formData.city)) {
+      alert(DELIVERY_NOTICE_AR);
       return;
     }
 
@@ -170,10 +187,13 @@ export default function CheckoutPage() {
 
                 <div className="grid md:grid-cols-2 gap-5">
 
-                  {/* City */}
+                  {/* Governorate */}
                   <div className="relative group">
-                    <label className="text-xs font-black text-slate-400 mb-2 block mr-1 uppercase tracking-wider">
-                      المحافظة / المدينة
+                    <label
+                      htmlFor="checkout-governorate"
+                      className="text-xs font-black text-slate-400 mb-2 block mr-1 uppercase tracking-wider"
+                    >
+                      المحافظة
                     </label>
 
                     <div className="relative">
@@ -182,14 +202,37 @@ export default function CheckoutPage() {
                         size={18}
                       />
 
-                      <input
+                      <select
+                        id="checkout-governorate"
                         name="city"
-                        placeholder="القاهرة، الجيزة..."
                         value={formData.city}
                         onChange={handleChange}
-                        className="w-full bg-slate-50 border-none rounded-2xl pr-12 pl-4 py-4 focus:ring-2 focus:ring-blue-600/20 focus:bg-white transition-all font-bold text-slate-700"
-                      />
+                        required
+                        aria-describedby="delivery-governorates-notice"
+                        className="w-full appearance-none bg-slate-50 border-none rounded-2xl pr-12 pl-4 py-4 focus:ring-2 focus:ring-blue-600/20 focus:bg-white transition-all font-bold text-slate-700"
+                      >
+                        <option value="" disabled>
+                          اختر المحافظة
+                        </option>
+                        {EGYPT_GOVERNORATES.map((governorate) => (
+                          <option
+                            key={governorate.name}
+                            value={governorate.name}
+                            disabled={!governorate.available}
+                          >
+                            {governorate.name}
+                            {governorate.available ? "" : " — قريبًا"}
+                          </option>
+                        ))}
+                      </select>
                     </div>
+
+                    <p
+                      id="delivery-governorates-notice"
+                      className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-800"
+                    >
+                      {DELIVERY_NOTICE_AR}
+                    </p>
                   </div>
 
                   {/* Address */}

@@ -12,6 +12,10 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "./CartContext";
 import { createSafeUUID } from "@/lib/safe-uuid";
+import {
+  DELIVERY_NOTICE_AR,
+  isAvailableDeliveryGovernorate,
+} from "@/lib/delivery-governorates";
 
 export type CheckoutData = {
   name: string;
@@ -103,9 +107,14 @@ export function CheckoutProvider({ children }: { children: ReactNode }) {
     if (
       !checkoutData.name ||
       !checkoutData.phone ||
+      !checkoutData.city ||
       !checkoutData.address
     ) {
       throw new Error("الرجاء ملء جميع الحقول المطلوبة");
+    }
+
+    if (!isAvailableDeliveryGovernorate(checkoutData.city)) {
+      throw new Error(DELIVERY_NOTICE_AR);
     }
 
     try {

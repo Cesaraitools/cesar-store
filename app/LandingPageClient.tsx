@@ -12,6 +12,10 @@ import {
 } from "lucide-react";
 import OrbitLandingHero from "@/components/landing/OrbitLandingHero";
 import { useLanguage } from "@/context/LanguageContext";
+import {
+  DELIVERY_NOTICE_AR,
+  DELIVERY_NOTICE_EN,
+} from "@/lib/delivery-governorates";
 import type { LandingShowcase } from "@/lib/landing-showcase";
 
 const content = {
@@ -66,9 +70,7 @@ export default function LandingPageClient({
           {
             icon: Truck,
             title: isAr ? "توصيل سريع" : "Fast Delivery",
-            desc: isAr
-              ? "شحن آمن لجميع محافظات مصر"
-              : "Safe shipping across Egypt",
+            desc: isAr ? DELIVERY_NOTICE_AR : DELIVERY_NOTICE_EN,
             cardClass: "bg-[#3448E5]",
             iconClass: "bg-white/15 text-[#FFE35B]",
           },
