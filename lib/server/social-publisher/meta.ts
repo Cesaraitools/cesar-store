@@ -74,6 +74,56 @@ async function getJson(url: string) {
   return payload;
 }
 
+type TokenInspection = {
+  valid: true;
+  scopes: string[];
+  expiresAt: number | null;
+  dataAccessExpiresAt: number | null;
+};
+
+async function inspectAccessToken(input: {
+  accessToken: string;
+  appId: string;
+  appSecret: string;
+  graphApiVersion: string;
+  requiredScopes: Set<string>;
+  label: string;
+}): Promise<TokenInspection> {
+  const debugUrl = new URL(
+    `https://graph.facebook.com/${input.graphApiVersion}/debug_token`
+  );
+  debugUrl.searchParams.set("input_token", input.accessToken);
+  debugUrl.searchParams.set(
+    "access_token",
+    `${input.appId}|${input.appSecret}`
+  );
+  const tokenDebug = await getJson(debugUrl.toString());
+
+  if (!tokenDebug.data?.is_valid) {
+    throw new Error(`The ${input.label} access token is invalid or expired.`);
+  }
+  if (tokenDebug.data.app_id && tokenDebug.data.app_id !== input.appId) {
+    throw new Error(`The ${input.label} token belongs to a different application.`);
+  }
+
+  const grantedScopes = new Set(tokenDebug.data.scopes || []);
+  const missingScopes = [...input.requiredScopes].filter(
+    (permission) => !grantedScopes.has(permission)
+  );
+  if (missingScopes.length) {
+    throw new Error(
+      `Missing ${input.label} permissions: ${missingScopes.join(", ")}`
+    );
+  }
+
+  return {
+    valid: true,
+    scopes: [...grantedScopes],
+    expiresAt: tokenDebug.data.expires_at || null,
+    dataAccessExpiresAt: tokenDebug.data.data_access_expires_at || null,
+  };
+}
+
 async function waitForInstagramContainer(
   baseUrl: string,
   containerId: string,
@@ -103,7 +153,7 @@ async function publishFacebook(
   caption: string
 ): Promise<MetaSuccess> {
   const config = requireMetaPublisherConfig("facebook");
-  const baseUrl = `https://graph.facebook.com/${config.graphApiVersion}`;
+  const baseUrl = `${config.apiOrigin}/${config.graphApiVersion}`;
   const payload = await postForm(
     `${baseUrl}/${encodeURIComponent(config.pageId)}/photos`,
     {
@@ -131,7 +181,7 @@ async function publishInstagram(
   caption: string
 ): Promise<MetaSuccess> {
   const config = requireMetaPublisherConfig("instagram");
-  const baseUrl = `https://graph.facebook.com/${config.graphApiVersion}`;
+  const baseUrl = `${config.apiOrigin}/${config.graphApiVersion}`;
   const container = await postForm(
     `${baseUrl}/${encodeURIComponent(config.instagramUserId)}/media`,
     {
@@ -198,37 +248,45 @@ export async function testMetaPublisherConnection(
   const primaryPlatform = platforms[0];
   if (!primaryPlatform) throw new Error("Select at least one Meta platform.");
 
-  const primaryConfig = requireMetaPublisherConfig(primaryPlatform);
-  const requiredScopes = new Set<string>(["pages_show_list", "pages_read_engagement"]);
-  if (platforms.includes("facebook")) requiredScopes.add("pages_manage_posts");
-  if (platforms.includes("instagram")) {
-    requiredScopes.add("instagram_basic");
-    requiredScopes.add("instagram_content_publish");
-  }
-
-  const debugUrl = new URL(
-    `https://graph.facebook.com/${primaryConfig.graphApiVersion}/debug_token`
+  const facebookConfig = platforms.includes("facebook")
+    ? requireMetaPublisherConfig("facebook")
+    : null;
+  const instagramConfig = platforms.includes("instagram")
+    ? requireMetaPublisherConfig("instagram")
+    : null;
+  const facebookToken = facebookConfig
+    ? await inspectAccessToken({
+        ...facebookConfig,
+        requiredScopes: new Set([
+          "pages_show_list",
+          "pages_read_engagement",
+          "pages_manage_posts",
+        ]),
+        label: "Facebook Page",
+      })
+    : null;
+  const instagramRequiredScopes = new Set(
+    instagramConfig?.instagramAuthMode === "instagram_login"
+      ? ["instagram_business_basic", "instagram_business_content_publish"]
+      : [
+          "pages_show_list",
+          "pages_read_engagement",
+          "instagram_basic",
+          "instagram_content_publish",
+        ]
   );
-  debugUrl.searchParams.set("input_token", primaryConfig.accessToken);
-  debugUrl.searchParams.set(
-    "access_token",
-    `${primaryConfig.appId}|${primaryConfig.appSecret}`
-  );
-  const tokenDebug = await getJson(debugUrl.toString());
+  const instagramToken = instagramConfig
+    ? await inspectAccessToken({
+        ...instagramConfig,
+        requiredScopes: instagramRequiredScopes,
+        label: "Instagram",
+      })
+    : null;
+  const primaryToken =
+    primaryPlatform === "facebook" ? facebookToken : instagramToken;
 
-  if (!tokenDebug.data?.is_valid) {
-    throw new Error("The Meta Page access token is invalid or expired.");
-  }
-  if (tokenDebug.data.app_id && tokenDebug.data.app_id !== primaryConfig.appId) {
-    throw new Error("The Meta token belongs to a different application.");
-  }
-
-  const grantedScopes = new Set(tokenDebug.data.scopes || []);
-  const missingScopes = [...requiredScopes].filter(
-    (permission) => !grantedScopes.has(permission)
-  );
-  if (missingScopes.length) {
-    throw new Error(`Missing Meta permissions: ${missingScopes.join(", ")}`);
+  if (!primaryToken) {
+    throw new Error("Meta token validation did not return a result.");
   }
 
   const result: {
@@ -240,18 +298,23 @@ export async function testMetaPublisherConnection(
       expiresAt: number | null;
       dataAccessExpiresAt: number | null;
     };
+    tokens: {
+      facebook?: TokenInspection;
+      instagram?: TokenInspection;
+    };
+    instagramAuthMode: "instagram_login" | "facebook_login" | null;
   } = {
-    token: {
-      valid: true,
-      scopes: [...requiredScopes],
-      expiresAt: tokenDebug.data.expires_at || null,
-      dataAccessExpiresAt: tokenDebug.data.data_access_expires_at || null,
+    token: primaryToken,
+    tokens: {
+      ...(facebookToken ? { facebook: facebookToken } : {}),
+      ...(instagramToken ? { instagram: instagramToken } : {}),
     },
+    instagramAuthMode: instagramConfig?.instagramAuthMode || null,
   };
 
   if (platforms.includes("facebook")) {
-    const config = requireMetaPublisherConfig("facebook");
-    const baseUrl = `https://graph.facebook.com/${config.graphApiVersion}`;
+    const config = facebookConfig!;
+    const baseUrl = `${config.apiOrigin}/${config.graphApiVersion}`;
     const page = await getJson(
       `${baseUrl}/${encodeURIComponent(
         config.pageId
@@ -274,8 +337,8 @@ export async function testMetaPublisherConnection(
   }
 
   if (platforms.includes("instagram")) {
-    const config = requireMetaPublisherConfig("instagram");
-    const baseUrl = `https://graph.facebook.com/${config.graphApiVersion}`;
+    const config = instagramConfig!;
+    const baseUrl = `${config.apiOrigin}/${config.graphApiVersion}`;
     const account = await getJson(
       `${baseUrl}/${encodeURIComponent(
         config.instagramUserId

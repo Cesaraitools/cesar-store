@@ -55,14 +55,17 @@
 المطلوب للتطبيق:
 
 1. ربط صفحة Facebook الجديدة وحساب Instagram الاحترافي.
-2. منح صلاحيات النشر اللازمة:
+2. منح صلاحيات صفحة Facebook اللازمة:
    - `pages_show_list`
    - `pages_read_engagement`
    - `pages_manage_posts`
-   - `instagram_basic`
-   - `instagram_content_publish`
-3. إنشاء Page Access Token خاص بهذا التطبيق/النظام بصلاحيات النشر فقط.
-4. عدم مشاركة أي مفتاح أو رمز داخل المحادثة أو مستودع Git.
+3. لمسار **Instagram Login** الحديث، منح:
+   - `instagram_business_basic`
+   - `instagram_business_content_publish`
+4. إنشاء Page Access Token خاص بصفحة Facebook، ورمز Instagram مستقل خاص
+   بحساب Instagram الاحترافي. يدعم الكود أيضًا مسار Facebook Login القديم عند
+   الحاجة، باستخدام `instagram_basic` و`instagram_content_publish` ورمز الصفحة.
+5. عدم مشاركة أي مفتاح أو رمز داخل المحادثة أو مستودع Git.
 
 ## متغيرات Vercel السرية
 
@@ -75,9 +78,15 @@ META_PUBLISHER_APP_SECRET=
 META_PUBLISHER_PAGE_ID=
 META_PUBLISHER_IG_USER_ID=
 META_PUBLISHER_PAGE_ACCESS_TOKEN=
+META_PUBLISHER_INSTAGRAM_ACCESS_TOKEN=
 META_PUBLISHER_GRAPH_API_VERSION=v26.0
 CRON_SECRET=
 ```
+
+يختار الخادم مسار Instagram تلقائيًا: وجود
+`META_PUBLISHER_INSTAGRAM_ACCESS_TOKEN` يستخدم `graph.instagram.com` وصلاحيات
+`instagram_business_*`. إذا غاب واستخدم رمز الصفحة بدلًا منه، ينتقل إلى مسار
+Facebook Login المرتبط بالصفحة على `graph.facebook.com`.
 
 ينبغي أن يكون `CRON_SECRET` قيمة عشوائية طويلة. نفس القيمة محفوظة مشفرة في
 Supabase Vault باسم `cesar_social_publisher_cron_secret`، ويستخدمها Supabase Cron
@@ -99,9 +108,11 @@ Supabase Vault باسم `cesar_social_publisher_cron_secret`، ويستخدمه�
 
 لا يقبل الخادم حفظ وضع `live` إلا بعد تنفيذ اختبار هوية حقيقي للمنصات المفعلة؛
 وجود أسماء المتغيرات وحده لا يكفي لتشغيل النشر.
-ويتحقق الاختبار أيضًا من صلاحية الرمز، وملكيته للتطبيق الجديد، وتوفر صلاحيات
-`pages_show_list` و`pages_read_engagement` و`pages_manage_posts` و
-`instagram_basic` و`instagram_content_publish` بحسب المنصات المفعلة.
+ويتحقق الاختبار أيضًا من صلاحية كل رمز على حدة وملكيته للتطبيق الجديد. تتحقق
+صفحة Facebook من `pages_show_list` و`pages_read_engagement` و
+`pages_manage_posts`، بينما يتحقق مسار Instagram Login من
+`instagram_business_basic` و`instagram_business_content_publish`. يبقى مسار
+Facebook Login القديم مدعومًا بصلاحياته القديمة عند استخدام رمز الصفحة.
 
 ## منع النشر المكرر عند الانقطاع
 

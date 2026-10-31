@@ -66,7 +66,12 @@ type Candidate = {
 
 type Overview = {
   settings: Settings;
-  readiness: { configured: boolean; graphApiVersion: string; missing: string[] };
+  readiness: {
+    configured: boolean;
+    graphApiVersion: string;
+    instagramAuthMode: "instagram_login" | "facebook_login" | null;
+    missing: string[];
+  };
   queue: QueueRow[];
   products: Candidate[];
 };
@@ -323,6 +328,14 @@ export default function SocialPublisherClient() {
             <div className="mt-4 rounded-xl border border-amber-100 bg-amber-50 p-4 text-xs font-bold leading-6 text-amber-800" dir="ltr">
               Missing: {overview.readiness.missing.join(", ")}
             </div>
+          )}
+
+          {overview.settings.instagram_enabled && overview.readiness.instagramAuthMode && (
+            <p className="mt-3 text-xs font-bold text-slate-500">
+              مسار Instagram: {overview.readiness.instagramAuthMode === "instagram_login"
+                ? "رمز Instagram مستقل"
+                : "رمز صفحة Facebook المرتبطة"}
+            </p>
           )}
 
           <div className="mt-6 grid gap-4 sm:grid-cols-2">

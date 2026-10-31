@@ -1,19 +1,26 @@
 import type { MetaPublisherReadiness, SocialPlatform } from "./types";
 
-const REQUIRED_ENV_BY_PLATFORM: Record<SocialPlatform, string[]> = {
-  facebook: [
-    "META_PUBLISHER_APP_ID",
-    "META_PUBLISHER_APP_SECRET",
-    "META_PUBLISHER_PAGE_ID",
-    "META_PUBLISHER_PAGE_ACCESS_TOKEN",
-  ],
-  instagram: [
-    "META_PUBLISHER_APP_ID",
-    "META_PUBLISHER_APP_SECRET",
-    "META_PUBLISHER_IG_USER_ID",
-    "META_PUBLISHER_PAGE_ACCESS_TOKEN",
-  ],
-};
+const COMMON_REQUIRED_ENV = [
+  "META_PUBLISHER_APP_ID",
+  "META_PUBLISHER_APP_SECRET",
+];
+
+function envValue(name: string) {
+  return String(process.env[name] || "").trim();
+}
+
+export function getInstagramAuthMode():
+  | "instagram_login"
+  | "facebook_login"
+  | null {
+  if (envValue("META_PUBLISHER_INSTAGRAM_ACCESS_TOKEN")) {
+    return "instagram_login";
+  }
+  if (envValue("META_PUBLISHER_PAGE_ACCESS_TOKEN")) {
+    return "facebook_login";
+  }
+  return null;
+}
 
 export function getSiteOrigin() {
   return String(
@@ -33,14 +40,30 @@ export function getMetaGraphApiVersion() {
 export function getMetaPublisherReadiness(
   platforms: SocialPlatform[] = ["facebook", "instagram"]
 ): MetaPublisherReadiness {
-  const required = Array.from(
-    new Set(platforms.flatMap((platform) => REQUIRED_ENV_BY_PLATFORM[platform]))
-  );
-  const missing = required.filter((name) => !String(process.env[name] || "").trim());
+  const required = new Set(COMMON_REQUIRED_ENV);
+
+  if (platforms.includes("facebook")) {
+    required.add("META_PUBLISHER_PAGE_ID");
+    required.add("META_PUBLISHER_PAGE_ACCESS_TOKEN");
+  }
+  if (platforms.includes("instagram")) {
+    required.add("META_PUBLISHER_IG_USER_ID");
+  }
+
+  const missing = [...required].filter((name) => !envValue(name));
+  const instagramAuthMode = platforms.includes("instagram")
+    ? getInstagramAuthMode()
+    : null;
+  if (platforms.includes("instagram") && !instagramAuthMode) {
+    missing.push(
+      "META_PUBLISHER_INSTAGRAM_ACCESS_TOKEN or META_PUBLISHER_PAGE_ACCESS_TOKEN"
+    );
+  }
 
   return {
     configured: missing.length === 0,
     graphApiVersion: getMetaGraphApiVersion(),
+    instagramAuthMode,
     missing,
   };
 }
@@ -56,10 +79,20 @@ export function requireMetaPublisherConfig(platform: SocialPlatform) {
 
   return {
     graphApiVersion: readiness.graphApiVersion,
-    accessToken: String(process.env.META_PUBLISHER_PAGE_ACCESS_TOKEN),
-    appId: String(process.env.META_PUBLISHER_APP_ID || ""),
-    appSecret: String(process.env.META_PUBLISHER_APP_SECRET || ""),
-    pageId: String(process.env.META_PUBLISHER_PAGE_ID || ""),
-    instagramUserId: String(process.env.META_PUBLISHER_IG_USER_ID || ""),
+    accessToken:
+      platform === "instagram" &&
+      readiness.instagramAuthMode === "instagram_login"
+        ? envValue("META_PUBLISHER_INSTAGRAM_ACCESS_TOKEN")
+        : envValue("META_PUBLISHER_PAGE_ACCESS_TOKEN"),
+    apiOrigin:
+      platform === "instagram" &&
+      readiness.instagramAuthMode === "instagram_login"
+        ? "https://graph.instagram.com"
+        : "https://graph.facebook.com",
+    appId: envValue("META_PUBLISHER_APP_ID"),
+    appSecret: envValue("META_PUBLISHER_APP_SECRET"),
+    pageId: envValue("META_PUBLISHER_PAGE_ID"),
+    instagramUserId: envValue("META_PUBLISHER_IG_USER_ID"),
+    instagramAuthMode: readiness.instagramAuthMode,
   };
 }
