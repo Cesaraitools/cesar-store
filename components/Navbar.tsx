@@ -166,7 +166,8 @@ export default function Navbar() {
             alt="Cesar Store Logo"
             width={56}
             height={56}
-            loading="eager"
+            loading="lazy"
+            fetchPriority="low"
             sizes="(max-width: 767px) 48px, 64px"
             className="h-12 w-12 object-contain md:h-16 md:w-16"
           />

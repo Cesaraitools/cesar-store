@@ -456,8 +456,8 @@ export default function OrbitLandingHero({ lang, initialShowcase }: Props) {
                   alt={copy.title}
                   width={480}
                   height={600}
-                  loading={index === 0 ? "eager" : "lazy"}
-                  fetchPriority={index === 0 ? "auto" : "low"}
+                  loading="lazy"
+                  fetchPriority="low"
                   decoding="async"
                   className="absolute inset-0 h-full w-full select-none object-cover transition-transform duration-500 group-hover:scale-105"
                   draggable={false}
