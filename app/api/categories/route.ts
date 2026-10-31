@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { requireAdminRole } from "@/lib/admin/permissions";
 import {
   findCategoryConflict,
@@ -18,6 +19,15 @@ const NO_STORE_HEADERS = {
   "CDN-Cache-Control": "no-store",
   "Vercel-CDN-Cache-Control": "no-store",
 };
+
+function invalidateLandingShowcase() {
+  try {
+    revalidateTag("landing-showcase");
+    revalidatePath("/");
+  } catch (error) {
+    console.warn("LANDING SHOWCASE INVALIDATION ERROR:", error);
+  }
+}
 
 function jsonNoStore(data: unknown, init: ResponseInit = {}) {
   const headers = new Headers(init.headers);
@@ -169,6 +179,7 @@ export async function POST(request: Request) {
 
     if (error) throw error;
 
+    invalidateLandingShowcase();
     return jsonNoStore(data, { status: 201 });
   } catch (err) {
     console.error("POST CATEGORY ERROR:", err);
@@ -251,6 +262,7 @@ export async function PUT(request: Request) {
 
     if (error) throw error;
 
+    invalidateLandingShowcase();
     return jsonNoStore(data);
   } catch (err) {
     console.error("PUT CATEGORY ERROR:", err);
@@ -285,6 +297,7 @@ export async function DELETE(request: Request) {
 
     if (error) throw error;
 
+    invalidateLandingShowcase();
     return jsonNoStore({ message: "Category deleted successfully" });
   } catch (err) {
     console.error("DELETE CATEGORY ERROR:", err);

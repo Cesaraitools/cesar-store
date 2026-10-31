@@ -75,6 +75,10 @@ const nextConfig = {
         headers: longLivedStaticAssetHeaders,
       },
       {
+        source: "/cesar-logo-nav.png",
+        headers: longLivedStaticAssetHeaders,
+      },
+      {
         source: "/logo-v2.png",
         headers: longLivedStaticAssetHeaders,
       },

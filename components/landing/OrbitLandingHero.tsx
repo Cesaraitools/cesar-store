@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import {
@@ -16,6 +15,53 @@ type Props = {
   lang: "ar" | "en";
   initialShowcase: LandingShowcase;
 };
+
+const SUPABASE_STORAGE_HOST = "bdmumdbykzbozgkxtsmk.supabase.co";
+const SUPABASE_PUBLIC_OBJECT_PATH = "/storage/v1/object/public/";
+const SUPABASE_PUBLIC_RENDER_PATH = "/storage/v1/render/image/public/";
+
+function getTransformedCategoryImage(
+  source: string,
+  width: number,
+  height: number
+) {
+  try {
+    const url = new URL(source);
+
+    if (
+      url.hostname !== SUPABASE_STORAGE_HOST ||
+      !url.pathname.startsWith(SUPABASE_PUBLIC_OBJECT_PATH)
+    ) {
+      return source;
+    }
+
+    url.pathname = url.pathname.replace(
+      SUPABASE_PUBLIC_OBJECT_PATH,
+      SUPABASE_PUBLIC_RENDER_PATH
+    );
+    url.searchParams.set("width", String(width));
+    url.searchParams.set("height", String(height));
+    url.searchParams.set("quality", "72");
+    url.searchParams.set("resize", "cover");
+
+    return url.toString();
+  } catch {
+    return source;
+  }
+}
+
+function getCategoryImageSources(source: string) {
+  const mobile = getTransformedCategoryImage(source, 320, 400);
+  const desktop = getTransformedCategoryImage(source, 480, 600);
+
+  return {
+    src: mobile,
+    srcSet:
+      mobile === source && desktop === source
+        ? undefined
+        : `${mobile} 320w, ${desktop} 480w`,
+  };
+}
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
@@ -47,6 +93,8 @@ export default function OrbitLandingHero({ lang, initialShowcase }: Props) {
   const dragCapturedRef = useRef(false);
   const hoveredCardRef = useRef(false);
   const reducedMotionRef = useRef(false);
+  const coarsePointerRef = useRef(false);
+  const stageVisibleRef = useRef(true);
 
   useEffect(() => {
     if (categories.length >= 3) return;
@@ -80,13 +128,37 @@ export default function OrbitLandingHero({ lang, initialShowcase }: Props) {
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const coarsePointerQuery = window.matchMedia("(pointer: coarse)");
     const updateMotionPreference = () => {
       reducedMotionRef.current = mediaQuery.matches;
+      coarsePointerRef.current = coarsePointerQuery.matches;
     };
 
     updateMotionPreference();
     mediaQuery.addEventListener("change", updateMotionPreference);
-    return () => mediaQuery.removeEventListener("change", updateMotionPreference);
+    coarsePointerQuery.addEventListener("change", updateMotionPreference);
+    return () => {
+      mediaQuery.removeEventListener("change", updateMotionPreference);
+      coarsePointerQuery.removeEventListener("change", updateMotionPreference);
+    };
+  }, []);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage || typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        stageVisibleRef.current = entry.isIntersecting;
+        if (entry.isIntersecting) {
+          lastFrameRef.current = performance.now();
+        }
+      },
+      { rootMargin: "120px 0px" }
+    );
+
+    observer.observe(stage);
+    return () => observer.disconnect();
   }, []);
 
   const positionCards = useCallback(
@@ -132,7 +204,22 @@ export default function OrbitLandingHero({ lang, initialShowcase }: Props) {
     positionCards(phaseRef.current);
 
     const animate = (now: number) => {
-      const elapsed = Math.min(now - lastFrameRef.current, 40);
+      if (document.visibilityState !== "visible" || !stageVisibleRef.current) {
+        lastFrameRef.current = now;
+        rafRef.current = window.requestAnimationFrame(animate);
+        return;
+      }
+
+      const timeSinceLastFrame = now - lastFrameRef.current;
+      const frameInterval =
+        coarsePointerRef.current && !draggingRef.current ? 32 : 16;
+
+      if (timeSinceLastFrame < frameInterval) {
+        rafRef.current = window.requestAnimationFrame(animate);
+        return;
+      }
+
+      const elapsed = Math.min(timeSinceLastFrame, 40);
       lastFrameRef.current = now;
 
       const pointerIsActive = now - lastPointerMoveRef.current < 520;
@@ -288,15 +375,24 @@ export default function OrbitLandingHero({ lang, initialShowcase }: Props) {
         style={{ borderRadius: "0 0 50% 50% / 0 0 10% 10%" }}
         aria-hidden="true"
       >
-        <Image
-          src="/slides/hero.jpg"
-          alt=""
-          fill
-          priority
-          unoptimized
-          sizes="100vw"
-          className="select-none object-contain object-center"
-        />
+        <picture className="absolute inset-0 block">
+          <source
+            media="(max-width: 767px)"
+            srcSet="/slides/hero-mobile.jpg"
+          />
+          {/* The two source files are pre-sized hero assets; picture provides mobile art direction. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/slides/hero.jpg"
+            alt=""
+            width={1572}
+            height={687}
+            loading="eager"
+            fetchPriority="high"
+            decoding="async"
+            className="h-full w-full select-none object-contain object-center"
+          />
+        </picture>
       </div>
 
       <div className="relative z-10 mx-auto flex max-w-7xl flex-col items-center px-4 pt-16 text-center sm:px-6 md:pt-20">
@@ -312,6 +408,9 @@ export default function OrbitLandingHero({ lang, initialShowcase }: Props) {
         <div className="relative mt-8 h-[300px] w-full max-w-6xl [perspective:1400px] md:mt-10 md:h-[350px] lg:h-[380px]">
           {categories.map((category, index) => {
             const copy = category[lang] || category.ar;
+            const imageSources = getCategoryImageSources(
+              category.image || "/placeholder.png"
+            );
             return (
               <Link
                 key={category.id}
@@ -348,18 +447,24 @@ export default function OrbitLandingHero({ lang, initialShowcase }: Props) {
                 className="orbit-category-card group absolute left-1/2 top-0 block aspect-[4/5] w-[155px] origin-bottom overflow-hidden rounded-[1.7rem] border border-white/80 bg-white shadow-[0_32px_80px_rgba(15,23,42,0.25)] outline-none focus-visible:ring-4 focus-visible:ring-blue-500/70 sm:w-[185px] md:w-[210px] lg:w-[230px]"
                 aria-label={`${copy.title}: ${copy.subtitle}`}
               >
-                <Image
-                  src={category.image || "/placeholder.png"}
-                  alt={copy.title}
-                  fill
-                  priority={index < 3}
+                {/* Supabase renders responsive card crops while non-Supabase images fall back unchanged. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={imageSources.src}
+                  srcSet={imageSources.srcSet}
                   sizes="(max-width: 640px) 155px, (max-width: 1024px) 210px, 230px"
-                  className="select-none object-cover transition-transform duration-500 group-hover:scale-105"
+                  alt={copy.title}
+                  width={480}
+                  height={600}
+                  loading={index === 0 ? "eager" : "lazy"}
+                  fetchPriority={index === 0 ? "auto" : "low"}
+                  decoding="async"
+                  className="absolute inset-0 h-full w-full select-none object-cover transition-transform duration-500 group-hover:scale-105"
                   draggable={false}
                 />
                 <div className="absolute inset-x-0 bottom-0 bg-slate-950/78 p-4 text-start text-white backdrop-blur-sm">
                   <p className="text-base font-black md:text-lg">{copy.title}</p>
-                  <p className="mt-1 line-clamp-1 text-[11px] font-bold text-white/75 md:text-xs">
+                  <p className="mt-1 line-clamp-1 text-[11px] font-bold text-white md:text-xs">
                     {copy.subtitle}
                   </p>
                 </div>

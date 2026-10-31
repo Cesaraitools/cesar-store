@@ -126,7 +126,7 @@ export default function LandingPageClient({
             <h2 className="text-2xl font-black leading-tight text-white md:text-3xl">
               {t.wholesaleTitle}
             </h2>
-            <p className="max-w-2xl text-sm font-semibold leading-7 text-white/75 md:text-base">
+            <p className="max-w-2xl text-sm font-semibold leading-7 text-white/90 md:text-base">
               {t.wholesaleDescription}
             </p>
           </div>

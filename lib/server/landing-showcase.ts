@@ -1,4 +1,4 @@
-import { unstable_noStore as noStore } from "next/cache";
+import { unstable_cache } from "next/cache";
 import type { LandingShowcase } from "@/lib/landing-showcase";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
 
@@ -12,8 +12,7 @@ function normalizeLocalizedContent(value: unknown) {
   };
 }
 
-export async function getLandingShowcase(): Promise<LandingShowcase> {
-  noStore();
+async function fetchLandingShowcase(): Promise<LandingShowcase> {
   const supabase = createServiceRoleClient();
 
   const categoriesResult = await supabase
@@ -43,3 +42,12 @@ export async function getLandingShowcase(): Promise<LandingShowcase> {
 
   return { categories };
 }
+
+export const getLandingShowcase = unstable_cache(
+  fetchLandingShowcase,
+  ["landing-showcase-v1"],
+  {
+    revalidate: 300,
+    tags: ["landing-showcase"],
+  }
+);

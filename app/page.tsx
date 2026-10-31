@@ -2,8 +2,7 @@ import LandingPageClient from "@/app/LandingPageClient";
 import type { LandingShowcase } from "@/lib/landing-showcase";
 import { getLandingShowcase } from "@/lib/server/landing-showcase";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 300;
 
 const EMPTY_SHOWCASE: LandingShowcase = { categories: [] };
 
