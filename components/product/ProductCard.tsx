@@ -11,6 +11,7 @@ import { normalizeCategory } from "@/lib/category-normalizer";
 import { getSafeImage } from "@/lib/image-safe";
 import { getSeoProductDescription } from "@/lib/product-seo-description";
 import { getProductVariants, productHasVariants } from "@/lib/product-variants";
+import { useStoreMaintenance } from "@/context/StoreMaintenanceContext";
 
 type Props = {
   product: Product;
@@ -74,6 +75,7 @@ const badgeStyles = {
 export default function ProductCard({ product }: Props) {
   const { addToCart } = useCart();
   const { lang } = useLanguage();
+  const { isMaintenanceActive } = useStoreMaintenance();
 
   const [isAdding, setIsAdding] = useState(false);
   const [isImageOpen, setIsImageOpen] = useState(false);
@@ -117,7 +119,7 @@ const isLowStock = displayStock > 0 && displayStock <= threshold;
   }, [isImageOpen]);
 
   const handleAddToCart = () => {
-    if (isAdding || isOutOfStock || hasVariants) return;
+    if (isMaintenanceActive || isAdding || isOutOfStock || hasVariants) return;
 
     setIsAdding(true);
 
@@ -180,8 +182,16 @@ const isLowStock = displayStock > 0 && displayStock <= threshold;
         </p>
 
         <div className="mt-1 sm:mt-2">
-          <p className={`mb-1 text-sm font-black sm:mb-2 sm:text-base ${theme.price}`}>
-            {product.price} جنيه
+          <p
+            className={`mb-1 text-sm font-black sm:mb-2 sm:text-base ${
+              isMaintenanceActive ? "text-blue-700" : theme.price
+            }`}
+          >
+            {isMaintenanceActive
+              ? lang === "ar"
+                ? "يتم تحديث الأسعار الآن"
+                : "Prices are being updated"
+              : `${product.price} ${lang === "ar" ? "جنيه" : "EGP"}`}
           </p>
 
           <p className="text-[11px] sm:text-xs font-semibold mb-1 text-slate-500">
@@ -210,10 +220,14 @@ const isLowStock = displayStock > 0 && displayStock <= threshold;
           ) : (
             <button
               onClick={handleAddToCart}
-              disabled={isAdding || isOutOfStock}
+              disabled={isMaintenanceActive || isAdding || isOutOfStock}
               className={`w-full rounded-xl py-2.5 text-[12px] font-black text-white shadow-lg shadow-slate-200 transition active:scale-95 disabled:bg-slate-300 disabled:text-slate-500 disabled:shadow-none sm:text-sm ${theme.button}`}
             >
-              {isOutOfStock
+              {isMaintenanceActive
+                ? lang === "ar"
+                  ? "الشراء متوقف مؤقتًا"
+                  : "Purchases temporarily paused"
+                : isOutOfStock
                 ? lang === "ar"
                   ? "نفد المخزون"
                   : "Out of stock"

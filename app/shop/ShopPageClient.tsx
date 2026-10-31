@@ -10,6 +10,7 @@ import { sortProducts, SortOption } from "@/lib/filters";
 import { useLanguage } from "@/context/LanguageContext";
 import type { Product } from "@/types/product";
 import type { PromoData } from "@/types/promo";
+import { useStoreMaintenance } from "@/context/StoreMaintenanceContext";
 import {
   ChevronRight,
   ArrowRight,
@@ -153,6 +154,7 @@ export default function ShopPageClient({
   initialCategories,
 }: Props) {
   const { lang } = useLanguage();
+  const { isMaintenanceActive } = useStoreMaintenance();
   const isAr = lang === "ar";
 
   const [sort, setSort] = useState<SortOption>("default");
@@ -181,6 +183,15 @@ export default function ShopPageClient({
         console.error("Shop Error:", error);
       });
   }, []);
+
+  useEffect(() => {
+    if (
+      isMaintenanceActive &&
+      (sort === "price-asc" || sort === "price-desc")
+    ) {
+      setSort("default");
+    }
+  }, [isMaintenanceActive, sort]);
 
   const visibleCategories = useMemo(
     () => categories.filter((category) => category.active),
@@ -395,12 +406,16 @@ export default function ShopPageClient({
                     <option value="default">
                       {isAr ? "الترتيب الافتراضي" : "Default Sorting"}
                     </option>
-                    <option value="price-asc">
-                      {isAr ? "السعر: من الأقل للأعلى" : "Price: Low to High"}
-                    </option>
-                    <option value="price-desc">
-                      {isAr ? "السعر: من الأعلى للأقل" : "Price: High to Low"}
-                    </option>
+                    {!isMaintenanceActive && (
+                      <>
+                        <option value="price-asc">
+                          {isAr ? "السعر: من الأقل للأعلى" : "Price: Low to High"}
+                        </option>
+                        <option value="price-desc">
+                          {isAr ? "السعر: من الأعلى للأقل" : "Price: High to Low"}
+                        </option>
+                      </>
+                    )}
                     <option value="featured">
                       {isAr ? "الأكثر تميزاً" : "Featured Products"}
                     </option>
@@ -479,12 +494,16 @@ export default function ShopPageClient({
                 <option value="default">
                   {isAr ? "الترتيب الافتراضي" : "Default Sorting"}
                 </option>
-                <option value="price-asc">
-                  {isAr ? "السعر: من الأقل للأعلى" : "Price: Low to High"}
-                </option>
-                <option value="price-desc">
-                  {isAr ? "السعر: من الأعلى للأقل" : "Price: High to Low"}
-                </option>
+                {!isMaintenanceActive && (
+                  <>
+                    <option value="price-asc">
+                      {isAr ? "السعر: من الأقل للأعلى" : "Price: Low to High"}
+                    </option>
+                    <option value="price-desc">
+                      {isAr ? "السعر: من الأعلى للأقل" : "Price: High to Low"}
+                    </option>
+                  </>
+                )}
                 <option value="featured">
                   {isAr ? "الأكثر تميزاً" : "Featured Products"}
                 </option>

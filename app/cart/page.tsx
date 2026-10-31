@@ -16,6 +16,8 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { formatVariantSnapshot } from "@/lib/product-variants";
 import { getSafeImage } from "@/lib/image-safe";
+import PurchasePausedPanel from "@/components/maintenance/PurchasePausedPanel";
+import { useStoreMaintenance } from "@/context/StoreMaintenanceContext";
 
 function CartItemImage({ src, alt }: { src?: string; alt: string }) {
   const safeSrc = getSafeImage(src);
@@ -43,6 +45,7 @@ export default function CartPage() {
   const { cartItems, updateQuantity, removeFromCart } = useCart();
   const router = useRouter();
   const { user } = useAuth();
+  const { isMaintenanceActive } = useStoreMaintenance();
 
   const decreaseQuantity = (item: any) => {
     if (item.quantity === 1) return;
@@ -57,6 +60,10 @@ export default function CartPage() {
     (acc: number, item: any) => acc + item.price * item.quantity,
     0
   );
+
+  if (isMaintenanceActive) {
+    return <PurchasePausedPanel />;
+  }
 
   return (
     <div className="min-h-screen bg-[#FCFDFF] py-12 px-4 md:px-6" dir="rtl">

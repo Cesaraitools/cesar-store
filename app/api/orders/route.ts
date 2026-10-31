@@ -7,6 +7,11 @@ import {
   isAvailableDeliveryGovernorate,
 } from "@/lib/delivery-governorates";
 import * as Sentry from "@sentry/nextjs";
+import {
+  STORE_MAINTENANCE,
+  getStoreMaintenanceRetryAfterSeconds,
+  isStoreMaintenanceActive,
+} from "@/lib/store-maintenance";
 
 const serviceSupabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -228,6 +233,23 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  if (isStoreMaintenanceActive()) {
+    return NextResponse.json(
+      {
+        error: "يتم تحديث الأسعار الآن. سيتم إعادة فتح الطلبات تلقائيًا بعد انتهاء التحديث.",
+        code: "STORE_MAINTENANCE",
+        endsAt: STORE_MAINTENANCE.endsAt,
+      },
+      {
+        status: 503,
+        headers: {
+          "Cache-Control": "no-store",
+          "Retry-After": String(getStoreMaintenanceRetryAfterSeconds()),
+        },
+      }
+    );
+  }
+
  const ip =
   request.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
   request.headers.get("x-real-ip") ||

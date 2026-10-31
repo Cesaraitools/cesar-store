@@ -7,9 +7,11 @@ import DeferredMarketingScripts from "@/components/DeferredMarketingScripts";
 import DeferredToaster from "@/components/DeferredToaster";
 import Navbar from "@/components/Navbar";
 import SiteFooter from "@/components/SiteFooter";
+import StoreMaintenanceOverlay from "@/components/maintenance/StoreMaintenanceOverlay";
 import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 import { LanguageProvider } from "@/context/LanguageContext";
+import { StoreMaintenanceProvider } from "@/context/StoreMaintenanceContext";
 import { WholesaleCartProvider } from "@/context/WholesaleDbCartContext";
 import {
   BRAND_SEARCH_TERMS,
@@ -206,17 +208,20 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         />
         <AuthProvider>
           <LanguageProvider>
-            <CartProvider>
-              <WholesaleCartProvider>
-                <div className="flex flex-col min-h-screen">
-                  <Navbar />
+            <StoreMaintenanceProvider initialNow={Date.now()}>
+              <CartProvider>
+                <WholesaleCartProvider>
+                  <div className="flex flex-col min-h-screen">
+                    <Navbar />
+                    <StoreMaintenanceOverlay />
 
-                  <main className="flex-grow pt-5 md:pt-7">{children}</main>
-                  <DeferredToaster />
-                  <SiteFooter />
-                </div>
-              </WholesaleCartProvider>
-            </CartProvider>
+                    <main className="flex-grow pt-5 md:pt-7">{children}</main>
+                    <DeferredToaster />
+                    <SiteFooter />
+                  </div>
+                </WholesaleCartProvider>
+              </CartProvider>
+            </StoreMaintenanceProvider>
           </LanguageProvider>
         </AuthProvider>
       </body>

@@ -20,6 +20,7 @@ import {
   productHasVariants,
 } from "@/lib/product-variants";
 import type { CatalogCategory } from "@/lib/server/catalog";
+import { useStoreMaintenance } from "@/context/StoreMaintenanceContext";
 
 type Props = {
   product: Product;
@@ -29,6 +30,7 @@ type Props = {
 export default function ProductPageClient({ product, categories }: Props) {
   const { addToCart } = useCart();
   const { lang } = useLanguage();
+  const { isMaintenanceActive } = useStoreMaintenance();
 
   const [mainImage, setMainImage] = useState<string | null>(
     product.images?.[0] || null
@@ -99,7 +101,7 @@ export default function ProductPageClient({ product, categories }: Props) {
   }, [displayPrice, product, selectedVariant]);
 
   const handleAddToCart = () => {
-    if (isAdding || isOutOfStock) return;
+    if (isMaintenanceActive || isAdding || isOutOfStock) return;
 
     setIsAdding(true);
 
@@ -191,8 +193,16 @@ export default function ProductPageClient({ product, categories }: Props) {
         <div className="space-y-4">
           <h1 className="text-3xl font-bold">{name}</h1>
 
-          <p className="text-xl text-green-600 font-semibold">
-            {displayPrice} جنيه
+          <p
+            className={`text-xl font-semibold ${
+              isMaintenanceActive ? "text-blue-700" : "text-green-600"
+            }`}
+          >
+            {isMaintenanceActive
+              ? lang === "ar"
+                ? "يتم تحديث الأسعار الآن"
+                : "Prices are being updated"
+              : `${displayPrice} ${lang === "ar" ? "جنيه" : "EGP"}`}
           </p>
 
           <p className="text-gray-600 leading-relaxed">{description}</p>
@@ -247,10 +257,14 @@ export default function ProductPageClient({ product, categories }: Props) {
           <button
             type="button"
             onClick={handleAddToCart}
-            disabled={isAdding || isOutOfStock}
+            disabled={isMaintenanceActive || isAdding || isOutOfStock}
             className="w-full rounded-lg bg-black px-5 py-3 text-sm font-bold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isOutOfStock
+            {isMaintenanceActive
+              ? lang === "ar"
+                ? "الشراء متوقف مؤقتًا"
+                : "Purchases temporarily paused"
+              : isOutOfStock
               ? lang === "ar"
                 ? "نفد المخزون"
                 : "Out of stock"

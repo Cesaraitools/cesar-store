@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { getSafeImage } from "@/lib/image-safe";
 import type { PromoData } from "@/types/promo";
+import { useStoreMaintenance } from "@/context/StoreMaintenanceContext";
 
 type Props = {
   promo: PromoData;
@@ -22,6 +23,7 @@ type PromoSlide = {
 };
 
 export default function ShopSidePromoSlider({ promo, lang }: Props) {
+  const { isMaintenanceActive } = useStoreMaintenance();
   const slides = useMemo<PromoSlide[]>(() => {
     if (promo.products.length) {
       return promo.products
@@ -180,7 +182,11 @@ export default function ShopSidePromoSlider({ promo, lang }: Props) {
 
             {typeof activeSlide.price === "number" && (
               <p className="mt-4 text-sm font-black text-emerald-300">
-                {activeSlide.price} {lang === "ar" ? "جنيه" : "EGP"}
+                {isMaintenanceActive
+                  ? lang === "ar"
+                    ? "يتم تحديث الأسعار الآن"
+                    : "Prices are being updated"
+                  : `${activeSlide.price} ${lang === "ar" ? "جنيه" : "EGP"}`}
               </p>
             )}
 

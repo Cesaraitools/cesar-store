@@ -9,6 +9,7 @@ import {
 import { absoluteUrl, compactText } from "@/lib/seo";
 import { getSafeImage } from "@/lib/image-safe";
 import { getSeoProductDescription } from "@/lib/product-seo-description";
+import { isStoreMaintenanceActive } from "@/lib/store-maintenance";
 
 type Props = {
   params: { id: string };
@@ -94,7 +95,8 @@ export default async function ProductPage({ params }: Props) {
       "@type": "Brand",
       name: "Cesar Store",
     },
-    offers: {
+    ...(!isStoreMaintenanceActive() && {
+      offers: {
       "@type": "Offer",
       url: productUrl,
       priceCurrency: "EGP",
@@ -113,7 +115,8 @@ export default async function ProductPage({ params }: Props) {
         returnFees: "https://schema.org/FreeReturn",
         returnMethod: "https://schema.org/ReturnByMail",
       },
-    },
+      },
+    }),
   };
   const breadcrumbStructuredData = {
     "@context": "https://schema.org",
