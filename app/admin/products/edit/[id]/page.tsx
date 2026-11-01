@@ -325,10 +325,14 @@ export default function EditProductPage({ params }: Props) {
         {/* -------- Left Column -------- */}
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label
+              htmlFor="product-id"
+              className="block text-sm font-medium mb-1"
+            >
               Product ID
             </label>
             <input
+              id="product-id"
               value={form.id}
               readOnly
               className="w-full rounded-md border p-2 bg-gray-100"
@@ -336,10 +340,14 @@ export default function EditProductPage({ params }: Props) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label
+              htmlFor="product-name-ar"
+              className="block text-sm font-medium mb-1"
+            >
               Name (Arabic)
             </label>
             <input
+              id="product-name-ar"
               name="nameAr"
               value={form.nameAr}
               onChange={handleChange}
@@ -349,10 +357,14 @@ export default function EditProductPage({ params }: Props) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label
+              htmlFor="product-name-en"
+              className="block text-sm font-medium mb-1"
+            >
               Name (English)
             </label>
             <input
+              id="product-name-en"
               name="nameEn"
               value={form.nameEn}
               onChange={handleChange}
@@ -362,10 +374,14 @@ export default function EditProductPage({ params }: Props) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label
+              htmlFor="product-price"
+              className="block text-sm font-medium mb-1"
+            >
               Price
             </label>
             <input
+              id="product-price"
               type="number"
               name="price"
               value={form.price}
@@ -376,10 +392,14 @@ export default function EditProductPage({ params }: Props) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label
+              htmlFor="product-stock"
+              className="block text-sm font-medium mb-1"
+            >
               {hasVariants ? "إجمالي مخزون المتغيرات" : "Stock"}
             </label>
             <input
+              id="product-stock"
               type="number"
               name="stock"
               value={hasVariants ? String(variantStockTotal) : form.stock}
@@ -410,10 +430,14 @@ export default function EditProductPage({ params }: Props) {
         {/* -------- Right Column -------- */}
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label
+              htmlFor="product-category"
+              className="block text-sm font-medium mb-1"
+            >
               Category
             </label>
             <select
+              id="product-category"
               name="category"
               value={form.category}
               onChange={handleChange}
@@ -477,9 +501,10 @@ export default function EditProductPage({ params }: Props) {
                   <button
                     type="button"
                     onClick={() => removeImage(idx)}
-                    className="absolute top-1 right-1 rounded bg-black/70 px-1 text-xs text-white"
+                    aria-label={`حذف الصورة ${idx + 1}`}
+                    className="absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded bg-black/70 text-xs text-white"
                   >
-                    Ã—
+                    ×
                   </button>
                 </div>
               ))}
@@ -492,10 +517,14 @@ export default function EditProductPage({ params }: Props) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label
+              htmlFor="product-description-ar"
+              className="block text-sm font-medium mb-1"
+            >
               Description (Arabic)
             </label>
             <textarea
+              id="product-description-ar"
               name="descriptionAr"
               value={form.descriptionAr}
               onChange={handleChange}
@@ -506,10 +535,14 @@ export default function EditProductPage({ params }: Props) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">
+            <label
+              htmlFor="product-description-en"
+              className="block text-sm font-medium mb-1"
+            >
               Description (English)
             </label>
             <textarea
+              id="product-description-en"
               name="descriptionEn"
               value={form.descriptionEn}
               onChange={handleChange}
