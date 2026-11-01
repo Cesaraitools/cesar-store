@@ -1,5 +1,6 @@
 "use client";
 
+import { useTransition } from "react";
 import {
   buildVariantKey,
   normalizeProductVariantOptions,
@@ -54,6 +55,8 @@ function optionLabel(
 }
 
 export function ProductVariantsEditor({ options, variants, onChange }: Props) {
+  const [isGenerating, startGenerating] = useTransition();
+
   const emit = (
     nextOptions: ProductVariantOption[],
     nextVariants = variants
@@ -164,7 +167,9 @@ export function ProductVariantsEditor({ options, variants, onChange }: Props) {
       );
     });
 
-    onChange({ options: cleanOptions, variants: nextVariants });
+    startGenerating(() => {
+      onChange({ options: cleanOptions, variants: nextVariants });
+    });
   };
 
   const updateVariant = (
@@ -271,9 +276,11 @@ export function ProductVariantsEditor({ options, variants, onChange }: Props) {
         <button
           type="button"
           onClick={generateVariants}
-          className="rounded-xl bg-black px-4 py-2 text-xs font-black text-white"
+          disabled={isGenerating}
+          aria-busy={isGenerating}
+          className="rounded-xl bg-black px-4 py-2 text-xs font-black text-white disabled:cursor-wait disabled:opacity-70"
         >
-          توليد اختيارات الصنف
+          {isGenerating ? "جاري التوليد..." : "توليد اختيارات الصنف"}
         </button>
       )}
 
