@@ -502,7 +502,7 @@ export default function EditProductPage({ params }: Props) {
                     type="button"
                     onClick={() => removeImage(idx)}
                     aria-label={`حذف الصورة ${idx + 1}`}
-                    className="absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded bg-black/70 text-xs text-white"
+                    className="absolute top-1 right-1 flex h-7 w-7 items-center justify-center rounded bg-black/70 text-xs text-white"
                   >
                     ×
                   </button>
