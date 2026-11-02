@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { CheckCircle2, Images, MousePointerClick } from "lucide-react";
 import type { Product } from "@/types/product";
 import { useCart } from "@/context/CartContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -126,7 +127,7 @@ export default function ProductPageClient({ product, categories }: Props) {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
       <div className="text-sm text-gray-500 mb-6 space-x-2">
         <Link href="/" className="hover:text-black">
           {lang === "ar" ? "الرئيسية" : "Home"}
@@ -148,49 +149,72 @@ export default function ProductPageClient({ product, categories }: Props) {
         <span className="text-black font-medium">{name}</span>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-8">
-        <div>
-          <div className="border rounded-xl p-4 flex items-center justify-center bg-gray-50 mb-4">
+      <section className="rounded-[28px] border border-slate-100 bg-white p-4 shadow-sm sm:p-6 lg:p-8">
+        <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(420px,0.85fr)] lg:gap-12">
+        <div className="min-w-0">
+          <div className="flex min-h-[360px] items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:min-h-[460px] sm:p-6 lg:min-h-[560px] lg:p-8">
             <Image
               src={safeMainImage}
               alt={name}
-              width={520}
-              height={420}
-              sizes="(min-width: 768px) 50vw, 100vw"
-              className="max-h-[350px] object-contain"
+              width={760}
+              height={640}
+              sizes="(min-width: 1280px) 760px, (min-width: 1024px) 58vw, 100vw"
+              className="h-auto w-full max-h-[320px] object-contain sm:max-h-[420px] lg:max-h-[520px]"
+              priority
               unoptimized
               onError={() => setMainImage("/placeholder.png")}
             />
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            {productImages.map((image, index) => (
-              <button
-                key={image}
-                type="button"
-                onClick={() => setMainImage(image)}
-                className={`border rounded-lg p-2 ${
-                  getSafeImage(mainImage || productImages[0]) === image
-                    ? "border-black"
-                    : "border-gray-200"
-                }`}
-              >
-                <Image
-                  src={image}
-                  alt={`${name}-${index + 1}`}
-                  width={64}
-                  height={64}
-                  sizes="64px"
-                  className="h-16 w-16 object-contain"
-                  unoptimized
-                  onError={() => setMainImage("/placeholder.png")}
-                />
-              </button>
-            ))}
+          <div className="mt-5">
+            <div className="mb-3 flex items-center justify-center gap-2 text-xs font-bold text-slate-600">
+              <Images className="h-4 w-4 text-blue-600" aria-hidden="true" />
+              <span>
+                {lang === "ar"
+                  ? "صور المنتج للمعاينة فقط"
+                  : "Product images are for preview only"}
+              </span>
+            </div>
+            <div className="flex flex-wrap justify-center gap-3">
+              {productImages.map((image, index) => {
+                const isPreviewed =
+                  getSafeImage(mainImage || productImages[0]) === image;
+
+                return (
+                  <button
+                    key={image}
+                    type="button"
+                    onClick={() => setMainImage(image)}
+                    aria-pressed={isPreviewed}
+                    aria-label={
+                      lang === "ar"
+                        ? `معاينة صورة المنتج ${index + 1}`
+                        : `Preview product image ${index + 1}`
+                    }
+                    className={`rounded-xl border bg-white p-2 transition hover:-translate-y-0.5 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
+                      isPreviewed
+                        ? "border-slate-900 shadow-sm"
+                        : "border-slate-200 hover:border-slate-400"
+                    }`}
+                  >
+                    <Image
+                      src={image}
+                      alt={`${name}-${index + 1}`}
+                      width={72}
+                      height={72}
+                      sizes="72px"
+                      className="h-[72px] w-[72px] object-contain"
+                      unoptimized
+                      onError={() => setMainImage("/placeholder.png")}
+                    />
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-5 lg:py-2">
           <h1 className="text-3xl font-bold">{name}</h1>
 
           <p
@@ -208,40 +232,83 @@ export default function ProductPageClient({ product, categories }: Props) {
           <p className="text-gray-600 leading-relaxed">{description}</p>
 
           {hasVariants && (
-            <div className="space-y-4 rounded-xl border border-gray-100 bg-gray-50 p-4">
-              {(product.variantOptions || []).map((option) => (
-                <div key={option.id}>
-                  <p className="mb-2 text-sm font-bold text-gray-800">
-                    {lang === "ar" ? option.name.ar : option.name.en}
+            <div className="space-y-5 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 shadow-sm sm:p-5">
+              <div
+                role="note"
+                className="flex items-start gap-3 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-blue-950"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
+                  <MousePointerClick className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-black">
+                    {lang === "ar"
+                      ? "اختر المواصفة من الاسم"
+                      : "Choose the specification by name"}
                   </p>
-                  <div className="flex flex-wrap gap-2">
-                    {option.values.map((value) => {
-                      const selected =
-                        selectedSelections[option.id] === value.id;
-
-                      return (
-                        <button
-                          key={value.id}
-                          type="button"
-                          onClick={() =>
-                            setSelectedSelections((prev) => ({
-                              ...prev,
-                              [option.id]: value.id,
-                            }))
-                          }
-                          className={`rounded-lg border px-4 py-2 text-sm font-bold transition ${
-                            selected
-                              ? "border-black bg-black text-white"
-                              : "border-gray-200 bg-white text-gray-700 hover:border-gray-400"
-                          }`}
-                        >
-                          {lang === "ar" ? value.label.ar : value.label.en}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <p className="mt-1 text-xs font-semibold leading-6 text-blue-800 sm:text-sm">
+                    {lang === "ar"
+                      ? "اضغط على اسم المواصفة المطلوبة من الأزرار أدناه قبل الإضافة للسلة. الصور المصغرة أسفل صورة المنتج للمعاينة فقط ولا تغيّر اختيارك."
+                      : "Select the required option using the named buttons below before adding to cart. The thumbnails under the product image are for preview only and do not change your selection."}
+                  </p>
                 </div>
-              ))}
+              </div>
+
+              {(product.variantOptions || []).map((option) => {
+                const selectedValue = option.values.find(
+                  (value) => selectedSelections[option.id] === value.id
+                );
+
+                return (
+                  <div key={option.id}>
+                    <p className="mb-2 text-sm font-black text-slate-900">
+                      {lang === "ar" ? option.name.ar : option.name.en}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {option.values.map((value) => {
+                        const selected =
+                          selectedSelections[option.id] === value.id;
+
+                        return (
+                          <button
+                            key={value.id}
+                            type="button"
+                            aria-pressed={selected}
+                            onClick={() =>
+                              setSelectedSelections((prev) => ({
+                                ...prev,
+                                [option.id]: value.id,
+                              }))
+                            }
+                            className={`rounded-xl border px-4 py-2.5 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${
+                              selected
+                                ? "border-slate-950 bg-slate-950 text-white shadow-sm"
+                                : "border-slate-200 bg-white text-slate-700 hover:border-slate-400"
+                            }`}
+                          >
+                            {lang === "ar" ? value.label.ar : value.label.en}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {selectedValue && (
+                      <div
+                        className="mt-3 flex items-center gap-2 text-xs font-bold text-emerald-700"
+                        aria-live="polite"
+                      >
+                        <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                        <span>
+                          {lang === "ar" ? "اختيارك الحالي:" : "Current selection:"}{" "}
+                          {lang === "ar"
+                            ? selectedValue.label.ar
+                            : selectedValue.label.en}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
 
@@ -278,6 +345,7 @@ export default function ProductPageClient({ product, categories }: Props) {
           </button>
         </div>
       </div>
+      </section>
     </div>
   );
 }
