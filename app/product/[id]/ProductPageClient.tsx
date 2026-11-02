@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { CheckCircle2, Images, MousePointerClick } from "lucide-react";
@@ -28,6 +29,9 @@ type Props = {
   categories: CatalogCategory[];
 };
 
+const PRODUCT_ZOOM_LENS_SIZE = 160;
+const PRODUCT_ZOOM_FACTOR = 2.35;
+
 export default function ProductPageClient({ product, categories }: Props) {
   const { addToCart } = useCart();
   const { lang } = useLanguage();
@@ -37,6 +41,9 @@ export default function ProductPageClient({ product, categories }: Props) {
     product.images?.[0] || null
   );
   const [isAdding, setIsAdding] = useState(false);
+  const mainImageRef = useRef<HTMLImageElement>(null);
+  const zoomLensRef = useRef<HTMLDivElement>(null);
+  const zoomFrameRef = useRef<number | null>(null);
   const hasVariants = productHasVariants(product);
   const initialSelections = useMemo(() => {
     const firstAvailable =
@@ -85,6 +92,23 @@ export default function ProductPageClient({ product, categories }: Props) {
   }, [selectedVariant?.image]);
 
   useEffect(() => {
+    const lens = zoomLensRef.current;
+    if (lens) {
+      lens.style.opacity = "0";
+      lens.style.visibility = "hidden";
+    }
+  }, [safeMainImage]);
+
+  useEffect(
+    () => () => {
+      if (zoomFrameRef.current !== null) {
+        cancelAnimationFrame(zoomFrameRef.current);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
     trackViewItem({
       id: product.id,
       name_ar: product.name.ar,
@@ -126,6 +150,95 @@ export default function ProductPageClient({ product, categories }: Props) {
     }, 300);
   };
 
+  const hideZoomLens = () => {
+    if (zoomFrameRef.current !== null) {
+      cancelAnimationFrame(zoomFrameRef.current);
+      zoomFrameRef.current = null;
+    }
+
+    const lens = zoomLensRef.current;
+    if (!lens) return;
+    lens.style.opacity = "0";
+    lens.style.visibility = "hidden";
+  };
+
+  const handleZoomPointerMove = (
+    event: ReactPointerEvent<HTMLDivElement>
+  ) => {
+    if (event.pointerType !== "mouse") {
+      hideZoomLens();
+      return;
+    }
+
+    const clientX = event.clientX;
+    const clientY = event.clientY;
+    const frame = event.currentTarget;
+
+    if (zoomFrameRef.current !== null) {
+      cancelAnimationFrame(zoomFrameRef.current);
+    }
+
+    zoomFrameRef.current = requestAnimationFrame(() => {
+      const image = mainImageRef.current;
+      const lens = zoomLensRef.current;
+      if (!image || !lens) return;
+
+      const frameRect = frame.getBoundingClientRect();
+      const imageRect = image.getBoundingClientRect();
+      const naturalRatio = image.naturalWidth / image.naturalHeight;
+      const boxRatio = imageRect.width / imageRect.height;
+      const contentWidth =
+        naturalRatio > boxRatio ? imageRect.width : imageRect.height * naturalRatio;
+      const contentHeight =
+        naturalRatio > boxRatio ? imageRect.width / naturalRatio : imageRect.height;
+      const contentLeft = imageRect.left + (imageRect.width - contentWidth) / 2;
+      const contentTop = imageRect.top + (imageRect.height - contentHeight) / 2;
+      const isOverImage =
+        clientX >= contentLeft &&
+        clientX <= contentLeft + contentWidth &&
+        clientY >= contentTop &&
+        clientY <= contentTop + contentHeight;
+
+      if (
+        !isOverImage ||
+        !Number.isFinite(naturalRatio) ||
+        contentWidth <= 0 ||
+        contentHeight <= 0
+      ) {
+        lens.style.opacity = "0";
+        lens.style.visibility = "hidden";
+        return;
+      }
+
+      const halfLens = PRODUCT_ZOOM_LENS_SIZE / 2;
+      const pointerX = clientX - frameRect.left;
+      const pointerY = clientY - frameRect.top;
+      const lensX = Math.min(
+        frameRect.width - halfLens,
+        Math.max(halfLens, pointerX)
+      );
+      const lensY = Math.min(
+        frameRect.height - halfLens,
+        Math.max(halfLens, pointerY)
+      );
+      const imageX = clientX - contentLeft;
+      const imageY = clientY - contentTop;
+
+      lens.style.transform = `translate3d(${lensX - halfLens}px, ${
+        lensY - halfLens
+      }px, 0)`;
+      lens.style.backgroundSize = `${contentWidth * PRODUCT_ZOOM_FACTOR}px ${
+        contentHeight * PRODUCT_ZOOM_FACTOR
+      }px`;
+      lens.style.backgroundPosition = `${
+        halfLens - imageX * PRODUCT_ZOOM_FACTOR
+      }px ${halfLens - imageY * PRODUCT_ZOOM_FACTOR}px`;
+      lens.style.visibility = "visible";
+      lens.style.opacity = "1";
+      zoomFrameRef.current = null;
+    });
+  };
+
   return (
     <div className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
       <div className="text-sm text-gray-500 mb-6 space-x-2">
@@ -152,8 +265,14 @@ export default function ProductPageClient({ product, categories }: Props) {
       <section className="rounded-[28px] border border-slate-100 bg-white p-4 shadow-sm sm:p-6 lg:p-8">
         <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(420px,0.85fr)] lg:gap-12">
         <div className="min-w-0">
-          <div className="flex min-h-[360px] items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:min-h-[460px] sm:p-6 lg:min-h-[560px] lg:p-8">
+          <div
+            className="relative flex min-h-[360px] cursor-zoom-in items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:min-h-[460px] sm:p-6 lg:min-h-[560px] lg:p-8"
+            onPointerMove={handleZoomPointerMove}
+            onPointerLeave={hideZoomLens}
+            onPointerCancel={hideZoomLens}
+          >
             <Image
+              ref={mainImageRef}
               src={safeMainImage}
               alt={name}
               width={760}
@@ -163,6 +282,15 @@ export default function ProductPageClient({ product, categories }: Props) {
               priority
               unoptimized
               onError={() => setMainImage("/placeholder.png")}
+            />
+            <div
+              ref={zoomLensRef}
+              aria-hidden="true"
+              className="pointer-events-none invisible absolute left-0 top-0 z-10 h-40 w-40 rounded-full border-4 border-white bg-white opacity-0 shadow-[0_12px_36px_rgba(15,23,42,0.32)] ring-2 ring-blue-500 transition-opacity duration-100 will-change-transform motion-reduce:transition-none"
+              style={{
+                backgroundImage: `url("${safeMainImage}")`,
+                backgroundRepeat: "no-repeat",
+              }}
             />
           </div>
 
