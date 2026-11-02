@@ -29,7 +29,7 @@ type Props = {
   categories: CatalogCategory[];
 };
 
-const PRODUCT_ZOOM_LENS_SIZE = 160;
+const PRODUCT_ZOOM_LENS_SIZE = 184;
 const PRODUCT_ZOOM_FACTOR = 2.35;
 
 export default function ProductPageClient({ product, categories }: Props) {
@@ -266,7 +266,7 @@ export default function ProductPageClient({ product, categories }: Props) {
         <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(420px,0.85fr)] lg:gap-12">
         <div className="min-w-0">
           <div
-            className="relative flex min-h-[360px] cursor-zoom-in items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:min-h-[460px] sm:p-6 lg:min-h-[560px] lg:p-8"
+            className="relative flex min-h-[360px] cursor-none items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:min-h-[460px] sm:p-6 lg:min-h-[560px] lg:p-8"
             onPointerMove={handleZoomPointerMove}
             onPointerLeave={hideZoomLens}
             onPointerCancel={hideZoomLens}
@@ -286,7 +286,7 @@ export default function ProductPageClient({ product, categories }: Props) {
             <div
               ref={zoomLensRef}
               aria-hidden="true"
-              className="pointer-events-none invisible absolute left-0 top-0 z-10 h-40 w-40 rounded-full border-4 border-white bg-white opacity-0 shadow-[0_12px_36px_rgba(15,23,42,0.32)] ring-2 ring-blue-500 transition-opacity duration-100 will-change-transform motion-reduce:transition-none"
+              className="pointer-events-none invisible absolute left-0 top-0 z-10 h-[184px] w-[184px] rounded-full border-4 border-white bg-white opacity-0 shadow-[0_12px_36px_rgba(15,23,42,0.32)] ring-2 ring-blue-500 transition-opacity duration-100 will-change-transform motion-reduce:transition-none"
               style={{
                 backgroundImage: `url("${safeMainImage}")`,
                 backgroundRepeat: "no-repeat",

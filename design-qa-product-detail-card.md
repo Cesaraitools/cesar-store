@@ -51,8 +51,8 @@
 
 - Purpose: let mouse users inspect product details without opening a modal or changing the selected image or variant.
 - Trigger: mouse pointer movement over the rendered image content inside the main gallery.
-- Initial state: lens hidden; the gallery keeps a standard `zoom-in` cursor.
-- Active state: a 160px circular lens follows the pointer within gallery bounds and renders the same image at `2.35x` scale.
+- Initial state: lens hidden; the native cursor is hidden inside the gallery so no cursor icon appears over the lens.
+- Active state: a 184px circular lens follows the pointer within gallery bounds and renders the same image at `2.35x` scale.
 - Exit and interruption: pointer leave, pointer cancellation, image change, and component unmount hide or clean up the lens immediately.
 - Properties: position uses `translate3d`; background position and size update inside `requestAnimationFrame`; opacity is the only transitioned property.
 - Inputs: mouse-only enhancement. Touch/coarse input keeps the normal product image and thumbnail experience; product selection never depends on the lens.
@@ -64,6 +64,7 @@
 - Moving between two image points changed both `translate3d` and `background-position`, confirming that the magnified region followed the pointer.
 - Moving outside the gallery changed lens opacity to `0` and visibility to `hidden`.
 - Mobile viewport `390 x 844`: lens stayed hidden without pointer interaction and no horizontal overflow appeared.
+- Refinement check: computed lens size is `184 x 184` and the gallery cursor is `none`, so no native cursor icon remains inside the lens.
 - No runtime error was recorded. The existing Meta Pixel duplicate-version warning remains unrelated.
 
 final result: passed
