@@ -34,6 +34,27 @@ type MetaResponse = {
   };
 };
 
+export class MetaPublishOutcomeUnknownError extends Error {
+  readonly outcomeUnknown = true;
+
+  constructor(message: string) {
+    super(message);
+    this.name = "MetaPublishOutcomeUnknownError";
+  }
+}
+
+export function isMetaPublishOutcomeUnknownError(error: unknown) {
+  return (
+    error instanceof MetaPublishOutcomeUnknownError ||
+    Boolean(
+      error &&
+        typeof error === "object" &&
+        "outcomeUnknown" in error &&
+        (error as { outcomeUnknown?: unknown }).outcomeUnknown === true
+    )
+  );
+}
+
 function metaError(payload: MetaResponse, fallback: string) {
   const message = payload.error?.message || fallback;
   const code = payload.error?.code ? ` (${payload.error.code})` : "";
@@ -43,15 +64,41 @@ function appSecretProof(accessToken: string, appSecret: string) {
   return createHmac("sha256", appSecret).update(accessToken).digest("hex");
 }
 
-async function postForm(url: string, values: Record<string, string>) {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams(values),
-    cache: "no-store",
-    signal: AbortSignal.timeout(15_000),
-  });
-  const payload = (await response.json()) as MetaResponse;
+async function postForm(
+  url: string,
+  values: Record<string, string>,
+  options?: { publishingRequest?: boolean }
+) {
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams(values),
+      cache: "no-store",
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch (error) {
+    if (options?.publishingRequest) {
+      const message = error instanceof Error ? error.message : "transport failure";
+      throw new MetaPublishOutcomeUnknownError(
+        `Meta publishing request outcome is unknown (${message}). Verify the social account before retrying.`
+      );
+    }
+    throw error;
+  }
+
+  let payload: MetaResponse;
+  try {
+    payload = (await response.json()) as MetaResponse;
+  } catch (error) {
+    if (options?.publishingRequest) {
+      throw new MetaPublishOutcomeUnknownError(
+        "Meta publishing response could not be confirmed. Verify the social account before retrying."
+      );
+    }
+    throw error;
+  }
 
   if (!response.ok || payload.error) {
     throw metaError(payload, `Meta request failed with ${response.status}`);
@@ -162,12 +209,15 @@ async function publishFacebook(
       published: "true",
       access_token: config.accessToken,
       appsecret_proof: appSecretProof(config.accessToken, config.appSecret),
-    }
+    },
+    { publishingRequest: true }
   );
   const externalPostId = payload.post_id || payload.id || "";
 
   if (!externalPostId) {
-    throw new Error("Meta did not return a Facebook post id.");
+    throw new MetaPublishOutcomeUnknownError(
+      "Meta accepted the Facebook publishing request without a post id. Verify the Page before retrying."
+    );
   }
 
   return {
@@ -209,24 +259,35 @@ async function publishInstagram(
       creation_id: container.id,
       access_token: config.accessToken,
       appsecret_proof: appSecretProof(config.accessToken, config.appSecret),
-    }
+    },
+    { publishingRequest: true }
   );
 
   if (!published.id) {
-    throw new Error("Meta did not return an Instagram media id.");
+    throw new MetaPublishOutcomeUnknownError(
+      "Meta accepted the Instagram publishing request without a media id. Verify the account before retrying."
+    );
   }
 
-  const media = await getJson(
-    `${baseUrl}/${encodeURIComponent(published.id)}?fields=permalink&access_token=${encodeURIComponent(
-      config.accessToken
-    )}&appsecret_proof=${encodeURIComponent(
-      appSecretProof(config.accessToken, config.appSecret)
-    )}`
-  );
+  let permalink = "https://www.instagram.com/";
+  try {
+    const media = await getJson(
+      `${baseUrl}/${encodeURIComponent(published.id)}?fields=permalink&access_token=${encodeURIComponent(
+        config.accessToken
+      )}&appsecret_proof=${encodeURIComponent(
+        appSecretProof(config.accessToken, config.appSecret)
+      )}`
+    );
+    permalink = media.permalink || permalink;
+  } catch (error) {
+    // Publishing already returned a media ID. A permalink lookup failure must
+    // not turn a confirmed publication into an automatic duplicate retry.
+    console.error("SOCIAL PUBLISHER INSTAGRAM PERMALINK ERROR:", error);
+  }
 
   return {
     externalPostId: published.id,
-    externalPostUrl: media.permalink || "https://www.instagram.com/",
+    externalPostUrl: permalink,
   };
 }
 

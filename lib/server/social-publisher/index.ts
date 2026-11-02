@@ -2,7 +2,11 @@ import { randomUUID } from "crypto";
 import { normalizeImagesArray } from "@/lib/image-normalizer";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
 import { getMetaPublisherReadiness, getSiteOrigin } from "./config";
-import { publishToMeta, testMetaPublisherConnection } from "./meta";
+import {
+  isMetaPublishOutcomeUnknownError,
+  publishToMeta,
+  testMetaPublisherConnection,
+} from "./meta";
 import type {
   SocialPlatform,
   SocialPostQueueRow,
@@ -319,6 +323,9 @@ export async function queueProductPosts(input: {
   if ((Number(product.stock) || 0) <= 0) {
     throw new Error("The selected product is out of stock.");
   }
+  if ((Number(product.price) || 0) <= 0) {
+    throw new Error("The selected product does not have a valid positive price.");
+  }
 
   const imageUrl = productImage(product);
   if (!imageUrl) throw new Error("The selected product has no public image.");
@@ -593,9 +600,28 @@ async function finishClaim(
 }
 
 async function processClaimedPost(
-  row: SocialPostQueueRow,
-  enabledPlatforms: SocialPlatform[]
+  row: SocialPostQueueRow
 ) {
+  const latestSettings = await getPublisherSettings();
+  if (!latestSettings.enabled || latestSettings.mode !== "live") {
+    const reason = !latestSettings.enabled ? "kill_switch" : "draft_mode";
+    await finishClaim(
+      row,
+      {
+        status: "queued",
+        attempt_count: Math.max(0, row.attempt_count - 1),
+        last_error: "Publishing paused before the Meta request.",
+      },
+      "paused",
+      { reason }
+    );
+    return "paused" as const;
+  }
+
+  const enabledPlatforms: SocialPlatform[] = [];
+  if (latestSettings.facebook_enabled) enabledPlatforms.push("facebook");
+  if (latestSettings.instagram_enabled) enabledPlatforms.push("instagram");
+
   if (!enabledPlatforms.includes(row.platform)) {
     await finishClaim(
       row,
@@ -616,15 +642,20 @@ async function processClaimedPost(
   }
 
   const stock = Math.max(0, Number(product.stock) || 0);
+  const price = Math.max(0, Number(product.price) || 0);
   const imageUrl = productImage(product);
-  if (stock <= 0 || !imageUrl) {
-    const reason = stock <= 0 ? "out_of_stock" : "missing_public_image";
+  if (stock <= 0 || price <= 0 || !imageUrl) {
+    const reason =
+      stock <= 0
+        ? "out_of_stock"
+        : price <= 0
+        ? "invalid_price"
+        : "missing_public_image";
     await finishClaim(row, { status: "skipped", last_error: reason }, "skipped", { reason });
     return "skipped" as const;
   }
 
   const caption = buildProductCaption(product);
-  const price = Math.max(0, Number(product.price) || 0);
 
   let result: Awaited<ReturnType<typeof publishToMeta>>;
 
@@ -636,6 +667,19 @@ async function processClaimedPost(
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown Meta error";
+    if (isMetaPublishOutcomeUnknownError(error)) {
+      await finishClaim(
+        row,
+        {
+          status: "failed",
+          last_error: message.slice(0, 1000),
+        },
+        "manual_review_required",
+        { error: message.slice(0, 500), reason: "ambiguous_meta_outcome" }
+      );
+      return "manual_review" as const;
+    }
+
     const canRetry = row.attempt_count < row.max_attempts;
     const retryMinutes = Math.min(60, 2 ** Math.max(1, row.attempt_count) * 5);
 
@@ -713,10 +757,13 @@ export async function runPublisherWorker(options?: { maxPosts?: number }) {
   const maxPosts = Math.min(10, Math.max(1, options?.maxPosts || 4));
 
   for (let index = 0; index < maxPosts; index += 1) {
+    const latestSettings = await getPublisherSettings();
+    if (!latestSettings.enabled || latestSettings.mode !== "live") break;
+
     const row = await claimDuePost(workerId);
     if (!row) break;
     processed.push(
-      `${row.id}:${await processClaimedPost(row, enabledPlatforms)}`
+      `${row.id}:${await processClaimedPost(row)}`
     );
   }
 
