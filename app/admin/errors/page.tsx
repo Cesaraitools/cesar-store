@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
+import {
+  ADMIN_ERROR_COUNT_EVENT,
+  DISMISSED_ERRORS_STORAGE_KEY,
+  parseDismissedAdminErrorIds,
+} from "@/lib/admin/error-notifications";
 
 type ErrorItem = {
   id: string;
@@ -11,8 +16,6 @@ type ErrorItem = {
   lastSeen: string;
   level: string;
 };
-
-const DISMISSED_ERRORS_STORAGE_KEY = "cesar-admin-dismissed-error-ids";
 
 function getLevelStyles(level: string) {
   switch (level) {
@@ -32,8 +35,10 @@ export default function AdminErrorsPage() {
   const [loading, setLoading] = useState(true);
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [hasLoadedErrors, setHasLoadedErrors] = useState(false);
 
   const visibleErrors = errors.filter((err) => !dismissedIds.includes(err.id));
+  const visibleErrorCount = visibleErrors.length;
   const allVisibleSelected =
     visibleErrors.length > 0 &&
     visibleErrors.every((err) => selectedIds.includes(err.id));
@@ -83,6 +88,7 @@ export default function AdminErrorsPage() {
 
       const data = await res.json();
       setErrors(data.errors || []);
+      setHasLoadedErrors(true);
     } catch {
       console.error("Failed to load errors");
     } finally {
@@ -95,16 +101,7 @@ export default function AdminErrorsPage() {
       DISMISSED_ERRORS_STORAGE_KEY
     );
 
-    if (storedDismissedIds) {
-      try {
-        const parsedIds = JSON.parse(storedDismissedIds);
-        if (Array.isArray(parsedIds)) {
-          setDismissedIds(parsedIds.filter((id) => typeof id === "string"));
-        }
-      } catch {
-        window.localStorage.removeItem(DISMISSED_ERRORS_STORAGE_KEY);
-      }
-    }
+    setDismissedIds(parseDismissedAdminErrorIds(storedDismissedIds));
 
     loadErrors();
 
@@ -113,6 +110,16 @@ export default function AdminErrorsPage() {
 
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!hasLoadedErrors) return;
+
+    window.dispatchEvent(
+      new CustomEvent<number>(ADMIN_ERROR_COUNT_EVENT, {
+        detail: visibleErrorCount,
+      })
+    );
+  }, [hasLoadedErrors, visibleErrorCount]);
 
   if (loading) {
     return (

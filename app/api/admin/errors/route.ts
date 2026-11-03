@@ -24,6 +24,7 @@ export async function GET() {
     const res = await fetch(
       `https://sentry.io/api/0/projects/${org}/${project}/issues/`,
       {
+        cache: "no-store",
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -48,7 +49,14 @@ export async function GET() {
       level: issue.level,
     }));
 
-    return NextResponse.json({ errors: formatted });
+    return NextResponse.json(
+      { errors: formatted },
+      {
+        headers: {
+          "Cache-Control": "private, no-store, max-age=0",
+        },
+      }
+    );
   } catch (error) {
     Sentry.captureException(error);
 

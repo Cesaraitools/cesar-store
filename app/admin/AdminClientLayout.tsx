@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -25,6 +25,12 @@ import {
   ShieldAlert, // ✅ أضف ده
 } from "lucide-react";
 import type { AdminRole } from "@/lib/admin/permissions";
+import {
+  ADMIN_ERROR_COUNT_EVENT,
+  DISMISSED_ERRORS_STORAGE_KEY,
+  countVisibleAdminErrors,
+  parseDismissedAdminErrorIds,
+} from "@/lib/admin/error-notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +44,52 @@ export default function AdminClientLayout({
   userEmail: string;
 }) {
   const pathname = usePathname();
+  const [errorCount, setErrorCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (role !== "full") return;
+
+    let isMounted = true;
+
+    const loadErrorCount = async () => {
+      try {
+        const response = await fetch("/api/admin/errors", { cache: "no-store" });
+        if (!response.ok) return;
+
+        const payload = (await response.json()) as {
+          errors?: Array<{ id: string }>;
+        };
+        if (!isMounted || !Array.isArray(payload.errors)) return;
+
+        const dismissedIds = parseDismissedAdminErrorIds(
+          window.localStorage.getItem(DISMISSED_ERRORS_STORAGE_KEY)
+        );
+        setErrorCount(countVisibleAdminErrors(payload.errors, dismissedIds));
+      } catch {
+        // Keep the last known count if Sentry is temporarily unavailable.
+      }
+    };
+
+    const handleCountUpdate = (event: Event) => {
+      const count = (event as CustomEvent<number>).detail;
+      if (Number.isInteger(count) && count >= 0) setErrorCount(count);
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") void loadErrorCount();
+    };
+
+    void loadErrorCount();
+    const interval = window.setInterval(loadErrorCount, 30_000);
+    window.addEventListener(ADMIN_ERROR_COUNT_EVENT, handleCountUpdate);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(interval);
+      window.removeEventListener(ADMIN_ERROR_COUNT_EVENT, handleCountUpdate);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [role]);
 
   async function handleLogout() {
     try {
@@ -123,7 +175,12 @@ export default function AdminClientLayout({
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
+                aria-label={
+                  item.href === "/admin/errors" && errorCount !== null
+                    ? `${item.name}: ${errorCount} إشعارات أخطاء`
+                    : item.name
+                }
+                className={`relative flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
                   isActive
                     ? "bg-blue-600 text-white shadow-lg shadow-blue-200"
                     : "text-gray-500 hover:bg-gray-50 hover:text-blue-600"
@@ -135,6 +192,17 @@ export default function AdminClientLayout({
                   }`}
                 />
                 <span className="font-bold text-sm">{item.name}</span>
+                {item.href === "/admin/errors" && errorCount !== null ? (
+                  <span
+                    className={`absolute -top-2 left-3 inline-flex h-6 min-w-6 items-center justify-center rounded-full border-2 border-white px-1.5 text-[10px] font-black tabular-nums text-white shadow-md ${
+                      errorCount > 0 ? "bg-rose-600" : "bg-emerald-500"
+                    }`}
+                    title={`${errorCount} إشعارات أخطاء ظاهرة`}
+                    aria-hidden="true"
+                  >
+                    {errorCount > 99 ? "99+" : errorCount}
+                  </span>
+                ) : null}
               </Link>
             );
           })}
