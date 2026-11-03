@@ -21,15 +21,19 @@ export async function GET() {
       );
     }
 
-    const res = await fetch(
-      `https://sentry.io/api/0/projects/${org}/${project}/issues/`,
-      {
-        cache: "no-store",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
+    const sentryUrl = new URL(
+      `https://sentry.io/api/0/projects/${org}/${project}/issues/`
     );
+    sentryUrl.searchParams.set("environment", "vercel-production");
+    sentryUrl.searchParams.set("query", "is:unresolved");
+    sentryUrl.searchParams.set("sort", "date");
+
+    const res = await fetch(sentryUrl, {
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
     if (!res.ok) {
       return NextResponse.json(
@@ -44,7 +48,7 @@ export async function GET() {
       id: issue.id,
       title: issue.title,
       culprit: issue.culprit,
-      count: issue.count,
+      count: Number(issue.count) || 0,
       lastSeen: issue.lastSeen,
       level: issue.level,
     }));

@@ -43,7 +43,10 @@ export async function GET() {
   if (guard.response) return guard.response;
 
   try {
-    return noStore({ schedule: await getStoreMaintenanceSchedule() });
+    return noStore({
+      schedule: await getStoreMaintenanceSchedule(),
+      serverNow: Date.now(),
+    });
   } catch (error) {
     console.error("ADMIN MAINTENANCE STATUS ERROR:", error);
     return noStore({ error: "تعذر تحميل حالة وضع الصيانة." }, { status: 500 });
@@ -74,7 +77,7 @@ export async function POST(request: Request) {
       payload: { hours, minutes, startsAt: schedule.startsAt, endsAt: schedule.endsAt },
     });
 
-    return noStore({ schedule });
+    return noStore({ schedule, serverNow: Date.now() });
   } catch (error) {
     console.error("ADMIN MAINTENANCE START ERROR:", error);
     return noStore(
@@ -103,7 +106,7 @@ export async function DELETE() {
       payload: { stoppedAt: schedule.endsAt },
     });
 
-    return noStore({ schedule });
+    return noStore({ schedule, serverNow: Date.now() });
   } catch (error) {
     console.error("ADMIN MAINTENANCE STOP ERROR:", error);
     return noStore({ error: "تعذر إنهاء وضع الصيانة." }, { status: 500 });

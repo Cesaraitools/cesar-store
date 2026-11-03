@@ -9,6 +9,7 @@ export async function GET() {
 
     return NextResponse.json(
       {
+        serverNow: Date.now(),
         schedule: {
           enabled: schedule.enabled,
           startsAt: schedule.startsAt,

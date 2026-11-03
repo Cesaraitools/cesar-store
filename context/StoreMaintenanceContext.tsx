@@ -5,11 +5,13 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import {
   INACTIVE_STORE_MAINTENANCE,
+  MAINTENANCE_FALLBACK_ENDS_AT,
   getStoreMaintenanceRemainingMs,
   isStoreMaintenanceActive,
   type StoreMaintenanceSchedule,
@@ -22,6 +24,7 @@ type CountdownParts = {
 };
 
 type StoreMaintenanceValue = {
+  hasHydrated: boolean;
   isMaintenanceActive: boolean;
   remainingMs: number;
   countdown: CountdownParts;
@@ -49,6 +52,8 @@ export function StoreMaintenanceProvider({
   initialSchedule?: StoreMaintenanceSchedule;
 }) {
   const [now, setNow] = useState(initialNow);
+  const clockOffsetRef = useRef(initialNow - Date.now());
+  const [hasHydrated, setHasHydrated] = useState(false);
   const [schedule, setSchedule] = useState<StoreMaintenanceSchedule>(
     initialSchedule ?? INACTIVE_STORE_MAINTENANCE
   );
@@ -56,7 +61,11 @@ export function StoreMaintenanceProvider({
   const remainingMs = getStoreMaintenanceRemainingMs(schedule, now);
 
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    setHasHydrated(true);
+    const updateClock = () => setNow(Date.now() + clockOffsetRef.current);
+
+    updateClock();
+    const timer = window.setInterval(updateClock, 1000);
     return () => window.clearInterval(timer);
   }, []);
 
@@ -72,10 +81,14 @@ export function StoreMaintenanceProvider({
 
         const payload = (await response.json()) as {
           schedule?: StoreMaintenanceSchedule;
+          serverNow?: number;
         };
         if (isMounted && payload.schedule) {
+          if (typeof payload.serverNow === "number") {
+            clockOffsetRef.current = payload.serverNow - Date.now();
+          }
           setSchedule(payload.schedule);
-          setNow(Date.now());
+          setNow(Date.now() + clockOffsetRef.current);
         }
       } catch {
         // Keep the last known schedule when a background refresh fails.
@@ -100,12 +113,13 @@ export function StoreMaintenanceProvider({
 
   const value = useMemo<StoreMaintenanceValue>(
     () => ({
+      hasHydrated,
       isMaintenanceActive,
       remainingMs,
       countdown: splitCountdown(remainingMs),
-      endsAt: schedule.endsAt ?? new Date(0).toISOString(),
+      endsAt: schedule.endsAt ?? MAINTENANCE_FALLBACK_ENDS_AT,
     }),
-    [isMaintenanceActive, remainingMs, schedule.endsAt]
+    [hasHydrated, isMaintenanceActive, remainingMs, schedule.endsAt]
   );
 
   return (

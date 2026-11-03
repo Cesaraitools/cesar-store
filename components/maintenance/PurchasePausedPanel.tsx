@@ -7,13 +7,15 @@ import { useStoreMaintenance } from "@/context/StoreMaintenanceContext";
 
 export default function PurchasePausedPanel() {
   const { lang } = useLanguage();
-  const { endsAt } = useStoreMaintenance();
+  const { endsAt, hasHydrated } = useStoreMaintenance();
   const isAr = lang === "ar";
-  const endLabel = new Intl.DateTimeFormat(isAr ? "ar-EG" : "en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Africa/Cairo",
-  }).format(new Date(endsAt));
+  const endLabel = hasHydrated
+    ? new Intl.DateTimeFormat(isAr ? "ar-EG" : "en-US", {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZone: "Africa/Cairo",
+      }).format(new Date(endsAt))
+    : "—";
 
   return (
     <main

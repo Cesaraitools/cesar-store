@@ -4,26 +4,24 @@ import { Clock3, Database, Sparkles } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
 import { useStoreMaintenance } from "@/context/StoreMaintenanceContext";
+import { formatMaintenanceCountdownUnit } from "@/lib/store-maintenance";
 
-function formatCountdownUnit(value: number, lang: "ar" | "en") {
-  return new Intl.NumberFormat(lang === "ar" ? "ar-EG" : "en-US", {
-    minimumIntegerDigits: 2,
-    useGrouping: false,
-  }).format(value);
-}
 export default function StoreMaintenanceOverlay() {
   const pathname = usePathname();
   const { lang } = useLanguage();
-  const { countdown, endsAt, isMaintenanceActive } = useStoreMaintenance();
+  const { countdown, endsAt, hasHydrated, isMaintenanceActive } =
+    useStoreMaintenance();
   const isAr = lang === "ar";
 
   if (!isMaintenanceActive || pathname !== "/") return null;
 
-  const endLabel = new Intl.DateTimeFormat(isAr ? "ar-EG" : "en-US", {
-    dateStyle: "full",
-    timeStyle: "short",
-    timeZone: "Africa/Cairo",
-  }).format(new Date(endsAt));
+  const endLabel = hasHydrated
+    ? new Intl.DateTimeFormat(isAr ? "ar-EG" : "en-US", {
+        dateStyle: "full",
+        timeStyle: "short",
+        timeZone: "Africa/Cairo",
+      }).format(new Date(endsAt))
+    : "—";
   const units = [
     {
       label: isAr ? "ساعة" : "Hours",
@@ -95,7 +93,7 @@ export default function StoreMaintenanceOverlay() {
                   className="font-mono text-2xl font-black tabular-nums tracking-tight sm:text-4xl"
                   dir="ltr"
                 >
-                  {formatCountdownUnit(unit.value, lang)}
+                  {formatMaintenanceCountdownUnit(unit.value, lang)}
                 </div>
                 <div className="mt-1 text-[10px] font-black text-slate-300 sm:text-xs">
                   {unit.label}

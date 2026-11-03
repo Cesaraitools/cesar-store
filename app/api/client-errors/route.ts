@@ -2,6 +2,11 @@ import * as Sentry from "@sentry/nextjs";
 import { NextRequest, NextResponse } from "next/server";
 
 import { isKnownClientErrorNoise } from "@/lib/client-error-noise";
+import {
+  getClientErrorFingerprint,
+  getMinifiedReactErrorCode,
+  parseClientStack,
+} from "@/lib/server/client-error-event";
 
 export const runtime = "nodejs";
 
@@ -92,21 +97,49 @@ export async function POST(request: NextRequest) {
     return new NextResponse(null, { status: 204 });
   }
 
-  Sentry.captureMessage(`Client error: ${message}`, {
+  const name = text(payload.name, 100) || "Error";
+  const reactErrorCode = getMinifiedReactErrorCode(message);
+  const parsedFrames = parseClientStack(stack);
+  const source = text(context.source, 500);
+  const line = typeof context.line === "number" ? context.line : undefined;
+  const column =
+    typeof context.column === "number" ? context.column : undefined;
+  const fallbackFrame =
+    parsedFrames.length === 0 && source && line
+      ? [{ filename: source, lineno: line, colno: column || 0 }]
+      : [];
+  const frames = parsedFrames.length > 0 ? parsedFrames : fallbackFrame;
+
+  Sentry.captureEvent({
+    message: `Client error: ${message}`,
     level: "error",
+    fingerprint: getClientErrorFingerprint(message),
     tags: {
       reporter: "lightweight-client",
       kind: text(context.kind, 40) || "error",
+      ...(reactErrorCode ? { react_error_code: reactErrorCode } : {}),
     },
     extra: {
-      name: text(payload.name, 100),
-      stack,
+      name,
+      rawStack: stack,
       page: text(payload.page, 500),
       userAgent: text(payload.userAgent, 500),
-      source: text(context.source, 500),
-      line: typeof context.line === "number" ? context.line : undefined,
-      column:
-        typeof context.column === "number" ? context.column : undefined,
+      source,
+      line,
+      column,
+    },
+    exception: {
+      values: [
+        {
+          type: name,
+          value: message,
+          mechanism: {
+            type: "client-error-reporter",
+            handled: true,
+          },
+          ...(frames.length > 0 ? { stacktrace: { frames } } : {}),
+        },
+      ],
     },
   });
 

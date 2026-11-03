@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -15,8 +15,11 @@ import {
 } from "lucide-react";
 import {
   INACTIVE_STORE_MAINTENANCE,
+  MAX_MAINTENANCE_DURATION_MINUTES,
+  formatMaintenanceCountdown,
   getStoreMaintenanceRemainingMs,
   isStoreMaintenanceActive,
+  validateStoreMaintenanceDuration,
   type StoreMaintenanceSchedule,
 } from "@/lib/store-maintenance";
 
@@ -40,26 +43,14 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
-function formatCountdown(remainingMs: number) {
-  const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  const formatter = new Intl.NumberFormat("en-US", {
-    minimumIntegerDigits: 2,
-    useGrouping: false,
-  });
-
-  return [hours, minutes, seconds].map((value) => formatter.format(value)).join(" : ");
-}
-
 export default function MaintenanceModeClient() {
   const [schedule, setSchedule] = useState<AdminSchedule>(
     INACTIVE_STORE_MAINTENANCE
   );
   const [hours, setHours] = useState(2);
   const [minutes, setMinutes] = useState(0);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(0);
+  const clockOffsetRef = useRef(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -79,6 +70,7 @@ export default function MaintenanceModeClient() {
       });
       const payload = (await response.json()) as {
         schedule?: AdminSchedule;
+        serverNow?: number;
         error?: string;
       };
 
@@ -86,8 +78,12 @@ export default function MaintenanceModeClient() {
         throw new Error(payload.error || "تعذر تحميل حالة وضع الصيانة.");
       }
 
+      if (typeof payload.serverNow === "number") {
+        clockOffsetRef.current = payload.serverNow - Date.now();
+      }
       setSchedule(payload.schedule);
-      setNow(Date.now());
+      setNow(Date.now() + clockOffsetRef.current);
+      setError(null);
     } catch (loadError) {
       setError(
         loadError instanceof Error
@@ -101,7 +97,10 @@ export default function MaintenanceModeClient() {
 
   useEffect(() => {
     void loadSchedule();
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    const timer = window.setInterval(
+      () => setNow(Date.now() + clockOffsetRef.current),
+      1000
+    );
     return () => window.clearInterval(timer);
   }, [loadSchedule]);
 
@@ -116,13 +115,14 @@ export default function MaintenanceModeClient() {
     setError(null);
     setMessage(null);
 
-    if (!Number.isInteger(hours) || !Number.isInteger(minutes)) {
-      setError("أدخل الساعات والدقائق كأرقام صحيحة.");
-      return;
-    }
-
-    if (hours < 0 || minutes < 0 || minutes > 59 || hours * 60 + minutes < 1) {
-      setError("حدد مدة صحيحة لا تقل عن دقيقة واحدة.");
+    try {
+      validateStoreMaintenanceDuration(hours, minutes);
+    } catch (validationError) {
+      setError(
+        validationError instanceof Error
+          ? validationError.message
+          : "حدد مدة صحيحة لا تقل عن دقيقة واحدة."
+      );
       return;
     }
 
@@ -140,6 +140,7 @@ export default function MaintenanceModeClient() {
       });
       const payload = (await response.json()) as {
         schedule?: AdminSchedule;
+        serverNow?: number;
         error?: string;
       };
 
@@ -147,8 +148,11 @@ export default function MaintenanceModeClient() {
         throw new Error(payload.error || "تعذر بدء وضع الصيانة.");
       }
 
+      if (typeof payload.serverNow === "number") {
+        clockOffsetRef.current = payload.serverNow - Date.now();
+      }
       setSchedule(payload.schedule);
-      setNow(Date.now());
+      setNow(Date.now() + clockOffsetRef.current);
       setMessage("تم تفعيل وضع الصيانة بنجاح. سيعود المتجر تلقائيًا عند انتهاء العدّاد.");
     } catch (saveError) {
       setError(
@@ -173,6 +177,7 @@ export default function MaintenanceModeClient() {
       });
       const payload = (await response.json()) as {
         schedule?: AdminSchedule;
+        serverNow?: number;
         error?: string;
       };
 
@@ -180,8 +185,11 @@ export default function MaintenanceModeClient() {
         throw new Error(payload.error || "تعذر إنهاء وضع الصيانة.");
       }
 
+      if (typeof payload.serverNow === "number") {
+        clockOffsetRef.current = payload.serverNow - Date.now();
+      }
       setSchedule(payload.schedule);
-      setNow(Date.now());
+      setNow(Date.now() + clockOffsetRef.current);
       setMessage("تم إنهاء وضع الصيانة وعادت الأسعار والطلبات للعمل.");
     } catch (saveError) {
       setError(
@@ -251,7 +259,7 @@ export default function MaintenanceModeClient() {
               <input
                 type="number"
                 min={0}
-                max={720}
+                max={MAX_MAINTENANCE_DURATION_MINUTES / 60}
                 step={1}
                 value={hours}
                 onChange={(event) => setHours(Number(event.target.value))}
@@ -338,7 +346,9 @@ export default function MaintenanceModeClient() {
             <div className="mt-7 rounded-3xl border border-white/10 bg-white/[0.06] p-5 text-center">
               <p className="text-xs font-bold text-slate-400">الوقت المتبقي</p>
               <div className="mt-2 font-mono text-3xl font-black tabular-nums tracking-wider sm:text-4xl" dir="ltr">
-                {active ? formatCountdown(remainingMs) : "00 : 00 : 00"}
+                {active
+                  ? formatMaintenanceCountdown(remainingMs)
+                  : "00 : 00 : 00"}
               </div>
               <p className="mt-2 text-xs font-bold text-slate-400">ساعة : دقيقة : ثانية</p>
             </div>

@@ -1,10 +1,11 @@
 import { unstable_cache } from "next/cache";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
-import type { StoreMaintenanceSchedule } from "@/lib/store-maintenance";
+import {
+  validateStoreMaintenanceDuration,
+  type StoreMaintenanceSchedule,
+} from "@/lib/store-maintenance";
 
 export const STORE_MAINTENANCE_CACHE_TAG = "store-maintenance";
-export const MAX_MAINTENANCE_DURATION_MINUTES = 30 * 24 * 60;
-
 type StoreMaintenanceRow = {
   enabled: boolean;
   starts_at: string | null;
@@ -51,34 +52,15 @@ export const getCachedStoreMaintenanceSchedule = unstable_cache(
   }
 );
 
-function validateDuration(hours: number, minutes: number) {
-  if (!Number.isInteger(hours) || !Number.isInteger(minutes)) {
-    throw new Error("يجب إدخال الساعات والدقائق كأرقام صحيحة.");
-  }
-
-  if (hours < 0 || minutes < 0 || minutes > 59) {
-    throw new Error("أدخل ساعات موجبة ودقائق من 0 إلى 59.");
-  }
-
-  const totalMinutes = hours * 60 + minutes;
-
-  if (totalMinutes < 1) {
-    throw new Error("أقل مدة مسموحة هي دقيقة واحدة.");
-  }
-
-  if (totalMinutes > MAX_MAINTENANCE_DURATION_MINUTES) {
-    throw new Error("أقصى مدة مسموحة لوضع الصيانة هي 30 يومًا.");
-  }
-
-  return totalMinutes;
-}
-
 export async function startStoreMaintenance(input: {
   hours: number;
   minutes: number;
   updatedBy: string | null;
 }) {
-  const durationMinutes = validateDuration(input.hours, input.minutes);
+  const durationMinutes = validateStoreMaintenanceDuration(
+    input.hours,
+    input.minutes
+  );
   const startsAt = new Date();
   const endsAt = new Date(startsAt.getTime() + durationMinutes * 60_000);
   const supabase = createServiceRoleClient();
