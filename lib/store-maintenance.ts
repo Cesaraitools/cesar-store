@@ -1,34 +1,62 @@
-export const STORE_MAINTENANCE = {
-  enabled: true,
-  startsAt: "2026-11-01T00:12:00+02:00",
-  endsAt: "2026-11-03T00:12:00+02:00",
-  durationHours: 48,
-} as const;
+export type StoreMaintenanceSchedule = {
+  enabled: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
+  updatedAt: string | null;
+};
 
-const STARTS_AT_MS = Date.parse(STORE_MAINTENANCE.startsAt);
-const ENDS_AT_MS = Date.parse(STORE_MAINTENANCE.endsAt);
+export const INACTIVE_STORE_MAINTENANCE: StoreMaintenanceSchedule = {
+  enabled: false,
+  startsAt: null,
+  endsAt: null,
+  updatedAt: null,
+};
 
-export function isStoreMaintenanceActive(at = Date.now()) {
+function parseScheduleTime(value: string | null) {
+  if (!value) return Number.NaN;
+  return Date.parse(value);
+}
+
+export function isStoreMaintenanceActive(
+  schedule: StoreMaintenanceSchedule,
+  at = Date.now()
+) {
+  const startsAt = parseScheduleTime(schedule.startsAt);
+  const endsAt = parseScheduleTime(schedule.endsAt);
+
   return (
-    STORE_MAINTENANCE.enabled &&
-    Number.isFinite(STARTS_AT_MS) &&
-    Number.isFinite(ENDS_AT_MS) &&
-    at >= STARTS_AT_MS &&
-    at < ENDS_AT_MS
+    schedule.enabled &&
+    Number.isFinite(startsAt) &&
+    Number.isFinite(endsAt) &&
+    at >= startsAt &&
+    at < endsAt
   );
 }
-export function getStoreMaintenanceRemainingMs(at = Date.now()) {
-  if (!isStoreMaintenanceActive(at)) return 0;
-  return Math.max(0, ENDS_AT_MS - at);
+
+export function getStoreMaintenanceRemainingMs(
+  schedule: StoreMaintenanceSchedule,
+  at = Date.now()
+) {
+  if (!isStoreMaintenanceActive(schedule, at)) return 0;
+  return Math.max(0, parseScheduleTime(schedule.endsAt) - at);
 }
 
-export function getStoreMaintenanceRetryAfterSeconds(at = Date.now()) {
-  return Math.max(1, Math.ceil(getStoreMaintenanceRemainingMs(at) / 1000));
+export function getStoreMaintenanceRetryAfterSeconds(
+  schedule: StoreMaintenanceSchedule,
+  at = Date.now()
+) {
+  return Math.max(
+    1,
+    Math.ceil(getStoreMaintenanceRemainingMs(schedule, at) / 1000)
+  );
 }
 
-export function getStoreMaintenanceWindowMs() {
-  return {
-    startsAt: STARTS_AT_MS,
-    endsAt: ENDS_AT_MS,
-  };
+export function getStoreMaintenanceDurationMinutes(
+  schedule: StoreMaintenanceSchedule
+) {
+  const startsAt = parseScheduleTime(schedule.startsAt);
+  const endsAt = parseScheduleTime(schedule.endsAt);
+
+  if (!Number.isFinite(startsAt) || !Number.isFinite(endsAt)) return 0;
+  return Math.max(0, Math.round((endsAt - startsAt) / 60_000));
 }

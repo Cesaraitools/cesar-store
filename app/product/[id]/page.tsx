@@ -10,6 +10,7 @@ import { absoluteUrl, compactText } from "@/lib/seo";
 import { getSafeImage } from "@/lib/image-safe";
 import { getSeoProductDescription } from "@/lib/product-seo-description";
 import { isStoreMaintenanceActive } from "@/lib/store-maintenance";
+import { getCachedStoreMaintenanceSchedule } from "@/lib/server/store-maintenance";
 
 type Props = {
   params: { id: string };
@@ -63,12 +64,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function ProductPage({ params }: Props) {
-  const [product, categories] = await Promise.all([
+  const [product, categories, maintenanceSchedule] = await Promise.all([
     getActiveProductById(params.id),
     getActiveCategories().catch((error) => {
       console.error("PRODUCT CATEGORIES ERROR:", error);
       return [];
     }),
+    getCachedStoreMaintenanceSchedule(),
   ]);
 
   if (!product) {
@@ -95,7 +97,7 @@ export default async function ProductPage({ params }: Props) {
       "@type": "Brand",
       name: "Cesar Store",
     },
-    ...(!isStoreMaintenanceActive() && {
+    ...(!isStoreMaintenanceActive(maintenanceSchedule) && {
       offers: {
       "@type": "Offer",
       url: productUrl,

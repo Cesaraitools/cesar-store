@@ -10,6 +10,7 @@ import {
   Sparkles,
   Store,
   TicketPercent,
+  Wrench,
 } from "lucide-react";
 
 export default function AdminPage() {
@@ -129,6 +130,28 @@ export default function AdminPage() {
           </div>
           <div className="absolute bottom-0 right-0 opacity-10 transform translate-y-4 translate-x-4">
              <TicketPercent className="w-40 h-40" />
+          </div>
+        </Link>
+
+        <Link
+          href="/admin/maintenance-mode"
+          className="group relative overflow-hidden rounded-3xl border border-amber-100 bg-white p-8 shadow-sm transition-all duration-300 hover:shadow-xl"
+        >
+          <div className="absolute -right-16 -top-16 h-32 w-32 rounded-full bg-amber-400 opacity-10 transition-transform duration-500 group-hover:scale-125" />
+          <div className="relative space-y-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500 text-white shadow-lg shadow-amber-100">
+              <Wrench className="h-7 w-7" />
+            </div>
+            <div className="space-y-1">
+              <h2 className="text-xl font-bold text-gray-900">Maintenance Mode</h2>
+              <p className="text-sm leading-relaxed text-gray-500">
+                حدد مدة إيقاف الأسعار والشراء مؤقتًا، وسيعود المتجر تلقائيًا عند انتهاء الوقت.
+              </p>
+            </div>
+            <div className="inline-flex items-center gap-2 text-sm font-bold text-amber-600 transition-transform group-hover:translate-x-1">
+              فتح وضع الصيانة
+              <ArrowRight className="h-4 w-4" />
+            </div>
           </div>
         </Link>
       </div>

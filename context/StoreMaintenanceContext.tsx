@@ -9,10 +9,10 @@ import {
   type ReactNode,
 } from "react";
 import {
-  STORE_MAINTENANCE,
+  INACTIVE_STORE_MAINTENANCE,
   getStoreMaintenanceRemainingMs,
-  getStoreMaintenanceWindowMs,
   isStoreMaintenanceActive,
+  type StoreMaintenanceSchedule,
 } from "@/lib/store-maintenance";
 
 type CountdownParts = {
@@ -42,34 +42,59 @@ function splitCountdown(remainingMs: number): CountdownParts {
 export function StoreMaintenanceProvider({
   children,
   initialNow,
+  initialSchedule,
 }: {
   children: ReactNode;
   initialNow: number;
+  initialSchedule?: StoreMaintenanceSchedule;
 }) {
   const [now, setNow] = useState(initialNow);
-  const isMaintenanceActive = isStoreMaintenanceActive(now);
-  const remainingMs = getStoreMaintenanceRemainingMs(now);
+  const [schedule, setSchedule] = useState<StoreMaintenanceSchedule>(
+    initialSchedule ?? INACTIVE_STORE_MAINTENANCE
+  );
+  const isMaintenanceActive = isStoreMaintenanceActive(schedule, now);
+  const remainingMs = getStoreMaintenanceRemainingMs(schedule, now);
 
   useEffect(() => {
-    const { endsAt } = getStoreMaintenanceWindowMs();
-    let timer: number | undefined;
-    const updateClock = () => {
-      const currentTime = Date.now();
-      setNow(currentTime);
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
-      if (currentTime >= endsAt && timer !== undefined) {
-        window.clearInterval(timer);
-        timer = undefined;
+  useEffect(() => {
+    let isMounted = true;
+
+    const refreshSchedule = async () => {
+      try {
+        const response = await fetch("/api/store-maintenance", {
+          cache: "no-store",
+        });
+        if (!response.ok) return;
+
+        const payload = (await response.json()) as {
+          schedule?: StoreMaintenanceSchedule;
+        };
+        if (isMounted && payload.schedule) {
+          setSchedule(payload.schedule);
+          setNow(Date.now());
+        }
+      } catch {
+        // Keep the last known schedule when a background refresh fails.
       }
     };
 
-    updateClock();
-    if (Date.now() < endsAt) {
-      timer = window.setInterval(updateClock, 1000);
-    }
+    const timer = window.setInterval(refreshSchedule, 10_000);
+    const updateClock = () => {
+      if (document.visibilityState === "visible") {
+        void refreshSchedule();
+      }
+    };
+
+    document.addEventListener("visibilitychange", updateClock);
 
     return () => {
-      if (timer !== undefined) window.clearInterval(timer);
+      isMounted = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", updateClock);
     };
   }, []);
 
@@ -78,9 +103,9 @@ export function StoreMaintenanceProvider({
       isMaintenanceActive,
       remainingMs,
       countdown: splitCountdown(remainingMs),
-      endsAt: STORE_MAINTENANCE.endsAt,
+      endsAt: schedule.endsAt ?? new Date(0).toISOString(),
     }),
-    [isMaintenanceActive, remainingMs]
+    [isMaintenanceActive, remainingMs, schedule.endsAt]
   );
 
   return (

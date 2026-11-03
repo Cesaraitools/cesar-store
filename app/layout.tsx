@@ -28,6 +28,10 @@ import {
   SOCIAL_LINKS,
   absoluteUrl,
 } from "@/lib/seo";
+import {
+  getCachedStoreMaintenanceSchedule,
+} from "@/lib/server/store-maintenance";
+import { INACTIVE_STORE_MAINTENANCE } from "@/lib/store-maintenance";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -103,7 +107,13 @@ export function generateMetadata(): Metadata {
   };
 }
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const initialMaintenanceSchedule = await getCachedStoreMaintenanceSchedule().catch(
+    (error) => {
+      console.error("ROOT MAINTENANCE STATUS ERROR:", error);
+      return INACTIVE_STORE_MAINTENANCE;
+    }
+  );
   const googleTagId = process.env.NEXT_PUBLIC_GOOGLE_TAG_ID;
   const googleAdsId =
     process.env.NEXT_PUBLIC_GOOGLE_ADS_ID || "AW-18319168682";
@@ -208,7 +218,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         />
         <AuthProvider>
           <LanguageProvider>
-            <StoreMaintenanceProvider initialNow={Date.now()}>
+            <StoreMaintenanceProvider
+              initialNow={Date.now()}
+              initialSchedule={initialMaintenanceSchedule}
+            >
               <CartProvider>
                 <WholesaleCartProvider>
                   <div className="flex flex-col min-h-screen">

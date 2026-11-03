@@ -21,6 +21,7 @@ import {
   FileText,
   Settings,
   Send,
+  Wrench,
   ShieldAlert, // ✅ أضف ده
 } from "lucide-react";
 import type { AdminRole } from "@/lib/admin/permissions";
@@ -60,6 +61,7 @@ export default function AdminClientLayout({
     { name: "Errors", href: "/admin/errors", icon: ShieldAlert },
     { name: "Meta Replies", href: "/admin/meta-handoffs", icon: MessageSquareWarning },
     { name: "Social Publisher", href: "/admin/social-publisher", icon: Send },
+    { name: "Maintenance Mode", href: "/admin/maintenance-mode", icon: Wrench },
     { name: "Categories", href: "/admin/categories", icon: Tag },
     { name: "Orders", href: "/admin/orders", icon: Package },
     { name: "Archive", href: "/admin/orders/archive", icon: Package },

@@ -62,7 +62,7 @@ export default function StoreMaintenanceOverlay() {
         <div className="relative">
           <span className="inline-flex items-center gap-2 rounded-full border border-blue-200/80 bg-blue-50/90 px-4 py-2 text-xs font-black text-blue-700">
             <Clock3 className="h-4 w-4" aria-hidden="true" />
-            {isAr ? "تحديث مؤقت لمدة ٤٨ ساعة" : "48-hour scheduled update"}
+            {isAr ? "تحديث مؤقت مجدول" : "Scheduled maintenance update"}
           </span>
           <h1
             id="maintenance-title"

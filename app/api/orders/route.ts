@@ -8,10 +8,10 @@ import {
 } from "@/lib/delivery-governorates";
 import * as Sentry from "@sentry/nextjs";
 import {
-  STORE_MAINTENANCE,
   getStoreMaintenanceRetryAfterSeconds,
   isStoreMaintenanceActive,
 } from "@/lib/store-maintenance";
+import { getStoreMaintenanceSchedule } from "@/lib/server/store-maintenance";
 
 const serviceSupabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -233,18 +233,38 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (isStoreMaintenanceActive()) {
+  let maintenanceSchedule;
+
+  try {
+    maintenanceSchedule = await getStoreMaintenanceSchedule();
+  } catch (error) {
+    console.error("ORDER MAINTENANCE STATUS ERROR:", error);
+    return NextResponse.json(
+      {
+        error: "تعذر التحقق من حالة المتجر مؤقتًا. يرجى المحاولة بعد قليل.",
+        code: "STORE_STATUS_UNAVAILABLE",
+      },
+      {
+        status: 503,
+        headers: { "Cache-Control": "no-store", "Retry-After": "30" },
+      }
+    );
+  }
+
+  if (isStoreMaintenanceActive(maintenanceSchedule)) {
     return NextResponse.json(
       {
         error: "يتم تحديث الأسعار الآن. سيتم إعادة فتح الطلبات تلقائيًا بعد انتهاء التحديث.",
         code: "STORE_MAINTENANCE",
-        endsAt: STORE_MAINTENANCE.endsAt,
+        endsAt: maintenanceSchedule.endsAt,
       },
       {
         status: 503,
         headers: {
           "Cache-Control": "no-store",
-          "Retry-After": String(getStoreMaintenanceRetryAfterSeconds()),
+          "Retry-After": String(
+            getStoreMaintenanceRetryAfterSeconds(maintenanceSchedule)
+          ),
         },
       }
     );
