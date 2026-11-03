@@ -196,15 +196,58 @@ async function waitForInstagramContainer(
 }
 
 async function publishFacebook(
-  imageUrl: string,
+  imageUrls: string[],
   caption: string
 ): Promise<MetaSuccess> {
   const config = requireMetaPublisherConfig("facebook");
   const baseUrl = `${config.apiOrigin}/${config.graphApiVersion}`;
+  if (imageUrls.length > 1) {
+    const photoIds: string[] = [];
+    for (const imageUrl of imageUrls) {
+      const photo = await postForm(
+        `${baseUrl}/${encodeURIComponent(config.pageId)}/photos`,
+        {
+          url: imageUrl,
+          published: "false",
+          access_token: config.accessToken,
+          appsecret_proof: appSecretProof(config.accessToken, config.appSecret),
+        }
+      );
+      if (!photo.id) {
+        throw new Error("Meta did not return an id for an unpublished Facebook photo.");
+      }
+      photoIds.push(photo.id);
+    }
+
+    const post = await postForm(
+      `${baseUrl}/${encodeURIComponent(config.pageId)}/feed`,
+      {
+        message: caption,
+        attached_media: JSON.stringify(
+          photoIds.map((mediaFbid) => ({ media_fbid: mediaFbid }))
+        ),
+        access_token: config.accessToken,
+        appsecret_proof: appSecretProof(config.accessToken, config.appSecret),
+      },
+      { publishingRequest: true }
+    );
+    const externalPostId = post.id || post.post_id || "";
+    if (!externalPostId) {
+      throw new MetaPublishOutcomeUnknownError(
+        "Meta accepted the Facebook album request without a post id. Verify the Page before retrying."
+      );
+    }
+
+    return {
+      externalPostId,
+      externalPostUrl: `https://www.facebook.com/${externalPostId}`,
+    };
+  }
+
   const payload = await postForm(
     `${baseUrl}/${encodeURIComponent(config.pageId)}/photos`,
     {
-      url: imageUrl,
+      url: imageUrls[0],
       message: caption,
       published: "true",
       access_token: config.accessToken,
@@ -227,15 +270,91 @@ async function publishFacebook(
 }
 
 async function publishInstagram(
-  imageUrl: string,
+  imageUrls: string[],
   caption: string
 ): Promise<MetaSuccess> {
   const config = requireMetaPublisherConfig("instagram");
   const baseUrl = `${config.apiOrigin}/${config.graphApiVersion}`;
+  if (imageUrls.length > 1) {
+    const childIds: string[] = [];
+    for (const imageUrl of imageUrls) {
+      const child = await postForm(
+        `${baseUrl}/${encodeURIComponent(config.instagramUserId)}/media`,
+        {
+          image_url: imageUrl,
+          is_carousel_item: "true",
+          access_token: config.accessToken,
+          appsecret_proof: appSecretProof(config.accessToken, config.appSecret),
+        }
+      );
+      if (!child.id) {
+        throw new Error("Meta did not return an Instagram carousel child id.");
+      }
+      await waitForInstagramContainer(
+        baseUrl,
+        child.id,
+        config.accessToken,
+        config.appSecret
+      );
+      childIds.push(child.id);
+    }
+
+    const carousel = await postForm(
+      `${baseUrl}/${encodeURIComponent(config.instagramUserId)}/media`,
+      {
+        media_type: "CAROUSEL",
+        children: childIds.join(","),
+        caption,
+        access_token: config.accessToken,
+        appsecret_proof: appSecretProof(config.accessToken, config.appSecret),
+      }
+    );
+    if (!carousel.id) {
+      throw new Error("Meta did not return an Instagram carousel container id.");
+    }
+    await waitForInstagramContainer(
+      baseUrl,
+      carousel.id,
+      config.accessToken,
+      config.appSecret
+    );
+
+    const published = await postForm(
+      `${baseUrl}/${encodeURIComponent(config.instagramUserId)}/media_publish`,
+      {
+        creation_id: carousel.id,
+        access_token: config.accessToken,
+        appsecret_proof: appSecretProof(config.accessToken, config.appSecret),
+      },
+      { publishingRequest: true }
+    );
+    if (!published.id) {
+      throw new MetaPublishOutcomeUnknownError(
+        "Meta accepted the Instagram carousel without a media id. Verify the account before retrying."
+      );
+    }
+
+    let permalink = "https://www.instagram.com/";
+    try {
+      const media = await getJson(
+        `${baseUrl}/${encodeURIComponent(published.id)}?fields=permalink&access_token=${encodeURIComponent(
+          config.accessToken
+        )}&appsecret_proof=${encodeURIComponent(
+          appSecretProof(config.accessToken, config.appSecret)
+        )}`
+      );
+      permalink = media.permalink || permalink;
+    } catch (error) {
+      console.error("SOCIAL PUBLISHER INSTAGRAM PERMALINK ERROR:", error);
+    }
+
+    return { externalPostId: published.id, externalPostUrl: permalink };
+  }
+
   const container = await postForm(
     `${baseUrl}/${encodeURIComponent(config.instagramUserId)}/media`,
     {
-      image_url: imageUrl,
+      image_url: imageUrls[0],
       caption,
       access_token: config.accessToken,
       appsecret_proof: appSecretProof(config.accessToken, config.appSecret),
@@ -293,14 +412,22 @@ async function publishInstagram(
 
 export async function publishToMeta(input: {
   platform: SocialPlatform;
-  imageUrl: string;
+  imageUrls?: string[];
+  imageUrl?: string;
   caption: string;
 }) {
-  if (input.platform === "facebook") {
-    return publishFacebook(input.imageUrl, input.caption);
+  const imageUrls = Array.from(
+    new Set([...(input.imageUrls || []), input.imageUrl || ""].map(String).filter(Boolean))
+  );
+  if (!imageUrls.length || imageUrls.length > 10) {
+    throw new Error("Meta posts require between 1 and 10 public images.");
   }
 
-  return publishInstagram(input.imageUrl, input.caption);
+  if (input.platform === "facebook") {
+    return publishFacebook(imageUrls, input.caption);
+  }
+
+  return publishInstagram(imageUrls, input.caption);
 }
 
 export async function testMetaPublisherConnection(

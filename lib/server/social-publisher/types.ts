@@ -11,6 +11,13 @@ export type SocialPostStatus =
 
 export type SocialPublisherMode = "draft" | "live";
 
+export type SocialCaptionLanguage = "ar" | "en";
+export type SocialArabicTone = "egyptian" | "msa";
+export type SocialCaptionRelationship =
+  | "same_product"
+  | "related_products"
+  | "different_products";
+
 export type SocialPublisherSettings = {
   id: "default";
   enabled: boolean;
@@ -28,16 +35,25 @@ export type SocialPublisherSettings = {
 };
 export type SocialPostQueueRow = {
   id: string;
+  campaign_id: string;
   product_id: string;
+  product_ids: string[];
   platform: SocialPlatform;
   status: SocialPostStatus;
   scheduled_for: string;
   caption: string;
   product_name: string;
+  product_names: string[];
   price_snapshot: number | string;
   stock_snapshot: number;
   image_url: string;
+  image_urls: string[];
   product_url: string;
+  product_urls: string[];
+  caption_language: SocialCaptionLanguage;
+  caption_tone: SocialArabicTone;
+  occurrence_index: number;
+  occurrence_count: number;
   idempotency_key: string;
   attempt_count: number;
   max_attempts: number;
@@ -69,6 +85,7 @@ export type SocialProductCandidate = {
   imageUrl: string;
   productUrl: string;
   category: string;
+  description: string;
 };
 
 export type MetaPublisherReadiness = {

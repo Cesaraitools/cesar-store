@@ -1,22 +1,32 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
+  Clock3,
   ExternalLink,
   Facebook,
   Instagram,
+  Languages,
   Loader2,
   Play,
   Power,
   RefreshCw,
   Save,
+  Search,
   Send,
   ShieldCheck,
+  Sparkles,
   XCircle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import {
+  buildEvenlySpacedSchedule,
+  normalizeDailyRepetitions,
+  repeatIntervalMinutes,
+} from "@/lib/social-publisher-schedule";
 
 type Platform = "facebook" | "instagram";
 type QueueStatus =
@@ -42,11 +52,18 @@ type Settings = {
 
 type QueueRow = {
   id: string;
+  campaign_id: string;
   product_id: string;
+  product_ids: string[];
   platform: Platform;
   status: QueueStatus;
   scheduled_for: string;
   product_name: string;
+  product_names: string[];
+  caption: string;
+  image_urls: string[];
+  occurrence_index: number;
+  occurrence_count: number;
   price_snapshot: number | string;
   stock_snapshot: number;
   attempt_count: number;
@@ -62,6 +79,9 @@ type Candidate = {
   price: number;
   stock: number;
   imageUrl: string;
+  productUrl: string;
+  category: string;
+  description: string;
 };
 
 type Overview = {
@@ -74,7 +94,18 @@ type Overview = {
   };
   queue: QueueRow[];
   products: Candidate[];
+  ai: {
+    configured: boolean;
+    model: string;
+  };
 };
+
+type CaptionLanguage = "ar" | "en";
+type ArabicTone = "egyptian" | "msa";
+type CaptionRelationship =
+  | "same_product"
+  | "related_products"
+  | "different_products";
 
 const STATUS_LABELS: Record<QueueStatus, string> = {
   draft: "مسودة",
@@ -113,13 +144,43 @@ function statusClass(status: QueueStatus) {
   return "bg-slate-100 text-slate-600";
 }
 
+const RELATIONSHIP_LABELS: Record<CaptionRelationship, string> = {
+  same_product: "الصور تعبّر عن المنتج نفسه",
+  related_products: "الصور لمنتجات مترابطة أو من عائلة واحدة",
+  different_products: "الصور لمنتجات مختلفة",
+};
+
+function repeatIntervalLabel(repetitions: number) {
+  const totalMinutes = repeatIntervalMinutes(repetitions);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = Math.round(totalMinutes % 60);
+  if (!minutes) return `كل ${hours} ساعة`;
+  if (!hours) return `كل ${minutes} دقيقة`;
+  return `كل ${hours} ساعة و${minutes} دقيقة تقريبًا`;
+}
+
+function cairoDateTime(value: string) {
+  return new Date(value).toLocaleString("ar-EG", {
+    timeZone: "Africa/Cairo",
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
 export default function SocialPublisherClient() {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
-  const [productId, setProductId] = useState("");
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [productSearch, setProductSearch] = useState("");
   const [scheduledFor, setScheduledFor] = useState(dateTimeLocalValue());
+  const [dailyRepetitions, setDailyRepetitions] = useState(1);
   const [platforms, setPlatforms] = useState<Platform[]>(["facebook", "instagram"]);
   const [queueStatus, setQueueStatus] = useState<"draft" | "queued">("draft");
+  const [captionLanguage, setCaptionLanguage] = useState<CaptionLanguage>("ar");
+  const [arabicTone, setArabicTone] = useState<ArabicTone>("egyptian");
+  const [caption, setCaption] = useState("");
+  const [captionRelationship, setCaptionRelationship] =
+    useState<CaptionRelationship | null>(null);
   const [busy, setBusy] = useState("");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -143,7 +204,9 @@ export default function SocialPublisherClient() {
       const payload = (await request()) as Overview;
       setOverview(payload);
       setSettings(payload.settings);
-      setProductId((current) => current || payload.products[0]?.id || "");
+      setSelectedProductIds((current) =>
+        current.filter((id) => payload.products.some((product) => product.id === id))
+      );
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "تعذر تحميل البيانات.");
     }
@@ -163,6 +226,35 @@ export default function SocialPublisherClient() {
     };
   }, [overview]);
 
+  const selectedProducts = useMemo(() => {
+    if (!overview) return [];
+    const byId = new Map(overview.products.map((product) => [product.id, product]));
+    return selectedProductIds
+      .map((id) => byId.get(id))
+      .filter(Boolean) as Candidate[];
+  }, [overview, selectedProductIds]);
+
+  const filteredProducts = useMemo(() => {
+    if (!overview) return [];
+    const query = productSearch.trim().toLocaleLowerCase("ar");
+    if (!query) return overview.products;
+
+    return overview.products.filter((product) =>
+      `${product.name} ${product.category}`.toLocaleLowerCase("ar").includes(query)
+    );
+  }, [overview, productSearch]);
+
+  const schedulePreview = useMemo(() => {
+    try {
+      return buildEvenlySpacedSchedule(
+        new Date(scheduledFor),
+        dailyRepetitions
+      );
+    } catch {
+      return [];
+    }
+  }, [dailyRepetitions, scheduledFor]);
+
   async function saveSettings() {
     if (!settings) return;
 
@@ -179,6 +271,50 @@ export default function SocialPublisherClient() {
     }
   }
 
+  function toggleProduct(productId: string, checked: boolean) {
+    setSelectedProductIds((current) => {
+      if (!checked) return current.filter((id) => id !== productId);
+      if (current.includes(productId)) return current;
+      if (current.length >= 10) {
+        setError("يمكن اختيار 10 منتجات كحد أقصى في المنشور الواحد.");
+        return current;
+      }
+      setError("");
+      return [...current, productId];
+    });
+    setCaption("");
+    setCaptionRelationship(null);
+  }
+
+  async function generateCaption() {
+    try {
+      setBusy("caption");
+      setError("");
+      const payload = await request(
+        {
+          action: "generate_caption",
+          productIds: selectedProductIds,
+          language: captionLanguage,
+          arabicTone,
+        },
+        "POST"
+      );
+      setCaption(String(payload.result?.caption || ""));
+      setCaptionRelationship(
+        (payload.result?.relationship as CaptionRelationship) || null
+      );
+      setNotice("تم إنشاء النص. راجعه وعدّله قبل إضافة المنشور للطابور.");
+    } catch (captionError) {
+      setError(
+        captionError instanceof Error
+          ? captionError.message
+          : "تعذر إنشاء نص المنشور."
+      );
+    } finally {
+      setBusy("");
+    }
+  }
+
   async function createPost() {
     try {
       setBusy("queue");
@@ -186,15 +322,25 @@ export default function SocialPublisherClient() {
       await request(
         {
           action: "queue",
-          productId,
+          productIds: selectedProductIds,
           platforms,
           scheduledFor: new Date(scheduledFor).toISOString(),
+          dailyRepetitions,
+          caption,
+          captionLanguage,
+          captionTone: arabicTone,
           status: queueStatus,
         },
         "POST"
       );
-      setNotice("تمت إضافة المنشور للطابور.");
+      setNotice(
+        `تمت إضافة الحملة للطابور في ${schedulePreview.length} موعد/مواعيد لكل منصة مختارة.`
+      );
       setScheduledFor(dateTimeLocalValue());
+      setDailyRepetitions(1);
+      setSelectedProductIds([]);
+      setCaption("");
+      setCaptionRelationship(null);
       await load();
     } catch (queueError) {
       setError(queueError instanceof Error ? queueError.message : "تعذر إضافة المنشور.");
@@ -421,26 +567,246 @@ export default function SocialPublisherClient() {
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-xl font-black text-slate-950">إضافة منشور يدوي للطابور</h2>
-          <p className="mt-1 text-sm font-semibold text-slate-500">
-            النص يُنشأ من بيانات المنتج المسجلة، ويُراجع السعر والمخزون مرة أخرى قبل النشر.
+          <h2 className="text-xl font-black text-slate-950">إنشاء منشور متعدد المنتجات</h2>
+          <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
+            اختر حتى 10 منتجات. تُستخدم الصورة الأولى لكل منتج، ويظل النص قابلًا
+            للمراجعة والتعديل قبل دخوله إلى الطابور.
           </p>
 
-          <div className="mt-6 space-y-4">
+          <div className="mt-6 space-y-5">
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-sm font-black text-slate-700">
+                  المنتجات المختارة: {selectedProductIds.length}/10
+                </span>
+                {selectedProductIds.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedProductIds([]);
+                      setCaption("");
+                      setCaptionRelationship(null);
+                    }}
+                    className="text-xs font-black text-rose-600"
+                  >
+                    إلغاء الاختيار
+                  </button>
+                )}
+              </div>
+              <label className="relative block">
+                <Search className="pointer-events-none absolute right-3 top-3.5 h-4 w-4 text-slate-400" />
+                <input
+                  type="search"
+                  value={productSearch}
+                  onChange={(event) => setProductSearch(event.target.value)}
+                  placeholder="ابحث باسم المنتج أو القسم"
+                  className="w-full rounded-xl border border-slate-200 py-3 pl-4 pr-10 text-sm"
+                />
+              </label>
+              <div className="max-h-96 space-y-2 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-2">
+                {filteredProducts.map((product) => {
+                  const checked = selectedProductIds.includes(product.id);
+                  return (
+                    <label
+                      key={product.id}
+                      className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 [content-visibility:auto] ${
+                        checked
+                          ? "border-blue-300 bg-blue-50"
+                          : "border-transparent bg-white hover:border-slate-200"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(event) =>
+                          toggleProduct(product.id, event.target.checked)
+                        }
+                        className="h-5 w-5 shrink-0"
+                      />
+                      <Image
+                        src={product.imageUrl}
+                        alt={product.name}
+                        width={56}
+                        height={56}
+                        className="h-14 w-14 shrink-0 rounded-lg border border-slate-100 bg-white object-contain"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-black text-slate-800">
+                          {product.name}
+                        </span>
+                        <span className="mt-1 block text-xs font-bold text-slate-500">
+                          {product.price} ج.م — مخزون {product.stock}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
+                {filteredProducts.length === 0 && (
+                  <p className="p-6 text-center text-sm font-bold text-slate-400">
+                    لا توجد منتجات مطابقة.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {selectedProducts.length > 0 && (
+              <div className="rounded-xl border border-blue-100 bg-blue-50 p-3">
+                <p className="text-xs font-black text-blue-700">
+                  الصور التي ستُضاف إلى المنشور
+                </p>
+                <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                  {selectedProducts.map((product, index) => (
+                    <div key={product.id} className="w-20 shrink-0 text-center">
+                      <Image
+                        src={product.imageUrl}
+                        alt={product.name}
+                        width={80}
+                        height={80}
+                        className="h-20 w-20 rounded-xl border border-blue-100 bg-white object-contain"
+                      />
+                      <span className="mt-1 block truncate text-[10px] font-bold text-slate-600">
+                        {index + 1}. {product.name}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="space-y-2 text-sm font-black text-slate-700">
+                <span className="flex items-center gap-2">
+                  <Languages className="h-4 w-4 text-blue-600" /> لغة النص
+                </span>
+                <select
+                  value={captionLanguage}
+                  onChange={(event) => {
+                    setCaptionLanguage(event.target.value as CaptionLanguage);
+                    setCaption("");
+                    setCaptionRelationship(null);
+                  }}
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3"
+                >
+                  <option value="ar">العربية</option>
+                  <option value="en">English</option>
+                </select>
+              </label>
+              {captionLanguage === "ar" && (
+                <label className="space-y-2 text-sm font-black text-slate-700">
+                  <span>أسلوب العربية</span>
+                  <select
+                    value={arabicTone}
+                    onChange={(event) => {
+                      setArabicTone(event.target.value as ArabicTone);
+                      setCaption("");
+                      setCaptionRelationship(null);
+                    }}
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3"
+                  >
+                    <option value="egyptian">العامية المصرية</option>
+                    <option value="msa">العربية الفصحى</option>
+                  </select>
+                </label>
+              )}
+            </div>
+
+            <div className="rounded-xl border border-violet-100 bg-violet-50 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="flex items-center gap-2 text-sm font-black text-violet-800">
+                    <Sparkles className="h-4 w-4" /> صياغة ChatGPT
+                  </p>
+                  <p className="mt-1 text-xs font-bold text-violet-600">
+                    مسار مستقل عن الردود التلقائية — النموذج: {overview.ai.model}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={generateCaption}
+                  disabled={
+                    busy === "caption" ||
+                    selectedProductIds.length === 0 ||
+                    !overview.ai.configured
+                  }
+                  className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {busy === "caption" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                  {caption ? "إعادة الصياغة" : "إنشاء النص"}
+                </button>
+              </div>
+              {!overview.ai.configured && (
+                <p className="mt-3 text-xs font-black text-amber-700">
+                  مفتاح OpenAI غير متاح في بيئة التشغيل الحالية، ويمكن كتابة النص يدويًا.
+                </p>
+              )}
+            </div>
+
             <label className="block space-y-2 text-sm font-black text-slate-700">
-              <span>المنتج</span>
-              <select value={productId} onChange={(event) => setProductId(event.target.value)} className="w-full rounded-xl border border-slate-200 px-4 py-3">
-                {overview.products.map((product) => (
-                  <option key={product.id} value={product.id}>
-                    {product.name} — {product.price} ج.م — مخزون {product.stock}
-                  </option>
-                ))}
-              </select>
+              <span>نص المنشور المعتمد</span>
+              <textarea
+                value={caption}
+                onChange={(event) => setCaption(event.target.value.slice(0, 2200))}
+                rows={8}
+                dir={captionLanguage === "ar" ? "rtl" : "ltr"}
+                placeholder="أنشئ النص بالذكاء الاصطناعي أو اكتبه يدويًا هنا..."
+                className="w-full resize-y rounded-xl border border-slate-200 px-4 py-3 text-sm leading-7"
+              />
+              <span className="flex flex-wrap justify-between gap-2 text-xs font-bold text-slate-400">
+                <span>{caption.length}/2200</span>
+                {captionRelationship && (
+                  <span className="text-violet-600">
+                    {RELATIONSHIP_LABELS[captionRelationship]}
+                  </span>
+                )}
+              </span>
             </label>
-            <label className="block space-y-2 text-sm font-black text-slate-700">
-              <span>موعد النشر</span>
-              <input type="datetime-local" value={scheduledFor} onChange={(event) => setScheduledFor(event.target.value)} className="w-full rounded-xl border border-slate-200 px-4 py-3" />
-            </label>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block space-y-2 text-sm font-black text-slate-700">
+                <span>أول موعد للنشر</span>
+                <input
+                  type="datetime-local"
+                  value={scheduledFor}
+                  onChange={(event) => setScheduledFor(event.target.value)}
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3"
+                />
+              </label>
+              <label className="block space-y-2 text-sm font-black text-slate-700">
+                <span>مرات النشر خلال دورة 24 ساعة</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={dailyRepetitions}
+                  onChange={(event) =>
+                    setDailyRepetitions(
+                      normalizeDailyRepetitions(Number(event.target.value))
+                    )
+                  }
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3"
+                />
+              </label>
+            </div>
+
+            {schedulePreview.length > 0 && (
+              <div className="rounded-xl border border-cyan-100 bg-cyan-50 p-4">
+                <p className="flex items-center gap-2 text-sm font-black text-cyan-800">
+                  <Clock3 className="h-4 w-4" /> معاينة المواعيد — {repeatIntervalLabel(dailyRepetitions)}
+                </p>
+                <ol className="mt-3 grid gap-2 text-xs font-bold text-cyan-900 sm:grid-cols-2">
+                  {schedulePreview.map((value, index) => (
+                    <li key={value} className="rounded-lg bg-white/80 px-3 py-2">
+                      {index + 1}. {cairoDateTime(value)}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+
             <div className="grid gap-3 sm:grid-cols-2">
               {(["facebook", "instagram"] as Platform[]).map((platform) => (
                 <label key={platform} className="flex items-center gap-2 rounded-xl border border-slate-200 p-4 text-sm font-black text-slate-700">
@@ -458,7 +824,7 @@ export default function SocialPublisherClient() {
               <span>حالة الإضافة</span>
               <select value={queueStatus} onChange={(event) => setQueueStatus(event.target.value as "draft" | "queued")} className="w-full rounded-xl border border-slate-200 px-4 py-3">
                 <option value="draft">مسودة للمراجعة</option>
-                <option value="queued">جاهز للنشر في الموعد</option>
+                <option value="queued">جاهز للنشر في المواعيد</option>
               </select>
             </label>
           </div>
@@ -466,11 +832,17 @@ export default function SocialPublisherClient() {
           <button
             type="button"
             onClick={createPost}
-            disabled={busy === "queue" || !productId || platforms.length === 0}
-            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-black text-white disabled:opacity-50"
+            disabled={
+              busy === "queue" ||
+              selectedProductIds.length === 0 ||
+              platforms.length === 0 ||
+              !caption.trim() ||
+              schedulePreview.length === 0
+            }
+            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy === "queue" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            إضافة للطابور
+            إضافة الحملة للطابور
           </button>
         </div>
       </section>
@@ -487,7 +859,11 @@ export default function SocialPublisherClient() {
               <article key={row.id} className="grid gap-4 p-5 lg:grid-cols-[1fr_auto] lg:items-center">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-black text-slate-950">{row.product_name}</h3>
+                    <h3 className="font-black text-slate-950">
+                      {Array.isArray(row.product_names) && row.product_names.length
+                        ? row.product_names.join("، ")
+                        : row.product_name}
+                    </h3>
                     <span className={`rounded-full px-3 py-1 text-xs font-black ${statusClass(row.status)}`}>
                       {STATUS_LABELS[row.status]}
                     </span>
@@ -496,7 +872,10 @@ export default function SocialPublisherClient() {
                     </span>
                   </div>
                   <p className="mt-2 text-xs font-bold text-slate-500">
-                    الموعد: {new Date(row.scheduled_for).toLocaleString("ar-EG")} — السعر: {Number(row.price_snapshot)} ج.م — المخزون: {row.stock_snapshot}
+                    الموعد: {cairoDateTime(row.scheduled_for)} — المنتجات: {row.product_ids?.length || 1}
+                    {row.occurrence_count > 1
+                      ? ` — التكرار ${row.occurrence_index + 1} من ${row.occurrence_count}`
+                      : ""}
                   </p>
                   {row.last_error && <p className="mt-2 text-xs font-bold text-rose-600" dir="ltr">{row.last_error}</p>}
                 </div>

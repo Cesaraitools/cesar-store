@@ -1,6 +1,12 @@
 import { randomUUID } from "crypto";
 import { normalizeImagesArray } from "@/lib/image-normalizer";
+import { buildEvenlySpacedSchedule } from "@/lib/social-publisher-schedule";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
+import {
+  generateSocialCaption,
+  getSocialCaptionModel,
+  isSocialCaptionAiConfigured,
+} from "./caption";
 import { getMetaPublisherReadiness, getSiteOrigin } from "./config";
 import {
   isMetaPublishOutcomeUnknownError,
@@ -9,6 +15,8 @@ import {
 } from "./meta";
 import type {
   SocialPlatform,
+  SocialArabicTone,
+  SocialCaptionLanguage,
   SocialPostQueueRow,
   SocialProductCandidate,
   SocialPublicationEvent,
@@ -42,6 +50,10 @@ export type PublisherOverview = {
   queue: SocialPostQueueRow[];
   events: SocialPublicationEvent[];
   products: SocialProductCandidate[];
+  ai: {
+    configured: boolean;
+    model: string;
+  };
 };
 
 function cleanText(value: unknown) {
@@ -92,6 +104,7 @@ function toCandidate(row: ProductRow): SocialProductCandidate {
     imageUrl: productImage(row),
     productUrl: productUrl(row),
     category: cleanText(row.category),
+    description: cleanText(row.description_ar || row.description_en),
   };
 }
 
@@ -198,6 +211,10 @@ export async function getPublisherOverview(): Promise<PublisherOverview> {
     queue: (queueResult.data || []) as SocialPostQueueRow[],
     events: (eventsResult.data || []) as SocialPublicationEvent[],
     products: productsResult.map(toCandidate).filter((product) => product.imageUrl),
+    ai: {
+      configured: isSocialCaptionAiConfigured(),
+      model: getSocialCaptionModel(),
+    },
   };
 }
 
@@ -288,6 +305,71 @@ async function getProductById(productId: string) {
   return (data as ProductRow | null) || null;
 }
 
+async function getProductsByIds(productIds: string[]) {
+  const orderedIds = Array.from(
+    new Set(productIds.map(String).map((value) => value.trim()).filter(Boolean))
+  );
+  if (!orderedIds.length || orderedIds.length > 10) {
+    throw new Error("Select between 1 and 10 products.");
+  }
+
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select(
+      "id,name_ar,name_en,description_ar,description_en,price,stock,category,image_url,images_json,is_active,deleted_at,updated_at"
+    )
+    .in("id", orderedIds);
+
+  if (error) throw error;
+  const byId = new Map(((data || []) as ProductRow[]).map((row) => [row.id, row]));
+  const rows = orderedIds.map((id) => byId.get(id)).filter(Boolean) as ProductRow[];
+  if (rows.length !== orderedIds.length) {
+    throw new Error("One or more selected products no longer exist.");
+  }
+
+  return rows;
+}
+
+function validatePublishableProducts(products: ProductRow[]) {
+  for (const product of products) {
+    if (product.deleted_at || !product.is_active) {
+      throw new Error(`${productName(product)} is not active.`);
+    }
+    if ((Number(product.stock) || 0) <= 0) {
+      throw new Error(`${productName(product)} is out of stock.`);
+    }
+    if ((Number(product.price) || 0) <= 0) {
+      throw new Error(`${productName(product)} does not have a valid positive price.`);
+    }
+    if (!productImage(product)) {
+      throw new Error(`${productName(product)} has no public image.`);
+    }
+  }
+}
+
+export async function generatePublisherCaption(input: {
+  productIds: string[];
+  language: SocialCaptionLanguage;
+  arabicTone: SocialArabicTone;
+}) {
+  const products = await getProductsByIds(input.productIds);
+  validatePublishableProducts(products);
+
+  return generateSocialCaption({
+    language: input.language,
+    arabicTone: input.arabicTone,
+    products: products.map((product) => ({
+      id: product.id,
+      name: productName(product),
+      description: cleanText(product.description_ar || product.description_en),
+      category: cleanText(product.category),
+      imageUrl: productImage(product),
+      productUrl: productUrl(product),
+    })),
+  });
+}
+
 async function recordEvent(input: {
   queueId?: string | null;
   eventType: string;
@@ -305,31 +387,24 @@ async function recordEvent(input: {
   if (error) console.error("SOCIAL PUBLISHER EVENT ERROR:", error);
 }
 
-export async function queueProductPosts(input: {
-  productId: string;
+export async function queueCampaignPosts(input: {
+  productIds: string[];
   platforms: SocialPlatform[];
   scheduledFor: string;
+  dailyRepetitions?: number;
+  caption: string;
+  captionLanguage: SocialCaptionLanguage;
+  captionTone: SocialArabicTone;
   status?: "draft" | "queued";
   createdBy?: string | null;
   idempotencyPrefix?: string;
 }) {
-  const product = await getProductById(input.productId);
-  const scheduledFor = new Date(input.scheduledFor);
-
-  if (!product || product.deleted_at || !product.is_active) {
-    throw new Error("The selected product is not active.");
-  }
-
-  if ((Number(product.stock) || 0) <= 0) {
-    throw new Error("The selected product is out of stock.");
-  }
-  if ((Number(product.price) || 0) <= 0) {
-    throw new Error("The selected product does not have a valid positive price.");
-  }
-
-  const imageUrl = productImage(product);
-  if (!imageUrl) throw new Error("The selected product has no public image.");
-  if (Number.isNaN(scheduledFor.getTime())) throw new Error("Invalid schedule date.");
+  const products = await getProductsByIds(input.productIds);
+  validatePublishableProducts(products);
+  const schedule = buildEvenlySpacedSchedule(
+    input.scheduledFor,
+    input.dailyRepetitions || 1
+  );
 
   const platforms = Array.from(new Set(input.platforms)).filter(
     (platform): platform is SocialPlatform =>
@@ -337,23 +412,58 @@ export async function queueProductPosts(input: {
   );
   if (!platforms.length) throw new Error("Select at least one platform.");
 
+  const caption = String(input.caption || "")
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  if (!caption) throw new Error("Generate or write the post caption first.");
+  if (caption.length > 2200) throw new Error("The post caption exceeds 2200 characters.");
+
+  const language: SocialCaptionLanguage = input.captionLanguage === "en" ? "en" : "ar";
+  const tone: SocialArabicTone = input.captionTone === "egyptian" ? "egyptian" : "msa";
+  const campaignId = randomUUID();
+  const productIds = products.map((product) => product.id);
+  const productNames = products.map(productName);
+  const imageUrls = products.map(productImage);
+  const productUrls = products.map(productUrl);
+  const combinedPrice = products.reduce(
+    (total, product) => total + Math.max(0, Number(product.price) || 0),
+    0
+  );
+  const minimumStock = Math.min(
+    ...products.map((product) => Math.max(0, Number(product.stock) || 0))
+  );
+
   const supabase = createServiceRoleClient();
-  const caption = buildProductCaption(product);
   const prefix = input.idempotencyPrefix || randomUUID();
-  const rows = platforms.map((platform) => ({
-    product_id: product.id,
-    platform,
-    status: input.status || "draft",
-    scheduled_for: scheduledFor.toISOString(),
-    caption,
-    product_name: productName(product),
-    price_snapshot: Math.max(0, Number(product.price) || 0),
-    stock_snapshot: Math.max(0, Number(product.stock) || 0),
-    image_url: imageUrl,
-    product_url: productUrl(product),
-    idempotency_key: `${prefix}:${platform}`,
-    created_by: input.createdBy || null,
-  }));
+  const rows = schedule.flatMap((scheduledFor, occurrenceIndex) =>
+    platforms.map((platform) => ({
+      campaign_id: campaignId,
+      product_id: products[0].id,
+      product_ids: productIds,
+      platform,
+      status: input.status || "draft",
+      scheduled_for: scheduledFor,
+      caption,
+      product_name: productNames.join("، "),
+      product_names: productNames,
+      price_snapshot: combinedPrice,
+      stock_snapshot: minimumStock,
+      image_url: imageUrls[0],
+      image_urls: imageUrls,
+      product_url: productUrls[0],
+      product_urls: productUrls,
+      caption_language: language,
+      caption_tone: tone,
+      occurrence_index: occurrenceIndex,
+      occurrence_count: schedule.length,
+      idempotency_key: `${prefix}:${occurrenceIndex}:${platform}`,
+      created_by: input.createdBy || null,
+    }))
+  );
 
   const { data, error } = await supabase
     .from("social_post_queue")
@@ -368,12 +478,44 @@ export async function queueProductPosts(input: {
         queueId: row.id,
         eventType: "queued",
         platform: row.platform,
-        details: { status: row.status, scheduledFor: row.scheduled_for },
+        details: {
+          campaignId,
+          status: row.status,
+          scheduledFor: row.scheduled_for,
+          occurrenceIndex: row.occurrence_index,
+          occurrenceCount: row.occurrence_count,
+          productIds,
+        },
       })
     )
   );
 
   return (data || []) as SocialPostQueueRow[];
+}
+
+export async function queueProductPosts(input: {
+  productId: string;
+  platforms: SocialPlatform[];
+  scheduledFor: string;
+  status?: "draft" | "queued";
+  createdBy?: string | null;
+  idempotencyPrefix?: string;
+}) {
+  const product = await getProductById(input.productId);
+  if (!product) throw new Error("The selected product no longer exists.");
+
+  return queueCampaignPosts({
+    productIds: [input.productId],
+    platforms: input.platforms,
+    scheduledFor: input.scheduledFor,
+    dailyRepetitions: 1,
+    caption: buildProductCaption(product),
+    captionLanguage: "ar",
+    captionTone: "msa",
+    status: input.status,
+    createdBy: input.createdBy,
+    idempotencyPrefix: input.idempotencyPrefix,
+  });
 }
 
 export async function updateQueueItem(input: {
@@ -469,11 +611,11 @@ async function selectAutomaticProduct(settings: SocialPublisherSettings) {
     listProductRows(500),
     supabase
       .from("social_post_queue")
-      .select("product_id")
+      .select("product_id,product_ids")
       .in("status", ACTIVE_QUEUE_STATUSES),
     supabase
       .from("social_post_queue")
-      .select("product_id")
+      .select("product_id,product_ids")
       .eq("status", "published")
       .gte("published_at", cutoff),
   ]);
@@ -482,7 +624,11 @@ async function selectAutomaticProduct(settings: SocialPublisherSettings) {
   if (recentRows.error) throw recentRows.error;
 
   const excluded = new Set(
-    [...(activeRows.data || []), ...(recentRows.data || [])].map((row) => row.product_id)
+    [...(activeRows.data || []), ...(recentRows.data || [])].flatMap((row) =>
+      Array.isArray(row.product_ids) && row.product_ids.length
+        ? row.product_ids.map(String)
+        : [String(row.product_id)]
+    )
   );
 
   return (
@@ -632,37 +778,104 @@ async function processClaimedPost(
     return "skipped" as const;
   }
 
-  const product = await getProductById(row.product_id);
-
-  if (!product || product.deleted_at || !product.is_active) {
-    await finishClaim(row, { status: "skipped", last_error: "Product is inactive." }, "skipped", {
-      reason: "inactive_product",
-    });
+  let products: ProductRow[];
+  try {
+    products = await getProductsByIds(
+      Array.isArray(row.product_ids) && row.product_ids.length
+        ? row.product_ids
+        : [row.product_id]
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Product lookup failed.";
+    await finishClaim(
+      row,
+      { status: "skipped", last_error: message.slice(0, 1000) },
+      "skipped",
+      { reason: "missing_product" }
+    );
     return "skipped" as const;
   }
 
-  const stock = Math.max(0, Number(product.stock) || 0);
-  const price = Math.max(0, Number(product.price) || 0);
-  const imageUrl = productImage(product);
-  if (stock <= 0 || price <= 0 || !imageUrl) {
-    const reason =
-      stock <= 0
-        ? "out_of_stock"
-        : price <= 0
-        ? "invalid_price"
-        : "missing_public_image";
-    await finishClaim(row, { status: "skipped", last_error: reason }, "skipped", { reason });
+  const invalidProduct = products.find(
+    (product) =>
+      product.deleted_at ||
+      !product.is_active ||
+      (Number(product.stock) || 0) <= 0 ||
+      (Number(product.price) || 0) <= 0 ||
+      !productImage(product)
+  );
+  if (invalidProduct) {
+    const reason = invalidProduct.deleted_at || !invalidProduct.is_active
+      ? "inactive_product"
+      : (Number(invalidProduct.stock) || 0) <= 0
+      ? "out_of_stock"
+      : (Number(invalidProduct.price) || 0) <= 0
+      ? "invalid_price"
+      : "missing_public_image";
+    await finishClaim(
+      row,
+      { status: "skipped", last_error: `${productName(invalidProduct)}: ${reason}` },
+      "skipped",
+      { reason, productId: invalidProduct.id }
+    );
     return "skipped" as const;
   }
 
-  const caption = buildProductCaption(product);
+  const currentImageUrls = products.map(productImage);
+  const productNames = products.map(productName);
+  const productUrls = products.map(productUrl);
+  const price = products.reduce(
+    (total, product) => total + Math.max(0, Number(product.price) || 0),
+    0
+  );
+  const stock = Math.min(
+    ...products.map((product) => Math.max(0, Number(product.stock) || 0))
+  );
+  const isAutomaticPost = row.created_by === "cron" && products.length === 1;
+  const storedImageUrls = Array.isArray(row.image_urls) ? row.image_urls : [];
+  const storedProductNames = Array.isArray(row.product_names) ? row.product_names : [];
+  const campaignChanged =
+    !isAutomaticPost &&
+    (storedImageUrls.length !== currentImageUrls.length ||
+      storedImageUrls.some((value, index) => value !== currentImageUrls[index]) ||
+      storedProductNames.length !== productNames.length ||
+      storedProductNames.some((value, index) => value !== productNames[index]) ||
+      Math.round(Number(row.price_snapshot) * 100) !== Math.round(price * 100));
+
+  if (campaignChanged) {
+    await finishClaim(
+      row,
+      {
+        status: "skipped",
+        last_error:
+          "Product name, image, or price changed after approval. Review and create the campaign again.",
+      },
+      "skipped",
+      { reason: "approved_campaign_product_changed" }
+    );
+    return "skipped" as const;
+  }
+
+  const imageUrls = isAutomaticPost ? currentImageUrls : storedImageUrls;
+  const caption = isAutomaticPost
+    ? buildProductCaption(products[0])
+    : String(row.caption || "").trim();
+  if (!caption || !imageUrls.length) {
+    await finishClaim(
+      row,
+      { status: "skipped", last_error: "Approved campaign content is incomplete." },
+      "skipped",
+      { reason: "incomplete_approved_campaign" }
+    );
+    return "skipped" as const;
+  }
 
   let result: Awaited<ReturnType<typeof publishToMeta>>;
 
   try {
     result = await publishToMeta({
       platform: row.platform,
-      imageUrl,
+      imageUrls,
       caption,
     });
   } catch (error) {
@@ -707,11 +920,14 @@ async function processClaimedPost(
     {
       status: "published",
       caption,
-      product_name: productName(product),
+      product_name: productNames.join("، "),
+      product_names: productNames,
       price_snapshot: price,
       stock_snapshot: stock,
-      image_url: imageUrl,
-      product_url: productUrl(product),
+      image_url: imageUrls[0],
+      image_urls: imageUrls,
+      product_url: productUrls[0],
+      product_urls: productUrls,
       external_post_id: result.externalPostId,
       external_post_url: result.externalPostUrl,
       published_at: new Date().toISOString(),

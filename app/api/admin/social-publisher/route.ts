@@ -2,13 +2,18 @@ import { NextResponse } from "next/server";
 import { requireAdminRole } from "@/lib/admin/permissions";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
 import {
+  generatePublisherCaption,
   getPublisherOverview,
-  queueProductPosts,
+  queueCampaignPosts,
   runPublisherWorker,
   updatePublisherSettings,
   updateQueueItem,
 } from "@/lib/server/social-publisher";
-import type { SocialPlatform } from "@/lib/server/social-publisher/types";
+import type {
+  SocialArabicTone,
+  SocialCaptionLanguage,
+  SocialPlatform,
+} from "@/lib/server/social-publisher/types";
 import { testMetaPublisherConnection } from "@/lib/server/social-publisher/meta";
 
 export const dynamic = "force-dynamic";
@@ -107,15 +112,54 @@ export async function POST(request: Request) {
     const body = (await request.json()) as Record<string, unknown>;
     const action = String(body.action || "");
 
+    if (action === "generate_caption") {
+      const productIds = (Array.isArray(body.productIds) ? body.productIds : [])
+        .map(String)
+        .filter(Boolean);
+      const language: SocialCaptionLanguage = body.language === "en" ? "en" : "ar";
+      const arabicTone: SocialArabicTone =
+        body.arabicTone === "egyptian" ? "egyptian" : "msa";
+      const result = await generatePublisherCaption({
+        productIds,
+        language,
+        arabicTone,
+      });
+
+      await writeAdminAudit({
+        adminEmail: guard.access.userEmail,
+        action: "social_caption_generated",
+        payload: {
+          productIds,
+          language,
+          arabicTone,
+          relationship: result.relationship,
+          model: result.model,
+        },
+      });
+
+      return noStore({ result });
+    }
+
     if (action === "queue") {
       const platforms = (Array.isArray(body.platforms) ? body.platforms : []).filter(
         (platform): platform is SocialPlatform =>
           platform === "facebook" || platform === "instagram"
       );
-      const rows = await queueProductPosts({
-        productId: String(body.productId || ""),
+      const productIds = (Array.isArray(body.productIds)
+        ? body.productIds
+        : [body.productId]
+      )
+        .map(String)
+        .filter(Boolean);
+      const rows = await queueCampaignPosts({
+        productIds,
         platforms,
         scheduledFor: String(body.scheduledFor || ""),
+        dailyRepetitions:
+          typeof body.dailyRepetitions === "number" ? body.dailyRepetitions : 1,
+        caption: String(body.caption || ""),
+        captionLanguage: body.captionLanguage === "en" ? "en" : "ar",
+        captionTone: body.captionTone === "egyptian" ? "egyptian" : "msa",
         status: body.status === "queued" ? "queued" : "draft",
         createdBy: guard.access.userEmail,
       });
@@ -124,7 +168,13 @@ export async function POST(request: Request) {
         adminEmail: guard.access.userEmail,
         action: "social_posts_created",
         entityId: rows[0]?.id || null,
-        payload: { count: rows.length, productId: body.productId, platforms },
+        payload: {
+          campaignId: rows[0]?.campaign_id || null,
+          count: rows.length,
+          productIds,
+          platforms,
+          dailyRepetitions: rows[0]?.occurrence_count || 1,
+        },
       });
 
       return noStore({ rows }, { status: 201 });
