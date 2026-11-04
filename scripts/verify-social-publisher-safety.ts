@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   isMetaPublishOutcomeUnknownError,
   publishToMeta,
+  testMetaPublisherConnection,
 } from "../lib/server/social-publisher/meta";
 
 const originalFetch = global.fetch;
@@ -98,6 +99,51 @@ async function verifyInstagramPermalinkFailureDoesNotRetry() {
   });
 }
 
+async function verifyInstagramUnifiedLoginConnection() {
+  process.env.META_PUBLISHER_INSTAGRAM_UNIFIED_ACCESS_TOKEN =
+    "ig-unified-token-test";
+  delete process.env.META_PUBLISHER_INSTAGRAM_ACCESS_TOKEN;
+
+  const requestedUrls: string[] = [];
+  global.fetch = async (input) => {
+    const url = String(input);
+    requestedUrls.push(url);
+
+    if (url.includes("/debug_token")) {
+      const parsed = new URL(url);
+      assert.equal(
+        parsed.searchParams.get("input_token"),
+        "ig-unified-token-test"
+      );
+      return jsonResponse({
+        data: {
+          app_id: "app-test",
+          is_valid: true,
+          scopes: ["instagram_basic", "instagram_content_publish"],
+        },
+      });
+    }
+    if (url.startsWith("https://graph.facebook.com/v26.0/ig-test?")) {
+      return jsonResponse({ id: "ig-test", username: "cesar-store-test" });
+    }
+
+    throw new Error(`Unexpected Unified Login request: ${url}`);
+  };
+
+  const result = await testMetaPublisherConnection(["instagram"]);
+  assert.equal(result.instagramAuthMode, "unified_login");
+  assert.deepEqual(result.instagram, {
+    id: "ig-test",
+    username: "cesar-store-test",
+  });
+  assert.ok(
+    requestedUrls.every((url) => url.startsWith("https://graph.facebook.com/"))
+  );
+
+  delete process.env.META_PUBLISHER_INSTAGRAM_UNIFIED_ACCESS_TOKEN;
+  process.env.META_PUBLISHER_INSTAGRAM_ACCESS_TOKEN = "ig-token-test";
+}
+
 async function main() {
   process.env.META_PUBLISHER_APP_ID = "app-test";
   process.env.META_PUBLISHER_APP_SECRET = "secret-test";
@@ -112,6 +158,7 @@ async function main() {
     await verifyExplicitMetaFailureCanRetry();
     await verifyMissingFacebookIdRequiresReview();
     await verifyInstagramPermalinkFailureDoesNotRetry();
+    await verifyInstagramUnifiedLoginConnection();
     console.log("SOCIAL_PUBLISHER_SAFETY_OK");
   } finally {
     global.fetch = originalFetch;

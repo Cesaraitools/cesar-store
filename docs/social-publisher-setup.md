@@ -74,12 +74,16 @@ Carousel. النص الناتج من OpenAI يظل مسودة قابلة للت�
    - `pages_show_list`
    - `pages_read_engagement`
    - `pages_manage_posts`
-3. لمسار **Instagram Login** الحديث، منح:
-   - `instagram_business_basic`
-   - `instagram_business_content_publish`
-4. إنشاء Page Access Token خاص بصفحة Facebook، ورمز Instagram مستقل خاص
-   بحساب Instagram الاحترافي. يدعم الكود أيضًا مسار Facebook Login القديم عند
-   الحاجة، باستخدام `instagram_basic` و`instagram_content_publish` ورمز الصفحة.
+3. للتطبيقات الجديدة التي تعرض **API setup with Unified Login**، أنشئ تكوين
+   `General` برمز مستخدم نظام `SUAT` واستخدم فقط صلاحيات النشر:
+   - `instagram_basic`
+   - `instagram_content_publish`
+   لا يعتمد الناشر على صلاحيات الإعلانات أو الرسائل أو التعليقات حتى إذا عرضها
+   قالب Meta الافتراضي.
+4. احتفظ برمز Facebook الخاص بالصفحة منفصلًا عن رمز Instagram Unified Login.
+   يدعم الكود أيضًا Instagram Login القديم عند توفره باستخدام
+   `instagram_business_basic` و`instagram_business_content_publish`، ومسار
+   Facebook Login القديم باستخدام رمز الصفحة.
 5. عدم مشاركة أي مفتاح أو رمز داخل المحادثة أو مستودع Git.
 
 ## متغيرات Vercel السرية
@@ -93,6 +97,7 @@ META_PUBLISHER_APP_SECRET=
 META_PUBLISHER_PAGE_ID=
 META_PUBLISHER_IG_USER_ID=
 META_PUBLISHER_PAGE_ACCESS_TOKEN=
+META_PUBLISHER_INSTAGRAM_UNIFIED_ACCESS_TOKEN=
 META_PUBLISHER_INSTAGRAM_ACCESS_TOKEN=
 META_PUBLISHER_GRAPH_API_VERSION=v26.0
 CRON_SECRET=
@@ -104,10 +109,18 @@ SOCIAL_PUBLISHER_OPENAI_MODEL=gpt-4o-mini
 دون تغيير نموذج الردود. لا يُرسل المفتاح إلى المتصفح؛ استدعاء OpenAI يتم من
 مسار الإدارة على الخادم بعد التحقق من صلاحية المدير.
 
-يختار الخادم مسار Instagram تلقائيًا: وجود
-`META_PUBLISHER_INSTAGRAM_ACCESS_TOKEN` يستخدم `graph.instagram.com` وصلاحيات
-`instagram_business_*`. إذا غاب واستخدم رمز الصفحة بدلًا منه، ينتقل إلى مسار
-Facebook Login المرتبط بالصفحة على `graph.facebook.com`.
+يختار الخادم مسار Instagram تلقائيًا بالترتيب التالي:
+
+1. وجود `META_PUBLISHER_INSTAGRAM_UNIFIED_ACCESS_TOKEN` يستخدم Unified Login
+   الحديث على `graph.facebook.com` وصلاحيات `instagram_basic` و
+   `instagram_content_publish`.
+2. وإلا فإن وجود `META_PUBLISHER_INSTAGRAM_ACCESS_TOKEN` يستخدم Instagram Login
+   القديم على `graph.instagram.com` وصلاحيات `instagram_business_*`.
+3. وإلا يستخدم رمز الصفحة لمسار Facebook Login القديم على
+   `graph.facebook.com`.
+
+لا يحتاج الخادم إلى `config_id` بعد اكتمال المصادقة؛ يُستخدم `config_id` داخل
+تدفق Meta لإصدار رمز `SUAT` فقط، ثم يُحفظ الرمز مباشرة في Vercel كسر إنتاج.
 
 ينبغي أن يكون `CRON_SECRET` قيمة عشوائية طويلة. نفس القيمة محفوظة مشفرة في
 Supabase Vault باسم `cesar_social_publisher_cron_secret`، ويستخدمها Supabase Cron
@@ -136,7 +149,8 @@ Supabase Vault باسم `cesar_social_publisher_cron_secret`، ويستخدمه�
 وجود أسماء المتغيرات وحده لا يكفي لتشغيل النشر.
 ويتحقق الاختبار أيضًا من صلاحية كل رمز على حدة وملكيته للتطبيق الجديد. تتحقق
 صفحة Facebook من `pages_show_list` و`pages_read_engagement` و
-`pages_manage_posts`، بينما يتحقق مسار Instagram Login من
+`pages_manage_posts`. يتحقق Unified Login من `instagram_basic` و
+`instagram_content_publish`، بينما يتحقق Instagram Login القديم من
 `instagram_business_basic` و`instagram_business_content_publish`. يبقى مسار
 Facebook Login القديم مدعومًا بصلاحياته القديمة عند استخدام رمز الصفحة.
 

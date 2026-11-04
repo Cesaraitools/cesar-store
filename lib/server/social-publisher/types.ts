@@ -91,6 +91,10 @@ export type SocialProductCandidate = {
 export type MetaPublisherReadiness = {
   configured: boolean;
   graphApiVersion: string;
-  instagramAuthMode: "instagram_login" | "facebook_login" | null;
+  instagramAuthMode:
+    | "unified_login"
+    | "instagram_login"
+    | "facebook_login"
+    | null;
   missing: string[];
 };

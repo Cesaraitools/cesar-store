@@ -454,9 +454,11 @@ export async function testMetaPublisherConnection(
       })
     : null;
   const instagramRequiredScopes = new Set(
-    instagramConfig?.instagramAuthMode === "instagram_login"
-      ? ["instagram_business_basic", "instagram_business_content_publish"]
-      : [
+    instagramConfig?.instagramAuthMode === "unified_login"
+      ? ["instagram_basic", "instagram_content_publish"]
+      : instagramConfig?.instagramAuthMode === "instagram_login"
+        ? ["instagram_business_basic", "instagram_business_content_publish"]
+        : [
           "pages_show_list",
           "pages_read_engagement",
           "instagram_basic",
@@ -490,7 +492,11 @@ export async function testMetaPublisherConnection(
       facebook?: TokenInspection;
       instagram?: TokenInspection;
     };
-    instagramAuthMode: "instagram_login" | "facebook_login" | null;
+    instagramAuthMode:
+      | "unified_login"
+      | "instagram_login"
+      | "facebook_login"
+      | null;
   } = {
     token: primaryToken,
     tokens: {

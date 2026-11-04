@@ -89,7 +89,11 @@ type Overview = {
   readiness: {
     configured: boolean;
     graphApiVersion: string;
-    instagramAuthMode: "instagram_login" | "facebook_login" | null;
+    instagramAuthMode:
+      | "unified_login"
+      | "instagram_login"
+      | "facebook_login"
+      | null;
     missing: string[];
   };
   queue: QueueRow[];
@@ -480,7 +484,9 @@ export default function SocialPublisherClient() {
             <p className="mt-3 text-xs font-bold text-slate-500">
               مسار Instagram: {overview.readiness.instagramAuthMode === "instagram_login"
                 ? "رمز Instagram مستقل"
-                : "رمز صفحة Facebook المرتبطة"}
+                : overview.readiness.instagramAuthMode === "unified_login"
+                  ? "Unified Login (رمز SUAT مستقل)"
+                  : "رمز صفحة Facebook المرتبطة"}
             </p>
           )}
 

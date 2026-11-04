@@ -10,9 +10,13 @@ function envValue(name: string) {
 }
 
 export function getInstagramAuthMode():
+  | "unified_login"
   | "instagram_login"
   | "facebook_login"
   | null {
+  if (envValue("META_PUBLISHER_INSTAGRAM_UNIFIED_ACCESS_TOKEN")) {
+    return "unified_login";
+  }
   if (envValue("META_PUBLISHER_INSTAGRAM_ACCESS_TOKEN")) {
     return "instagram_login";
   }
@@ -56,7 +60,7 @@ export function getMetaPublisherReadiness(
     : null;
   if (platforms.includes("instagram") && !instagramAuthMode) {
     missing.push(
-      "META_PUBLISHER_INSTAGRAM_ACCESS_TOKEN or META_PUBLISHER_PAGE_ACCESS_TOKEN"
+      "META_PUBLISHER_INSTAGRAM_UNIFIED_ACCESS_TOKEN or META_PUBLISHER_INSTAGRAM_ACCESS_TOKEN or META_PUBLISHER_PAGE_ACCESS_TOKEN"
     );
   }
 
@@ -80,9 +84,12 @@ export function requireMetaPublisherConfig(platform: SocialPlatform) {
   return {
     graphApiVersion: readiness.graphApiVersion,
     accessToken:
-      platform === "instagram" &&
-      readiness.instagramAuthMode === "instagram_login"
-        ? envValue("META_PUBLISHER_INSTAGRAM_ACCESS_TOKEN")
+      platform === "instagram"
+        ? readiness.instagramAuthMode === "unified_login"
+          ? envValue("META_PUBLISHER_INSTAGRAM_UNIFIED_ACCESS_TOKEN")
+          : readiness.instagramAuthMode === "instagram_login"
+            ? envValue("META_PUBLISHER_INSTAGRAM_ACCESS_TOKEN")
+            : envValue("META_PUBLISHER_PAGE_ACCESS_TOKEN")
         : envValue("META_PUBLISHER_PAGE_ACCESS_TOKEN"),
     apiOrigin:
       platform === "instagram" &&
