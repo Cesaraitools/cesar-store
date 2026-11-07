@@ -7,7 +7,16 @@ type MetaSuccess = {
   externalPostUrl: string;
 };
 
-type MetaResponse = {
+type MetaErrorResponse = {
+  error?: {
+    message?: string;
+    type?: string;
+    code?: number;
+    error_subcode?: number;
+  };
+};
+
+type MetaResponse = MetaErrorResponse & {
   id?: string;
   name?: string;
   username?: string;
@@ -26,12 +35,15 @@ type MetaResponse = {
     expires_at?: number;
     data_access_expires_at?: number;
   };
-  error?: {
-    message?: string;
-    type?: string;
-    code?: number;
-    error_subcode?: number;
-  };
+};
+
+type MetaPageAccountsResponse = MetaErrorResponse & {
+  data?: Array<{
+    id?: string;
+    name?: string;
+    access_token?: string;
+    tasks?: string[];
+  }>;
 };
 
 export class MetaPublishOutcomeUnknownError extends Error {
@@ -55,7 +67,7 @@ export function isMetaPublishOutcomeUnknownError(error: unknown) {
   );
 }
 
-function metaError(payload: MetaResponse, fallback: string) {
+function metaError(payload: MetaErrorResponse, fallback: string) {
   const message = payload.error?.message || fallback;
   const code = payload.error?.code ? ` (${payload.error.code})` : "";
   return new Error(`${message}${code}`);
@@ -107,18 +119,52 @@ async function postForm(
   return payload;
 }
 
-async function getJson(url: string) {
+async function getJson<T extends MetaErrorResponse = MetaResponse>(url: string) {
   const response = await fetch(url, {
     cache: "no-store",
     signal: AbortSignal.timeout(15_000),
   });
-  const payload = (await response.json()) as MetaResponse;
+  const payload = (await response.json()) as T;
 
   if (!response.ok || payload.error) {
     throw metaError(payload, `Meta request failed with ${response.status}`);
   }
 
   return payload;
+}
+
+async function resolveFacebookPageAccessToken(
+  config: ReturnType<typeof requireMetaPublisherConfig>
+) {
+  const baseUrl = `${config.apiOrigin}/${config.graphApiVersion}`;
+  const accountsUrl = new URL(`${baseUrl}/me/accounts`);
+  accountsUrl.searchParams.set("fields", "id,name,access_token,tasks");
+  accountsUrl.searchParams.set("access_token", config.accessToken);
+  accountsUrl.searchParams.set(
+    "appsecret_proof",
+    appSecretProof(config.accessToken, config.appSecret)
+  );
+
+  const accounts = await getJson<MetaPageAccountsResponse>(
+    accountsUrl.toString()
+  );
+  const page = accounts.data?.find((item) => item.id === config.pageId);
+
+  if (!page) {
+    throw new Error(
+      "The Facebook system user cannot access the configured Page. Assign the Page to the system user and include business_management when generating its token."
+    );
+  }
+  if (!page.tasks?.includes("CREATE_CONTENT")) {
+    throw new Error(
+      "The Facebook system user is missing the CREATE_CONTENT task for the configured Page."
+    );
+  }
+  if (!page.access_token) {
+    throw new Error("Meta did not return a Page access token for Facebook publishing.");
+  }
+
+  return page.access_token;
 }
 
 type TokenInspection = {
@@ -201,6 +247,7 @@ async function publishFacebook(
 ): Promise<MetaSuccess> {
   const config = requireMetaPublisherConfig("facebook");
   const baseUrl = `${config.apiOrigin}/${config.graphApiVersion}`;
+  const pageAccessToken = await resolveFacebookPageAccessToken(config);
   if (imageUrls.length > 1) {
     const photoIds: string[] = [];
     for (const imageUrl of imageUrls) {
@@ -209,8 +256,8 @@ async function publishFacebook(
         {
           url: imageUrl,
           published: "false",
-          access_token: config.accessToken,
-          appsecret_proof: appSecretProof(config.accessToken, config.appSecret),
+          access_token: pageAccessToken,
+          appsecret_proof: appSecretProof(pageAccessToken, config.appSecret),
         }
       );
       if (!photo.id) {
@@ -226,8 +273,8 @@ async function publishFacebook(
         attached_media: JSON.stringify(
           photoIds.map((mediaFbid) => ({ media_fbid: mediaFbid }))
         ),
-        access_token: config.accessToken,
-        appsecret_proof: appSecretProof(config.accessToken, config.appSecret),
+        access_token: pageAccessToken,
+        appsecret_proof: appSecretProof(pageAccessToken, config.appSecret),
       },
       { publishingRequest: true }
     );
@@ -250,8 +297,8 @@ async function publishFacebook(
       url: imageUrls[0],
       message: caption,
       published: "true",
-      access_token: config.accessToken,
-      appsecret_proof: appSecretProof(config.accessToken, config.appSecret),
+      access_token: pageAccessToken,
+      appsecret_proof: appSecretProof(pageAccessToken, config.appSecret),
     },
     { publishingRequest: true }
   );
@@ -442,9 +489,24 @@ export async function testMetaPublisherConnection(
   const instagramConfig = platforms.includes("instagram")
     ? requireMetaPublisherConfig("instagram")
     : null;
-  const facebookToken = facebookConfig
+  const facebookSystemUserToken = facebookConfig
     ? await inspectAccessToken({
         ...facebookConfig,
+        requiredScopes: new Set([
+          "pages_show_list",
+          "pages_read_engagement",
+          "pages_manage_posts",
+        ]),
+        label: "Facebook system user",
+      })
+    : null;
+  const facebookPageAccessToken = facebookConfig
+    ? await resolveFacebookPageAccessToken(facebookConfig)
+    : null;
+  const facebookToken = facebookConfig && facebookPageAccessToken
+    ? await inspectAccessToken({
+        ...facebookConfig,
+        accessToken: facebookPageAccessToken,
         requiredScopes: new Set([
           "pages_show_list",
           "pages_read_engagement",
@@ -475,7 +537,7 @@ export async function testMetaPublisherConnection(
   const primaryToken =
     primaryPlatform === "facebook" ? facebookToken : instagramToken;
 
-  if (!primaryToken) {
+  if (!primaryToken || (facebookConfig && !facebookSystemUserToken)) {
     throw new Error("Meta token validation did not return a result.");
   }
 
@@ -508,14 +570,15 @@ export async function testMetaPublisherConnection(
 
   if (platforms.includes("facebook")) {
     const config = facebookConfig!;
+    const pageAccessToken = facebookPageAccessToken!;
     const baseUrl = `${config.apiOrigin}/${config.graphApiVersion}`;
     const page = await getJson(
       `${baseUrl}/${encodeURIComponent(
         config.pageId
       )}?fields=id,name,instagram_business_account{id,username}&access_token=${encodeURIComponent(
-        config.accessToken
+        pageAccessToken
       )}&appsecret_proof=${encodeURIComponent(
-        appSecretProof(config.accessToken, config.appSecret)
+        appSecretProof(pageAccessToken, config.appSecret)
       )}`
     );
 
