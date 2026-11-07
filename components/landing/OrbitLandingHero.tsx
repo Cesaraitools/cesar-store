@@ -401,7 +401,9 @@ export default function OrbitLandingHero({ lang, initialShowcase }: Props) {
             {isAr ? "اكتشف عالم سيزر" : "Discover Cesar World"}
           </p>
           <h1 className="text-4xl font-black leading-[1.08] tracking-tight text-white drop-shadow-[0_3px_14px_rgba(15,23,42,0.9)] md:text-6xl lg:text-7xl">
-            {isAr ? "حرّك المؤشر واكتشف ما يناسب سيارتك" : "Move, explore, and elevate your car"}
+            {isAr
+              ? "متجر سيزر لمنتجات العناية وإكسسوارات السيارات"
+              : "Cesar Store for Car Care and Accessories"}
           </h1>
         </div>
 

@@ -12,6 +12,10 @@ import {
 import {
   parseAdminSessionCookie,
 } from "@/lib/admin/session-core";
+import {
+  acceptsMarkdown,
+  buildHomepageMarkdown,
+} from "@/lib/agent-discovery";
 /* =========================
    Verify HMAC (Web Crypto)
 ========================= */
@@ -51,6 +55,37 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-admin-pathname", pathname);
+
+  if (pathname === "/") {
+    const discoveryLinks = [
+      '</llms.txt>; rel="alternate"; type="text/plain"',
+      '</sitemap.xml>; rel="sitemap"; type="application/xml"',
+      '</products.json>; rel="alternate"; type="application/json"',
+    ].join(", ");
+
+    if (acceptsMarkdown(request.headers.get("accept"))) {
+      return new NextResponse(buildHomepageMarkdown(request.nextUrl.origin), {
+        status: 200,
+        headers: {
+          "Content-Type": "text/markdown; charset=utf-8",
+          "Content-Language": "ar-EG",
+          "Cache-Control": "public, max-age=300, s-maxage=3600",
+          Link: discoveryLinks,
+          Vary: "Accept",
+        },
+      });
+    }
+
+    const response = NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
+    response.headers.set("Link", discoveryLinks);
+    response.headers.set("Vary", "Accept");
+
+    return response;
+  }
 
   // ✅ Allow login routes
   if (pathname.startsWith("/admin-login")) {
@@ -103,5 +138,5 @@ const { token, signature } = parsed;
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/api/admin/:path*"],
+  matcher: ["/", "/admin/:path*", "/api/admin/:path*"],
 };

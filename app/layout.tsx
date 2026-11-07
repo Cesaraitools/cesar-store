@@ -129,6 +129,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID || "xnk6ch24vb";
   const metaPixelId =
     process.env.NEXT_PUBLIC_META_PIXEL_ID || "1033555116125470";
+  const businessAddress = {
+    "@type": "PostalAddress",
+    addressCountry: "EG",
+  };
   const storeStructuredData = {
     "@context": "https://schema.org",
     "@type": "AutoPartsStore",
@@ -157,6 +161,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       areaServed: "EG",
       availableLanguage: ["ar", "en"],
     },
+    address: businessAddress,
     areaServed: {
       "@type": "Country",
       name: "Egypt",
@@ -186,7 +191,19 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       name: SITE_NAME,
       url: SITE_URL,
       logo: absoluteUrl(DEFAULT_OG_IMAGE),
+      description: DEFAULT_SEO_DESCRIPTION,
+      email: CONTACT_EMAIL,
+      telephone: CONTACT_PHONE_E164,
       sameAs: SOCIAL_LINKS,
+      contactPoint: {
+        "@type": "ContactPoint",
+        telephone: CONTACT_PHONE_E164,
+        email: CONTACT_EMAIL,
+        contactType: "customer support",
+        areaServed: "EG",
+        availableLanguage: ["ar", "en"],
+      },
+      address: businessAddress,
     },
   };
 

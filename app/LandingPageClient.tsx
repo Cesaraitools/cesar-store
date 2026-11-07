@@ -31,6 +31,15 @@ const content = {
       "Apply as a wholesale partner, upload the required business documents, and after review you will get access to the wholesale catalog and private wholesale prices.",
     wholesalePrimary: "Enter wholesale section",
     wholesaleSecondary: "Apply as wholesale partner",
+    shoppingGuideTitle: "A clearer way to choose the right car product",
+    shoppingGuideIntro:
+      "Browse Cesar Store by category or search the current catalog for car care, cleaning, air fresheners, accessories, lighting, tools, fluids, and additives. Every product page is the customer-facing source for its current price, availability, images, options, and specifications.",
+    shoppingGuideAccuracy:
+      "Before ordering, open the product page and review the available variants and usage details. If a fact is not published, contact the store instead of relying on an estimate. The ordering, shipping, return, and contact pages explain the current purchase journey and support channels.",
+    shoppingGuideCatalog: "Browse the current catalog",
+    shoppingGuideCategories: "Explore product categories",
+    shoppingGuideOrdering: "Read the ordering guide",
+    shoppingGuideContact: "Contact Cesar Store",
   },
   ar: {
     about:
@@ -44,6 +53,15 @@ const content = {
       "قدّم طلب الانضمام كتاجر جملة، ارفع المستندات المطلوبة، وبعد المراجعة تظهر لك أسعار الجملة والكتالوج المخصص.",
     wholesalePrimary: "دخول قسم الجملة",
     wholesaleSecondary: "تقديم طلب تاجر جملة",
+    shoppingGuideTitle: "دليل واضح لاختيار منتج السيارة المناسب",
+    shoppingGuideIntro:
+      "يمكنك تصفح متجر سيزر حسب القسم أو البحث داخل الكتالوج الحالي عن منتجات العناية والتنظيف، المعطرات، الإكسسوارات، الإضاءة، الأدوات، السوائل والإضافات. صفحة كل منتج هي المصدر المخصص للعميل لمعرفة السعر الحالي والتوفر والصور والخيارات والمواصفات المنشورة.",
+    shoppingGuideAccuracy:
+      "قبل إنشاء الطلب افتح صفحة المنتج وراجع الخيارات المتاحة وطريقة الاستخدام. إذا لم تكن معلومة ما منشورة، تواصل مع المتجر بدل الاعتماد على التخمين. وتوضح صفحات دليل الطلب والشحن والإرجاع والتواصل خطوات الشراء الحالية ووسائل الحصول على المساعدة.",
+    shoppingGuideCatalog: "تصفح الكتالوج الحالي",
+    shoppingGuideCategories: "استكشف أقسام المنتجات",
+    shoppingGuideOrdering: "اقرأ دليل الطلب",
+    shoppingGuideContact: "تواصل مع متجر سيزر",
   },
 };
 
@@ -167,6 +185,40 @@ export default function LandingPageClient({
           >
             {isAr ? "دليل البحث عن سيزر" : "Cesar search guide"}
           </Link>
+        </div>
+      </section>
+
+      <section className="px-6 pb-16" aria-labelledby="shopping-guide-title">
+        <div className="mx-auto max-w-5xl rounded-[2rem] bg-white px-7 py-10 shadow-[0_24px_60px_-38px_rgba(15,23,42,0.55)] ring-1 ring-slate-100 md:px-12 md:py-12">
+          <h2
+            id="shopping-guide-title"
+            className="text-2xl font-black leading-tight text-[#182338] md:text-3xl"
+          >
+            {t.shoppingGuideTitle}
+          </h2>
+          <div className="mt-5 space-y-4 text-sm font-semibold leading-8 text-slate-600 md:text-base">
+            <p>{t.shoppingGuideIntro}</p>
+            <p>{t.shoppingGuideAccuracy}</p>
+          </div>
+          <nav
+            className="mt-7 flex flex-wrap gap-3"
+            aria-label={isAr ? "روابط دليل التسوق" : "Shopping guide links"}
+          >
+            {[
+              ["/shop", t.shoppingGuideCatalog],
+              ["/categories", t.shoppingGuideCategories],
+              ["/ordering-guide", t.shoppingGuideOrdering],
+              ["/contact", t.shoppingGuideContact],
+            ].map(([href, label]) => (
+              <Link
+                key={href}
+                href={href}
+                className="rounded-xl bg-slate-100 px-4 py-2.5 text-xs font-black text-slate-800 transition hover:bg-[#3448E5] hover:text-white"
+              >
+                {label}
+              </Link>
+            ))}
+          </nav>
         </div>
       </section>
 
