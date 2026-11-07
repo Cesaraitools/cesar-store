@@ -354,6 +354,15 @@ export default function SocialPublisherClient() {
   }
 
   async function runAction(action: string, queueId?: string) {
+    if (
+      action === "cancel" &&
+      !window.confirm(
+        "سيتم إلغاء المنشور وحذفه نهائيًا من القائمة مع سجل محاولاته. هل تريد المتابعة؟"
+      )
+    ) {
+      return;
+    }
+
     try {
       setBusy(queueId ? `${action}:${queueId}` : action);
       setError("");
@@ -368,6 +377,8 @@ export default function SocialPublisherClient() {
             facebookName ? ` — Facebook: ${facebookName}` : ""
           }${instagramUsername ? ` — Instagram: @${instagramUsername}` : ""}`
         );
+      } else if (action === "cancel") {
+        setNotice("تم إلغاء المنشور وحذفه نهائيًا مع سجل محاولاته.");
       } else {
         setNotice("تم تحديث المنشور.");
       }
@@ -891,7 +902,7 @@ export default function SocialPublisherClient() {
                   )}
                   {["draft", "queued", "failed"].includes(row.status) && (
                     <button onClick={() => runAction("cancel", row.id)} className="inline-flex items-center gap-1 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-black text-rose-700">
-                      <XCircle className="h-3.5 w-3.5" /> إلغاء
+                      <XCircle className="h-3.5 w-3.5" /> إلغاء وحذف
                     </button>
                   )}
                   {["failed", "skipped"].includes(row.status) && (

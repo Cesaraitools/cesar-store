@@ -532,13 +532,25 @@ export async function updateQueueItem(input: {
 
   if (readError || !current) throw readError || new Error("Queue item not found.");
 
-  let changes: Record<string, unknown>;
   if (input.action === "cancel") {
     if (!["draft", "queued", "failed"].includes(current.status)) {
       throw new Error("Only draft, queued, or failed posts can be cancelled.");
     }
-    changes = { status: "cancelled", locked_at: null, locked_by: null };
-  } else if (input.action === "approve") {
+
+    const { data, error } = await supabase
+      .rpc("delete_cancelled_social_post", { p_queue_id: input.queueId })
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) {
+      throw new Error("Queue item changed while this action was running. Refresh and try again.");
+    }
+
+    return { ...(data as SocialPostQueueRow), status: "cancelled" };
+  }
+
+  let changes: Record<string, unknown>;
+  if (input.action === "approve") {
     if (current.status !== "draft") throw new Error("Only drafts can be approved.");
     changes = { status: "queued", locked_at: null, locked_by: null };
   } else {
