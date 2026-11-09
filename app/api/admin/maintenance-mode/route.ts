@@ -31,7 +31,7 @@ async function writeAudit(input: {
     admin_email: input.adminEmail,
     action: input.action,
     entity: "store_maintenance",
-    entity_id: "default",
+    entity_id: null,
     payload: input.payload,
   });
 

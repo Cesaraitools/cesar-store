@@ -1,5 +1,8 @@
 import { unstable_cache } from "next/cache";
-import { createServiceRoleClient } from "@/lib/supabase/runtime";
+import {
+  createServiceRoleClient,
+  createUncachedServiceRoleClient,
+} from "@/lib/supabase/runtime";
 import {
   validateStoreMaintenanceDuration,
   type StoreMaintenanceSchedule,
@@ -29,7 +32,7 @@ function mapRow(row: StoreMaintenanceRow): AdminStoreMaintenanceSchedule {
 }
 
 export async function getStoreMaintenanceSchedule(): Promise<AdminStoreMaintenanceSchedule> {
-  const supabase = createServiceRoleClient();
+  const supabase = createUncachedServiceRoleClient();
   const { data, error } = await supabase
     .from("store_maintenance_settings")
     .select("enabled, starts_at, ends_at, updated_at, updated_by")

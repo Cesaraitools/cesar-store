@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getStoreMaintenanceSchedule } from "@/lib/server/store-maintenance";
 
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 
 export async function GET() {
   try {
@@ -19,7 +20,7 @@ export async function GET() {
       },
       {
         headers: {
-          "Cache-Control": "public, no-store, max-age=0",
+          "Cache-Control": "no-store, max-age=0, must-revalidate",
         },
       }
     );
@@ -29,7 +30,7 @@ export async function GET() {
       { error: "Unable to load maintenance status." },
       {
         status: 503,
-        headers: { "Cache-Control": "public, no-store, max-age=0" },
+        headers: { "Cache-Control": "no-store, max-age=0, must-revalidate" },
       }
     );
   }

@@ -10,11 +10,28 @@ function requireEnv(name: string) {
   return value;
 }
 
+export const noStoreFetch: typeof fetch = (input, init) =>
+  fetch(input, {
+    ...init,
+    cache: "no-store",
+  });
+
 export function createServiceRoleClient() {
   return createClient(
     requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
     requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
     { auth: { persistSession: false } }
+  );
+}
+
+export function createUncachedServiceRoleClient() {
+  return createClient(
+    requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
+    requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
+    {
+      auth: { persistSession: false },
+      global: { fetch: noStoreFetch },
+    }
   );
 }
 

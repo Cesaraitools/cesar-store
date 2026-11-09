@@ -10,6 +10,7 @@ import {
   validateStoreMaintenanceDuration,
   type StoreMaintenanceSchedule,
 } from "../lib/store-maintenance";
+import { noStoreFetch } from "../lib/supabase/runtime";
 
 const schedule: StoreMaintenanceSchedule = {
   enabled: true,
@@ -51,5 +52,25 @@ assert.equal(
   isStoreMaintenanceActive({ ...schedule, endsAt: null }, startsAt),
   false
 );
+
+const originalFetch = globalThis.fetch;
+let capturedCache: RequestCache | undefined;
+
+globalThis.fetch = async (_input, init) => {
+  capturedCache = init?.cache;
+  return new Response("{}", {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+};
+
+try {
+  void noStoreFetch("https://example.test/store-maintenance", {
+    cache: "force-cache",
+  });
+  assert.equal(capturedCache, "no-store");
+} finally {
+  globalThis.fetch = originalFetch;
+}
 
 console.log("Store maintenance verification passed.");
