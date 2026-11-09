@@ -1,4 +1,5 @@
 import { unstable_cache } from "next/cache";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   createServiceRoleClient,
   createUncachedServiceRoleClient,
@@ -31,8 +32,9 @@ function mapRow(row: StoreMaintenanceRow): AdminStoreMaintenanceSchedule {
   };
 }
 
-export async function getStoreMaintenanceSchedule(): Promise<AdminStoreMaintenanceSchedule> {
-  const supabase = createUncachedServiceRoleClient();
+async function loadStoreMaintenanceSchedule(
+  supabase: SupabaseClient
+): Promise<AdminStoreMaintenanceSchedule> {
   const { data, error } = await supabase
     .from("store_maintenance_settings")
     .select("enabled, starts_at, ends_at, updated_at, updated_by")
@@ -46,8 +48,12 @@ export async function getStoreMaintenanceSchedule(): Promise<AdminStoreMaintenan
   return mapRow(data as StoreMaintenanceRow);
 }
 
+export async function getStoreMaintenanceSchedule(): Promise<AdminStoreMaintenanceSchedule> {
+  return loadStoreMaintenanceSchedule(createUncachedServiceRoleClient());
+}
+
 export const getCachedStoreMaintenanceSchedule = unstable_cache(
-  async () => getStoreMaintenanceSchedule(),
+  async () => loadStoreMaintenanceSchedule(createServiceRoleClient()),
   ["store-maintenance-schedule"],
   {
     revalidate: 5,
