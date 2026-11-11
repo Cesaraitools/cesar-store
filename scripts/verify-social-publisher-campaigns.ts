@@ -91,6 +91,18 @@ async function verifyFacebookAlbum() {
     const url = String(input);
     const values = new URLSearchParams(String(init?.body || ""));
 
+    if (url.includes("/me/accounts")) {
+      return jsonResponse({
+        data: [
+          {
+            id: "page-test",
+            access_token: "resolved-page-token-test",
+            tasks: ["CREATE_CONTENT"],
+          },
+        ],
+      });
+    }
+
     if (url.endsWith("/page-test/photos")) {
       photoCount += 1;
       assert.equal(values.get("published"), "false");

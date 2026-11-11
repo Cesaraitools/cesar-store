@@ -14,8 +14,23 @@ function jsonResponse(payload: unknown, status = 200) {
   });
 }
 
+function facebookPageAccessResponse() {
+  return jsonResponse({
+    data: [
+      {
+        id: "page-test",
+        access_token: "resolved-page-token-test",
+        tasks: ["CREATE_CONTENT"],
+      },
+    ],
+  });
+}
+
 async function verifyFacebookTransportAmbiguity() {
-  global.fetch = async () => {
+  global.fetch = async (input) => {
+    if (String(input).includes("/me/accounts")) {
+      return facebookPageAccessResponse();
+    }
     throw new Error("simulated timeout");
   };
 
@@ -31,8 +46,10 @@ async function verifyFacebookTransportAmbiguity() {
 }
 
 async function verifyExplicitMetaFailureCanRetry() {
-  global.fetch = async () =>
-    jsonResponse({ error: { message: "Rejected", code: 190 } }, 400);
+  global.fetch = async (input) =>
+    String(input).includes("/me/accounts")
+      ? facebookPageAccessResponse()
+      : jsonResponse({ error: { message: "Rejected", code: 190 } }, 400);
 
   await assert.rejects(
     () =>
@@ -46,7 +63,10 @@ async function verifyExplicitMetaFailureCanRetry() {
 }
 
 async function verifyMissingFacebookIdRequiresReview() {
-  global.fetch = async () => jsonResponse({});
+  global.fetch = async (input) =>
+    String(input).includes("/me/accounts")
+      ? facebookPageAccessResponse()
+      : jsonResponse({});
 
   await assert.rejects(
     () =>
