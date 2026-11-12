@@ -32,7 +32,7 @@ export default function TermsOfServicePage() {
             إنشاء الحساب، تقديم الطلبات، والتواصل مع خدمة العملاء عبر الموقع أو القنوات
             الرسمية التابعة للمتجر. استخدامك للخدمة يعني موافقتك على هذه الشروط.
           </p>
-          <p className="text-sm text-slate-500">آخر تحديث: 4 أغسطس 2026</p>
+          <p className="text-sm text-slate-500">آخر تحديث: 12 نوفمبر 2026</p>
         </div>
 
         <section className="space-y-3">
@@ -90,6 +90,16 @@ export default function TermsOfServicePage() {
               حذف البيانات
             </Link>
             .
+          </p>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="text-xl font-bold text-slate-950">النشر على حسابات المتجر في Meta</h2>
+          <p className="leading-8 text-slate-600">
+            يستخدم متجر سيزر تطبيق <span dir="ltr">Cesar Social Publisher</span>
+            لإعداد وجدولة ونشر محتوى المنتجات على صفحة فيسبوك وحساب إنستغرام
+            المهني المملوكين للمتجر. تقتصر هذه الوظيفة على أصول المتجر المصرح بها،
+            وتخضع المسودات والمواعيد والمحتوى لمراجعة مسؤولي المتجر وإعداداته.
           </p>
         </section>
 
