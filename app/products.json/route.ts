@@ -229,7 +229,6 @@ function productSearchIntents(input: {
       input.size,
       input.socket,
       ...input.categoryKeywords,
-      ...CUSTOMER_QUERY_LEXICON.discovery,
     ]),
   };
 }
@@ -254,7 +253,7 @@ function variantSelections(
 export async function GET() {
   const products = await getActiveProducts(10000);
   const body = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     source: "cesar-store",
     website: SITE_URL,
     storeName: SITE_NAME,
@@ -289,11 +288,30 @@ export async function GET() {
           stock: variant.stock ?? product.stock,
           image: variant.image ? absoluteUrl(getSafeImage(variant.image)) : null,
         }));
+      const availableVariantPrices = variants
+        .filter((variant) => Number(variant.stock) > 0)
+        .map((variant) => Number(variant.price))
+        .filter((price) => Number.isFinite(price) && price > 0);
+      const effectivePrices = availableVariantPrices.length
+        ? availableVariantPrices
+        : [product.price];
+      const minimumPrice = Math.min(...effectivePrices);
+      const maximumPrice = Math.max(...effectivePrices);
 
       return {
         id: product.id,
         sku: product.id,
-        brand: SITE_NAME,
+        seller: SITE_NAME,
+        brand: product.brand || null,
+        manufacturer: product.manufacturer || null,
+        model: product.model || null,
+        identifiers: {
+          gtin: product.gtin || null,
+          mpn: product.mpn || null,
+          identifierExists: Boolean(
+            product.gtin || (product.brand && product.mpn)
+          ),
+        },
         name: product.name,
         description: {
           ar: compactText(getSeoProductDescription(product, "ar"), 500),
@@ -311,7 +329,12 @@ export async function GET() {
           merchantProductType: categorySeo?.merchantProductType || "Car product",
           keywords: categorySeo?.keywords || [],
         },
-        price: product.price,
+        price: minimumPrice,
+        basePrice: product.price,
+        priceRange: {
+          minimum: minimumPrice,
+          maximum: maximumPrice,
+        },
         currency: "EGP",
         availability: product.stock > 0 ? "in_stock" : "out_of_stock",
         stockStatus: stockStatus(product.stock),

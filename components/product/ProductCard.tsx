@@ -4,17 +4,16 @@ import Image from "next/image";
 import Link from "next/link";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Product } from "@/types/product";
+import type { ProductCardData } from "@/types/product";
 import { useCart } from "@/context/CartContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { normalizeCategory } from "@/lib/category-normalizer";
-import { getSafeImage } from "@/lib/image-safe";
+import { getOptimizedDeliveryImage, getSafeImage } from "@/lib/image-safe";
 import { getSeoProductDescription } from "@/lib/product-seo-description";
-import { getProductVariants, productHasVariants } from "@/lib/product-variants";
 import { useStoreMaintenance } from "@/context/StoreMaintenanceContext";
 
 type Props = {
-  product: Product;
+  product: ProductCardData;
 };
 
 const productThemes: Record<
@@ -79,17 +78,13 @@ export default function ProductCard({ product }: Props) {
 
   const [isAdding, setIsAdding] = useState(false);
   const [isImageOpen, setIsImageOpen] = useState(false);
-  const hasVariants = productHasVariants(product);
-  const variantStock = hasVariants
-    ? getProductVariants(product).reduce((total, variant) => {
-        if (typeof variant.stock !== "number" || !Number.isFinite(variant.stock)) {
-          return total;
-        }
-
-        return total + Math.max(0, Math.floor(variant.stock));
-      }, 0)
-    : null;
-  const displayStock = variantStock ?? product.stock;
+  const hasVariants = product.hasVariants;
+  const displayStock = product.variantStock ?? product.stock;
+  const displayPrice = product.hasVariants
+    ? product.minimumPrice === product.maximumPrice
+      ? `${product.minimumPrice}`
+      : `${product.minimumPrice} - ${product.maximumPrice}`
+    : `${product.price}`;
   const isOutOfStock = displayStock <= 0;
   const threshold = product.low_stock_threshold ?? 10;
 const isLowStock = displayStock > 0 && displayStock <= threshold;
@@ -97,13 +92,14 @@ const isLowStock = displayStock > 0 && displayStock <= threshold;
   const name = lang === "ar" ? product.name.ar : product.name.en;
   const description = getSeoProductDescription(product, lang);
   const imageSrc = getSafeImage(product.images?.[0]);
-  const [displayImageSrc, setDisplayImageSrc] = useState(imageSrc);
+  const optimizedImageSrc = getOptimizedDeliveryImage(imageSrc, 520, 70);
+  const [displayImageSrc, setDisplayImageSrc] = useState(optimizedImageSrc);
   const theme = productThemes[normalizeCategory(product.category)] ?? fallbackTheme;
   const badge = product.badge ? badgeStyles[product.badge] : null;
 
   useEffect(() => {
-    setDisplayImageSrc(imageSrc);
-  }, [imageSrc]);
+    setDisplayImageSrc(optimizedImageSrc);
+  }, [optimizedImageSrc]);
 
   useEffect(() => {
     if (!isImageOpen) return;
@@ -166,7 +162,11 @@ const isLowStock = displayStock > 0 && displayStock <= threshold;
           sizes="(min-width: 1024px) 220px, (min-width: 640px) 204px, 132px"
           className="relative z-10 h-[132px] w-[132px] object-contain p-3 mix-blend-multiply transition duration-500 group-hover:scale-105 sm:h-[204px] sm:w-[204px] sm:p-5 lg:h-[220px] lg:w-[220px]"
           unoptimized
-          onError={() => setDisplayImageSrc("/placeholder.png")}
+          onError={() =>
+            setDisplayImageSrc((current) =>
+              current !== imageSrc ? imageSrc : "/placeholder.png"
+            )
+          }
         />
       </button>
 
@@ -191,7 +191,7 @@ const isLowStock = displayStock > 0 && displayStock <= threshold;
               ? lang === "ar"
                 ? "يتم تحديث الأسعار الآن"
                 : "Prices are being updated"
-              : `${product.price} ${lang === "ar" ? "جنيه" : "EGP"}`}
+              : `${displayPrice} ${lang === "ar" ? "جنيه" : "EGP"}`}
           </p>
 
           <p className="text-[11px] sm:text-xs font-semibold mb-1 text-slate-500">

@@ -12,16 +12,16 @@ const productNameCollator = new Intl.Collator(["ar", "en"], {
   numeric: true,
 });
 
-export function filterByCategory(
-  products: Product[],
+export function filterByCategory<T extends Product>(
+  products: T[],
   category?: string
 ) {
   if (!category) return products;
   return products.filter((p) => p.category === category);
 }
 
-export function sortProducts(
-  products: Product[],
+export function sortProducts<T extends Product>(
+  products: T[],
   sort: SortOption,
   categoryOrder?: Map<string, number>
 ) {

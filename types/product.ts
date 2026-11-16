@@ -15,6 +15,12 @@ export type Product = {
   category: string;
   images: string[];
 
+  brand?: string;
+  manufacturer?: string;
+  mpn?: string;
+  gtin?: string;
+  model?: string;
+
   variantOptions?: ProductVariantOption[];
   variants?: ProductVariant[];
 
@@ -27,6 +33,14 @@ export type Product = {
 
   createdAt: string;
   updatedAt: string;
+};
+
+export type ProductCardData = Omit<Product, "variantOptions" | "variants"> & {
+  hasVariants: boolean;
+  variantStock: number | null;
+  minimumPrice: number;
+  maximumPrice: number;
+  searchText: string;
 };
 
 export type ProductVariantOptionValue = {

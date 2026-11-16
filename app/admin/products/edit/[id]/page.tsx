@@ -42,6 +42,11 @@ export default function EditProductPage({ params }: Props) {
     nameEn: "",
     descriptionAr: "",
     descriptionEn: "",
+    brand: "",
+    manufacturer: "",
+    mpn: "",
+    gtin: "",
+    model: "",
     price: "",
     stock: "",
     category: "",
@@ -82,6 +87,11 @@ export default function EditProductPage({ params }: Props) {
   nameEn: product.name.en,
   descriptionAr: product.description.ar,
   descriptionEn: product.description.en,
+  brand: product.brand || "",
+  manufacturer: product.manufacturer || "",
+  mpn: product.mpn || "",
+  gtin: product.gtin || "",
+  model: product.model || "",
   price: String(product.price),
   stock: String(product.stock),
   category: normalizeCategory(product.category),
@@ -235,6 +245,11 @@ export default function EditProductPage({ params }: Props) {
         ar: form.descriptionAr.trim(),
         en: form.descriptionEn.trim(),
       },
+      brand: form.brand,
+      manufacturer: form.manufacturer,
+      mpn: form.mpn,
+      gtin: form.gtin,
+      model: form.model,
       price: Number(form.price),
       stock: Number(form.stock),
       category: form.category,
@@ -337,6 +352,82 @@ export default function EditProductPage({ params }: Props) {
               readOnly
               className="w-full rounded-md border p-2 bg-gray-100"
             />
+          </div>
+
+          <div className="rounded-lg border bg-gray-50 p-4">
+            <h2 className="mb-1 font-semibold">Commerce identifiers</h2>
+            <p className="mb-3 text-xs text-gray-600">
+              Use verified packaging or supplier data only. Leave unknown values empty.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label htmlFor="product-brand" className="block text-sm font-medium mb-1">
+                  Brand
+                </label>
+                <input
+                  id="product-brand"
+                  name="brand"
+                  value={form.brand}
+                  onChange={handleChange}
+                  maxLength={160}
+                  className="w-full rounded-md border p-2"
+                />
+              </div>
+              <div>
+                <label htmlFor="product-manufacturer" className="block text-sm font-medium mb-1">
+                  Manufacturer
+                </label>
+                <input
+                  id="product-manufacturer"
+                  name="manufacturer"
+                  value={form.manufacturer}
+                  onChange={handleChange}
+                  maxLength={160}
+                  className="w-full rounded-md border p-2"
+                />
+              </div>
+              <div>
+                <label htmlFor="product-mpn" className="block text-sm font-medium mb-1">
+                  MPN
+                </label>
+                <input
+                  id="product-mpn"
+                  name="mpn"
+                  value={form.mpn}
+                  onChange={handleChange}
+                  maxLength={160}
+                  className="w-full rounded-md border p-2"
+                />
+              </div>
+              <div>
+                <label htmlFor="product-gtin" className="block text-sm font-medium mb-1">
+                  GTIN
+                </label>
+                <input
+                  id="product-gtin"
+                  name="gtin"
+                  value={form.gtin}
+                  onChange={handleChange}
+                  inputMode="numeric"
+                  maxLength={17}
+                  placeholder="8, 12, 13, or 14 digits"
+                  className="w-full rounded-md border p-2"
+                />
+              </div>
+              <div>
+                <label htmlFor="product-model" className="block text-sm font-medium mb-1">
+                  Model
+                </label>
+                <input
+                  id="product-model"
+                  name="model"
+                  value={form.model}
+                  onChange={handleChange}
+                  maxLength={160}
+                  className="w-full rounded-md border p-2"
+                />
+              </div>
+            </div>
           </div>
 
           <div>

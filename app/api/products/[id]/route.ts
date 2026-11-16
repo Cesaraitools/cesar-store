@@ -4,6 +4,7 @@ import {
   normalizeProductVariantOptions,
   normalizeProductVariants,
 } from "@/lib/product-variants";
+import { cleanOptionalProductField, normalizeGtin } from "@/lib/product-identifiers";
 import type { Product } from "@/types/product";
 
 const supabase = createClient(
@@ -54,6 +55,11 @@ export async function GET(
           ? [product.image_url]
           : []
       ),
+      brand: cleanOptionalProductField(product.brand),
+      manufacturer: cleanOptionalProductField(product.manufacturer),
+      mpn: cleanOptionalProductField(product.mpn),
+      gtin: normalizeGtin(product.gtin),
+      model: cleanOptionalProductField(product.model),
       stock: product.stock ?? 0,
       active: product.is_active ?? true,
       low_stock_threshold:

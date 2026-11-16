@@ -1,6 +1,94 @@
 # Cesar Store AI Search Growth Plan
 
-Last updated: 2026-07-17
+Last updated: 2026-11-16
+
+## November 2026 implementation status
+
+The current implementation package is complete locally and is not yet a production rollout.
+It improves search and answer-engine accuracy without changing checkout, order creation,
+payment, authentication, cart persistence, or inventory-decrement logic.
+
+### Implemented locally
+
+- Add `noindex`, `nofollow`, and `noarchive` response headers to private and transactional
+  routes while keeping the public catalog crawlable.
+- Keep real product update timestamps in the sitemap and stop publishing a new fake
+  `lastmod` value for static pages on every request.
+- Add optional brand, manufacturer, MPN, GTIN, and model fields across the product model,
+  admin forms, APIs, catalog mapping, feeds, and structured data.
+- Validate GTIN format and checksum before exposing it as a commerce identifier.
+- Stop using the product UUID as an MPN and stop assigning the store name as the brand
+  when a product brand is unknown.
+- Emit one Merchant feed row per sellable variant, with stable IDs, `item_group_id`,
+  variant attributes, the variant price, and a direct variant URL.
+- Publish `ProductGroup` structured data for variant products and remove an unsupported
+  free-return claim from product schema.
+- Expose a versioned public catalog in `products.json` with identifiers, variants, current
+  availability, price range, and canonical URLs.
+- Remove generated keyword-tail text and generic discovery phrases from product copy.
+- Reduce the initial shop render to 24 cards with progressive loading while preserving
+  client-side search over the full active catalog.
+- Reduce the shop HTML payload by sending compact card summaries instead of full variant
+  objects and every product image. Local production HTML fell from about 1.19 MB to about
+  608 KB in the audit environment.
+- Show the actual available variant price or price range on shop cards instead of the
+  potentially different base product price.
+- Deliver storefront cards, promo slides, product hero images, and thumbnails through
+  Supabase's existing width/quality image-rendering endpoint while preserving original
+  URLs in product data, Merchant feeds, structured data, and cart records. Browsers that
+  accept WebP receive much smaller responses, with an automatic original-image fallback.
+- Remove invalid Arabic/English `hreflang` alternates that pointed both languages to the
+  same URL. The canonical URL remains intact.
+
+### Purchase-safety gates passed locally
+
+- TypeScript, lint, and the optimized production build pass. Existing unrelated lint
+  warnings in admin and orders pages remain documented and do not block the build.
+- The shop renders 24 of 261 products initially and progressive loading remains available.
+- Search still finds products that are not in the first 24 rendered cards.
+- A regular product can be added to the cart with the correct price and stock.
+- A variant can be selected, reflected in the URL, added to the cart, and retained with
+  the correct option label, price, and stock.
+- A 24-image transformed storefront sample totaled about 700 KB (roughly 29 KB per
+  image); the same source catalog contains many raw PNG files around 1.3-1.8 MB each.
+  Browser checks found no broken images after the change.
+- An unauthenticated checkout attempt still redirects to
+  `/auth/login?redirect=/checkout`; no test order was created.
+- `npm run verify:seo-aio -- --base-url <deployment-url>` provides a read-only
+  release gate for public/private indexing headers, sitemap integrity, the AI catalog,
+  the Merchant feed, identifier hygiene, and sample product structured data.
+
+### Required before production rollout
+
+1. Review the focused diff and exclude unrelated pre-existing worktree changes.
+2. Reconcile the divergent local and remote Supabase migration histories before applying
+   the commerce-identifier migration. Do not repair or push migration history blindly.
+3. The application package can be deployed before the database migration without breaking
+   ordinary product creation or editing: the API retries legacy writes when the optional
+   columns are absent. Saving a non-empty commerce identifier intentionally returns `503`
+   until the reviewed migration exists, so identifier data is never discarded silently.
+4. Repeat the public shop, product, cart, login redirect, sitemap, robots, feed, and JSON
+   catalog smoke tests against the production deployment.
+5. Confirm Google Merchant Center diagnostics after its next feed fetch, then request
+   indexing only for changed public pages.
+
+Migration audit note: the production `products` table does not yet contain the five new
+identifier columns. Three older local migrations are byte-equivalent (apart from the final
+newline) to remote migrations recorded under different timestamps, while other local and
+remote entries require object-by-object verification. This explains the CLI divergence and
+is not evidence that bulk `migration repair` is safe.
+
+### Next safe work packages
+
+- Reconcile migration history in a separately reviewed database change window.
+- Populate verified manufacturer identifiers from supplier data; never manufacture GTIN,
+  MPN, brand, or model values.
+- Review image dimensions and storage usage before enabling a paid image-optimization
+  path globally.
+- Decide an explicit discontinued/out-of-stock policy before exposing inactive products;
+  keep checkout and cart stock guards unchanged.
+- Measure Search Console, Bing Webmaster Tools, Merchant Center, and AI citation changes
+  weekly after deployment.
 
 ## Current completed foundation
 

@@ -5,6 +5,7 @@ import {
   normalizeProductVariantOptions,
   normalizeProductVariants,
 } from "@/lib/product-variants";
+import { cleanOptionalProductField, normalizeGtin } from "@/lib/product-identifiers";
 import { createAnonServerClient } from "@/lib/supabase/runtime";
 import type { Product } from "@/types/product";
 
@@ -35,6 +36,11 @@ type ProductRow = {
   price: number | string | null;
   image_url: string | null;
   images_json: unknown;
+  brand?: string | null;
+  manufacturer?: string | null;
+  mpn?: string | null;
+  gtin?: string | null;
+  model?: string | null;
   stock: number | null;
   category: string | null;
   is_active: boolean | null;
@@ -66,6 +72,11 @@ function toProduct(row: ProductRow): Product {
     price: Number(row.price ?? 0),
     category: normalizeCategory(row.category || "equipment"),
     images: normalizeImagesArray(rawImages),
+    brand: cleanOptionalProductField(row.brand),
+    manufacturer: cleanOptionalProductField(row.manufacturer),
+    mpn: cleanOptionalProductField(row.mpn),
+    gtin: normalizeGtin(row.gtin),
+    model: cleanOptionalProductField(row.model),
     stock: Number(row.stock ?? 0),
     active: Boolean(row.is_active ?? true),
     low_stock_threshold:

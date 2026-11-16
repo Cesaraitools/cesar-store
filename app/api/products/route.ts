@@ -5,9 +5,61 @@ import {
   normalizeProductVariantOptions,
   normalizeProductVariants,
 } from "@/lib/product-variants";
+import {
+  cleanOptionalProductField,
+  isValidGtin,
+  normalizeGtin,
+} from "@/lib/product-identifiers";
 import { cleanupUnusedManagedImages } from "@/lib/server/media-assets";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
 import type { Product } from "@/types/product";
+
+const COMMERCE_IDENTIFIER_COLUMNS = [
+  "brand",
+  "manufacturer",
+  "mpn",
+  "gtin",
+  "model",
+] as const;
+
+type ProductDatabaseError = {
+  code?: string | null;
+  message?: string | null;
+  details?: string | null;
+  hint?: string | null;
+};
+
+function isMissingCommerceIdentifierColumnError(
+  error: ProductDatabaseError | null | undefined
+) {
+  if (!error) return false;
+
+  const message = [error.message, error.details, error.hint]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return (
+    ["PGRST204", "42703"].includes(String(error.code || "").toUpperCase()) &&
+    COMMERCE_IDENTIFIER_COLUMNS.some((column) => message.includes(column))
+  );
+}
+
+function hasCommerceIdentifierValue(product: Partial<Product>) {
+  return COMMERCE_IDENTIFIER_COLUMNS.some((column) =>
+    Boolean(cleanOptionalProductField(product[column]))
+  );
+}
+
+function commerceIdentifiersUnavailableResponse() {
+  return Response.json(
+    {
+      error:
+        "Commerce identifiers are not enabled in the product database yet. Apply the reviewed product identifier migration before saving brand, manufacturer, MPN, GTIN, or model values.",
+    },
+    { status: 503 }
+  );
+}
 
 const supabase = createServiceRoleClient();
 
@@ -40,6 +92,11 @@ function toProductResponse(product: any): Product {
     price: Number(product?.price ?? 0),
     category: normalizeCategory(product?.category || "equipment"),
     images: normalizeImagesArray(rawImages),
+    brand: cleanOptionalProductField(product?.brand),
+    manufacturer: cleanOptionalProductField(product?.manufacturer),
+    mpn: cleanOptionalProductField(product?.mpn),
+    gtin: normalizeGtin(product?.gtin),
+    model: cleanOptionalProductField(product?.model),
     stock: Number(product?.stock ?? 0),
     active: Boolean(product?.is_active ?? true),
     low_stock_threshold:
@@ -100,6 +157,14 @@ export async function POST(request: Request) {
     const body = (await request.json()) as Partial<Product>;
     const images = normalizeImagesArray(body.images || []);
     const normalizedCategory = normalizeCategory(String(body.category || "").trim());
+    const gtin = normalizeGtin(body.gtin);
+
+    if (gtin && !isValidGtin(gtin)) {
+      return Response.json(
+        { error: "GTIN must be a valid GTIN-8, GTIN-12, GTIN-13, or GTIN-14" },
+        { status: 400 }
+      );
+    }
 
     if (!images.length) {
       return Response.json(
@@ -160,40 +225,64 @@ export async function POST(request: Request) {
       price: body.price,
       category: normalizedCategory,
       images,
+      brand: cleanOptionalProductField(body.brand),
+      manufacturer: cleanOptionalProductField(body.manufacturer),
+      mpn: cleanOptionalProductField(body.mpn),
+      gtin,
+      model: cleanOptionalProductField(body.model),
       stock,
       active: body.active ?? true,
       createdAt: now,
       updatedAt: now,
       low_stock_threshold:
-  typeof body.low_stock_threshold === "number" &&
-  !Number.isNaN(body.low_stock_threshold)
-    ? body.low_stock_threshold
-    : 10,
+        typeof body.low_stock_threshold === "number" &&
+        !Number.isNaN(body.low_stock_threshold)
+          ? body.low_stock_threshold
+          : 10,
       variantOptions,
       variants,
     };
 
-    const { error: insertError } = await supabase.from("products").insert([
-      {
-        id: productToSave.id,
-        name_ar: productToSave.name.ar,
-        name_en: productToSave.name.en || productToSave.name.ar,
-        description_ar: productToSave.description.ar,
-        description_en:
-          productToSave.description.en || productToSave.description.ar,
-        price: productToSave.price,
-        image_url: productToSave.images[0],
-        images_json: productToSave.images,
-        stock: productToSave.stock,
-        category: productToSave.category,
-        is_active: productToSave.active,
-        created_at: now,
-        updated_at: now,
-        low_stock_threshold: productToSave.low_stock_threshold,
-        variant_options_json: productToSave.variantOptions || [],
-        variants_json: productToSave.variants || [],
-      },
-    ]);
+    const baseProductRow = {
+      id: productToSave.id,
+      name_ar: productToSave.name.ar,
+      name_en: productToSave.name.en || productToSave.name.ar,
+      description_ar: productToSave.description.ar,
+      description_en:
+        productToSave.description.en || productToSave.description.ar,
+      price: productToSave.price,
+      image_url: productToSave.images[0],
+      images_json: productToSave.images,
+      stock: productToSave.stock,
+      category: productToSave.category,
+      is_active: productToSave.active,
+      created_at: now,
+      updated_at: now,
+      low_stock_threshold: productToSave.low_stock_threshold,
+      variant_options_json: productToSave.variantOptions || [],
+      variants_json: productToSave.variants || [],
+    };
+    const productRow = {
+      ...baseProductRow,
+      brand: productToSave.brand || null,
+      manufacturer: productToSave.manufacturer || null,
+      mpn: productToSave.mpn || null,
+      gtin: productToSave.gtin || null,
+      model: productToSave.model || null,
+    };
+
+    let { error: insertError } = await supabase
+      .from("products")
+      .insert([productRow]);
+
+    if (isMissingCommerceIdentifierColumnError(insertError)) {
+      if (hasCommerceIdentifierValue(productToSave)) {
+        return commerceIdentifiersUnavailableResponse();
+      }
+
+      const fallback = await supabase.from("products").insert([baseProductRow]);
+      insertError = fallback.error;
+    }
 
     if (insertError) {
       throw insertError;
@@ -246,31 +335,61 @@ export async function PUT(request: Request) {
     const variantOptions = normalizeProductVariantOptions(updates.variantOptions);
     const variants = normalizeProductVariants(updates.variants, variantOptions);
     const stock = resolveProductStock(updates.stock, variants);
+    const gtin = normalizeGtin(updates.gtin);
 
-    const { error: updateError } = await supabase
+    if (gtin && !isValidGtin(gtin)) {
+      return Response.json(
+        { error: "GTIN must be a valid GTIN-8, GTIN-12, GTIN-13, or GTIN-14" },
+        { status: 400 }
+      );
+    }
+
+    const baseProductUpdate = {
+      name_ar: updates.name?.ar,
+      name_en: updates.name?.en || updates.name?.ar,
+      description_ar: updates.description?.ar,
+      description_en: updates.description?.en || updates.description?.ar,
+      price: updates.price,
+      stock,
+      is_active:
+        stock <= 0
+          ? false
+          : typeof updates.active === "boolean"
+          ? updates.active
+          : true,
+      image_url: images[0] || null,
+      images_json: images,
+      category: normalizeCategory(updates.category),
+      low_stock_threshold: updates.low_stock_threshold,
+      variant_options_json: variantOptions,
+      variants_json: variants,
+      updated_at: new Date().toISOString(),
+    };
+    const productUpdate = {
+      ...baseProductUpdate,
+      brand: cleanOptionalProductField(updates.brand) || null,
+      manufacturer: cleanOptionalProductField(updates.manufacturer) || null,
+      mpn: cleanOptionalProductField(updates.mpn) || null,
+      gtin: gtin || null,
+      model: cleanOptionalProductField(updates.model) || null,
+    };
+
+    let { error: updateError } = await supabase
       .from("products")
-      .update({
-        name_ar: updates.name?.ar,
-        name_en: updates.name?.en || updates.name?.ar,
-        description_ar: updates.description?.ar,
-        description_en: updates.description?.en || updates.description?.ar,
-        price: updates.price,
-        stock,
-        is_active:
-          stock <= 0
-            ? false
-            : typeof updates.active === "boolean"
-            ? updates.active
-            : true,
-        image_url: images[0] || null,
-        images_json: images,
-        category: normalizeCategory(updates.category),
-        low_stock_threshold: updates.low_stock_threshold,
-        variant_options_json: variantOptions,
-        variants_json: variants,
-        updated_at: new Date().toISOString(),
-      })
+      .update(productUpdate)
       .eq("id", id);
+
+    if (isMissingCommerceIdentifierColumnError(updateError)) {
+      if (hasCommerceIdentifierValue(updates)) {
+        return commerceIdentifiersUnavailableResponse();
+      }
+
+      const fallback = await supabase
+        .from("products")
+        .update(baseProductUpdate)
+        .eq("id", id);
+      updateError = fallback.error;
+    }
 
     if (updateError) {
       throw updateError;

@@ -25,6 +25,11 @@ export default function AddProductPage() {
     nameEn: "",
     descriptionAr: "",
     descriptionEn: "",
+    brand: "",
+    manufacturer: "",
+    mpn: "",
+    gtin: "",
+    model: "",
     price: "",
     stock: "",
     category: "",
@@ -185,6 +190,12 @@ export default function AddProductPage() {
           en: form.descriptionEn,
         },
 
+        brand: form.brand,
+        manufacturer: form.manufacturer,
+        mpn: form.mpn,
+        gtin: form.gtin,
+        model: form.model,
+
         price: parseFloat(form.price) || 0,
         stock: parseInt(form.stock) || 0,
         low_stock_threshold:
@@ -287,6 +298,72 @@ export default function AddProductPage() {
             onChange={handleChange}
             className="w-full rounded border px-3 py-2"
           />
+        </div>
+
+        <div className="md:col-span-2 rounded-lg border bg-gray-50 p-4">
+          <h2 className="mb-1 font-bold">بيانات المنتج للتسوق ومحركات البحث</h2>
+          <p className="mb-4 text-xs text-gray-600">
+            أدخل البيانات المؤكدة فقط. اترك الحقل فارغًا إذا لم تكن المعلومة موجودة على المنتج أو لدى المورد.
+          </p>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <label className="block text-sm mb-1 font-bold">العلامة التجارية</label>
+              <input
+                type="text"
+                name="brand"
+                value={form.brand}
+                onChange={handleChange}
+                maxLength={160}
+                className="w-full rounded border px-3 py-2"
+              />
+            </div>
+            <div>
+              <label className="block text-sm mb-1 font-bold">الشركة المصنّعة</label>
+              <input
+                type="text"
+                name="manufacturer"
+                value={form.manufacturer}
+                onChange={handleChange}
+                maxLength={160}
+                className="w-full rounded border px-3 py-2"
+              />
+            </div>
+            <div>
+              <label className="block text-sm mb-1 font-bold">رقم جزء المصنع (MPN)</label>
+              <input
+                type="text"
+                name="mpn"
+                value={form.mpn}
+                onChange={handleChange}
+                maxLength={160}
+                className="w-full rounded border px-3 py-2"
+              />
+            </div>
+            <div>
+              <label className="block text-sm mb-1 font-bold">الباركود العالمي (GTIN)</label>
+              <input
+                type="text"
+                name="gtin"
+                value={form.gtin}
+                onChange={handleChange}
+                inputMode="numeric"
+                maxLength={17}
+                placeholder="8 أو 12 أو 13 أو 14 رقمًا"
+                className="w-full rounded border px-3 py-2"
+              />
+            </div>
+            <div>
+              <label className="block text-sm mb-1 font-bold">الموديل</label>
+              <input
+                type="text"
+                name="model"
+                value={form.model}
+                onChange={handleChange}
+                maxLength={160}
+                className="w-full rounded border px-3 py-2"
+              />
+            </div>
+          </div>
         </div>
 
         <div className="md:col-span-2">

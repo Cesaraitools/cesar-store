@@ -24,6 +24,12 @@ const nextConfig = {
     minimumCacheTTL: 604800,
   },
   async headers() {
+    const noIndexHeaders = [
+      {
+        key: "X-Robots-Tag",
+        value: "noindex, nofollow, noarchive",
+      },
+    ];
     const longLivedStaticAssetHeaders = [
       {
         key: "Cache-Control",
@@ -38,6 +44,30 @@ const nextConfig = {
     ];
 
     return [
+      // Keep private and transactional pages out of search results without
+      // changing their runtime behavior or the customer purchase flow.
+      ...[
+        "/admin/:path*",
+        "/admin-login",
+        "/auth/:path*",
+        "/cart",
+        "/checkout",
+        "/confirm",
+        "/review",
+        "/orders/:path*",
+        "/wholesale/account/:path*",
+        "/wholesale/apply",
+        "/wholesale/cart/:path*",
+        "/wholesale/catalog/:path*",
+        "/wholesale/order/:path*",
+        "/wholesale/orders/:path*",
+        "/wholesale/product/:path*",
+        "/wholesale/status",
+        "/sentry-example-page",
+      ].map((source) => ({
+        source,
+        headers: noIndexHeaders,
+      })),
       {
         source: "/slides/:path*",
         headers: longLivedStaticAssetHeaders,

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
-import { getSafeImage } from "@/lib/image-safe";
+import { getOptimizedDeliveryImage, getSafeImage } from "@/lib/image-safe";
 import type { PromoData } from "@/types/promo";
 import { useStoreMaintenance } from "@/context/StoreMaintenanceContext";
 
@@ -102,13 +102,18 @@ export default function ShopSidePromoSlider({ promo, lang }: Props) {
               }`}
             >
               <Image
-                src={slide.image}
+                src={getOptimizedDeliveryImage(slide.image, 760, 70)}
                 alt=""
                 fill
                 sizes="(min-width: 1280px) 360px, 100vw"
                 className="object-cover"
                 unoptimized
                 aria-hidden="true"
+                onError={(event) => {
+                  if (event.currentTarget.src !== slide.image) {
+                    event.currentTarget.src = slide.image;
+                  }
+                }}
               />
             </div>
           ))}
@@ -159,13 +164,18 @@ export default function ShopSidePromoSlider({ promo, lang }: Props) {
                   }`}
                 >
                   <Image
-                    src={slide.image}
+                    src={getOptimizedDeliveryImage(slide.image, 112, 65)}
                     alt={slide.title}
                     width={48}
                     height={56}
                     sizes="48px"
                     className="h-14 w-12 object-cover"
                     unoptimized
+                    onError={(event) => {
+                      if (event.currentTarget.src !== slide.image) {
+                        event.currentTarget.src = slide.image;
+                      }
+                    }}
                   />
                 </button>
               ))}

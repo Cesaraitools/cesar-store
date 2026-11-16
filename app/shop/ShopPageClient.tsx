@@ -8,7 +8,7 @@ import { normalizeCategory } from "@/lib/category-normalizer";
 import { getSeoProductDescriptions } from "@/lib/product-seo-description";
 import { sortProducts, SortOption } from "@/lib/filters";
 import { useLanguage } from "@/context/LanguageContext";
-import type { Product } from "@/types/product";
+import type { ProductCardData } from "@/types/product";
 import type { PromoData } from "@/types/promo";
 import { useStoreMaintenance } from "@/context/StoreMaintenanceContext";
 import {
@@ -33,9 +33,12 @@ type Category = {
 
 type Props = {
   searchParams: { category?: string; search?: string };
-  initialProducts: Product[];
+  initialProducts: ProductCardData[];
   initialCategories: Category[];
 };
+
+const INITIAL_VISIBLE_PRODUCTS = 24;
+const LOAD_MORE_PRODUCTS = 24;
 
 const GENERIC_SEARCH_TOKENS = new Set([
   "سياره",
@@ -85,28 +88,24 @@ function tokenizeSearch(input: string) {
   return specificTokens.length > 0 ? specificTokens : tokens;
 }
 
-function getProductSearchText(product: Product) {
+function getProductSearchText(product: ProductCardData) {
   const seoDescriptions = getSeoProductDescriptions(product);
-  const variantText =
-    product.variantOptions
-      ?.flatMap((option) => [
-        option.name.ar,
-        option.name.en,
-        ...option.values.flatMap((value) => [value.label.ar, value.label.en]),
-      ])
-      .join(" ") || "";
 
   return {
     name: normalizeSearchText(`${product.name.ar} ${product.name.en}`),
     description: normalizeSearchText(
-      `${product.description.ar} ${product.description.en} ${seoDescriptions.ar} ${seoDescriptions.en}`
+      `${product.description.ar} ${product.description.en} ${seoDescriptions.ar} ${seoDescriptions.en} ${product.searchText}`
     ),
     category: normalizeSearchText(normalizeCategory(product.category)),
-    variants: normalizeSearchText(variantText),
+    variants: normalizeSearchText(product.searchText),
   };
 }
 
-function scoreProductSearch(product: Product, query: string, tokens: string[]) {
+function scoreProductSearch(
+  product: ProductCardData,
+  query: string,
+  tokens: string[]
+) {
   const normalizedQuery = normalizeSearchText(query);
   if (!normalizedQuery) return 1;
 
@@ -163,6 +162,9 @@ export default function ShopPageClient({
     searchParams.category || "all"
   );
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [visibleProductCount, setVisibleProductCount] = useState(
+    INITIAL_VISIBLE_PRODUCTS
+  );
   const products = initialProducts;
   const categories = initialCategories;
   const [promos, setPromos] = useState<PromoData[]>([]);
@@ -251,6 +253,13 @@ export default function ShopPageClient({
 
     return sortProducts(filteredProducts, sort, categoryOrder);
   }, [categoryOrder, filteredProducts, searchQuery, sort]);
+
+  useEffect(() => {
+    setVisibleProductCount(INITIAL_VISIBLE_PRODUCTS);
+  }, [searchQuery, selectedCategory, sort]);
+
+  const displayedProducts = finalProducts.slice(0, visibleProductCount);
+  const hasMoreProducts = displayedProducts.length < finalProducts.length;
 
   const currentCategory = visibleCategories.find(
     (category) =>
@@ -563,7 +572,27 @@ export default function ShopPageClient({
               </div>
             ) : (
               <div className="animate-in fade-in slide-in-from-bottom-6 duration-700">
-                <ProductGrid products={finalProducts} />
+                <ProductGrid products={displayedProducts} />
+                {hasMoreProducts && (
+                  <div className="mt-10 flex flex-col items-center gap-3">
+                    <p className="text-sm font-bold text-slate-500">
+                      {isAr
+                        ? `يظهر ${displayedProducts.length} من ${finalProducts.length} منتج`
+                        : `Showing ${displayedProducts.length} of ${finalProducts.length} products`}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setVisibleProductCount((count) =>
+                          Math.min(count + LOAD_MORE_PRODUCTS, finalProducts.length)
+                        )
+                      }
+                      className="rounded-full bg-slate-900 px-8 py-3.5 text-sm font-black text-white shadow-md transition-all hover:bg-slate-800 active:scale-95"
+                    >
+                      {isAr ? "عرض منتجات أخرى" : "Show more products"}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

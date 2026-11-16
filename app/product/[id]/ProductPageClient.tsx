@@ -4,13 +4,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { CheckCircle2, Images, MousePointerClick } from "lucide-react";
 import type { Product } from "@/types/product";
 import { useCart } from "@/context/CartContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { normalizeCategory } from "@/lib/category-normalizer";
 import { trackViewItem } from "@/lib/google-ads-tracking";
-import { getSafeImage } from "@/lib/image-safe";
+import { getOptimizedDeliveryImage, getSafeImage } from "@/lib/image-safe";
 import { getSeoProductDescription } from "@/lib/product-seo-description";
 import {
   buildVariantKey,
@@ -36,17 +37,30 @@ export default function ProductPageClient({ product, categories }: Props) {
   const { addToCart } = useCart();
   const { lang } = useLanguage();
   const { isMaintenanceActive } = useStoreMaintenance();
+  const searchParams = useSearchParams();
+  const requestedVariantKey = searchParams.get("variant");
 
   const [mainImage, setMainImage] = useState<string | null>(
     product.images?.[0] || null
   );
+  const [mainImageOptimizationFailed, setMainImageOptimizationFailed] =
+    useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const mainImageRef = useRef<HTMLImageElement>(null);
   const zoomLensRef = useRef<HTMLDivElement>(null);
   const zoomFrameRef = useRef<number | null>(null);
   const hasVariants = productHasVariants(product);
   const initialSelections = useMemo(() => {
+    const requestedVariant = requestedVariantKey
+      ? product.variants?.find(
+          (variant) =>
+            variant.key === requestedVariantKey &&
+            variant.active !== false &&
+            (variant.stock ?? product.stock) > 0
+        )
+      : null;
     const firstAvailable =
+      requestedVariant ||
       product.variants?.find(
         (variant) =>
           variant.active !== false && (variant.stock ?? product.stock) > 0
@@ -60,7 +74,7 @@ export default function ProductPageClient({ product, categories }: Props) {
         option.values[0]?.id || "",
       ])
     );
-  }, [product]);
+  }, [product, requestedVariantKey]);
   const [selectedSelections, setSelectedSelections] =
     useState<Record<string, string>>(initialSelections);
 
@@ -80,7 +94,10 @@ export default function ProductPageClient({ product, categories }: Props) {
   const displayPrice = getVariantDisplayPrice(product, selectedVariant);
   const displayStock = getVariantDisplayStock(product, selectedVariant);
   const displayImage = getVariantDisplayImage(product, selectedVariant);
-  const safeMainImage = getSafeImage(mainImage || productImages[0]);
+  const rawMainImage = getSafeImage(mainImage || productImages[0]);
+  const safeMainImage = mainImageOptimizationFailed
+    ? rawMainImage
+    : getOptimizedDeliveryImage(rawMainImage, 1200, 76);
   const isOutOfStock =
     displayStock <= 0 ||
     (hasVariants && (!selectedVariant || selectedVariant.active === false));
@@ -90,6 +107,20 @@ export default function ProductPageClient({ product, categories }: Props) {
       setMainImage(selectedVariant.image);
     }
   }, [selectedVariant?.image]);
+
+  useEffect(() => {
+    setMainImageOptimizationFailed(false);
+  }, [rawMainImage]);
+
+  useEffect(() => {
+    if (!hasVariants || !selectedVariant) return;
+
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("variant") === selectedVariant.key) return;
+
+    url.searchParams.set("variant", selectedVariant.key);
+    window.history.replaceState(window.history.state, "", url);
+  }, [hasVariants, selectedVariant]);
 
   useEffect(() => {
     const lens = zoomLensRef.current;
@@ -281,7 +312,14 @@ export default function ProductPageClient({ product, categories }: Props) {
               className="h-auto w-full max-h-[320px] object-contain sm:max-h-[420px] lg:max-h-[520px]"
               priority
               unoptimized
-              onError={() => setMainImage("/placeholder.png")}
+              onError={() => {
+                if (!mainImageOptimizationFailed && safeMainImage !== rawMainImage) {
+                  setMainImageOptimizationFailed(true);
+                  return;
+                }
+
+                setMainImage("/placeholder.png");
+              }}
             />
             <div
               ref={zoomLensRef}
@@ -326,14 +364,18 @@ export default function ProductPageClient({ product, categories }: Props) {
                     }`}
                   >
                     <Image
-                      src={image}
+                      src={getOptimizedDeliveryImage(image, 160, 65)}
                       alt={`${name}-${index + 1}`}
                       width={72}
                       height={72}
                       sizes="72px"
                       className="h-[72px] w-[72px] object-contain"
                       unoptimized
-                      onError={() => setMainImage("/placeholder.png")}
+                      onError={(event) => {
+                        if (event.currentTarget.src !== image) {
+                          event.currentTarget.src = image;
+                        }
+                      }}
                     />
                   </button>
                 );

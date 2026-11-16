@@ -6,119 +6,99 @@ import { SITE_URL, absoluteUrl } from "@/lib/seo";
 export const dynamic = "force-dynamic";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const now = new Date();
   const staticRoutes: MetadataRoute.Sitemap = [
     {
       url: SITE_URL,
-      lastModified: now,
       changeFrequency: "weekly",
       priority: 1,
     },
     {
       url: absoluteUrl("/shop"),
-      lastModified: now,
       changeFrequency: "daily",
       priority: 0.9,
     },
     {
       url: absoluteUrl("/wholesale"),
-      lastModified: now,
       changeFrequency: "weekly",
       priority: 0.75,
     },
     {
       url: absoluteUrl("/categories"),
-      lastModified: now,
       changeFrequency: "weekly",
       priority: 0.8,
     },
     {
       url: absoluteUrl("/about"),
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.7,
     },
     {
       url: absoluteUrl("/contact"),
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.7,
     },
     {
       url: absoluteUrl("/shipping"),
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.6,
     },
     {
       url: absoluteUrl("/ordering-guide"),
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.6,
     },
     {
       url: absoluteUrl("/car-care"),
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.7,
     },
     {
       url: absoluteUrl("/car-air-fresheners"),
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.7,
     },
     {
       url: absoluteUrl("/car-cleaning-products"),
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.7,
     },
     {
       url: absoluteUrl("/car-accessories"),
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.7,
     },
     {
       url: absoluteUrl("/car-lighting-tools"),
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.7,
     },
     {
       url: absoluteUrl("/car-tools-equipment"),
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.7,
     },
     {
       url: absoluteUrl("/car-fluids-additives"),
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.7,
     },
     {
       url: absoluteUrl("/return-policy"),
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.5,
     },
     {
       url: absoluteUrl("/terms-of-service"),
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.5,
     },
     {
       url: absoluteUrl("/faq"),
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.6,
     },
     {
       url: absoluteUrl("/search-guide"),
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.7,
     },

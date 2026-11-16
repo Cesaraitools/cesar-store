@@ -21,10 +21,10 @@ import type { LandingShowcase } from "@/lib/landing-showcase";
 const content = {
   en: {
     about:
-      "Cesar Store delivers high-end automotive care and accessories, designed to elevate your driving experience with refined details.",
+      "Cesar Store offers a current catalog of car care products, accessories, cleaning supplies, air fresheners, lighting, tools, fluids, and additives in Egypt.",
     searchHint:
       "Customers can find us as Cesar Store, Cesar Shop, cesareshop.com, or by searching for car care products, air fresheners, accessories, lighting, tools, and car cleaning products in Egypt.",
-    banner: "Experience Excellence – Your Car Deserves the Best",
+    banner: "Choose from the current catalog for your car",
     wholesaleEyebrow: "Wholesale Partners",
     wholesaleTitle: "Wholesale trade for shops, distributors, and companies",
     wholesaleDescription:
@@ -43,10 +43,10 @@ const content = {
   },
   ar: {
     about:
-      "يقدم متجر سيزر أرقى منتجات العناية بالسيارات والكماليات، المصممة لرفع مستوى تجربة القيادة الخاصة بك بلمسات راقية وأصلية.",
+      "يقدم متجر سيزر كتالوجًا حاليًا من منتجات العناية بالسيارات والإكسسوارات والمنظفات والمعطرات والإضاءة والأدوات والسوائل والإضافات داخل مصر.",
     searchHint:
       "يمكن الوصول إلى المتجر بصيغ مثل متجر سيزر، سيزر ستور، سيزر شوب، Cesar Store، Cesar Shop، أو عند البحث عن منتجات العناية بالسيارات والمعطرات والإكسسوارات والمنظفات.",
-    banner: "اختبر التميز – سيارتك تستحق الأفضل دائماً",
+    banner: "اختر من الكتالوج الحالي ما يناسب سيارتك",
     wholesaleEyebrow: "شركاء الجملة",
     wholesaleTitle: "قسم تجارة الجملة للمحلات والموزعين والشركات",
     wholesaleDescription:
@@ -87,26 +87,26 @@ export default function LandingPageClient({
         {[
           {
             icon: Truck,
-            title: isAr ? "توصيل سريع" : "Fast Delivery",
+            title: isAr ? "نطاق التوصيل" : "Delivery Coverage",
             desc: isAr ? DELIVERY_NOTICE_AR : DELIVERY_NOTICE_EN,
             cardClass: "bg-[#3448E5]",
             iconClass: "bg-white/15 text-[#FFE35B]",
           },
           {
             icon: ShieldCheck,
-            title: isAr ? "جودة مضمونة" : "Guaranteed Quality",
+            title: isAr ? "بيانات منتجات واضحة" : "Clear Product Details",
             desc: isAr
-              ? "منتجات أصلية 100% ومختارة بعناية"
-              : "100% Original handpicked products",
+              ? "راجع السعر والمخزون والمواصفات المنشورة قبل الطلب"
+              : "Review published prices, stock, and specifications before ordering",
             cardClass: "bg-[#182338]",
             iconClass: "bg-[#6B4E10]/70 text-[#FFC928]",
           },
           {
             icon: Headphones,
-            title: isAr ? "دعم متميز" : "Expert Support",
+            title: isAr ? "قنوات تواصل رسمية" : "Official Support Channels",
             desc: isAr
-              ? "فريق فني متخصص لخدمتكم"
-              : "Technical team at your service",
+              ? "تواصل عبر الهاتف أو واتساب أو البريد الإلكتروني المنشور"
+              : "Contact the store through its published phone, WhatsApp, or email",
             cardClass: "bg-[#FF7800]",
             iconClass: "bg-white/20 text-white",
           },

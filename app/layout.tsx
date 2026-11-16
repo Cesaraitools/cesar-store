@@ -52,10 +52,6 @@ export function generateMetadata(): Metadata {
     keywords: [...BRAND_SEARCH_TERMS, ...PRODUCT_SEARCH_TERMS],
     alternates: {
       canonical: "/",
-      languages: {
-        ar: "/",
-        en: "/",
-      },
     },
     openGraph: {
       type: "website",

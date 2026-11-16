@@ -1,7 +1,7 @@
 import ProductCard from "./ProductCard";
-import { Product } from "@/types/product";
+import type { ProductCardData } from "@/types/product";
 
-export default function ProductGrid({ products }: { products: Product[] }) {
+export default function ProductGrid({ products }: { products: ProductCardData[] }) {
   return (
    <div
       className="

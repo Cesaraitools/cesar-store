@@ -28,6 +28,13 @@ function cleanText(value?: string | null) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
+function removeSearchKeywordTail(value?: string | null) {
+  return cleanText(value)
+    .replace(/\s*كلمات\s+مرتبطة\s*:[\s\S]*$/i, "")
+    .replace(/\s*related\s+searches\s*:[\s\S]*$/i, "")
+    .trim();
+}
+
 function firstMatch(input: string, pattern: RegExp) {
   return input.match(pattern)?.[1] || null;
 }
@@ -199,52 +206,6 @@ function categoryDescriptionEn(category: string, title: string) {
   }
 }
 
-function keywordTailAr(category: string, title: string) {
-  if (isScaleModelTitle(title)) {
-    return "كلمات مرتبطة: مجسم سيارة، ماكت سيارات، scale model car، ديكور سيارات، هدية لمحبي السيارات.";
-  }
-
-  switch (category) {
-    case "air-fresheners":
-      return "كلمات مرتبطة: معطر سيارة، معطرات سيارات، رائحة سيارة، car air freshener، car perfume.";
-    case "detergent":
-      return "كلمات مرتبطة: منظفات سيارات، تنظيف العربية، شامبو سيارات، car cleaning products، car care.";
-    case "cars-lights":
-      return "كلمات مرتبطة: إضاءة سيارات، لمبات سيارات، كشافات سيارة، car LED lights، vehicle lighting.";
-    case "equipment":
-      return "كلمات مرتبطة: أدوات سيارات، معدات سيارات، طوارئ السيارة، car tools، car emergency equipment.";
-    case "additives-fluids":
-      return "كلمات مرتبطة: سوائل سيارات، إضافات وقود، منظف رشاشات، مياه مساحات، car fluids.";
-    case "cars-accessories":
-      return "كلمات مرتبطة: إكسسوارات سيارات، ملحقات سيارات، car accessories Egypt، car organizer.";
-    default:
-      return "كلمات مرتبطة: منتجات سيارات، عناية بالسيارة، إكسسوارات سيارات، Cesar Store Egypt.";
-  }
-}
-
-function keywordTailEn(category: string, title: string) {
-  if (isScaleModelTitle(title)) {
-    return "Related searches: scale model car, diecast model car, car model collectible, car decor gift.";
-  }
-
-  switch (category) {
-    case "air-fresheners":
-      return "Related searches: car air freshener, car perfume, car scent, car air fresheners Egypt.";
-    case "detergent":
-      return "Related searches: car cleaning products, car care, car shampoo, microfiber towel.";
-    case "cars-lights":
-      return "Related searches: car LED lights, vehicle lighting, car bulbs, auto lighting.";
-    case "equipment":
-      return "Related searches: car tools, emergency car kit, tire air compressor, battery jumper cable.";
-    case "additives-fluids":
-      return "Related searches: car fluids, fuel additives, injector cleaner, windshield washer fluid.";
-    case "cars-accessories":
-      return "Related searches: car accessories, auto accessories Egypt, car organizer, vehicle accessories.";
-    default:
-      return "Related searches: car products, car care, car accessories, Cesar Store Egypt.";
-  }
-}
-
 function isWeakDescription(description: string, title: string) {
   const text = cleanText(description);
 
@@ -272,7 +233,7 @@ export function getSeoProductDescription(
   const title = titleFor(product, lang);
   const fallbackTitle = titleFor(product, lang === "ar" ? "en" : "ar");
   const finalTitle = title || fallbackTitle || "Cesar Store product";
-  const existing = cleanText(product.description[lang]);
+  const existing = removeSearchKeywordTail(product.description[lang]);
   const category = normalizeCategory(product.category || "");
 
   if (!isWeakDescription(existing, finalTitle)) {
@@ -285,7 +246,7 @@ export function getSeoProductDescription(
     return cleanText(
       `${finalTitle} من متجر سيزر. ${categoryDescriptionAr(category, finalTitle)}${factPhraseAr(
         facts
-      )} ${keywordTailAr(category, finalTitle)}`
+      )}`
     );
   }
 
@@ -293,7 +254,7 @@ export function getSeoProductDescription(
     `${finalTitle} from Cesar Store. ${categoryDescriptionEn(
       category,
       finalTitle
-    )}${factPhraseEn(facts)} ${keywordTailEn(category, finalTitle)}`
+    )}${factPhraseEn(facts)}`
   );
 }
 
