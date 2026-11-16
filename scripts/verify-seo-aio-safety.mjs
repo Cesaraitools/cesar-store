@@ -18,10 +18,18 @@ function assert(condition, message) {
 }
 
 async function fetchWithTimeout(baseUrl, path) {
-  const response = await fetch(new URL(path, baseUrl), {
+  const requestedUrl = new URL(path, baseUrl);
+  const response = await fetch(requestedUrl, {
     redirect: "follow",
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
+
+  const finalUrl = new URL(response.url);
+  assert(
+    finalUrl.origin === requestedUrl.origin,
+    `Route ${path} redirected outside the target origin to ${finalUrl.origin}; ` +
+      "the deployment may be protected by authentication"
+  );
 
   return response;
 }
