@@ -9,6 +9,7 @@ import type { PromoData } from "@/types/promo";
 import { useStoreMaintenance } from "@/context/StoreMaintenanceContext";
 
 type Props = {
+  imagePriority?: boolean;
   promo: PromoData;
   lang: "ar" | "en";
 };
@@ -22,7 +23,11 @@ type PromoSlide = {
   price?: number;
 };
 
-export default function ShopSidePromoSlider({ promo, lang }: Props) {
+export default function ShopSidePromoSlider({
+  imagePriority = false,
+  promo,
+  lang,
+}: Props) {
   const { isMaintenanceActive } = useStoreMaintenance();
   const slides = useMemo<PromoSlide[]>(() => {
     if (promo.products.length) {
@@ -102,11 +107,12 @@ export default function ShopSidePromoSlider({ promo, lang }: Props) {
               }`}
             >
               <Image
-                src={getOptimizedDeliveryImage(slide.image, 760, 70)}
+                src={getOptimizedDeliveryImage(slide.image, 520, 70)}
                 alt=""
                 fill
-                sizes="(min-width: 1280px) 360px, 100vw"
+                sizes="(min-width: 1280px) 240px, 1px"
                 className="object-cover"
+                priority={imagePriority && index === 0}
                 unoptimized
                 aria-hidden="true"
                 onError={(event) => {

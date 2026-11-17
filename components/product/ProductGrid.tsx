@@ -11,8 +11,8 @@ export default function ProductGrid({ products }: { products: ProductCardData[] 
         grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4
       "
     >
-      {products.map((p) => (
-        <ProductCard key={p.id} product={p} />
+      {products.map((p, index) => (
+        <ProductCard key={p.id} product={p} imagePriority={index === 0} />
       ))}
     </div>
   );

@@ -37,6 +37,11 @@ payment, authentication, cart persistence, or inventory-decrement logic.
   Supabase's existing width/quality image-rendering endpoint while preserving original
   URLs in product data, Merchant feeds, structured data, and cart records. Browsers that
   accept WebP receive much smaller responses, with an automatic original-image fallback.
+- Prioritize the first shop card and the single leading desktop promo image, reduce the
+  side-promo delivery width from 760 to 520 pixels, and avoid advertising hidden desktop
+  promo width to small screens. This removes the observed shop LCP priority warning.
+- Initialize Meta Pixel with both standard `fbq` and `_fbq` references so the official
+  loader no longer reports conflicting pixel versions.
 - Remove invalid Arabic/English `hreflang` alternates that pointed both languages to the
   same URL. The canonical URL remains intact.
 
@@ -54,6 +59,10 @@ payment, authentication, cart persistence, or inventory-decrement logic.
   Browser checks found no broken images after the change.
 - An unauthenticated checkout attempt still redirects to
   `/auth/login?redirect=/checkout`; no test order was created.
+- A clean post-fix browser session loaded `fbevents.js` once, reported no LCP or Meta
+  Pixel warnings, and retained the tested product, price, and stock in the local cart.
+  Four transient Supabase transform failures recovered through the original-image fallback
+  with successful `200` responses.
 - `npm run verify:seo-aio -- --base-url <deployment-url>` provides a read-only
   release gate for public/private indexing headers, sitemap integrity, the AI catalog,
   the Merchant feed, identifier hygiene, and sample product structured data.

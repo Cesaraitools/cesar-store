@@ -88,7 +88,11 @@ export default function CategoriesPage() {
         <div className="grid justify-center gap-6 xl:grid-cols-[220px_minmax(0,1fr)_220px] 2xl:grid-cols-[240px_minmax(0,1120px)_240px] items-start">
           <div className="hidden xl:order-1 xl:block">
             {leftPromo ? (
-              <ShopSidePromoSlider promo={leftPromo} lang={lang} />
+              <ShopSidePromoSlider
+                promo={leftPromo}
+                lang={lang}
+                imagePriority
+              />
             ) : (
               <aside className="hidden xl:flex xl:sticky xl:top-32 min-h-[560px] rounded-[2.5rem] border border-dashed border-gray-200 bg-white items-center justify-center p-8 text-center text-sm font-bold text-gray-300">
                 {isAr ? "مكان بلوك عروض الأقسام الأيسر" : "Left categories promo block"}
@@ -126,7 +130,11 @@ export default function CategoriesPage() {
 
           <div className="hidden xl:order-3 xl:block">
             {rightPromo ? (
-              <ShopSidePromoSlider promo={rightPromo} lang={lang} />
+              <ShopSidePromoSlider
+                promo={rightPromo}
+                lang={lang}
+                imagePriority={!leftPromo}
+              />
             ) : (
               <aside className="hidden xl:flex xl:sticky xl:top-32 min-h-[560px] rounded-[2.5rem] border border-dashed border-gray-200 bg-white items-center justify-center p-8 text-center text-sm font-bold text-gray-300">
                 {isAr ? "مكان بلوك عروض الأقسام الأيمن" : "Right categories promo block"}

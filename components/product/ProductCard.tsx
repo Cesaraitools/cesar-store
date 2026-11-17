@@ -13,6 +13,7 @@ import { getSeoProductDescription } from "@/lib/product-seo-description";
 import { useStoreMaintenance } from "@/context/StoreMaintenanceContext";
 
 type Props = {
+  imagePriority?: boolean;
   product: ProductCardData;
 };
 
@@ -71,7 +72,7 @@ const badgeStyles = {
   best: { label: "Top Seller", className: "bg-amber-400 text-slate-950" },
 };
 
-export default function ProductCard({ product }: Props) {
+export default function ProductCard({ imagePriority = false, product }: Props) {
   const { addToCart } = useCart();
   const { lang } = useLanguage();
   const { isMaintenanceActive } = useStoreMaintenance();
@@ -161,6 +162,7 @@ const isLowStock = displayStock > 0 && displayStock <= threshold;
           height={220}
           sizes="(min-width: 1024px) 220px, (min-width: 640px) 204px, 132px"
           className="relative z-10 h-[132px] w-[132px] object-contain p-3 mix-blend-multiply transition duration-500 group-hover:scale-105 sm:h-[204px] sm:w-[204px] sm:p-5 lg:h-[220px] lg:w-[220px]"
+          priority={imagePriority}
           unoptimized
           onError={() =>
             setDisplayImageSrc((current) =>

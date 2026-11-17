@@ -536,7 +536,11 @@ export default function ShopPageClient({
         <div className="grid items-start justify-center gap-8 xl:grid-cols-[220px_minmax(0,1fr)_220px] 2xl:grid-cols-[240px_minmax(0,1200px)_240px]">
           <div className="hidden xl:order-1 xl:block">
             {leftPromo ? (
-              <ShopSidePromoSlider promo={leftPromo} lang={lang} />
+              <ShopSidePromoSlider
+                promo={leftPromo}
+                lang={lang}
+                imagePriority
+              />
             ) : (
               <aside className="hidden min-h-[580px] items-center justify-center rounded-[2.5rem] border border-dashed border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-300 shadow-sm xl:sticky xl:top-40 xl:flex">
                 {isAr ? "مكان بلوك العرض الترويجي الأيسر" : "Left promo block"}
@@ -599,7 +603,11 @@ export default function ShopPageClient({
 
           <div className="hidden xl:order-3 xl:block">
             {rightPromo ? (
-              <ShopSidePromoSlider promo={rightPromo} lang={lang} />
+              <ShopSidePromoSlider
+                promo={rightPromo}
+                lang={lang}
+                imagePriority={!leftPromo}
+              />
             ) : (
               <aside className="hidden min-h-[580px] items-center justify-center rounded-[2.5rem] border border-dashed border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-300 shadow-sm xl:sticky xl:top-40 xl:flex">
                 {isAr ? "مكان بلوك العرض الترويجي الأيمن" : "Right promo block"}

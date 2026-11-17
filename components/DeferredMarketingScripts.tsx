@@ -12,6 +12,7 @@ type QueuedFunction = ((...args: unknown[]) => void) & {
 };
 
 type MarketingWindow = Window & {
+  _fbq?: QueuedFunction;
   clarity?: QueuedFunction;
   dataLayer?: unknown[];
   fbq?: QueuedFunction;
@@ -82,6 +83,7 @@ export default function DeferredMarketingScripts({
       fbq.queue = [];
       fbq.push = fbq;
       marketingWindow.fbq = fbq;
+      marketingWindow._fbq = fbq;
       marketingWindow.fbq("init", metaPixelId);
       marketingWindow.fbq("track", "PageView");
     }
