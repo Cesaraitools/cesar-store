@@ -10,7 +10,7 @@ export default function ExploreCategories() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/categories", { cache: "no-store" })
+    fetch("/api/categories")
       .then((res) => res.json())
       .then((data) => {
         setCategories(Array.isArray(data) ? data : []);

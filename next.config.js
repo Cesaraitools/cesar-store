@@ -44,6 +44,16 @@ const nextConfig = {
     ];
 
     return [
+      {
+        source: "/",
+        headers: [
+          {
+            key: "Link",
+            value:
+              '</llms.txt>; rel="alternate"; type="text/plain", </sitemap.xml>; rel="sitemap"; type="application/xml", </products.json>; rel="alternate"; type="application/json"',
+          },
+        ],
+      },
       // Keep private and transactional pages out of search results without
       // changing their runtime behavior or the customer purchase flow.
       ...[

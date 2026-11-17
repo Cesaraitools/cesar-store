@@ -138,5 +138,19 @@ const { token, signature } = parsed;
 }
 
 export const config = {
-  matcher: ["/", "/admin/:path*", "/api/admin/:path*"],
+  matcher: [
+    {
+      source: "/",
+      has: [
+        {
+          type: "header",
+          key: "accept",
+          value:
+            ".*[tT][eE][xX][tT]/[mM][aA][rR][kK][dD][oO][wW][nN].*",
+        },
+      ],
+    },
+    "/admin/:path*",
+    "/api/admin/:path*",
+  ],
 };

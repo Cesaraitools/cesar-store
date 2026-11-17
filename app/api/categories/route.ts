@@ -20,6 +20,11 @@ const NO_STORE_HEADERS = {
   "Vercel-CDN-Cache-Control": "no-store",
 };
 
+const PUBLIC_CACHE_HEADERS = {
+  "Cache-Control": "public, max-age=0, must-revalidate",
+  "Vercel-CDN-Cache-Control": "public, max-age=60",
+};
+
 function invalidateLandingShowcase() {
   try {
     revalidateTag("landing-showcase");
@@ -33,6 +38,16 @@ function jsonNoStore(data: unknown, init: ResponseInit = {}) {
   const headers = new Headers(init.headers);
 
   for (const [key, value] of Object.entries(NO_STORE_HEADERS)) {
+    headers.set(key, value);
+  }
+
+  return Response.json(data, { ...init, headers });
+}
+
+function jsonPublic(data: unknown, init: ResponseInit = {}) {
+  const headers = new Headers(init.headers);
+
+  for (const [key, value] of Object.entries(PUBLIC_CACHE_HEADERS)) {
     headers.set(key, value);
   }
 
@@ -110,7 +125,7 @@ export async function GET(request: Request) {
 
     if (error) throw error;
 
-    return jsonNoStore(data);
+    return isAdminRequest ? jsonNoStore(data) : jsonPublic(data);
   } catch (err) {
     console.error("GET CATEGORIES ERROR:", err);
     return jsonNoStore(

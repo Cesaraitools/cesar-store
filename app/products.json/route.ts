@@ -365,7 +365,8 @@ export async function GET() {
 
   return Response.json(body, {
     headers: {
-      "Cache-Control": "public, max-age=1800, s-maxage=1800",
+      "Cache-Control": "public, max-age=0, must-revalidate",
+      "Vercel-CDN-Cache-Control": "public, max-age=1800",
     },
   });
 }

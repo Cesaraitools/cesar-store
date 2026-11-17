@@ -224,9 +224,10 @@ export async function GET() {
 
   return new Response(body, {
     headers: {
-      "Cache-Control": "no-store",
+      "Cache-Control": "public, max-age=0, must-revalidate",
       "Content-Disposition": 'inline; filename="google-products.tsv"',
       "Content-Type": "text/tab-separated-values; charset=utf-8",
+      "Vercel-CDN-Cache-Control": "public, max-age=300",
     },
   });
 }
