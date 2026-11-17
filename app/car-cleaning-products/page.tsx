@@ -170,6 +170,8 @@ export default function CarCleaningProductsPage() {
             { label: "واكس سيارات" },
             { label: "ملمع تابلوه" },
             { label: "منظف فوم سيارات" },
+            { label: "مساحة سيليكون" },
+            { label: "مساحة سيليكون ثلاث مراحل" },
             { label: "فوطة ميكروفايبر" },
             { label: "فرشة تنظيف سيارة" },
           ]}

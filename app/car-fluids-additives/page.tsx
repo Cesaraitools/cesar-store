@@ -191,6 +191,9 @@ export default function CarFluidsAdditivesPage() {
             { label: "منظف رشاشات بنزين" },
             { label: "رافع اوكتان" },
             { label: "رافع أوكتان" },
+            { label: "سايكلو رافع اوكتان" },
+            { label: "معالج الزيت" },
+            { label: "معالج زيت المحرك" },
             { label: "موتور فلاش" },
             { label: "منظف دورة زيت المحرك" },
           ]}

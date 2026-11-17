@@ -187,8 +187,12 @@ export default function CarToolsEquipmentPage() {
           links={[
             { label: "كمبريسور سيارة" },
             { label: "كمبروسر سيارة" },
+            { label: "كمبروسر انكو 2 بستم" },
             { label: "منفاخ سيارة" },
             { label: "منفاخ اطارات سيارة" },
+            { label: "باور بانك السيارة متعدد الوظائف" },
+            { label: "باور بانك بطارية السيارة" },
+            { label: "Jump Starter" },
             { label: "كابل بطارية" },
             { label: "كابل بطارية سيارة" },
             { label: "كابل بطارية 400 امبير" },
