@@ -1,5 +1,6 @@
 const DEFAULT_BASE_URL = "http://localhost:3000";
-const REQUEST_TIMEOUT_MS = 20_000;
+const CANONICAL_ORIGIN = "https://www.cesareshop.com";
+const REQUEST_TIMEOUT_MS = 45_000;
 
 function readBaseUrl() {
   const argumentIndex = process.argv.indexOf("--base-url");
@@ -54,6 +55,32 @@ function parseTsv(value) {
   return { headers, rows };
 }
 
+function findCanonicalHref(html) {
+  const linkTags = html.match(/<link\b[^>]*>/gi) || [];
+
+  for (const tag of linkTags) {
+    const rel = tag.match(/\brel=["']([^"']+)["']/i)?.[1] || "";
+    if (!rel.split(/\s+/).some((value) => value.toLowerCase() === "canonical")) {
+      continue;
+    }
+
+    return tag.match(/\bhref=["']([^"']+)["']/i)?.[1] || "";
+  }
+
+  return "";
+}
+
+function normalizeComparableUrl(value) {
+  const url = new URL(value);
+  const normalizedPath = url.pathname === "/" ? "" : url.pathname.replace(/\/$/, "");
+  return `${url.origin}${normalizedPath}${url.search}`;
+}
+
+function isLoopbackUrl(value) {
+  const hostname = new URL(value).hostname;
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+}
+
 function findProductSchema(html) {
   const scripts = [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
 
@@ -80,26 +107,68 @@ function findProductSchema(html) {
 
 async function verify() {
   const baseUrl = readBaseUrl();
-  const publicPaths = ["/", "/shop", "/about", "/faq"];
+  const isLocalTarget = isLoopbackUrl(baseUrl);
+  const publicPaths = [
+    "/",
+    "/shop",
+    "/wholesale",
+    "/categories",
+    "/about",
+    "/contact",
+    "/shipping",
+    "/ordering-guide",
+    "/car-care",
+    "/car-air-fresheners",
+    "/car-cleaning-products",
+    "/car-accessories",
+    "/car-lighting-tools",
+    "/car-tools-equipment",
+    "/car-fluids-additives",
+    "/return-policy",
+    "/privacy-policy",
+    "/terms-of-service",
+    "/data-deletion",
+    "/faq",
+    "/search-guide",
+  ];
   const privatePaths = [
     "/admin-login",
     "/auth/login",
     "/cart",
     "/checkout",
+    "/confirm",
     "/orders",
     "/review",
     "/wholesale/account",
   ];
   let shopHtml = "";
+  let canonicalOrigin = isLocalTarget ? "" : CANONICAL_ORIGIN;
 
   for (const path of publicPaths) {
     const response = await fetchWithTimeout(baseUrl, path);
     const robotsHeader = response.headers.get("x-robots-tag") || "";
+    const html = await response.text();
     assert(response.ok, `Public route ${path} returned ${response.status}`);
     assert(!/noindex/i.test(robotsHeader), `Public route ${path} is marked noindex`);
 
+    const canonicalHref = findCanonicalHref(html);
+    assert(canonicalHref, `Public route ${path} has no canonical link`);
+    const observedCanonicalOrigin = new URL(canonicalHref).origin;
+    if (!canonicalOrigin) canonicalOrigin = observedCanonicalOrigin;
+    assert(
+      isLocalTarget
+        ? isLoopbackUrl(observedCanonicalOrigin)
+        : observedCanonicalOrigin === CANONICAL_ORIGIN,
+      `Public route ${path} canonical origin is ${observedCanonicalOrigin}`
+    );
+    const expectedCanonical = new URL(path, canonicalOrigin).toString();
+    assert(
+      normalizeComparableUrl(canonicalHref) === normalizeComparableUrl(expectedCanonical),
+      `Public route ${path} canonical is ${canonicalHref}, expected ${expectedCanonical}`
+    );
+
     if (path === "/shop") {
-      shopHtml = await response.text();
+      shopHtml = html;
     }
   }
 
@@ -121,7 +190,13 @@ async function verify() {
 
   const sitemapResponse = await fetchWithTimeout(baseUrl, "/sitemap.xml");
   const sitemap = await sitemapResponse.text();
-  const sitemapUrlCount = (sitemap.match(/<loc>/g) || []).length;
+  const sitemapUrls = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(
+    (match) => match[1]
+  );
+  const normalizedSitemapUrls = new Set(
+    sitemapUrls.map((url) => normalizeComparableUrl(url))
+  );
+  const sitemapUrlCount = sitemapUrls.length;
   const sitemapLastmodCount = (sitemap.match(/<lastmod>/g) || []).length;
   assert(sitemapResponse.ok, `Sitemap returned ${sitemapResponse.status}`);
   assert(sitemapUrlCount >= 20, `Sitemap contains only ${sitemapUrlCount} URLs`);
@@ -129,6 +204,34 @@ async function verify() {
     sitemapLastmodCount <= sitemapUrlCount,
     "Sitemap contains more lastmod entries than URLs"
   );
+  for (const path of publicPaths) {
+    const expectedUrl = new URL(path, canonicalOrigin).toString();
+    assert(
+      normalizedSitemapUrls.has(normalizeComparableUrl(expectedUrl)),
+      `Sitemap is missing public route ${path}`
+    );
+  }
+
+  const robotsResponse = await fetchWithTimeout(baseUrl, "/robots.txt");
+  const robots = await robotsResponse.text();
+  assert(robotsResponse.ok, `Robots returned ${robotsResponse.status}`);
+  assert(
+    robots.includes(`Sitemap: ${canonicalOrigin}/sitemap.xml`),
+    "Robots file is missing the canonical sitemap URL"
+  );
+  for (const path of ["/admin", "/api", "/auth", "/cart", "/checkout", "/confirm", "/orders", "/review"]) {
+    assert(robots.includes(`Disallow: ${path}`), `Robots file does not disallow ${path}`);
+  }
+
+  const llmsResponse = await fetchWithTimeout(baseUrl, "/llms.txt");
+  const llms = await llmsResponse.text();
+  assert(llmsResponse.ok, `llms.txt returned ${llmsResponse.status}`);
+  for (const path of ["/products.json", "/sitemap.xml", "/privacy-policy", "/return-policy", "/data-deletion"]) {
+    assert(
+      llms.includes(new URL(path, canonicalOrigin).toString()),
+      `llms.txt is missing ${path}`
+    );
+  }
 
   const catalogResponse = await fetchWithTimeout(baseUrl, "/products.json");
   const catalog = await catalogResponse.json();
@@ -173,8 +276,15 @@ async function verify() {
   const productResponse = await fetchWithTimeout(baseUrl, productPath);
   const productHtml = await productResponse.text();
   const productSchema = findProductSchema(productHtml);
+  const productCanonical = findCanonicalHref(productHtml);
   assert(productResponse.ok, `Sample product returned ${productResponse.status}`);
   assert(productSchema, "Sample product has no Product or ProductGroup JSON-LD");
+  assert(productCanonical, "Sample product has no canonical link");
+  assert(
+    normalizeComparableUrl(productCanonical) ===
+      normalizeComparableUrl(new URL(productPath, canonicalOrigin).toString()),
+    `Sample product canonical is ${productCanonical}`
+  );
 
   const summary = {
     baseUrl,
