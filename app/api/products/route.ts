@@ -127,6 +127,9 @@ function resolveProductStock(baseStock: unknown, variants: Product["variants"]) 
 }
 
 export async function GET() {
+  const guard = await requireAdminRole(["full"]);
+  if (guard.response) return guard.response;
+
   try {
     const { data, error } = await supabase
       .from("products")
