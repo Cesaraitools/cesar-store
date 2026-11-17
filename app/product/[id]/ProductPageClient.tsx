@@ -13,6 +13,7 @@ import { normalizeCategory } from "@/lib/category-normalizer";
 import { trackViewItem } from "@/lib/google-ads-tracking";
 import { getOptimizedDeliveryImage, getSafeImage } from "@/lib/image-safe";
 import { getSeoProductDescription } from "@/lib/product-seo-description";
+import { getCategorySeo } from "@/lib/seo";
 import {
   buildVariantKey,
   createVariantSnapshot,
@@ -84,6 +85,7 @@ export default function ProductPageClient({ product, categories }: Props) {
 
   const name = lang === "ar" ? product.name.ar : product.name.en;
   const description = getSeoProductDescription(product, lang);
+  const categorySeo = getCategorySeo(product.category);
   const productImages = product.images.length
     ? product.images.map((image) => getSafeImage(image))
     : [getSafeImage()];
@@ -400,6 +402,30 @@ export default function ProductPageClient({ product, categories }: Props) {
           </p>
 
           <p className="text-gray-600 leading-relaxed">{description}</p>
+
+          {categorySeo && (
+            <aside className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4 text-sm text-slate-700">
+              <p className="font-bold text-slate-950">
+                {lang === "ar"
+                  ? `هذا المنتج ضمن ${categorySeo.titleAr}`
+                  : `This product is part of ${categorySeo.titleEn}`}
+              </p>
+              <p className="mt-2 leading-7">
+                {lang === "ar"
+                  ? "راجع دليل القسم لمعرفة الاستخدامات والفروق الأساسية قبل اختيار المنتج المناسب."
+                  : "Read the category guide to compare common uses and choose the right product."}
+              </p>
+              <Link
+                href={categorySeo.guidePath}
+                prefetch={false}
+                className="mt-3 inline-flex rounded-lg bg-white px-4 py-2 font-bold text-blue-800 shadow-sm ring-1 ring-blue-100 transition hover:bg-blue-100"
+              >
+                {lang === "ar"
+                  ? `دليل اختيار ${categorySeo.titleAr}`
+                  : `${categorySeo.titleEn} guide`}
+              </Link>
+            </aside>
+          )}
 
           {hasVariants && (
             <div className="space-y-5 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 shadow-sm sm:p-5">

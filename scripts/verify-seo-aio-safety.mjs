@@ -105,6 +105,25 @@ function findProductSchema(html) {
   return null;
 }
 
+function collectProductOffers(productSchema) {
+  const directOffers = productSchema?.offers
+    ? Array.isArray(productSchema.offers)
+      ? productSchema.offers
+      : [productSchema.offers]
+    : [];
+  const variantOffers = Array.isArray(productSchema?.hasVariant)
+    ? productSchema.hasVariant.flatMap((variant) =>
+        variant?.offers
+          ? Array.isArray(variant.offers)
+            ? variant.offers
+            : [variant.offers]
+          : []
+      )
+    : [];
+
+  return [...directOffers, ...variantOffers];
+}
+
 async function verify() {
   const baseUrl = readBaseUrl();
   const isLocalTarget = isLoopbackUrl(baseUrl);
@@ -284,6 +303,37 @@ async function verify() {
     normalizeComparableUrl(productCanonical) ===
       normalizeComparableUrl(new URL(productPath, canonicalOrigin).toString()),
     `Sample product canonical is ${productCanonical}`
+  );
+
+  const sampleOffers = collectProductOffers(productSchema);
+  if (sampleOffers.length > 0) {
+    assert(
+      sampleOffers.every(
+        (offer) => offer?.seller?.["@id"] === `${canonicalOrigin}/#store`
+      ),
+      "Sample product offers do not identify the canonical store seller"
+    );
+  }
+
+  if (sampleProduct.categoryDetails?.guideUrl) {
+    assert(
+      productSchema.isRelatedTo?.url === sampleProduct.categoryDetails.guideUrl,
+      "Sample product schema is missing its category guide relationship"
+    );
+  }
+
+  const missingProductResponse = await fetchWithTimeout(
+    baseUrl,
+    "/product/00000000-0000-4000-8000-000000000000"
+  );
+  const missingProductHtml = await missingProductResponse.text();
+  assert(
+    missingProductResponse.status === 404,
+    `Missing product returned ${missingProductResponse.status}, expected 404`
+  );
+  assert(
+    !findCanonicalHref(missingProductHtml),
+    "Missing product incorrectly inherits a canonical URL"
   );
 
   const summary = {

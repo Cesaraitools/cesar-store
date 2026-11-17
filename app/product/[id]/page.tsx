@@ -6,7 +6,12 @@ import {
   getActiveCategories,
   getActiveProductById,
 } from "@/lib/server/catalog";
-import { absoluteUrl, compactText } from "@/lib/seo";
+import {
+  SITE_URL,
+  absoluteUrl,
+  compactText,
+  getCategorySeo,
+} from "@/lib/seo";
 import { getSafeImage } from "@/lib/image-safe";
 import { gtinStructuredData } from "@/lib/product-identifiers";
 import {
@@ -31,10 +36,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (!product) {
     return {
-      title: "المنتج غير موجود",
+      title: "المنتج غير متاح حاليًا",
+      description:
+        "هذا المنتج غير متاح حاليًا في متجر سيزر. تصفح المنتجات والأقسام المتاحة للوصول إلى بديل مناسب.",
       robots: {
         index: false,
-        follow: false,
+        follow: true,
       },
     };
   }
@@ -91,6 +98,7 @@ export default async function ProductPage({ params }: Props) {
     ? product.images.map((image) => absoluteUrl(getSafeImage(image)))
     : [absoluteUrl(getSafeImage())];
   const productUrl = absoluteUrl(`/product/${product.id}`);
+  const categorySeo = getCategorySeo(product.category);
   const maintenanceActive = isStoreMaintenanceActive(maintenanceSchedule);
   const commonStructuredData = {
     "@context": "https://schema.org",
@@ -98,7 +106,14 @@ export default async function ProductPage({ params }: Props) {
     description: compactText(description, 500),
     image: images,
     url: productUrl,
-    category: product.category,
+    category: categorySeo?.titleAr || product.category,
+    ...(categorySeo && {
+      isRelatedTo: {
+        "@type": "CollectionPage",
+        name: categorySeo.titleAr,
+        url: absoluteUrl(categorySeo.guidePath),
+      },
+    }),
     ...(product.brand && {
       brand: {
         "@type": "Brand",
@@ -123,6 +138,9 @@ export default async function ProductPage({ params }: Props) {
         ? "https://schema.org/InStock"
         : "https://schema.org/OutOfStock",
     itemCondition: "https://schema.org/NewCondition",
+    seller: {
+      "@id": `${SITE_URL}/#store`,
+    },
   });
   const activeVariants = getProductVariants(product).filter(
     (variant) => variant.active !== false

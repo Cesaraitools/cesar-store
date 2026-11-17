@@ -50,9 +50,6 @@ export function generateMetadata(): Metadata {
     },
     description: DEFAULT_SEO_DESCRIPTION,
     keywords: [...BRAND_SEARCH_TERMS, ...PRODUCT_SEARCH_TERMS],
-    alternates: {
-      canonical: "/",
-    },
     openGraph: {
       type: "website",
       locale: "ar_EG",
