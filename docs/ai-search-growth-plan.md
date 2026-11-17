@@ -61,9 +61,10 @@ payment, authentication, cart persistence, or inventory-decrement logic.
 ### Required before production rollout
 
 1. Review the focused diff and exclude unrelated pre-existing worktree changes.
-2. Reconcile the divergent local and remote Supabase migration histories before applying
-   the commerce-identifier migration. Do not repair or push migration history blindly.
-   The read-only evidence and version-by-version sequence are recorded in
+2. Completed on 2026-11-17: reconcile the divergent local and remote Supabase migration
+   histories. The nine already-deployed wholesale versions were marked `applied` in
+   migration history without executing their SQL. Only the commerce-identifier migration
+   remains pending. Evidence is recorded in
    `docs/supabase-migration-reconciliation-audit-2026-11-17.md`.
 3. The application package can be deployed before the database migration without breaking
    ordinary product creation or editing: the API retries legacy writes when the optional

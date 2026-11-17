@@ -77,10 +77,28 @@ Read-only production checks proved:
   `delete_cancelled_social_post`.
 - The expected variant-cart, customer-token, active-cart, and archive indexes exist.
 
-This is strong evidence that the wholesale SQL is already deployed outside the recorded
-migration history. The safe production action is a separately approved, version-by-version
-history repair to mark these nine versions as applied, followed immediately by another
-read-only migration list. Do not run their SQL.
+This is strong evidence that the wholesale SQL was already deployed outside the recorded
+migration history.
+
+### History repair completed
+
+With explicit owner approval on 2026-11-17, Supabase migration history was repaired to
+mark the nine wholesale versions above as `applied`. The repair command changed migration
+history only; it did not execute those migration statements.
+
+Immediate post-repair checks confirmed:
+
+- Local and remote history now match for all previously deployed versions.
+- `20261116190958_product_commerce_identifiers` is the only local-only migration.
+- Wholesale orders and wholesale customers remain at zero rows.
+- Wholesale product settings remain at 12 rows; these are product configuration records,
+  not sales, reports, customers, carts, or orders.
+- The five commerce-identifier columns remain absent, proving the pending migration was
+  not executed as part of history repair.
+- A post-repair `supabase db push --dry-run` listed exactly one migration:
+  `20261116190958_product_commerce_identifiers.sql`.
+- Supabase reported a completed physical backup from 2026-11-16 03:30:52 UTC, with seven
+  completed daily physical backups visible in the current retention window.
 
 ### Genuinely pending migration
 
@@ -94,14 +112,13 @@ clearly rather than silently discarding data.
 
 ## Required sequence before production rollout
 
-1. Review this audit and the archived files.
-2. In a dedicated database change window, repair only the nine wholesale history versions
-   listed above to `applied`; do not repair the commerce-identifier version.
-3. Confirm `supabase migration list --linked` shows no legacy local-only or remote-only
-   rows and shows only `20261116190958` as pending locally.
+1. Completed: review the audit and archive the superseded local-only files.
+2. Completed: repair only the nine wholesale history versions to `applied`.
+3. Completed: confirm only `20261116190958` remains pending locally.
 4. Take a fresh database backup or verified recovery point.
 5. Apply only `20261116190958_product_commerce_identifiers.sql`.
 6. Verify the five nullable columns, GTIN constraint, ordinary product editing, and a
    read-only purchase-flow smoke test before promoting the application build.
 
-No production database step in this sequence is authorized by this audit alone.
+The completed history repair does not authorize the remaining schema migration or
+application promotion.
