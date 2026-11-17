@@ -1,6 +1,6 @@
 # Cesar Store AI Search Growth Plan
 
-Last updated: 2026-11-16
+Last updated: 2026-11-17
 
 ## November 2026 implementation status
 
@@ -63,6 +63,8 @@ payment, authentication, cart persistence, or inventory-decrement logic.
 1. Review the focused diff and exclude unrelated pre-existing worktree changes.
 2. Reconcile the divergent local and remote Supabase migration histories before applying
    the commerce-identifier migration. Do not repair or push migration history blindly.
+   The read-only evidence and version-by-version sequence are recorded in
+   `docs/supabase-migration-reconciliation-audit-2026-11-17.md`.
 3. The application package can be deployed before the database migration without breaking
    ordinary product creation or editing: the API retries legacy writes when the optional
    columns are absent. Saving a non-empty commerce identifier intentionally returns `503`

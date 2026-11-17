@@ -18,15 +18,9 @@ create table public.social_publisher_settings (
   constraint social_publisher_settings_singleton check (id = 'default'),
   constraint social_publisher_settings_mode check (mode in ('draft', 'live')),
   constraint social_publisher_settings_min_stock check (min_stock >= 0),
-  constraint social_publisher_settings_cooldown check (
-    repeat_cooldown_days between 1 and 365
-  ),
-  constraint social_publisher_settings_daily_limit check (
-    daily_post_limit between 1 and 10
-  ),
-  constraint social_publisher_settings_posting_times check (
-    jsonb_typeof(posting_times) = 'array'
-  )
+  constraint social_publisher_settings_cooldown check (repeat_cooldown_days between 1 and 365),
+  constraint social_publisher_settings_daily_limit check (daily_post_limit between 1 and 10),
+  constraint social_publisher_settings_posting_times check (jsonb_typeof(posting_times) = 'array')
 );
 
 insert into public.social_publisher_settings (id)
@@ -57,19 +51,9 @@ create table public.social_post_queue (
   created_by text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint social_post_queue_platform check (
-    platform in ('facebook', 'instagram')
-  ),
+  constraint social_post_queue_platform check (platform in ('facebook', 'instagram')),
   constraint social_post_queue_status check (
-    status in (
-      'draft',
-      'queued',
-      'processing',
-      'published',
-      'failed',
-      'cancelled',
-      'skipped'
-    )
+    status in ('draft','queued','processing','published','failed','cancelled','skipped')
   ),
   constraint social_post_queue_attempt_count check (attempt_count >= 0),
   constraint social_post_queue_max_attempts check (max_attempts between 1 and 10),
@@ -157,4 +141,4 @@ comment on table public.social_publisher_settings is
 comment on table public.social_post_queue is
   'Server-only, idempotent Facebook and Instagram publication queue.';
 comment on table public.social_publication_events is
-  'Immutable operational audit history for social publishing.';
+  'Immutable operational audit history for social publishing.';;

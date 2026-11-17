@@ -1,59 +1,15 @@
-create extension if not exists pgcrypto;
-
-create sequence if not exists public.orders_order_number_seq;
-
 alter table if exists public.products
   add column if not exists variant_options_json jsonb not null default '[]'::jsonb,
   add column if not exists variants_json jsonb not null default '[]'::jsonb;
-
-alter table if exists public.orders
-  alter column id set default gen_random_uuid();
-
-alter table if exists public.orders
-  alter column order_number set default nextval('public.orders_order_number_seq'::regclass)::text;
-
-alter table if exists public.orders
-  add column if not exists status text not null default 'requested',
-  add column if not exists updated_at timestamptz not null default now(),
-  add column if not exists confirmed_at timestamptz,
-  add column if not exists closed_at timestamptz,
-  add column if not exists snapshot jsonb,
-  add column if not exists order_token text,
-  add column if not exists archived_at timestamptz;
-
-create index if not exists idx_orders_updated_at
-  on public.orders(updated_at);
-
-create index if not exists idx_orders_archived_at
-  on public.orders(archived_at);
-
-create index if not exists idx_orders_order_token
-  on public.orders(order_token);
-
-create unique index if not exists idx_orders_user_order_token
-  on public.orders(user_id, order_token)
-  where order_token is not null;
-
 alter table if exists public.cart_items
   add column if not exists variant_key text not null default '',
   add column if not exists variant_snapshot jsonb not null default '{}'::jsonb;
-
 alter table if exists public.order_items
-  add column if not exists image text,
   add column if not exists variant_snapshot jsonb not null default '{}'::jsonb;
-
-alter table if exists public.cart_items
-  drop constraint if exists cart_items_unique_product_per_cart;
-
 drop index if exists public.idx_cart_items_one_product_per_cart;
-drop index if exists public.cart_items_unique_product_per_cart;
-drop index if exists public.uniq_cart_product;
-
 create unique index if not exists idx_cart_items_one_product_variant_per_cart
   on public.cart_items(cart_id, product_id, variant_key);
-
 drop function if exists public.create_order_atomic(uuid, jsonb, jsonb, text, text);
-
 create or replace function public.create_order_atomic(
   p_user_id uuid,
   p_items jsonb,
@@ -87,8 +43,6 @@ declare
   v_variant_snapshot jsonb;
   v_variant_record jsonb;
   v_variants_next jsonb;
-  v_variant_stock integer;
-  v_variant_uses_shared_stock boolean;
   v_product_record record;
   v_order_item_name text;
   v_active_cart_ids uuid[] := '{}'::uuid[];
@@ -156,8 +110,6 @@ begin
     v_variant_snapshot := coalesce(v_item->'variant', v_item->'variant_snapshot', '{}'::jsonb);
     v_variant_record := null;
     v_variants_next := null;
-    v_variant_stock := null;
-    v_variant_uses_shared_stock := false;
 
     if v_product_id is null or v_quantity <= 0 then
       raise exception 'Invalid order item payload';
@@ -188,34 +140,21 @@ begin
         and coalesce((variant->>'active')::boolean, true) = true
       limit 1;
 
-      if v_variant_record is null then
-        raise exception 'Insufficient stock for product %', v_product_id;
-      end if;
-
-      v_variant_stock := coalesce((v_variant_record->>'stock')::integer, 0);
-      v_variant_uses_shared_stock := v_variant_stock <= 0;
-
-      if (
-        case
-          when v_variant_uses_shared_stock then coalesce(v_product_record.stock, 0)
-          else v_variant_stock
-        end
-      ) < v_quantity then
+      if v_variant_record is null
+        or coalesce((v_variant_record->>'stock')::integer, v_product_record.stock) < v_quantity
+      then
         raise exception 'Insufficient stock for product %', v_product_id;
       end if;
 
       select jsonb_agg(
         case
           when coalesce(variant->>'key', variant->>'id', '') = v_variant_key then
-            case
-              when v_variant_uses_shared_stock then variant
-              else jsonb_set(
-                variant,
-                '{stock}',
-                to_jsonb(greatest(v_variant_stock - v_quantity, 0)),
-                true
-              )
-            end
+            jsonb_set(
+              variant,
+              '{stock}',
+              to_jsonb(greatest(coalesce((variant->>'stock')::integer, v_product_record.stock) - v_quantity, 0)),
+              true
+            )
           else variant
         end
       )
@@ -370,6 +309,5 @@ exception
     raise;
 end;
 $$;
-
 grant execute on function public.create_order_atomic(uuid, jsonb, jsonb, text, text) to authenticated;
 grant execute on function public.create_order_atomic(uuid, jsonb, jsonb, text, text) to service_role;
