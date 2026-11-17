@@ -63,27 +63,26 @@ payment, authentication, cart persistence, or inventory-decrement logic.
 1. Review the focused diff and exclude unrelated pre-existing worktree changes.
 2. Completed on 2026-11-17: reconcile the divergent local and remote Supabase migration
    histories. The nine already-deployed wholesale versions were marked `applied` in
-   migration history without executing their SQL. Only the commerce-identifier migration
-   remains pending. Evidence is recorded in
+   migration history without executing their SQL. Evidence is recorded in
    `docs/supabase-migration-reconciliation-audit-2026-11-17.md`.
-3. The application package can be deployed before the database migration without breaking
-   ordinary product creation or editing: the API retries legacy writes when the optional
-   columns are absent. Saving a non-empty commerce identifier intentionally returns `503`
-   until the reviewed migration exists, so identifier data is never discarded silently.
+3. Completed on 2026-11-17: apply the single reviewed commerce-identifier migration and
+   verify its five nullable columns, validated GTIN constraint, aligned migration history,
+   catalog surfaces, and purchase flow through the login boundary. No identifier values or
+   orders were created. The API retains its legacy-write fallback as a compatibility guard.
 4. Repeat the public shop, product, cart, login redirect, sitemap, robots, feed, and JSON
    catalog smoke tests against the production deployment.
 5. Confirm Google Merchant Center diagnostics after its next feed fetch, then request
    indexing only for changed public pages.
 
-Migration audit note: the production `products` table does not yet contain the five new
-identifier columns. Three older local migrations are byte-equivalent (apart from the final
-newline) to remote migrations recorded under different timestamps, while other local and
-remote entries require object-by-object verification. This explains the CLI divergence and
-is not evidence that bulk `migration repair` is safe.
+Migration audit note: local and remote migration history now match. The nine wholesale
+versions were reconciled as history-only records after object-level verification, and the
+single commerce-identifier migration was then applied separately. The production
+`products` table now contains the five nullable identifier columns, with all values still
+empty pending verified supplier data.
 
 ### Next safe work packages
 
-- Reconcile migration history in a separately reviewed database change window.
+- Keep migration history aligned and review every future schema change separately.
 - Populate verified manufacturer identifiers from supplier data; never manufacture GTIN,
   MPN, brand, or model values.
 - Review image dimensions and storage usage before enabling a paid image-optimization

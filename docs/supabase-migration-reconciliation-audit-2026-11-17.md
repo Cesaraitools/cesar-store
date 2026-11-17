@@ -6,9 +6,11 @@ Project: `bdmumdbykzbozgkxtsmk`
 
 ## Safety boundary
 
-This audit used read-only migration listing and SQL inspection. It did not run
-`supabase db push`, `supabase migration repair`, DDL, DML, or the new commerce-identifier
-migration against production.
+The initial audit used read-only migration listing and SQL inspection. Subsequent actions
+were performed only after separate, explicit owner approvals: first the migration-history
+repair, then the single commerce-identifier migration. No wholesale migration SQL was
+replayed, no product identifier values were populated, and no retail or wholesale order
+was created during verification.
 
 ## Findings
 
@@ -100,25 +102,42 @@ Immediate post-repair checks confirmed:
 - Supabase reported a completed physical backup from 2026-11-16 03:30:52 UTC, with seven
   completed daily physical backups visible in the current retention window.
 
-### Genuinely pending migration
+### Commerce-identifier migration completed
 
-`20261116190958_product_commerce_identifiers.sql` is the only intentional new schema
-change. Production does not yet have `brand`, `manufacturer`, `mpn`, `gtin`, or `model`
-on `public.products`.
+With separate explicit owner approval on 2026-11-17,
+`20261116190958_product_commerce_identifiers.sql` was applied as the only pending
+migration. Post-apply verification confirmed:
 
-The application remains backward compatible before this migration: ordinary product
-create/edit operations retry the legacy column set, while non-empty identifier writes fail
-clearly rather than silently discarding data.
+- Local and remote migration history match, and a new `supabase db push --dry-run`
+  reports that the remote database is up to date.
+- `brand`, `manufacturer`, `mpn`, `gtin`, and `model` exist on `public.products` as
+  nullable text columns with the expected comments.
+- `products_gtin_format_check` exists and is validated for 8, 12, 13, or 14 digits.
+- All five new columns contain zero populated values. The migration added schema only;
+  it did not manufacture, infer, or overwrite product identifiers.
+- The product table still contains 314 rows, including 262 active rows, with aggregate
+  stock of 42,804 after the migration.
+- The expanded read-only SEO/AIO verifier passed for 21 public routes, 8 protected routes,
+  282 sitemap URLs, 261 catalog products, 362 Merchant feed rows, product structured data,
+  and 24 optimized shop images.
+- A post-migration browser smoke test added one regular product and one selected variant
+  (`العطر: جوزهند`) to the local cart. Prices, stock, variant label, and the
+  EGP 1,545 total were correct. Checkout redirected to
+  `/auth/login?redirect=/checkout`; no login or order creation was attempted. The browser
+  reported zero console errors.
+
+The application retains its legacy-column retry as a compatibility safeguard, although
+the production database now supports the identifier fields directly.
 
 ## Required sequence before production rollout
 
 1. Completed: review the audit and archive the superseded local-only files.
 2. Completed: repair only the nine wholesale history versions to `applied`.
-3. Completed: confirm only `20261116190958` remains pending locally.
-4. Take a fresh database backup or verified recovery point.
-5. Apply only `20261116190958_product_commerce_identifiers.sql`.
-6. Verify the five nullable columns, GTIN constraint, ordinary product editing, and a
-   read-only purchase-flow smoke test before promoting the application build.
+3. Completed: confirm only `20261116190958` remained pending locally.
+4. Completed: verify the latest physical recovery point before the schema change.
+5. Completed: apply only `20261116190958_product_commerce_identifiers.sql`.
+6. Completed: verify the five nullable columns, validated GTIN constraint, read-only
+   catalog surfaces, and the purchase flow through the unauthenticated login boundary.
 
-The completed history repair does not authorize the remaining schema migration or
-application promotion.
+Database readiness is complete. Application promotion remains a separate action and is
+not authorized by the database approvals recorded here.
