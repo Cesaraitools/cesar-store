@@ -10,6 +10,7 @@ import {
   prioritizeMetaPostProducts,
   resolveMetaSuggestionCategory,
   selectMetaPrivateSuggestionProducts,
+  shouldUseMetaDeterministicProductReply,
 } from "../lib/server/meta-customer-intelligence";
 import {
   buildMetaPostIdCandidates,
@@ -46,6 +47,50 @@ assert.equal(detectMetaSuggestionConsent("نعم"), "accept");
 assert.equal(detectMetaSuggestionConsent("أيوة"), "accept");
 assert.equal(detectMetaSuggestionConsent("لا شكرًا"), "decline");
 assert.equal(detectMetaSuggestionConsent("عايز منظفات"), "none");
+assert.equal(
+  shouldUseMetaDeterministicProductReply({
+    aiUsed: false,
+    autoReply: "answer",
+    handoffReason: null,
+    productsCount: 4,
+    postProductsCount: 1,
+  }),
+  true,
+  "An AI formatting failure must not block an exact grounded product answer"
+);
+assert.equal(
+  shouldUseMetaDeterministicProductReply({
+    aiUsed: false,
+    autoReply: "clarify",
+    handoffReason: null,
+    productsCount: 4,
+    postProductsCount: 1,
+  }),
+  false,
+  "Clarification cases must not be converted into deterministic product answers"
+);
+assert.equal(
+  shouldUseMetaDeterministicProductReply({
+    aiUsed: false,
+    autoReply: "answer",
+    handoffReason: "human_sensitive_request",
+    productsCount: 4,
+    postProductsCount: 1,
+  }),
+  false,
+  "Human handoffs must remain blocked from automatic replies"
+);
+assert.equal(
+  shouldUseMetaDeterministicProductReply({
+    aiUsed: false,
+    autoReply: "answer",
+    handoffReason: null,
+    productsCount: 4,
+    postProductsCount: 0,
+  }),
+  false,
+  "Unmapped posts must not use deterministic product replies"
+);
 
 const suggestionCategories = [
   { category: "air-fresheners", labelAr: "معطرات السيارات", labelEn: "car air fresheners" },

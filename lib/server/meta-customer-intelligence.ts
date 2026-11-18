@@ -8,6 +8,22 @@ export type MetaAttachmentKind = "image" | "video" | "file" | "audio" | "unknown
 export type MetaReactionTone = "positive" | "negative" | "mixed" | "none";
 export type MetaSuggestionConsentDecision = "accept" | "decline" | "none";
 
+export function shouldUseMetaDeterministicProductReply(input: {
+  aiUsed: boolean;
+  autoReply: string;
+  handoffReason?: string | null;
+  productsCount: number;
+  postProductsCount: number;
+}) {
+  return (
+    !input.aiUsed &&
+    input.autoReply === "answer" &&
+    !input.handoffReason &&
+    input.productsCount > 0 &&
+    input.postProductsCount > 0
+  );
+}
+
 type PublicReplyProduct = {
   id: string;
   name: string;

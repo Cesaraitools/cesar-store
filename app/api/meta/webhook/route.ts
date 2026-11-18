@@ -22,6 +22,7 @@ import {
   prioritizeMetaPostProducts,
   resolveMetaSuggestionCategory,
   selectMetaPrivateSuggestionProducts,
+  shouldUseMetaDeterministicProductReply,
   type MetaAttachmentKind,
 } from "@/lib/server/meta-customer-intelligence";
 import { resolveMetaPostProducts } from "@/lib/server/meta-post-products";
@@ -2345,7 +2346,16 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     aiReason: result.meta.ai.reason,
   });
 
-  if (!result.meta.ai.used) {
+  const deterministicProductReplyAllowed =
+    shouldUseMetaDeterministicProductReply({
+      aiUsed: result.meta.ai.used,
+      autoReply: result.meta.autoReply,
+      handoffReason: result.meta.handoffReason,
+      productsCount: result.products.length,
+      postProductsCount: postProductResolution.productIds.length,
+    });
+
+  if (!result.meta.ai.used && !deterministicProductReplyAllowed) {
     await recordCommentHandoff({
       reason: result.meta.ai.reason || "ai_required_no_reply_sent",
       commentId: normalized.commentId,
@@ -2365,6 +2375,16 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
       aiUsed: false,
       aiReason: result.meta.ai.reason,
     };
+  }
+
+  if (deterministicProductReplyAllowed) {
+    console.warn("META COMMENT USING DETERMINISTIC PRODUCT FALLBACK:", {
+      commentId: normalized.commentId,
+      postId: normalized.postId,
+      aiReason: result.meta.ai.reason,
+      productsCount: result.products.length,
+      bestScore: result.meta.bestScore,
+    });
   }
 
   if (!normalized.pageLane.commentsAutoReplyEnabled) {

@@ -80,6 +80,11 @@ AI automation:
   deterministic catalog search.
 - The AI agent only sees products returned from the store catalog search. It is
   instructed not to invent products, prices, stock, variants, links, or policies.
+- AI text generation is not a single point of failure for grounded product
+  comments. When the published post has an exact product mapping and the
+  deterministic catalog decision is `answer`, an invalid or unavailable AI
+  response falls back to the same verified public product reply. Clarification,
+  sensitive, unmapped, and unavailable-product cases remain human handoffs.
 - AI treats deterministic scores and handoff hints as context, not as a final
   blocker. It can answer or clarify while still being restricted to catalog
   products and links. Sensitive order/account cases remain human handoffs.
