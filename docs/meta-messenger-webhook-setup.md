@@ -90,8 +90,19 @@ AI automation:
   path.
 - Product and price comments receive one public reply containing the current
   catalog name, price, availability, useful details, and product URL. The comment
-  flow never sends a private Messenger reply and never writes `تم الرد على الخاص`
-  or an equivalent acknowledgement.
+  flow never writes `تم الرد على الخاص` or an equivalent acknowledgement.
+- After a grounded public product reply, the comment flow may send one private
+  Messenger reply when Meta reports `can_reply_privately=true`. The private reply
+  contains up to three available products from the same category that were not
+  shown in the public reply. It is deduplicated per comment and is skipped when
+  Messenger auto-replies, Redis state, the customer identity, or Meta private
+  reply eligibility is unavailable.
+- The private reply asks whether the customer wants recommendations from other
+  categories. No cross-category products are sent until the customer explicitly
+  answers yes. Consent and the selected category are stored temporarily in Redis;
+  the customer can decline at any time. After consent, the customer chooses a
+  category by number or name and receives up to three current, available products
+  from that category without repeating already shown products.
 - Products recorded against the published Facebook `external_post_id` and
   `product_ids` are authoritative and appear first in their recorded order.
   Product URLs embedded in the post are the exact fallback for manually created
@@ -213,8 +224,10 @@ Acceptance criteria:
   photo's context.
 - The public reply contains the post product(s) first with their current prices;
   any recommendations follow and remain in the same category.
-- No comment event sends a private Messenger reply or a public private-contact
-  acknowledgement. Inbound Messenger behavior remains independently controlled.
+- No public reply contains a private-contact acknowledgement. A comment can open
+  only one deduplicated private suggestion reply when Meta allows it; products
+  from other categories require an explicit customer reply first. Ordinary
+  inbound Messenger behavior remains independently controlled.
 - No unrelated Page feed event is treated as a customer comment.
 - Existing normal-post and Messenger replies continue to work without behavior
   changes.

@@ -1,9 +1,15 @@
 import assert from "node:assert/strict";
 import {
+  buildMetaPrivateSuggestionIntro,
   buildMetaPublicProductFallback,
+  buildMetaSuggestionCategoryMenu,
+  buildMetaSuggestionCategoryProducts,
+  detectMetaSuggestionConsent,
   detectMetaReactionTone,
   isMetaPriceQuestion,
   prioritizeMetaPostProducts,
+  resolveMetaSuggestionCategory,
+  selectMetaPrivateSuggestionProducts,
 } from "../lib/server/meta-customer-intelligence";
 import {
   buildMetaPostIdCandidates,
@@ -36,6 +42,28 @@ assert.equal(detectMetaReactionTone("❤️🔥"), "positive");
 assert.equal(detectMetaReactionTone("😡👎"), "negative");
 assert.equal(detectMetaReactionTone("❤️😡"), "mixed");
 assert.equal(detectMetaReactionTone("بكام؟"), "none");
+assert.equal(detectMetaSuggestionConsent("نعم"), "accept");
+assert.equal(detectMetaSuggestionConsent("أيوة"), "accept");
+assert.equal(detectMetaSuggestionConsent("لا شكرًا"), "decline");
+assert.equal(detectMetaSuggestionConsent("عايز منظفات"), "none");
+
+const suggestionCategories = [
+  { category: "air-fresheners", labelAr: "معطرات السيارات", labelEn: "car air fresheners" },
+  { category: "detergent", labelAr: "منظفات السيارات", labelEn: "car cleaning products" },
+  { category: "cars-accessories", labelAr: "إكسسوارات السيارات", labelEn: "car accessories" },
+];
+assert.equal(
+  resolveMetaSuggestionCategory("٢", suggestionCategories)?.category,
+  "detergent"
+);
+assert.equal(
+  resolveMetaSuggestionCategory("منظفات", suggestionCategories)?.category,
+  "detergent"
+);
+assert.match(
+  buildMetaSuggestionCategoryMenu(suggestionCategories.slice(0, 3)),
+  /1- معطرات السيارات/u
+);
 
 const primaryId = "11111111-1111-4111-8111-111111111111";
 const secondPrimaryId = "22222222-2222-4222-8222-222222222222";
@@ -156,6 +184,59 @@ assert.equal(
   false,
   "Related suggestions must be dropped before any primary post product"
 );
+
+const privateSuggestionProducts = Array.from({ length: 3 }, (_, index) => ({
+  id: `private-${index + 1}`,
+  name: `ترشيح خاص ${index + 1}`,
+  nameAr: `ترشيح خاص ${index + 1}`,
+  nameEn: `Private suggestion ${index + 1}`,
+  description: "",
+  price: 250 + index,
+  currency: "EGP" as const,
+  category: "detergent",
+  productUrl: `https://www.cesareshop.com/product/private-${index + 1}`,
+  imageUrl: "",
+  images: [],
+  isAvailable: true,
+  stockStatus: "in_stock" as const,
+  stock: 10,
+  lowStockThreshold: 2,
+  variantSummary: "",
+}));
+assert.deepEqual(
+  selectMetaPrivateSuggestionProducts(
+    [
+      ...privateSuggestionProducts,
+      { ...privateSuggestionProducts[0], id: "wrong-category", category: "equipment" },
+      { ...privateSuggestionProducts[0], id: "unavailable", isAvailable: false },
+    ],
+    "detergent",
+    [privateSuggestionProducts[0].id]
+  ).map((product) => product.id),
+  [privateSuggestionProducts[1].id, privateSuggestionProducts[2].id],
+  "Private suggestions must exclude shown, unavailable, and different-category products"
+);
+const privateIntro = buildMetaPrivateSuggestionIntro(privateSuggestionProducts);
+assert.match(privateIntro, /يسعدنا ويشرفنا تواصل حضرتك معنا/u);
+assert.match(privateIntro, /هل ترغب في مشاهدة ترشيحات من أقسام أخرى/u);
+privateSuggestionProducts.forEach((product) => {
+  assert.match(privateIntro, new RegExp(product.name, "u"));
+  const latinDigitReply = privateIntro.replace(/[٠-٩]/g, (digit) =>
+    String("٠١٢٣٤٥٦٧٨٩".indexOf(digit))
+  );
+  assert.match(latinDigitReply, new RegExp(String(product.price), "u"));
+});
+assert.ok(privateIntro.length <= 1850);
+
+const detergentCategory = suggestionCategories.find(
+  (category) => category.category === "detergent"
+)!;
+const categoryReply = buildMetaSuggestionCategoryProducts(
+  detergentCategory,
+  privateSuggestionProducts
+);
+assert.match(categoryReply, /ترشيحات متاحة من قسم منظفات السيارات/u);
+assert.match(categoryReply, /يمكنك اختيار قسم آخر/u);
 
 assert.deepEqual(
   buildMetaPostIdCandidates("page-1", "post-1"),

@@ -6,12 +6,22 @@ import {
 } from "@/lib/customer-query-lexicon";
 import { answerAutomationQuestion } from "@/lib/server/automation-agent";
 import {
+  listAutomationCategoryOptions,
+  type AutomationProduct,
+} from "@/lib/server/automation-products";
+import {
   buildMetaAttachmentMessage,
+  buildMetaPrivateSuggestionIntro,
   buildMetaPublicProductFallback,
   buildMetaReactionFallback,
+  buildMetaSuggestionCategoryMenu,
+  buildMetaSuggestionCategoryProducts,
+  detectMetaSuggestionConsent,
   detectMetaReactionTone,
   isMetaPriceQuestion,
   prioritizeMetaPostProducts,
+  resolveMetaSuggestionCategory,
+  selectMetaPrivateSuggestionProducts,
   type MetaAttachmentKind,
 } from "@/lib/server/meta-customer-intelligence";
 import { resolveMetaPostProducts } from "@/lib/server/meta-post-products";
@@ -46,6 +56,16 @@ type MetaPageLane = {
   messengerAutoReplyEnabled: boolean;
   commentsAutoReplyEnabled: boolean;
   allowedCommentPostIds: string[];
+};
+
+type MetaSuggestionState = {
+  version: 1;
+  phase: "awaiting_consent" | "awaiting_category";
+  pageId: string;
+  sourceCommentId: string;
+  sourceCategory: string;
+  excludedProductIds: string[];
+  createdAt: string;
 };
 
 function textResponse(body: string, init?: ResponseInit) {
@@ -414,6 +434,90 @@ async function checkCommentRateLimit(postId: string, pageId: string) {
   }
 }
 
+function metaSuggestionStateKey(pageId: string, recipientId: string) {
+  return `meta:messenger:suggestions:${pageId}:${recipientId}`;
+}
+
+async function getMetaSuggestionState(pageId: string, recipientId: string) {
+  try {
+    const redis = getRedis();
+    const value = await redis.get<unknown>(
+      metaSuggestionStateKey(pageId, recipientId)
+    );
+    if (!value) return null;
+
+    const parsed = (
+      typeof value === "string" ? JSON.parse(value) : value
+    ) as Partial<MetaSuggestionState>;
+    if (
+      parsed.version !== 1 ||
+      !parsed.sourceCommentId ||
+      !parsed.sourceCategory ||
+      !Array.isArray(parsed.excludedProductIds) ||
+      !["awaiting_consent", "awaiting_category"].includes(String(parsed.phase))
+    ) {
+      return null;
+    }
+
+    return parsed as MetaSuggestionState;
+  } catch (error) {
+    console.warn("META SUGGESTION STATE READ FAILED:", error);
+    return null;
+  }
+}
+
+async function setMetaSuggestionState(
+  recipientId: string,
+  state: MetaSuggestionState,
+  ttlSeconds: number
+) {
+  try {
+    const redis = getRedis();
+    await redis.set(
+      metaSuggestionStateKey(state.pageId, recipientId),
+      JSON.stringify(state),
+      { ex: ttlSeconds }
+    );
+    return true;
+  } catch (error) {
+    console.warn("META SUGGESTION STATE WRITE FAILED:", error);
+    return false;
+  }
+}
+
+async function deleteMetaSuggestionState(pageId: string, recipientId: string) {
+  try {
+    const redis = getRedis();
+    await redis.del(metaSuggestionStateKey(pageId, recipientId));
+  } catch (error) {
+    console.warn("META SUGGESTION STATE DELETE FAILED:", error);
+  }
+}
+
+async function reservePrivateSuggestion(commentId: string) {
+  try {
+    const redis = getRedis();
+    const result = await redis.set(
+      `meta:comment:private-suggestion:${commentId}`,
+      "1",
+      { nx: true, ex: 7 * 24 * 60 * 60 }
+    );
+    return result !== null;
+  } catch (error) {
+    console.warn("META PRIVATE SUGGESTION DEDUPE FAILED-CLOSED:", error);
+    return false;
+  }
+}
+
+async function releasePrivateSuggestion(commentId: string) {
+  try {
+    const redis = getRedis();
+    await redis.del(`meta:comment:private-suggestion:${commentId}`);
+  } catch (error) {
+    console.warn("META PRIVATE SUGGESTION RELEASE FAILED:", error);
+  }
+}
+
 function isCommentPostAllowed(postId: string, pageLane: MetaPageLane) {
   return (
     !pageLane.allowedCommentPostIds.length ||
@@ -458,6 +562,147 @@ async function sendFacebookMessage(
   }
 
   return { ok: true, status: response.status };
+}
+
+async function canReplyPrivatelyToComment(
+  pageLane: MetaPageLane,
+  commentId: string
+) {
+  if (!pageLane.pageAccessToken) return false;
+
+  const url = new URL(
+    `https://graph.facebook.com/${getGraphApiVersion()}/${commentId}`
+  );
+  url.searchParams.set("fields", "can_reply_privately");
+
+  try {
+    const response = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${pageLane.pageAccessToken}` },
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      console.warn("META PRIVATE SUGGESTION ELIGIBILITY FAILED:", {
+        commentId,
+        status: response.status,
+      });
+      return false;
+    }
+
+    const data = (await response.json()) as { can_reply_privately?: boolean };
+    return data.can_reply_privately === true;
+  } catch (error) {
+    console.warn("META PRIVATE SUGGESTION ELIGIBILITY ERROR:", error);
+    return false;
+  }
+}
+
+async function sendFacebookCommentPrivateReply(
+  pageLane: MetaPageLane,
+  commentId: string,
+  text: string
+) {
+  if (!pageLane.pageAccessToken) {
+    return { ok: false, skipped: true, status: 503, recipientId: "" };
+  }
+
+  const response = await fetch(
+    `https://graph.facebook.com/${getGraphApiVersion()}/${pageLane.pageId}/messages`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${pageLane.pageAccessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        recipient: { comment_id: commentId },
+        messaging_type: "RESPONSE",
+        message: { text: text.slice(0, 1900) },
+      }),
+    }
+  );
+
+  const responseText = await response.text();
+  if (!response.ok) {
+    throw new Error(
+      `Meta comment private reply failed ${response.status}: ${responseText.slice(0, 500)}`
+    );
+  }
+
+  let recipientId = "";
+  try {
+    const parsed = JSON.parse(responseText) as { recipient_id?: unknown };
+    recipientId =
+      typeof parsed.recipient_id === "string" ? parsed.recipient_id : "";
+  } catch {
+    recipientId = "";
+  }
+
+  return { ok: true, status: response.status, recipientId };
+}
+
+async function sendInitialPrivateSuggestions(input: {
+  pageLane: MetaPageLane;
+  commentId: string;
+  recipientId: string;
+  sourceCategory: string;
+  excludedProductIds: string[];
+  products: AutomationProduct[];
+}) {
+  if (!input.pageLane.messengerAutoReplyEnabled) {
+    return { sent: false, reason: "messenger_auto_reply_disabled" };
+  }
+  if (!input.recipientId || !input.sourceCategory) {
+    return { sent: false, reason: "private_suggestion_identity_missing" };
+  }
+  if (!(await canReplyPrivatelyToComment(input.pageLane, input.commentId))) {
+    return { sent: false, reason: "private_reply_not_available" };
+  }
+  if (!(await reservePrivateSuggestion(input.commentId))) {
+    return { sent: false, reason: "private_suggestion_already_reserved" };
+  }
+
+  const state: MetaSuggestionState = {
+    version: 1,
+    phase: "awaiting_consent",
+    pageId: input.pageLane.pageId,
+    sourceCommentId: input.commentId,
+    sourceCategory: input.sourceCategory,
+    excludedProductIds: Array.from(new Set(input.excludedProductIds)),
+    createdAt: new Date().toISOString(),
+  };
+  if (!(await setMetaSuggestionState(input.recipientId, state, 7 * 24 * 60 * 60))) {
+    await releasePrivateSuggestion(input.commentId);
+    return { sent: false, reason: "private_suggestion_state_unavailable" };
+  }
+
+  try {
+    const response = await sendFacebookCommentPrivateReply(
+      input.pageLane,
+      input.commentId,
+      buildMetaPrivateSuggestionIntro(input.products)
+    );
+
+    if (response.recipientId && response.recipientId !== input.recipientId) {
+      const recipientStateStored = await setMetaSuggestionState(
+        response.recipientId,
+        state,
+        7 * 24 * 60 * 60
+      );
+      if (recipientStateStored) {
+        await deleteMetaSuggestionState(input.pageLane.pageId, input.recipientId);
+      }
+    }
+
+    return { sent: true, reason: "private_suggestions_sent" };
+  } catch (error) {
+    await deleteMetaSuggestionState(input.pageLane.pageId, input.recipientId);
+    await releasePrivateSuggestion(input.commentId);
+    console.error("META PRIVATE SUGGESTION SEND FAILED:", {
+      commentId: input.commentId,
+      error: formatErrorForLog(error),
+    });
+    return { sent: false, reason: "private_suggestion_send_failed" };
+  }
 }
 
 async function sendFacebookCommentReply(
@@ -1506,6 +1751,114 @@ async function buildFacebookCommentReply(
   }
 }
 
+async function handleMetaSuggestionConversation(input: {
+  pageLane: MetaPageLane;
+  senderId: string;
+  messageText: string;
+  request: Request;
+}) {
+  const state = await getMetaSuggestionState(
+    input.pageLane.pageId,
+    input.senderId
+  );
+  if (!state) return null;
+
+  const consent = detectMetaSuggestionConsent(input.messageText);
+  if (consent === "decline") {
+    await deleteMetaSuggestionState(input.pageLane.pageId, input.senderId);
+    await sendFacebookMessage(
+      input.pageLane,
+      input.senderId,
+      "شكرًا لحضرتك. يسعدنا مساعدتك في أي وقت."
+    );
+    return {
+      processed: true,
+      reason: "suggestion_flow_declined",
+      productsCount: 0,
+    };
+  }
+
+  const categories = listAutomationCategoryOptions().filter(
+    (category) => category.category !== state.sourceCategory
+  );
+  if (state.phase === "awaiting_consent") {
+    if (consent !== "accept") return null;
+
+    const nextState: MetaSuggestionState = {
+      ...state,
+      phase: "awaiting_category",
+    };
+    if (!(await setMetaSuggestionState(input.senderId, nextState, 24 * 60 * 60))) {
+      return null;
+    }
+
+    await sendFacebookMessage(
+      input.pageLane,
+      input.senderId,
+      buildMetaSuggestionCategoryMenu(categories)
+    );
+    return {
+      processed: true,
+      reason: "suggestion_category_menu_sent",
+      productsCount: 0,
+    };
+  }
+
+  const category = resolveMetaSuggestionCategory(input.messageText, categories);
+  if (!category) {
+    if (consent === "accept") {
+      await sendFacebookMessage(
+        input.pageLane,
+        input.senderId,
+        buildMetaSuggestionCategoryMenu(categories)
+      );
+      return {
+        processed: true,
+        reason: "suggestion_category_menu_repeated",
+        productsCount: 0,
+      };
+    }
+    return null;
+  }
+
+  const result = await answerAutomationQuestion({
+    query: category.labelAr,
+    requestedLanguage: "ar",
+    limit: 10,
+    baseUrl: getBaseUrl(input.request),
+    skipAi: true,
+  });
+  const products = selectMetaPrivateSuggestionProducts(
+    result.products,
+    category.category,
+    state.excludedProductIds
+  );
+
+  await sendFacebookMessage(
+    input.pageLane,
+    input.senderId,
+    buildMetaSuggestionCategoryProducts(category, products)
+  );
+  await setMetaSuggestionState(
+    input.senderId,
+    {
+      ...state,
+      phase: "awaiting_category",
+      excludedProductIds: Array.from(
+        new Set([...state.excludedProductIds, ...products.map((product) => product.id)])
+      ),
+    },
+    24 * 60 * 60
+  );
+
+  return {
+    processed: true,
+    reason: "suggestion_category_products_sent",
+    category: category.category,
+    productsCount: products.length,
+  };
+}
+
 async function processEvent(event: MetaMessagingEvent, request: Request) {
   const normalized = normalizeEvent(event);
 
@@ -1530,6 +1883,14 @@ async function processEvent(event: MetaMessagingEvent, request: Request) {
   if (!rate.ok) {
     return { processed: false, reason: "rate_limited" };
   }
+
+  const suggestionFlowResult = await handleMetaSuggestionConversation({
+    pageLane: normalized.pageLane,
+    senderId: normalized.senderId,
+    messageText: normalized.messageText,
+    request,
+  });
+  if (suggestionFlowResult) return suggestionFlowResult;
 
   const result = await answerAutomationQuestion({
     query: normalized.messageText,
@@ -1886,9 +2247,12 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
       : postProductResolution.productIds.length === 3
         ? 1
         : 0;
+  const privateSuggestionLimit = 3;
   const automationProductLimit = Math.min(
     Math.max(
-      postProductResolution.productIds.length + relatedProductLimit,
+      postProductResolution.productIds.length +
+        relatedProductLimit +
+        privateSuggestionLimit,
       3
     ),
     10
@@ -2175,6 +2539,30 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     publicReply
   );
 
+  const publicProductIds = new Set(
+    publicReplyProducts.map((product) => product.id)
+  );
+  const privateSuggestionProducts = selectMetaPrivateSuggestionProducts(
+    result.products,
+    publicReplyCategory,
+    publicProductIds,
+    privateSuggestionLimit
+  );
+  const privateSuggestionResult =
+    result.meta.autoReply === "answer"
+      ? await sendInitialPrivateSuggestions({
+          pageLane: normalized.pageLane,
+          commentId: normalized.commentId,
+          recipientId: normalized.actorId,
+          sourceCategory: publicReplyCategory,
+          excludedProductIds: [
+            ...publicReplyProducts.map((product) => product.id),
+            ...privateSuggestionProducts.map((product) => product.id),
+          ],
+          products: privateSuggestionProducts,
+        })
+      : { sent: false, reason: "clarification_has_no_private_suggestions" };
+
   return {
     processed: true,
     reason:
@@ -2185,6 +2573,9 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     postProductsCount: resolvedPrimaryProductCount,
     relatedProductsCount:
       publicReplyProducts.length - resolvedPrimaryProductCount,
+    privateSuggestionsSent: privateSuggestionResult.sent,
+    privateSuggestionsReason: privateSuggestionResult.reason,
+    privateSuggestionsCount: privateSuggestionProducts.length,
     bestScore: result.meta.bestScore,
     postContextUsed,
     postProductSource: postProductResolution.source,

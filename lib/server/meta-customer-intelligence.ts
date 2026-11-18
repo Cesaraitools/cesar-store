@@ -1,7 +1,12 @@
 import { CUSTOMER_QUERY_LEXICON } from "../customer-query-lexicon";
+import type {
+  AutomationCategoryOption,
+  AutomationProduct,
+} from "./automation-products";
 
 export type MetaAttachmentKind = "image" | "video" | "file" | "audio" | "unknown";
 export type MetaReactionTone = "positive" | "negative" | "mixed" | "none";
+export type MetaSuggestionConsentDecision = "accept" | "decline" | "none";
 
 type PublicReplyProduct = {
   id: string;
@@ -219,6 +224,183 @@ export function prioritizeMetaPostProducts<
     ...primaryProducts,
     ...relatedProducts.slice(0, Math.max(relatedLimit, 0)),
   ];
+}
+
+function normalizeMetaReplyChoice(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\u064b-\u065f\u0670]/g, "")
+    .replace(/[\u0625\u0623\u0622\u0627]/g, "ا")
+    .replace(/\u0649/g, "ي")
+    .replace(/\u0629/g, "ه")
+    .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
+    .replace(/[^\p{L}\p{N}\s-]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function detectMetaSuggestionConsent(
+  value: string
+): MetaSuggestionConsentDecision {
+  const normalized = normalizeMetaReplyChoice(value);
+  if (!normalized) return "none";
+
+  const accept = new Set([
+    "نعم",
+    "ايوه",
+    "اه",
+    "تمام",
+    "موافق",
+    "اعرض",
+    "اعرض الاقسام",
+    "عايز اشوف",
+    "yes",
+    "ok",
+    "okay",
+  ]);
+  const decline = new Set([
+    "لا",
+    "لا شكرا",
+    "مش دلوقتي",
+    "مش عايز",
+    "no",
+    "no thanks",
+  ]);
+
+  if (accept.has(normalized)) return "accept";
+  if (decline.has(normalized)) return "decline";
+  return "none";
+}
+
+export function resolveMetaSuggestionCategory(
+  value: string,
+  categories: AutomationCategoryOption[]
+) {
+  const normalized = normalizeMetaReplyChoice(value);
+  if (!normalized) return null;
+
+  const numericChoice = Number(normalized);
+  if (
+    Number.isInteger(numericChoice) &&
+    numericChoice >= 1 &&
+    numericChoice <= categories.length
+  ) {
+    return categories[numericChoice - 1];
+  }
+
+  return (
+    categories.find((category) => {
+      const categoryValues = [
+        category.category,
+        category.labelAr,
+        category.labelEn,
+      ].map(normalizeMetaReplyChoice);
+      return categoryValues.some(
+        (candidate) =>
+          candidate === normalized ||
+          (candidate.length >= 4 && normalized.includes(candidate)) ||
+          (normalized.length >= 4 && candidate.includes(normalized))
+      );
+    }) || null
+  );
+}
+
+function buildCompactPrivateProductLines(products: AutomationProduct[]) {
+  return products.flatMap((product) => [
+    `• ${product.name.trim().slice(0, 120)}`,
+    `السعر: ${formatPrice(product.price)} ${formatCurrency(product.currency)}`,
+    product.productUrl.trim(),
+  ]);
+}
+
+export function buildMetaPrivateSuggestionIntro(products: AutomationProduct[]) {
+  const availableProducts = products
+    .filter(
+      (product) =>
+        product.isAvailable &&
+        product.name.trim() &&
+        product.productUrl.trim() &&
+        Number.isFinite(product.price) &&
+        product.price > 0
+    )
+    .slice(0, 3);
+  const lines = [
+    "يسعدنا ويشرفنا تواصل حضرتك معنا.",
+    availableProducts.length
+      ? "وفيما يلي مقترحات لمنتجات أخرى من نفس القسم نظن أنها قد تكون مفيدة لحضرتك:"
+      : "لا توجد حاليًا بدائل إضافية متاحة من نفس القسم.",
+    ...(availableProducts.length
+      ? ["", ...buildCompactPrivateProductLines(availableProducts)]
+      : []),
+    "",
+    "هل ترغب في مشاهدة ترشيحات من أقسام أخرى؟ اكتب نعم أو لا.",
+  ];
+
+  return lines.join("\n").slice(0, 1850);
+}
+
+export function buildMetaSuggestionCategoryMenu(
+  categories: AutomationCategoryOption[]
+) {
+  return [
+    "يسعدنا مساعدتك. اختر القسم المطلوب بكتابة الرقم أو اسم القسم:",
+    ...categories.map((category, index) => `${index + 1}- ${category.labelAr}`),
+    "",
+    "يمكنك كتابة «لا شكرًا» لإيقاف الترشيحات.",
+  ].join("\n");
+}
+
+export function buildMetaSuggestionCategoryProducts(
+  category: AutomationCategoryOption,
+  products: AutomationProduct[]
+) {
+  const availableProducts = products
+    .filter(
+      (product) =>
+        product.isAvailable &&
+        product.category === category.category &&
+        product.name.trim() &&
+        product.productUrl.trim() &&
+        Number.isFinite(product.price) &&
+        product.price > 0
+    )
+    .slice(0, 3);
+
+  if (!availableProducts.length) {
+    return `لا توجد حاليًا ترشيحات إضافية متاحة في قسم ${category.labelAr}. يمكنك اختيار قسم آخر.`;
+  }
+
+  return [
+    `هذه ترشيحات متاحة من قسم ${category.labelAr}:`,
+    "",
+    ...buildCompactPrivateProductLines(availableProducts),
+    "",
+    "يمكنك اختيار قسم آخر بكتابة رقمه أو اسمه، أو كتابة «لا شكرًا» للإنهاء.",
+  ]
+    .join("\n")
+    .slice(0, 1850);
+}
+
+export function selectMetaPrivateSuggestionProducts(
+  products: AutomationProduct[],
+  category: string,
+  excludedProductIds: Iterable<string>,
+  limit = 3
+) {
+  const excluded = new Set(excludedProductIds);
+  return products
+    .filter(
+      (product) =>
+        product.isAvailable &&
+        product.category === category &&
+        !excluded.has(product.id) &&
+        product.name.trim() &&
+        product.productUrl.trim() &&
+        Number.isFinite(product.price) &&
+        product.price > 0
+    )
+    .slice(0, Math.max(0, Math.min(limit, 3)));
 }
 
 function formatPrice(value: number) {

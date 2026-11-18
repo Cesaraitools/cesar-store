@@ -74,6 +74,11 @@ type CategoryIntent = {
   keywords: string[];
 };
 
+export type AutomationCategoryOption = Pick<
+  CategoryIntent,
+  "category" | "labelAr" | "labelEn"
+>;
+
 type ClarifyIntent = {
   label: string;
   keywords: string[];
@@ -653,6 +658,14 @@ const CATEGORY_INTENTS: CategoryIntent[] = [
     ],
   },
 ];
+
+export function listAutomationCategoryOptions(): AutomationCategoryOption[] {
+  return CATEGORY_INTENTS.map(({ category, labelAr, labelEn }) => ({
+    category,
+    labelAr,
+    labelEn,
+  }));
+}
 
 export function detectAutomationLanguage(
   input: string,
@@ -1366,14 +1379,25 @@ export async function searchAutomationProducts(input: {
     ? "product"
     : "clarify";
   const relatedPinnedProductRows = pinnedProductRows.length
-    ? scoredProducts
-        .map((item) => item.product)
-        .filter(
-          (product) =>
-            !pinnedProductIdSet.has(product.id) &&
-            isAvailableProductRow(product) &&
-            normalizeCategory(product.category || "") === pinnedCategory
-        )
+    ? (() => {
+        const seen = new Set(pinnedProductIdSet);
+        const related: ProductRow[] = [];
+        const appendIfRelated = (product: ProductRow) => {
+          if (seen.has(product.id)) return;
+          if (!isAvailableProductRow(product)) return;
+          if (normalizeCategory(product.category || "") !== pinnedCategory) return;
+          seen.add(product.id);
+          related.push(product);
+        };
+
+        scoredProducts.forEach((item) => appendIfRelated(item.product));
+        allProducts
+          .slice()
+          .sort((left, right) => Number(right.stock || 0) - Number(left.stock || 0))
+          .forEach(appendIfRelated);
+
+        return related;
+      })()
     : [];
   const selectedProductRows =
     humanHandoff || needsPostContext
