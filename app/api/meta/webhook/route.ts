@@ -7,16 +7,14 @@ import {
 import { answerAutomationQuestion } from "@/lib/server/automation-agent";
 import {
   buildMetaAttachmentMessage,
-  buildMetaPrivatePriceFallback,
   buildMetaPublicProductFallback,
   buildMetaReactionFallback,
   detectMetaReactionTone,
-  isMetaPriceOnlyQuestion,
   isMetaPriceQuestion,
-  META_PRIVATE_CONTACT_PUBLIC_ACK,
-  shouldSendMetaPrivatePriceReply,
+  prioritizeMetaPostProducts,
   type MetaAttachmentKind,
 } from "@/lib/server/meta-customer-intelligence";
+import { resolveMetaPostProducts } from "@/lib/server/meta-post-products";
 import { validateMetaPublicReply } from "@/lib/server/meta-reply-safety";
 import {
   summarizeMetaFeedChange,
@@ -509,62 +507,6 @@ async function sendFacebookCommentReply(
   }
 
   console.info("META COMMENT SEND COMPLETED:", {
-    commentId,
-    status: response.status,
-  });
-
-  return { ok: true, status: response.status };
-}
-
-async function sendFacebookCommentPrivateReply(
-  pageLane: MetaPageLane,
-  commentId: string,
-  text: string
-) {
-  const pageAccessToken = pageLane.pageAccessToken;
-
-  if (!pageAccessToken) {
-    console.warn("META COMMENT PRIVATE REPLY SKIPPED: page access token is missing", {
-      lane: pageLane.kind,
-      pageId: pageLane.pageId,
-    });
-    return { ok: false, skipped: true, status: 503 };
-  }
-
-  console.info("META COMMENT PRIVATE REPLY STARTED:", {
-    commentId,
-    textLength: text.length,
-  });
-
-  const response = await fetch(
-    `https://graph.facebook.com/${getGraphApiVersion()}/${pageLane.pageId}/messages`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${pageAccessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        recipient: { comment_id: commentId },
-        messaging_type: "RESPONSE",
-        message: { text: text.slice(0, 1900) },
-      }),
-    }
-  );
-
-  if (!response.ok) {
-    const responseText = await response.text();
-    console.error("META COMMENT PRIVATE REPLY FAILED:", {
-      commentId,
-      status: response.status,
-      body: responseText.slice(0, 500),
-    });
-    throw new Error(
-      `Meta comment private reply failed ${response.status}: ${responseText.slice(0, 500)}`
-    );
-  }
-
-  console.info("META COMMENT PRIVATE REPLY COMPLETED:", {
     commentId,
     status: response.status,
   });
@@ -1373,94 +1315,6 @@ function hasConfidentPostContextMatch(result: AutomationAnswer, postContext: str
   );
 }
 
-async function buildFacebookPrivatePriceReply(
-  result: AutomationAnswer,
-  apiKey: string
-) {
-  const products = result.products
-    .filter((product) => Number(product.price) > 0)
-    .slice(0, 3);
-
-  if (!products.length) return "";
-
-  const deterministicFallback = buildMetaPrivatePriceFallback(products);
-
-  if (!isAutomationAiEnabled(apiKey)) return deterministicFallback;
-
-  try {
-    const response = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: getAutomationAiModel(),
-        input: [
-          {
-            role: "system",
-            content:
-              "You write Cesar Store private Messenger replies in Arabic. Use only the supplied product names, prices, and URLs. Do not invent anything. Use a formal, concise business tone. Do not use casual phrases such as يا صديقي, حبيبي, يا باشا, يا نجم, or similar social wording.",
-          },
-          {
-            role: "user",
-            content: JSON.stringify({
-              customerMessage: result.query,
-              products: products.map((product) => ({
-                name: product.name,
-                price: product.price,
-                currency: product.currency,
-                productUrl: product.productUrl,
-              })),
-              outputRules: [
-                "Return valid JSON only.",
-                "Mention exact prices from products.",
-                "Include productUrl for each mentioned product.",
-                "Do not mention automation, AI, scoring, or internal rules.",
-              ],
-            }),
-          },
-        ],
-        max_output_tokens: 260,
-        store: false,
-        temperature: 0.2,
-        text: {
-          format: {
-            type: "json_schema",
-            name: "meta_private_price_reply",
-            strict: true,
-            schema: {
-              type: "object",
-              additionalProperties: false,
-              required: ["reply"],
-              properties: {
-                reply: {
-                  type: "string",
-                },
-              },
-            },
-          },
-        },
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`OpenAI private price request failed with status ${response.status}`);
-    }
-
-    const parsed = JSON.parse(extractOpenAIText(await response.json())) as {
-      reply?: unknown;
-    };
-
-    return typeof parsed.reply === "string" && parsed.reply.trim()
-      ? parsed.reply.trim().slice(0, 1200)
-      : deterministicFallback;
-  } catch (error) {
-    console.error("META COMMENT PRIVATE PRICE AI ERROR:", formatErrorForLog(error));
-    return deterministicFallback;
-  }
-}
-
 async function buildMetaMessengerFallbackReply(
   messageText: string,
   attachmentKind: MetaAttachmentKind | null,
@@ -1543,7 +1397,6 @@ async function buildFacebookCommentReply(
   messageText: string,
   postContext: string,
   baseUrl: string,
-  privatePriceSent: boolean,
   apiKey: string,
 ) {
   if (!result.meta.ai.used) return "";
@@ -1571,7 +1424,7 @@ async function buildFacebookCommentReply(
           {
             role: "system",
             content:
-              "You write Cesar Store public Facebook comment replies in Arabic. You are the only writer of the final public reply, but the store catalog facts supplied by code are authoritative. Use supplied post context and catalog facts only. Do not invent products, prices, links, stock, variants, policies, or contact data. Public replies must never show prices or currency. If products are supplied and fit the customer request or post context, the reply must be a product answer, not a generic message-us reply. For product answers, use a formal concise structure equivalent to: nearest products for your question, product name with productUrl on separate lines, categoryUrl if supplied, shopUrl, then a short private-price note when the customer asked about price. Treat hm, h.m, HM, how much, price, and Arabic price words as a price question when products or product post context are supplied, but never publish the numeric price. If the customer asks a price question, give the product link publicly and say price details are available by message. When several products are supplied, put the post/main product first, then useful same-section or complementary suggestions supplied by code. If supplied products do not fit the request, ask one formal clarification question instead of inventing. Do not use casual phrases such as ya sadiqi, habibi, ya basha, ya najm, or similar social wording.",
+              "You write Cesar Store public Facebook comment replies in Arabic. The store catalog facts supplied by code are authoritative. Use supplied post context and catalog facts only. Do not invent products, prices, links, stock, variants, policies, or contact data. Never say that the customer was contacted privately and never ask them to use Messenger for ordinary product or price questions. If the action is clarification, ask one short formal clarification question. Do not use casual phrases such as ya sadiqi, habibi, ya basha, ya najm, or similar social wording.",
           },
           {
             role: "user",
@@ -1588,7 +1441,6 @@ async function buildFacebookCommentReply(
               },
               aiAction: result.meta.ai.action,
               aiConfidence: result.meta.ai.confidence,
-              privatePriceSent,
               priceInquiry,
               hasProducts,
               postContextProductMatched,
@@ -1600,19 +1452,16 @@ async function buildFacebookCommentReply(
                 nameEn: product.nameEn,
                 category: product.category,
                 productUrl: product.productUrl,
+                price: product.price,
+                currency: product.currency,
                 isAvailable: product.isAvailable,
                 stockStatus: product.stockStatus,
                 variantSummary: product.variantSummary,
               })),
               outputRules: [
                 "Return valid JSON only.",
-                "Do not include any price or currency in the public reply.",
-                "If hasProducts is true and the products fit the comment or post context, include at least one productUrl from products.",
-                "If postContextProductMatched is true, treat products[0] as the product in the post and list it first before any related products.",
-                "If priceInquiry is true and hasProducts is true, list relevant product names and productUrl values first without prices, then add a short formal note that prices are available by message.",
-                "For product suggestions, include the main product first and up to two relevant same-section or complementary products if supplied.",
-                "Do not answer a product or price question with only a generic instruction to message the page when products are supplied.",
-                "Include categoryUrl and shopUrl for product answers when supplied.",
+                "Do not say تم الرد على الخاص, تم التواصل على الخاص, or any equivalent private-contact message.",
+                "Do not instruct the customer to use Messenger for an ordinary product or price question.",
                 "For clarification, ask one short question.",
                 "Do not mention automation, AI, scoring, tokens, webhooks, or internal rules.",
               ],
@@ -1798,6 +1647,19 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
       source: "intent_gate",
     });
   }
+
+  const postProductResolution = await resolveMetaPostProducts({
+    pageId: normalized.pageLane.pageId,
+    postId: normalized.postId,
+    postContext: initialPostContext?.searchText || "",
+  });
+
+  console.info("META COMMENT POST PRODUCT RESOLUTION:", {
+    commentId: normalized.commentId,
+    postId: normalized.postId,
+    source: postProductResolution.source,
+    productsCount: postProductResolution.productIds.length,
+  });
 
   if (
     normalized.parentId &&
@@ -2000,12 +1862,44 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     };
   }
 
+  if (!postProductResolution.productIds.length) {
+    await recordCommentHandoff({
+      reason: "post_product_mapping_required",
+      commentId: normalized.commentId,
+      postId: normalized.postId,
+      messageText: normalized.messageText,
+      permalinkUrl: normalized.permalinkUrl,
+    });
+
+    return {
+      processed: false,
+      reason: "post_product_mapping_required",
+      productsCount: 0,
+      postContextUsed,
+      postProductSource: postProductResolution.source,
+    };
+  }
+
+  const relatedProductLimit =
+    postProductResolution.productIds.length <= 2
+      ? 2
+      : postProductResolution.productIds.length === 3
+        ? 1
+        : 0;
+  const automationProductLimit = Math.min(
+    Math.max(
+      postProductResolution.productIds.length + relatedProductLimit,
+      3
+    ),
+    10
+  );
   const baseAutomationInput = {
     query: normalized.messageText,
     requestedLanguage: "ar",
-    limit: 3,
+    limit: automationProductLimit,
     baseUrl,
     openAiApiKey,
+    pinnedProductIds: postProductResolution.productIds,
   };
   let result = await answerAutomationQuestion({
     ...baseAutomationInput,
@@ -2066,9 +1960,10 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     contextQuery: postContextSearchText,
     handoffQuery: normalized.messageText,
     requestedLanguage: "ar",
-    limit: 3,
+    limit: automationProductLimit,
     baseUrl,
     openAiApiKey,
+    pinnedProductIds: postProductResolution.productIds,
   });
 
   console.info("META COMMENT AUTOMATION DECISION:", {
@@ -2131,6 +2026,44 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     };
   }
 
+  const publicReplyProducts = prioritizeMetaPostProducts(
+    result.products,
+    postProductResolution.productIds,
+    relatedProductLimit
+  );
+  const resolvedPostProductIds = new Set(
+    publicReplyProducts.map((product) => product.id)
+  );
+  const resolvedPrimaryProductCount = postProductResolution.productIds.filter(
+    (id) => resolvedPostProductIds.has(id)
+  ).length;
+
+  if (
+    resolvedPrimaryProductCount !== postProductResolution.productIds.length ||
+    !publicReplyProducts.length
+  ) {
+    await recordCommentHandoff({
+      reason: "post_products_unavailable",
+      commentId: normalized.commentId,
+      postId: normalized.postId,
+      messageText: normalized.messageText,
+      permalinkUrl: normalized.permalinkUrl,
+      productsCount: result.products.length,
+      bestScore: result.meta.bestScore,
+    });
+
+    return {
+      processed: false,
+      reason: "post_products_unavailable",
+      productsCount: result.products.length,
+      postProductsCount: resolvedPrimaryProductCount,
+      postContextUsed,
+      aiUsed: result.meta.ai.used,
+      aiAction: result.meta.ai.action,
+      aiReason: result.meta.ai.reason,
+    };
+  }
+
   const shouldHandoff = result.meta.autoReply === "handoff";
 
   if (shouldHandoff) {
@@ -2159,98 +2092,33 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     };
   }
 
-  const contextualPriceReplyAllowed =
-    postContextUsed &&
-    isMetaPriceQuestion(normalized.messageText) &&
-    result.meta.ai.action === "answer" &&
-    result.meta.ai.confidence !== "low" &&
-    result.products.length > 0;
-
-  if (
-    postContextUsed &&
-    isPostDependentComment(normalized.messageText) &&
-    result.meta.autoReply === "answer" &&
-    result.products.length &&
-    !contextualPriceReplyAllowed &&
-    !hasConfidentPostContextMatch(result, postContextSearchText)
-  ) {
-    await recordCommentHandoff({
-      reason: "post_context_product_uncertain",
-      commentId: normalized.commentId,
-      postId: normalized.postId,
-      messageText: normalized.messageText,
-      permalinkUrl: normalized.permalinkUrl,
-      productsCount: result.products.length,
-      bestScore: result.meta.bestScore,
-    });
-
-    return {
-      processed: false,
-      reason: "post_context_product_uncertain",
-      productsCount: result.products.length,
-      bestScore: result.meta.bestScore,
-      postContextUsed,
-      aiUsed: result.meta.ai.used,
-      aiAction: result.meta.ai.action,
-      aiReason: result.meta.ai.reason,
-    };
-  }
-
-  let privatePriceAttempted = false;
-  let privatePriceSent = false;
-  const priceInquiry = isMetaPriceQuestion(normalized.messageText);
-  const priceOnlyInquiry = isMetaPriceOnlyQuestion(normalized.messageText);
-  const privatePriceReply = shouldSendMetaPrivatePriceReply({
-    priceInquiry,
-    aiUsed: result.meta.ai.used,
-    autoReply: result.meta.autoReply,
-    productPrices: result.products.map((product) => Number(product.price)),
-  })
-    ? await buildFacebookPrivatePriceReply(result, openAiApiKey)
-    : "";
-
-  if (privatePriceReply) {
-    privatePriceAttempted = true;
-
-    try {
-      await sendFacebookCommentPrivateReply(
-        normalized.pageLane,
-        normalized.commentId,
-        privatePriceReply
-      );
-      privatePriceSent = true;
-    } catch (error) {
-      console.error("META COMMENT PRIVATE PRICE SEND ERROR:", {
-        commentId: normalized.commentId,
-        postId: normalized.postId,
-        error: formatErrorForLog(error),
-      });
-    }
-  }
-
-  const privateContactPublicAck = priceOnlyInquiry && privatePriceSent;
-  let publicReply = privateContactPublicAck
-    ? META_PRIVATE_CONTACT_PUBLIC_ACK
-    : await buildFacebookCommentReply(
+  let publicReply =
+    result.meta.autoReply === "clarify"
+      ? await buildFacebookCommentReply(
         result,
         normalized.messageText,
         postContextSearchText,
         baseUrl,
-        privatePriceSent,
         openAiApiKey
-      );
+      )
+      : buildMetaPublicProductFallback({
+          products: publicReplyProducts,
+          primaryProductCount: resolvedPrimaryProductCount,
+        });
 
   const publicReplyCategory =
-    result.products[0]?.category || result.meta.matchedCategory || "";
+    publicReplyProducts[0]?.category || result.meta.matchedCategory || "";
   const publicReplyAllowedUrls = [
-    ...result.products.slice(0, 3).map((product) => product.productUrl),
+    ...publicReplyProducts.map((product) => product.productUrl),
     buildShopUrl(baseUrl),
     publicReplyCategory ? buildCategoryUrl(publicReplyCategory, baseUrl) : "",
   ].filter(Boolean);
   let publicReplySafety = validateMetaPublicReply(
     publicReply,
     publicReplyAllowedUrls,
-    result.products.map((product) => Number(product.price)).filter(Number.isFinite)
+    publicReplyProducts
+      .map((product) => Number(product.price))
+      .filter(Number.isFinite)
   );
 
   if (!publicReplySafety.safe) {
@@ -2258,24 +2126,18 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
       commentId: normalized.commentId,
       postId: normalized.postId,
       safetyReason: publicReplySafety.reason,
-      privatePriceSent,
     });
 
     publicReply = buildMetaPublicProductFallback({
-      products: result.products.slice(0, 3).map((product) => ({
-        name: product.name,
-        productUrl: product.productUrl,
-      })),
-      shopUrl: buildShopUrl(baseUrl),
-      categoryUrl: publicReplyCategory
-        ? buildCategoryUrl(publicReplyCategory, baseUrl)
-        : "",
-      priceInquiry,
-      privatePriceSent,
+      products: publicReplyProducts,
+      primaryProductCount: resolvedPrimaryProductCount,
     });
     publicReplySafety = validateMetaPublicReply(
       publicReply,
-      publicReplyAllowedUrls
+      publicReplyAllowedUrls,
+      publicReplyProducts
+        .map((product) => Number(product.price))
+        .filter(Number.isFinite)
     );
   }
 
@@ -2304,8 +2166,6 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
       aiUsed: result.meta.ai.used,
       aiAction: result.meta.ai.action,
       aiReason: result.meta.ai.reason,
-      privatePriceAttempted,
-      privatePriceSent,
     };
   }
 
@@ -2318,20 +2178,19 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
   return {
     processed: true,
     reason:
-      privateContactPublicAck
-        ? "comment_private_contact_ack_sent"
-        : result.meta.autoReply === "clarify"
+      result.meta.autoReply === "clarify"
         ? "comment_clarification_sent"
-        : "comment_reply_sent",
+        : "comment_public_product_reply_sent",
     productsCount: result.products.length,
+    postProductsCount: resolvedPrimaryProductCount,
+    relatedProductsCount:
+      publicReplyProducts.length - resolvedPrimaryProductCount,
     bestScore: result.meta.bestScore,
     postContextUsed,
+    postProductSource: postProductResolution.source,
     aiUsed: result.meta.ai.used,
     aiAction: result.meta.ai.action,
     aiReason: result.meta.ai.reason,
-    privatePriceAttempted,
-    privatePriceSent,
-    privateContactPublicAck,
   };
 
 }

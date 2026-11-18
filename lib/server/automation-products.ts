@@ -1230,6 +1230,7 @@ export async function searchAutomationProducts(input: {
   query: string;
   contextQuery?: string | null;
   handoffQuery?: string | null;
+  pinnedProductIds?: string[];
   requestedLanguage?: string | null;
   limit?: number;
   baseUrl: string;
@@ -1285,12 +1286,29 @@ export async function searchAutomationProducts(input: {
     throw error;
   }
 
+  const allProducts = (data || []) as ProductRow[];
+  const pinnedProductIds = Array.from(
+    new Set(
+      (input.pinnedProductIds || [])
+        .map((value) => String(value).trim())
+        .filter(Boolean)
+    )
+  );
+  const productsById = new Map(allProducts.map((product) => [product.id, product]));
+  const pinnedProductRows = pinnedProductIds
+    .map((id) => productsById.get(id))
+    .filter((product): product is ProductRow => Boolean(product));
+  const pinnedProductIdSet = new Set(pinnedProductRows.map((product) => product.id));
+  const pinnedCategory = pinnedProductRows[0]
+    ? normalizeCategory(pinnedProductRows[0].category || "")
+    : "";
+
   const prioritizePostContextProduct = shouldPrioritizePostContextProduct(
     query,
     commentUnderstanding,
     contextQuery
   );
-  const scoredProducts = ((data || []) as ProductRow[])
+  const scoredProducts = allProducts
     .map((product) => {
       const contextScore = prioritizePostContextProduct
         ? scorePostContextProductMatch(product, contextQuery)
@@ -1329,6 +1347,7 @@ export async function searchAutomationProducts(input: {
   const needsPostContext =
     commentUnderstanding.needsPostContext && !contextQuery && !detectedCategory && bestScore < 10;
   const shouldClarify =
+    !pinnedProductRows.length &&
     !humanHandoff &&
     !needsPostContext &&
     !contextBackedPriceQuestion &&
@@ -1337,6 +1356,8 @@ export async function searchAutomationProducts(input: {
       (!scoredProducts.length && productRequest));
   const intent: AutomationSearchIntent = humanHandoff || needsPostContext
     ? "clarify"
+    : pinnedProductRows.length
+    ? "product"
     : shouldClarify
     ? "clarify"
     : categoryMode
@@ -1344,19 +1365,40 @@ export async function searchAutomationProducts(input: {
     : scoredProducts.length
     ? "product"
     : "clarify";
+  const relatedPinnedProductRows = pinnedProductRows.length
+    ? scoredProducts
+        .map((item) => item.product)
+        .filter(
+          (product) =>
+            !pinnedProductIdSet.has(product.id) &&
+            isAvailableProductRow(product) &&
+            normalizeCategory(product.category || "") === pinnedCategory
+        )
+    : [];
   const selectedProductRows =
-    shouldClarify || humanHandoff || needsPostContext
+    humanHandoff || needsPostContext
+      ? []
+      : pinnedProductRows.length
+      ? [
+          ...pinnedProductRows,
+          ...relatedPinnedProductRows.slice(
+            0,
+            Math.max(limit - pinnedProductRows.length, 0)
+          ),
+        ].slice(0, limit)
+      : shouldClarify
       ? []
       : findComplementaryProductRows(
           scoredProducts.map((item) => item.product),
-          (data || []) as ProductRow[],
+          allProducts,
           limit
         );
   const products = selectedProductRows.map((product) =>
     toAutomationProduct(product, language, input.baseUrl)
   );
-  const effectiveBestScore =
-    intent === "category" && products.length
+  const effectiveBestScore = pinnedProductRows.length
+    ? Math.max(bestScore, 100)
+    : intent === "category" && products.length
       ? Math.max(bestScore, 12)
       : clarifyIntent && shouldClarify
       ? Math.max(bestScore, 10)
@@ -1375,6 +1417,8 @@ export async function searchAutomationProducts(input: {
       : undefined;
   const autoReply: AutomationReplyAction = humanHandoff || needsPostContext
     ? "handoff"
+    : pinnedProductRows.length
+    ? "answer"
     : intent === "clarify"
     ? "clarify"
     : "answer";
@@ -1402,7 +1446,7 @@ export async function searchAutomationProducts(input: {
         : needsPostContext
         ? "post_context_required"
         : null,
-      matchedCategory: detectedCategory?.category || null,
+      matchedCategory: pinnedCategory || detectedCategory?.category || null,
       generatedAt: new Date().toISOString(),
     },
   };

@@ -3,17 +3,16 @@ import { CUSTOMER_QUERY_LEXICON } from "../customer-query-lexicon";
 export type MetaAttachmentKind = "image" | "video" | "file" | "audio" | "unknown";
 export type MetaReactionTone = "positive" | "negative" | "mixed" | "none";
 
-export const META_PRIVATE_CONTACT_PUBLIC_ACK =
-  "تم التواصل مع حضرتك على الخاص";
-
 type PublicReplyProduct = {
+  id: string;
   name: string;
   productUrl: string;
-};
-
-type PrivateReplyProduct = PublicReplyProduct & {
   price: number;
   currency?: string | null;
+  category?: string | null;
+  description?: string | null;
+  variantSummary?: string | null;
+  isAvailable?: boolean;
 };
 
 function normalizeIntentText(value: string) {
@@ -112,39 +111,114 @@ export function buildMetaReactionFallback(tone: MetaReactionTone) {
 
 export function buildMetaPublicProductFallback(input: {
   products: PublicReplyProduct[];
-  shopUrl: string;
-  categoryUrl?: string;
-  priceInquiry: boolean;
-  privatePriceSent: boolean;
+  primaryProductCount: number;
 }) {
+  const maxReplyLength = 1850;
   const products = input.products.filter(
-    (product) => product.name.trim() && product.productUrl.trim()
+    (product) =>
+      product.name.trim() &&
+      product.productUrl.trim() &&
+      Number.isFinite(product.price) &&
+      product.price > 0
   );
 
   if (!products.length) {
     return "من فضلك وضّح اسم المنتج أو أرسل صورته حتى نساعد حضرتك بدقة.";
   }
 
-  const lines = [
-    input.priceInquiry ? "تفاصيل المنتج المطلوب:" : "المنتجات الأقرب لطلب حضرتك:",
-    ...products.slice(0, 3).flatMap((product) => [
-      product.name.trim(),
-      product.productUrl.trim(),
-    ]),
-  ];
+  const primaryProductCount = Math.min(
+    Math.max(input.primaryProductCount, 1),
+    products.length
+  );
+  const heading =
+    primaryProductCount === 1
+      ? "تفاصيل المنتج الموجود في المنشور:"
+      : "تفاصيل المنتجات الموجودة في المنشور:";
+  const lines = [heading];
 
-  if (input.categoryUrl) lines.push(input.categoryUrl);
-  if (input.shopUrl) lines.push(input.shopUrl);
+  products.forEach((product, index) => {
+    if (index === primaryProductCount) {
+      lines.push("", "منتجات أخرى من نفس القسم:");
+    }
 
-  if (input.priceInquiry) {
+    const description = String(product.description || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 180);
+    const variants = String(product.variantSummary || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 160);
+
     lines.push(
-      input.privatePriceSent
-        ? "تم إرسال تفاصيل السعر لحضرتك على ماسنجر."
-        : "تفاصيل السعر متاحة عبر ماسنجر الصفحة."
+      `• ${product.name.trim()}`,
+      `السعر: ${formatPrice(product.price)} ${formatCurrency(product.currency)}`,
+      `التوفر: ${product.isAvailable === false ? "غير متوفر حاليًا" : "متوفر حاليًا"}`
     );
+    if (description) lines.push(`التفاصيل: ${description}`);
+    if (variants) lines.push(`الخيارات: ${variants}`);
+    lines.push(product.productUrl.trim());
+  });
+
+  const detailedReply = lines.join("\n");
+  if (detailedReply.length <= maxReplyLength) return detailedReply;
+
+  const primaryProducts = products.slice(0, primaryProductCount);
+  const relatedProducts = products.slice(primaryProductCount);
+  const compactLines = [heading];
+  const appendCompactProduct = (product: PublicReplyProduct) => {
+    compactLines.push(
+      `• ${product.name.trim().slice(0, 110)} — ${formatPrice(product.price)} ${formatCurrency(product.currency)} — ${product.isAvailable === false ? "غير متوفر حاليًا" : "متوفر حاليًا"}`
+    );
+  };
+
+  primaryProducts.forEach(appendCompactProduct);
+  if (relatedProducts.length) {
+    compactLines.push("", "منتجات أخرى من نفس القسم:");
+    relatedProducts.forEach(appendCompactProduct);
   }
 
-  return lines.join("\n");
+  const compactReply = compactLines.join("\n");
+  if (compactReply.length <= maxReplyLength) return compactReply;
+
+  // عند ازدحام المنشور بمنتجات كثيرة، نحذف الاقتراحات أولًا ونحافظ على
+  // ذكر كل منتج أساسي وسعره بدل قص الرد في منتصف قائمة منتجات المنشور.
+  const availableNameLength = Math.max(
+    32,
+    Math.min(90, Math.floor((maxReplyLength - heading.length - 160) / primaryProducts.length))
+  );
+  return [
+    heading,
+    ...primaryProducts.map(
+      (product) =>
+        `• ${product.name.trim().slice(0, availableNameLength)} — ${formatPrice(product.price)} ${formatCurrency(product.currency)}`
+    ),
+  ].join("\n");
+}
+
+export function prioritizeMetaPostProducts<
+  T extends { id: string; category?: string | null }
+>(products: T[], postProductIds: string[], relatedLimit = 2) {
+  const byId = new Map(products.map((product) => [product.id, product]));
+  const primaryProducts = postProductIds
+    .map((id) => byId.get(id))
+    .filter((product): product is T => Boolean(product));
+
+  if (!primaryProducts.length) return [];
+
+  const primaryIds = new Set(primaryProducts.map((product) => product.id));
+  const primaryCategory = primaryProducts[0].category || "";
+  const relatedProducts = products.filter(
+    (product) =>
+      !primaryIds.has(product.id) &&
+      Boolean(primaryCategory) &&
+      product.category === primaryCategory
+  );
+
+  return [
+    ...primaryProducts,
+    ...relatedProducts.slice(0, Math.max(relatedLimit, 0)),
+  ];
 }
 
 function formatPrice(value: number) {
@@ -156,42 +230,4 @@ function formatPrice(value: number) {
 function formatCurrency(value: string | null | undefined) {
   const currency = (value || "EGP").trim().toUpperCase();
   return currency === "EGP" ? "جنيه" : currency;
-}
-
-export function buildMetaPrivatePriceFallback(products: PrivateReplyProduct[]) {
-  const pricedProducts = products.filter(
-    (product) =>
-      product.name.trim() &&
-      product.productUrl.trim() &&
-      Number.isFinite(product.price) &&
-      product.price > 0
-  );
-
-  if (!pricedProducts.length) return "";
-
-  return [
-    "أهلًا بحضرتك، تفاصيل السعر:",
-    ...pricedProducts.slice(0, 3).flatMap((product) => [
-      `• ${product.name.trim()}: ${formatPrice(product.price)} ${formatCurrency(
-        product.currency
-      )}`,
-      product.productUrl.trim(),
-    ]),
-  ].join("\n");
-}
-
-export function shouldSendMetaPrivatePriceReply(input: {
-  priceInquiry: boolean;
-  aiUsed: boolean;
-  autoReply: string;
-  productPrices: number[];
-}) {
-  return (
-    input.priceInquiry &&
-    input.aiUsed &&
-    input.autoReply === "answer" &&
-    input.productPrices.some(
-      (price) => Number.isFinite(price) && Number(price) > 0
-    )
-  );
 }

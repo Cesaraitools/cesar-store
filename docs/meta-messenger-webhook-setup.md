@@ -69,9 +69,9 @@ AI automation:
   This keeps page usage and key rotation independent while preserving
   `OPENAI_API_KEY` as a backward-compatible fallback.
 - `META_MESSENGER_AUTO_REPLY` and `META_COMMENTS_AUTO_REPLY` are independent
-  outbound kill switches. Messenger can be enabled after its controlled test;
-  keep comments restricted to controlled posts until their public/private flow
-  is verified.
+  outbound kill switches. Messenger covers messages initiated in Messenger;
+  comment automation never opens a private conversation from a public comment.
+  Keep comments restricted to controlled posts until their public flow is verified.
 - `OPENAI_MODEL` is optional. Keep it configurable so the model can be changed
   in Vercel without code changes.
 - `OPENAI_MAX_OUTPUT_TOKENS` is optional. Keep it around `450` for concise,
@@ -81,23 +81,25 @@ AI automation:
 - The AI agent only sees products returned from the store catalog search. It is
   instructed not to invent products, prices, stock, variants, links, or policies.
 - AI treats deterministic scores and handoff hints as context, not as a final
-  blocker. It can answer, clarify, or safely ask the customer to message the
-  page, while still being restricted to catalog products and links.
+  blocker. It can answer or clarify while still being restricted to catalog
+  products and links. Sensitive order/account cases remain human handoffs.
 - The secured endpoint `/api/automation/products/search` keeps the old response
   fields and adds `meta.ai` so n8n or other callers can tell whether AI was used.
 - Messenger and public-comment events call the same OpenAI-backed server agent
   directly from `/api/meta/webhook`; n8n is not required in the live Meta reply
   path.
-- A public price question receives a public reply with product links but no
-  price. Its exact price is sent only through the comment private-reply channel.
-  A private price message is never generated for a non-price comment.
-- For a price-only comment, once the private price message succeeds, the public
-  reply is the immediate deterministic acknowledgement
-  `تم التواصل مع حضرتك على الخاص`. Mixed questions such as price plus stock or
-  specifications keep the fuller price-free public product reply.
-- If an AI-written public reply contains a currency or a known catalog price,
-  the webhook replaces it with a deterministic price-free public reply instead
-  of silently leaving only the private message.
+- Product and price comments receive one public reply containing the current
+  catalog name, price, availability, useful details, and product URL. The comment
+  flow never sends a private Messenger reply and never writes `تم الرد على الخاص`
+  or an equivalent acknowledgement.
+- Products recorded against the published Facebook `external_post_id` and
+  `product_ids` are authoritative and appear first in their recorded order.
+  Product URLs embedded in the post are the exact fallback for manually created
+  posts. If neither source provides an exact product mapping, the comment becomes
+  a human handoff instead of receiving a guessed catalog reply.
+- Optional recommendations are placed after every product in the post and are
+  restricted to the primary product's normalized category. Public price safety
+  accepts only current catalog prices and approved Cesar Store product URLs.
 - Messenger accepts text and attachment-only messages. When the catalog agent
   cannot produce a grounded answer, a restricted conversational fallback handles
   greetings, positive/negative emoji reactions, complaints, and clarification
@@ -121,14 +123,14 @@ Comment automation safety:
 
 - `META_COMMENTS_AUTO_REPLY` is disabled by default. Keep it `false` until the
   comment flow is tested with controlled posts.
-- If AI is enabled and successfully writes a reply, its action can override the
-  deterministic score. Before publishing, code still rejects explicit prices,
-  known catalog price numbers, currency, and URLs outside the selected Cesar
-  Store product/category/shop links. Unsafe product replies are replaced by a
-  deterministic price-free reply; replies that remain unsafe are stored as
-  human handoffs. If AI is disabled or
-  fails, deterministic replies still require at least one product and
-  `meta.bestScore` greater than or equal to `META_COMMENTS_MIN_SCORE`.
+- Product answers are deterministic and may publish only the exact current
+  catalog prices of the products mapped to the Facebook post. Unknown prices
+  and URLs outside the selected Cesar Store product/category/shop links are
+  rejected. Unsafe replies are replaced by the deterministic post-product
+  reply; replies that remain unsafe are stored as human handoffs. If AI is
+  disabled or fails, deterministic replies still require at least one mapped
+  product and `meta.bestScore` greater than or equal to
+  `META_COMMENTS_MIN_SCORE`.
 - To limit auto replies to controlled test posts, set
   `META_COMMENTS_ALLOWED_POST_IDS` to one or more comma-separated Facebook post
   ids. Leave it empty to allow all posts once the automation is ready.
@@ -209,6 +211,10 @@ Acceptance criteria:
   as a clearly explained human handoff.
 - The reply is attached to the exact customer comment and uses the selected
   photo's context.
+- The public reply contains the post product(s) first with their current prices;
+  any recommendations follow and remain in the same category.
+- No comment event sends a private Messenger reply or a public private-contact
+  acknowledgement. Inbound Messenger behavior remains independently controlled.
 - No unrelated Page feed event is treated as a customer comment.
 - Existing normal-post and Messenger replies continue to work without behavior
   changes.

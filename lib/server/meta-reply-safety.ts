@@ -46,36 +46,43 @@ function normalizeDigits(value: string) {
     .replace(/٫/g, ".");
 }
 
-function containsKnownPrice(value: string, forbiddenPrices: number[]) {
-  const textWithoutUrls = normalizeDigits(value.replace(URL_PATTERN, " "));
+function extractPublicPriceAmounts(value: string) {
+  const text = normalizeDigits(value.replace(URL_PATTERN, " "));
+  const patterns = [
+    /(?:السعر|سعر|price|cost)\s*(?::|-)?\s*([\d][\d,.]*)/giu,
+    /([\d][\d,.]*)\s*(?:جنيه(?:اً|ا)?|ج\.?\s*م\.?|egp\b)/giu,
+  ];
+  const values = patterns.flatMap((pattern) =>
+    Array.from(text.matchAll(pattern), (match) =>
+      Number(match[1].replace(/,/g, ""))
+    )
+  );
 
-  return forbiddenPrices.some((price) => {
-    if (!Number.isFinite(price) || price <= 0) return false;
+  return Array.from(new Set(values.filter(Number.isFinite)));
+}
 
-    const variants = new Set([
-      String(price),
-      price.toFixed(2),
-      price.toLocaleString("en-US", { maximumFractionDigits: 2 }),
-    ]);
+function hasOnlyAllowedPublicPrices(value: string, allowedPrices: number[]) {
+  const allowed = allowedPrices.filter(
+    (price) => Number.isFinite(price) && price > 0
+  );
+  const amounts = extractPublicPriceAmounts(value);
 
-    return Array.from(variants).some((variant) => {
-      const escaped = variant.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      return new RegExp(`(^|[^\\d])${escaped}(?=$|[^\\d])`, "u").test(
-        textWithoutUrls
-      );
-    });
-  });
+  if (!allowed.length || !amounts.length) return false;
+
+  return amounts.every((amount) =>
+    allowed.some((price) => Math.abs(price - amount) < 0.01)
+  );
 }
 
 export function validateMetaPublicReply(
   reply: string,
   allowedUrls: string[] = [],
-  forbiddenPrices: number[] = []
+  allowedPrices: number[] = []
 ): MetaReplySafetyResult {
   const text = reply.trim();
   if (!text) return { safe: false, reason: "empty_reply" };
 
-  if (containsPublicPrice(text) || containsKnownPrice(text, forbiddenPrices)) {
+  if (containsPublicPrice(text) && !hasOnlyAllowedPublicPrices(text, allowedPrices)) {
     return { safe: false, reason: "public_price_detected" };
   }
 

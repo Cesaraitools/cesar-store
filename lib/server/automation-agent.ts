@@ -40,6 +40,7 @@ type AgentInput = {
   query: string;
   contextQuery?: string | null;
   handoffQuery?: string | null;
+  pinnedProductIds?: string[];
   requestedLanguage?: string | null;
   limit?: number;
   baseUrl: string;
