@@ -114,6 +114,36 @@ export function buildMetaReactionFallback(tone: MetaReactionTone) {
   return "شكرًا لتواصلك مع سيزر ستور. كيف يمكننا مساعدة حضرتك؟";
 }
 
+function cleanMetaReplyDetail(value: unknown) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function truncateMetaReplyDetail(value: string, maxLength: number) {
+  if (value.length <= maxLength) return { text: value, truncated: false };
+  if (maxLength < 20) return { text: "", truncated: true };
+
+  const candidate = value.slice(0, maxLength).trim();
+  const sentenceBoundary = Math.max(
+    candidate.lastIndexOf("."),
+    candidate.lastIndexOf("!"),
+    candidate.lastIndexOf("؟"),
+    candidate.lastIndexOf("؛")
+  );
+  if (sentenceBoundary >= Math.floor(maxLength * 0.55)) {
+    return {
+      text: candidate.slice(0, sentenceBoundary + 1).trim(),
+      truncated: true,
+    };
+  }
+
+  const wordBoundary = candidate.lastIndexOf(" ");
+  const text = (wordBoundary >= Math.floor(maxLength * 0.55)
+    ? candidate.slice(0, wordBoundary)
+    : candidate
+  ).replace(/[،,:;\-]+$/u, "");
+  return { text: `${text}…`, truncated: true };
+}
+
 export function buildMetaPublicProductFallback(input: {
   products: PublicReplyProduct[];
   primaryProductCount: number;
@@ -137,8 +167,8 @@ export function buildMetaPublicProductFallback(input: {
   );
   const heading =
     primaryProductCount === 1
-      ? "تفاصيل المنتج الموجود في المنشور:"
-      : "تفاصيل المنتجات الموجودة في المنشور:";
+      ? "أهلا بحضرتك يا فندم تفاصيل المنتج كالتالي:"
+      : "أهلا بحضرتك يا فندم تفاصيل المنتجات كالتالي:";
   const lines = [heading];
 
   products.forEach((product, index) => {
@@ -146,22 +176,17 @@ export function buildMetaPublicProductFallback(input: {
       lines.push("", "منتجات أخرى من نفس القسم:");
     }
 
-    const description = String(product.description || "")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 180);
-    const variants = String(product.variantSummary || "")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 160);
+    const description = cleanMetaReplyDetail(product.description);
+    const variants = cleanMetaReplyDetail(product.variantSummary);
+    const isPrimaryProduct = index < primaryProductCount;
 
     lines.push(
       `• ${product.name.trim()}`,
       `السعر: ${formatPrice(product.price)} ${formatCurrency(product.currency)}`,
       `التوفر: ${product.isAvailable === false ? "غير متوفر حاليًا" : "متوفر حاليًا"}`
     );
-    if (description) lines.push(`التفاصيل: ${description}`);
-    if (variants) lines.push(`الخيارات: ${variants}`);
+    if (isPrimaryProduct && description) lines.push(`التفاصيل: ${description}`);
+    if (isPrimaryProduct && variants) lines.push(`الخيارات: ${variants}`);
     lines.push(product.productUrl.trim());
   });
 
@@ -170,6 +195,62 @@ export function buildMetaPublicProductFallback(input: {
 
   const primaryProducts = products.slice(0, primaryProductCount);
   const relatedProducts = products.slice(primaryProductCount);
+
+  if (primaryProductCount === 1) {
+    const product = primaryProducts[0];
+    const description = cleanMetaReplyDetail(product.description);
+    const variants = truncateMetaReplyDetail(
+      cleanMetaReplyDetail(product.variantSummary),
+      260
+    ).text;
+    const fixedLines = [
+      heading,
+      `• ${product.name.trim()}`,
+      `السعر: ${formatPrice(product.price)} ${formatCurrency(product.currency)}`,
+      `التوفر: ${product.isAvailable === false ? "غير متوفر حاليًا" : "متوفر حاليًا"}`,
+      ...(variants ? [`الخيارات: ${variants}`] : []),
+      product.productUrl.trim(),
+    ];
+    const fullPrimaryReply = [
+      heading,
+      `• ${product.name.trim()}`,
+      `السعر: ${formatPrice(product.price)} ${formatCurrency(product.currency)}`,
+      `التوفر: ${product.isAvailable === false ? "غير متوفر حاليًا" : "متوفر حاليًا"}`,
+      ...(description ? [`التفاصيل: ${description}`] : []),
+      ...(variants ? [`الخيارات: ${variants}`] : []),
+      product.productUrl.trim(),
+    ].join("\n");
+    if (fullPrimaryReply.length <= maxReplyLength) return fullPrimaryReply;
+
+    const fullDetailsNote = "للتفاصيل الكاملة يرجى فتح رابط المنتج.";
+    const availableDescriptionLength = Math.max(
+      0,
+      maxReplyLength -
+        fixedLines.join("\n").length -
+        fullDetailsNote.length -
+        "التفاصيل: ".length -
+        4
+    );
+    const fittedDescription = truncateMetaReplyDetail(
+      description,
+      availableDescriptionLength
+    );
+    const primaryLines = [
+      heading,
+      `• ${product.name.trim()}`,
+      `السعر: ${formatPrice(product.price)} ${formatCurrency(product.currency)}`,
+      `التوفر: ${product.isAvailable === false ? "غير متوفر حاليًا" : "متوفر حاليًا"}`,
+      ...(fittedDescription.text
+        ? [`التفاصيل: ${fittedDescription.text}`]
+        : []),
+      ...(fittedDescription.truncated ? [fullDetailsNote] : []),
+      ...(variants ? [`الخيارات: ${variants}`] : []),
+      product.productUrl.trim(),
+    ];
+    const primaryReply = primaryLines.join("\n");
+    if (primaryReply.length <= maxReplyLength) return primaryReply;
+  }
+
   const compactLines = [heading];
   const appendCompactProduct = (product: PublicReplyProduct) => {
     compactLines.push(

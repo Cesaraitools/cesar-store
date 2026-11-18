@@ -137,6 +137,11 @@ const allowedPrices = ordered.map((product) => product.price);
 assert.match(publicReply, /750|٧٥٠/u);
 assert.match(publicReply, /350|٣٥٠/u);
 assert.match(publicReply, /جنيه/u);
+assert.match(
+  publicReply,
+  /^أهلا بحضرتك يا فندم تفاصيل المنتجات كالتالي:/u
+);
+assert.equal(publicReply.includes("تفاصيل المنتج الموجود في المنشور"), false);
 assert.equal(publicReply.includes("تم التواصل"), false);
 assert.equal(publicReply.includes("الخاص"), false);
 assert.equal(publicReply.includes(wrongCategoryId), false);
@@ -156,6 +161,38 @@ assert.deepEqual(
   ),
   { safe: false, reason: "public_price_detected" }
 );
+
+const completeDescription = `${"شرح مفيد ومتكامل للمنتج. ".repeat(15)}نهاية الوصف الكاملة.`;
+const completeDescriptionReply = buildMetaPublicProductFallback({
+  products: [
+    {
+      ...products[3],
+      description: completeDescription,
+    },
+  ],
+  primaryProductCount: 1,
+});
+assert.match(
+  completeDescriptionReply,
+  /^أهلا بحضرتك يا فندم تفاصيل المنتج كالتالي:/u
+);
+assert.ok(
+  completeDescriptionReply.includes("نهاية الوصف الكاملة."),
+  "A product description that fits Meta's limit must be included in full"
+);
+
+const oversizedDescriptionReply = buildMetaPublicProductFallback({
+  products: [
+    {
+      ...products[3],
+      description: `${"جملة مكتملة لشرح المنتج بصورة واضحة. ".repeat(100)}نهاية بعيدة.`,
+    },
+  ],
+  primaryProductCount: 1,
+});
+assert.ok(oversizedDescriptionReply.length <= 1850);
+assert.match(oversizedDescriptionReply, /للتفاصيل الكاملة يرجى فتح رابط المنتج/u);
+assert.ok(oversizedDescriptionReply.includes(products[3].productUrl));
 
 const crowdedPostProducts = Array.from({ length: 10 }, (_, index) => ({
   id: `crowded-${index + 1}`,
