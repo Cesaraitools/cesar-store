@@ -9,6 +9,7 @@ import {
   isMetaPriceQuestion,
   prioritizeMetaPostProducts,
   resolveMetaSuggestionCategory,
+  selectMetaPublicReplyProducts,
   selectMetaPrivateSuggestionProducts,
   shouldUseMetaDeterministicProductReply,
 } from "../lib/server/meta-customer-intelligence";
@@ -16,6 +17,7 @@ import {
   buildMetaPostIdCandidates,
   extractProductIdsFromMetaPostContext,
 } from "../lib/server/meta-post-products";
+import { shouldClarifyAmbiguousCatalogPrice } from "../lib/server/automation-search-rules";
 import { validateMetaPublicReply } from "../lib/server/meta-reply-safety";
 
 const priceQuestions = [
@@ -90,6 +92,46 @@ assert.equal(
   }),
   false,
   "Unmapped posts must not use deterministic product replies"
+);
+assert.equal(
+  shouldClarifyAmbiguousCatalogPrice({
+    hasPriceIntent: true,
+    commentTokenCount: 0,
+    pinnedProductCount: 0,
+    contextScores: [57, 57, 12],
+  }),
+  true,
+  "A short price question with several equally strong catalog matches must clarify"
+);
+assert.equal(
+  shouldClarifyAmbiguousCatalogPrice({
+    hasPriceIntent: true,
+    commentTokenCount: 0,
+    pinnedProductCount: 0,
+    contextScores: [90, 57],
+  }),
+  false,
+  "One clearly stronger post-context match may be answered"
+);
+assert.equal(
+  shouldClarifyAmbiguousCatalogPrice({
+    hasPriceIntent: true,
+    commentTokenCount: 0,
+    pinnedProductCount: 3,
+    contextScores: [],
+  }),
+  true,
+  "A mapped multi-product post still needs clarification for a bare price question"
+);
+assert.equal(
+  shouldClarifyAmbiguousCatalogPrice({
+    hasPriceIntent: true,
+    commentTokenCount: 1,
+    pinnedProductCount: 0,
+    contextScores: [90, 90],
+  }),
+  false,
+  "A product name or code in the comment must bypass the bare-price ambiguity rule"
 );
 
 const suggestionCategories = [
@@ -170,6 +212,37 @@ assert.deepEqual(
   ordered.map((product) => product.id),
   [primaryId, secondPrimaryId, relatedId],
   "Post products must be first in their recorded order, followed only by same-category products"
+);
+
+const inferredSelection = selectMetaPublicReplyProducts(products, {
+  mappedProductIds: [],
+  aiSelectedProductIds: [secondPrimaryId],
+});
+assert.deepEqual(
+  inferredSelection.map((product) => product.id),
+  [secondPrimaryId],
+  "An unmapped post may use only the catalog products explicitly selected by AI"
+);
+
+const clarificationCandidates = selectMetaPublicReplyProducts(products, {
+  mappedProductIds: [],
+  aiSelectedProductIds: [],
+  allowCandidateFallback: true,
+  candidateFallbackLimit: 3,
+});
+assert.deepEqual(
+  clarificationCandidates.map((product) => product.id),
+  products.slice(0, 3).map((product) => product.id),
+  "Clarification replies may retain a small grounded candidate set for safety validation"
+);
+
+assert.deepEqual(
+  selectMetaPublicReplyProducts(products, {
+    mappedProductIds: [],
+    aiSelectedProductIds: [],
+  }),
+  [],
+  "An inferred answer without an AI product selection must remain blocked"
 );
 
 const publicReply = buildMetaPublicProductFallback({

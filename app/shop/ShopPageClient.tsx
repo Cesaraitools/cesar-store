@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import ProductGrid from "@/components/product/ProductGrid";
 import ShopSidePromoSlider from "@/components/promo/ShopSidePromoSlider";
@@ -158,6 +158,7 @@ export default function ShopPageClient({
 
   const [sort, setSort] = useState<SortOption>("default");
   const [searchQuery, setSearchQuery] = useState(searchParams.search || "");
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   const [selectedCategory, setSelectedCategory] = useState(
     searchParams.category || "all"
   );
@@ -214,8 +215,8 @@ export default function ShopPageClient({
   }, [visibleCategories]);
 
   const filteredProducts = useMemo(() => {
-    const normalizedQuery = normalizeSearchText(searchQuery);
-    const queryTokens = tokenizeSearch(searchQuery);
+    const normalizedQuery = normalizeSearchText(deferredSearchQuery);
+    const queryTokens = tokenizeSearch(deferredSearchQuery);
     const normalizedSelectedCategory = normalizeCategory(selectedCategory);
 
     const matches = products.flatMap((product) => {
@@ -246,20 +247,26 @@ export default function ShopPageClient({
         });
       })
       .map((item) => item.product);
-  }, [products, searchQuery, selectedCategory]);
+  }, [deferredSearchQuery, products, selectedCategory]);
 
   const finalProducts = useMemo(() => {
-    if (searchQuery.trim().length > 0 && sort === "default") return filteredProducts;
+    if (deferredSearchQuery.trim().length > 0 && sort === "default") {
+      return filteredProducts;
+    }
 
     return sortProducts(filteredProducts, sort, categoryOrder);
-  }, [categoryOrder, filteredProducts, searchQuery, sort]);
+  }, [categoryOrder, deferredSearchQuery, filteredProducts, sort]);
 
   useEffect(() => {
     setVisibleProductCount(INITIAL_VISIBLE_PRODUCTS);
   }, [searchQuery, selectedCategory, sort]);
 
-  const displayedProducts = finalProducts.slice(0, visibleProductCount);
-  const hasMoreProducts = displayedProducts.length < finalProducts.length;
+  const hasSearchQuery = deferredSearchQuery.trim().length > 0;
+  const displayedProducts = hasSearchQuery
+    ? finalProducts
+    : finalProducts.slice(0, visibleProductCount);
+  const hasMoreProducts =
+    !hasSearchQuery && displayedProducts.length < finalProducts.length;
 
   const currentCategory = visibleCategories.find(
     (category) =>

@@ -19,8 +19,8 @@ import {
   detectMetaSuggestionConsent,
   detectMetaReactionTone,
   isMetaPriceQuestion,
-  prioritizeMetaPostProducts,
   resolveMetaSuggestionCategory,
+  selectMetaPublicReplyProducts,
   selectMetaPrivateSuggestionProducts,
   shouldUseMetaDeterministicProductReply,
   type MetaAttachmentKind,
@@ -810,6 +810,9 @@ type MetaPostContext = {
   searchText: string;
   permalinkUrl: string;
 };
+
+const META_PUBLIC_PRODUCT_CLARIFICATION_FALLBACK =
+  "حضرتك تقصد أي منتج من المنتجات الموجودة في المنشور؟ من فضلك اكتب اسم المنتج أو الكود الظاهر عليه لنرسل لحضرتك السعر الصحيح.";
 
 function collectPostAttachmentText(attachment: MetaPostAttachment, output: string[]) {
   if (attachment.title) output.push(attachment.title);
@@ -2224,24 +2227,6 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     };
   }
 
-  if (!postProductResolution.productIds.length) {
-    await recordCommentHandoff({
-      reason: "post_product_mapping_required",
-      commentId: normalized.commentId,
-      postId: normalized.postId,
-      messageText: normalized.messageText,
-      permalinkUrl: normalized.permalinkUrl,
-    });
-
-    return {
-      processed: false,
-      reason: "post_product_mapping_required",
-      productsCount: 0,
-      postContextUsed,
-      postProductSource: postProductResolution.source,
-    };
-  }
-
   const relatedProductLimit =
     postProductResolution.productIds.length <= 2
       ? 2
@@ -2410,21 +2395,29 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
     };
   }
 
-  const publicReplyProducts = prioritizeMetaPostProducts(
-    result.products,
-    postProductResolution.productIds,
-    relatedProductLimit
-  );
+  const aiSelectedProductIds = result.meta.ai.productIds || [];
+  const primaryProductIds = postProductResolution.productIds.length
+    ? postProductResolution.productIds
+    : aiSelectedProductIds;
+  const publicReplyProducts = selectMetaPublicReplyProducts(result.products, {
+    mappedProductIds: postProductResolution.productIds,
+    aiSelectedProductIds,
+    relatedLimit: relatedProductLimit,
+    allowCandidateFallback: result.meta.autoReply === "clarify",
+    candidateFallbackLimit: 3,
+  });
   const resolvedPostProductIds = new Set(
     publicReplyProducts.map((product) => product.id)
   );
-  const resolvedPrimaryProductCount = postProductResolution.productIds.filter(
+  const resolvedPrimaryProductCount = primaryProductIds.filter(
     (id) => resolvedPostProductIds.has(id)
   ).length;
+  const requiresResolvedProducts = result.meta.autoReply === "answer";
 
   if (
-    resolvedPrimaryProductCount !== postProductResolution.productIds.length ||
-    !publicReplyProducts.length
+    requiresResolvedProducts &&
+    (resolvedPrimaryProductCount !== primaryProductIds.length ||
+      !publicReplyProducts.length)
   ) {
     await recordCommentHandoff({
       reason: "post_products_unavailable",
@@ -2512,10 +2505,13 @@ async function processCommentChange(change: MetaFeedChange, request: Request) {
       safetyReason: publicReplySafety.reason,
     });
 
-    publicReply = buildMetaPublicProductFallback({
-      products: publicReplyProducts,
-      primaryProductCount: resolvedPrimaryProductCount,
-    });
+    publicReply =
+      result.meta.autoReply === "clarify"
+        ? META_PUBLIC_PRODUCT_CLARIFICATION_FALLBACK
+        : buildMetaPublicProductFallback({
+            products: publicReplyProducts,
+            primaryProductCount: resolvedPrimaryProductCount,
+          });
     publicReplySafety = validateMetaPublicReply(
       publicReply,
       publicReplyAllowedUrls,

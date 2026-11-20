@@ -3,6 +3,7 @@ import { CUSTOMER_QUERY_LEXICON } from "@/lib/customer-query-lexicon";
 import { normalizeImagesArray } from "@/lib/image-normalizer";
 import { normalizeProductVariantOptions } from "@/lib/product-variants";
 import { createServiceRoleClient } from "@/lib/supabase/runtime";
+import { shouldClarifyAmbiguousCatalogPrice } from "./automation-search-rules";
 
 export type AutomationLanguage = "ar" | "en";
 type AutomationSearchIntent = "product" | "category" | "clarify";
@@ -14,6 +15,11 @@ type ProductRow = {
   name_en: string | null;
   description_ar: string | null;
   description_en: string | null;
+  brand?: string | null;
+  manufacturer?: string | null;
+  mpn?: string | null;
+  gtin?: string | null;
+  model?: string | null;
   price: number | string | null;
   image_url: string | null;
   images_json: unknown;
@@ -98,6 +104,9 @@ type QueryUnderstanding = {
 };
 
 const MIN_DIRECT_PRODUCT_SCORE = 6;
+const AUTOMATION_CATALOG_PAGE_SIZE = 500;
+const AUTOMATION_PRODUCT_SELECT =
+  "id,name_ar,name_en,description_ar,description_en,brand,manufacturer,mpn,gtin,model,price,image_url,images_json,stock,category,is_active,low_stock_threshold,variant_options_json,variants_json";
 
 const QUERY_STOP_WORDS = new Set([
   "عايز",
@@ -854,6 +863,18 @@ function getProductVariantSearchText(product: ProductRow) {
     .join(" ");
 }
 
+function getProductIdentitySearchText(product: ProductRow) {
+  return [
+    product.brand,
+    product.manufacturer,
+    product.mpn,
+    product.gtin,
+    product.model,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 function scoreProduct(
   product: ProductRow,
   query: string,
@@ -869,9 +890,10 @@ function scoreProduct(
   const descriptionText = normalizeSearchText(
     `${product.description_ar || ""} ${product.description_en || ""}`
   );
+  const identityText = normalizeSearchText(getProductIdentitySearchText(product));
   const variantText = normalizeSearchText(getProductVariantSearchText(product));
   const categoryText = normalizeSearchText(normalizeCategory(product.category || ""));
-  const haystack = `${idText} ${nameText} ${descriptionText} ${variantText} ${categoryText}`;
+  const haystack = `${idText} ${nameText} ${identityText} ${descriptionText} ${variantText} ${categoryText}`;
   const category = normalizeCategory(product.category || "");
 
   let score = 0;
@@ -899,6 +921,9 @@ function scoreProduct(
     if (nameText.includes(token)) {
       score += 4;
       matchedTokens += 1;
+    } else if (identityText.includes(token)) {
+      score += 4;
+      matchedTokens += 1;
     } else if (descriptionText.includes(token)) {
       score += 2;
       matchedTokens += 1;
@@ -924,10 +949,10 @@ function scoreProduct(
   return Math.max(score, 0);
 }
 
-function productNameTokens(product: ProductRow) {
-  return meaningfulTokens(`${product.name_ar || ""} ${product.name_en || ""}`).filter(
-    (token) => token.length > 2
-  );
+function productIdentityTokens(product: ProductRow) {
+  return meaningfulTokens(
+    `${product.name_ar || ""} ${product.name_en || ""} ${getProductIdentitySearchText(product)}`
+  ).filter((token) => token.length > 2);
 }
 
 function scorePostContextProductMatch(product: ProductRow, contextQuery: string) {
@@ -937,11 +962,25 @@ function scorePostContextProductMatch(product: ProductRow, contextQuery: string)
   const idText = normalizeSearchText(product.id);
   if (idText && normalizedContext.includes(idText)) return 100;
 
+  const identifiers = [product.mpn, product.gtin, product.model]
+    .map((value) => normalizeSearchText(value || ""))
+    .filter((value) => value.length >= 3);
+  if (identifiers.some((identifier) => normalizedContext.includes(identifier))) {
+    return 98;
+  }
+
   const names = [product.name_ar || "", product.name_en || ""]
     .map((name) => normalizeSearchText(name))
     .filter((name) => name.length >= 6);
+  const brandNames = [product.brand, product.manufacturer]
+    .map((value) => normalizeSearchText(value || ""))
+    .filter((value) => value.length >= 3);
   let score = names.some((name) => normalizedContext.includes(name)) ? 90 : 0;
-  const tokens = Array.from(new Set(productNameTokens(product)));
+  if (brandNames.some((brand) => normalizedContext.includes(brand))) {
+    score = Math.max(score, 35);
+  }
+
+  const tokens = Array.from(new Set(productIdentityTokens(product)));
   if (!tokens.length) return score;
 
   const matchedTokens = tokens.filter((token) => normalizedContext.includes(token));
@@ -957,6 +996,32 @@ function scorePostContextProductMatch(product: ProductRow, contextQuery: string)
   }
 
   return score;
+}
+
+async function fetchAllActiveAutomationProducts() {
+  const supabase = createServiceRoleClient();
+  const rows: ProductRow[] = [];
+
+  for (let from = 0; ; from += AUTOMATION_CATALOG_PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from("products")
+      .select(AUTOMATION_PRODUCT_SELECT)
+      .is("deleted_at", null)
+      .eq("is_active", true)
+      .order("category", { ascending: true })
+      .order("name_ar", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, from + AUTOMATION_CATALOG_PAGE_SIZE - 1);
+
+    if (error) throw error;
+
+    const batch = (data || []) as ProductRow[];
+    rows.push(...batch);
+
+    if (batch.length < AUTOMATION_CATALOG_PAGE_SIZE) break;
+  }
+
+  return rows;
 }
 
 function shouldPrioritizePostContextProduct(
@@ -1284,22 +1349,7 @@ export async function searchAutomationProducts(input: {
   const detectedCategory = detectCategoryIntent(searchQuery)?.intent || null;
   const humanHandoff = handoffUnderstanding.humanHandoff;
   const productRequest = commentUnderstanding.productRequest || understanding.productRequest;
-  const supabase = createServiceRoleClient();
-  const { data, error } = await supabase
-    .from("products")
-    .select(
-      "id,name_ar,name_en,description_ar,description_en,price,image_url,images_json,stock,category,is_active,low_stock_threshold,variant_options_json,variants_json"
-    )
-    .eq("is_active", true)
-    .order("category", { ascending: true })
-    .order("name_ar", { ascending: true })
-    .limit(500);
-
-  if (error) {
-    throw error;
-  }
-
-  const allProducts = (data || []) as ProductRow[];
+  const allProducts = await fetchAllActiveAutomationProducts();
   const pinnedProductIds = Array.from(
     new Set(
       (input.pinnedProductIds || [])
@@ -1357,22 +1407,29 @@ export async function searchAutomationProducts(input: {
     commentUnderstanding.hasPriceIntent &&
     scoredProducts.length > 0 &&
     (bestContextScore >= 45 || bestScore >= MIN_DIRECT_PRODUCT_SCORE);
+  const ambiguousCatalogPriceQuestion = shouldClarifyAmbiguousCatalogPrice({
+    hasPriceIntent: commentUnderstanding.hasPriceIntent,
+    commentTokenCount: commentUnderstanding.tokens.length,
+    pinnedProductCount: pinnedProductRows.length,
+    contextScores: scoredProducts.map((item) => item.contextScore),
+  });
   const needsPostContext =
     commentUnderstanding.needsPostContext && !contextQuery && !detectedCategory && bestScore < 10;
   const shouldClarify =
-    !pinnedProductRows.length &&
-    !humanHandoff &&
-    !needsPostContext &&
-    !contextBackedPriceQuestion &&
-    (Boolean(clarifyIntent && bestScore < 16) ||
-      (!categoryMode && bestScore > 0 && bestScore < MIN_DIRECT_PRODUCT_SCORE) ||
-      (!scoredProducts.length && productRequest));
+    ambiguousCatalogPriceQuestion ||
+    (!pinnedProductRows.length &&
+      !humanHandoff &&
+      !needsPostContext &&
+      !contextBackedPriceQuestion &&
+      (Boolean(clarifyIntent && bestScore < 16) ||
+        (!categoryMode && bestScore > 0 && bestScore < MIN_DIRECT_PRODUCT_SCORE) ||
+        (!scoredProducts.length && productRequest)));
   const intent: AutomationSearchIntent = humanHandoff || needsPostContext
+    ? "clarify"
+    : shouldClarify
     ? "clarify"
     : pinnedProductRows.length
     ? "product"
-    : shouldClarify
-    ? "clarify"
     : categoryMode
     ? "category"
     : scoredProducts.length
@@ -1410,7 +1467,7 @@ export async function searchAutomationProducts(input: {
             Math.max(limit - pinnedProductRows.length, 0)
           ),
         ].slice(0, limit)
-      : shouldClarify
+      : shouldClarify && !ambiguousCatalogPriceQuestion
       ? []
       : findComplementaryProductRows(
           scoredProducts.map((item) => item.product),
@@ -1441,10 +1498,10 @@ export async function searchAutomationProducts(input: {
       : undefined;
   const autoReply: AutomationReplyAction = humanHandoff || needsPostContext
     ? "handoff"
+    : shouldClarify
+    ? "clarify"
     : pinnedProductRows.length
     ? "answer"
-    : intent === "clarify"
-    ? "clarify"
     : "answer";
 
   return {

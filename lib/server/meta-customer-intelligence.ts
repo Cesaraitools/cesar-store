@@ -323,6 +323,38 @@ export function prioritizeMetaPostProducts<
   ];
 }
 
+export function selectMetaPublicReplyProducts<
+  T extends { id: string; category?: string | null }
+>(
+  products: T[],
+  input: {
+    mappedProductIds: string[];
+    aiSelectedProductIds: string[];
+    relatedLimit?: number;
+    allowCandidateFallback?: boolean;
+    candidateFallbackLimit?: number;
+  }
+) {
+  if (input.mappedProductIds.length) {
+    return prioritizeMetaPostProducts(
+      products,
+      input.mappedProductIds,
+      input.relatedLimit ?? 2
+    );
+  }
+
+  const aiSelectedProducts = prioritizeMetaPostProducts(
+    products,
+    input.aiSelectedProductIds,
+    0
+  );
+  if (aiSelectedProducts.length) return aiSelectedProducts;
+
+  return input.allowCandidateFallback
+    ? products.slice(0, Math.max(input.candidateFallbackLimit ?? 3, 0))
+    : [];
+}
+
 function normalizeMetaReplyChoice(value: string) {
   return value
     .trim()
