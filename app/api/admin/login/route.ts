@@ -7,6 +7,8 @@ import {
 } from "@/lib/admin/constants";
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
+const META_REVIEWER_USERNAME = process.env.META_REVIEWER_USERNAME;
+const META_REVIEWER_PASSWORD_HASH = process.env.META_REVIEWER_PASSWORD_HASH;
 const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET!;
 
 // ⏱️ 8 ساعات
@@ -21,6 +23,26 @@ function signToken(token: string) {
     .createHmac("sha256", ADMIN_SESSION_SECRET)
     .update(token)
     .digest("hex");
+}
+
+function matchesCredentials(
+  username: string,
+  passwordHash: string,
+  expectedUsername: string | undefined,
+  expectedPasswordHash: string | undefined
+) {
+  if (!expectedUsername || !expectedPasswordHash) {
+    return false;
+  }
+
+  const incoming = Buffer.from(passwordHash);
+  const expected = Buffer.from(expectedPasswordHash);
+
+  return (
+    username === expectedUsername &&
+    incoming.length === expected.length &&
+    crypto.timingSafeEqual(incoming, expected)
+  );
 }
 
 export async function POST(request: Request) {
@@ -44,10 +66,17 @@ export async function POST(request: Request) {
     const incomingHash = hashPassword(password);
 
     const isValidUser =
-      username === ADMIN_USERNAME &&
-      crypto.timingSafeEqual(
-        Buffer.from(incomingHash),
-        Buffer.from(ADMIN_PASSWORD_HASH)
+      matchesCredentials(
+        username,
+        incomingHash,
+        ADMIN_USERNAME,
+        ADMIN_PASSWORD_HASH
+      ) ||
+      matchesCredentials(
+        username,
+        incomingHash,
+        META_REVIEWER_USERNAME,
+        META_REVIEWER_PASSWORD_HASH
       );
 
     if (!isValidUser) {
