@@ -46,7 +46,7 @@ async function writeAdminAudit(input: {
 }
 
 export async function GET() {
-  const guard = await requireAdminRole(["full"]);
+  const guard = await requireAdminRole(["full", "meta-reviewer"]);
   if (guard.response) return guard.response;
 
   try {
@@ -58,7 +58,7 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  const guard = await requireAdminRole(["full"]);
+  const guard = await requireAdminRole(["full", "meta-reviewer"]);
   if (guard.response) return guard.response;
 
   try {
@@ -105,7 +105,7 @@ export async function PUT(request: Request) {
   }
 }
 export async function POST(request: Request) {
-  const guard = await requireAdminRole(["full"]);
+  const guard = await requireAdminRole(["full", "meta-reviewer"]);
   if (guard.response) return guard.response;
 
   try {

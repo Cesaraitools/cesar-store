@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { validateAdminSession } from "@/lib/admin/validateAdminSession";
+import {
+  parseAdminSessionCookie,
+  SESSION_COOKIE_NAME,
+} from "@/lib/admin/session-core";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 
-export type AdminRole = "full" | "orders";
+export type AdminRole = "full" | "orders" | "meta-reviewer";
 
 export type AdminAccess = {
   hasAdminSession: boolean;
@@ -48,6 +53,10 @@ export function canAccessAdminPath(pathname: string, role: AdminRole | null) {
     );
   }
 
+  if (role === "meta-reviewer") {
+    return pathname === "/admin/social-publisher";
+  }
+
   return false;
 }
 
@@ -59,6 +68,18 @@ export async function getAdminAccess(): Promise<AdminAccess> {
       hasAdminSession: false,
       role: null,
       userEmail: null,
+    };
+  }
+
+  const reviewerSession = parseAdminSessionCookie(
+    cookies().get(SESSION_COOKIE_NAME)?.value
+  );
+
+  if (reviewerSession?.token.startsWith("meta-reviewer-")) {
+    return {
+      hasAdminSession: true,
+      role: "meta-reviewer",
+      userEmail: "meta-reviewer@cesareshop.com",
     };
   }
 

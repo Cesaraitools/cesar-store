@@ -65,19 +65,19 @@ export async function POST(request: Request) {
 
     const incomingHash = hashPassword(password);
 
-    const isValidUser =
-      matchesCredentials(
-        username,
-        incomingHash,
-        ADMIN_USERNAME,
-        ADMIN_PASSWORD_HASH
-      ) ||
-      matchesCredentials(
-        username,
-        incomingHash,
-        META_REVIEWER_USERNAME,
-        META_REVIEWER_PASSWORD_HASH
-      );
+    const isPrimaryAdmin = matchesCredentials(
+      username,
+      incomingHash,
+      ADMIN_USERNAME,
+      ADMIN_PASSWORD_HASH
+    );
+    const isMetaReviewer = matchesCredentials(
+      username,
+      incomingHash,
+      META_REVIEWER_USERNAME,
+      META_REVIEWER_PASSWORD_HASH
+    );
+    const isValidUser = isPrimaryAdmin || isMetaReviewer;
 
     if (!isValidUser) {
       return NextResponse.json(
@@ -86,7 +86,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const token = crypto.randomUUID();
+    const token = `${isMetaReviewer ? "meta-reviewer-" : ""}${crypto.randomUUID()}`;
     await createSessionPersistent(token);
     const signature = signToken(token);
 

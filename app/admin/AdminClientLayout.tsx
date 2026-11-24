@@ -156,6 +156,10 @@ export default function AdminClientLayout({
       return true;
     }
 
+    if (role === "meta-reviewer") {
+      return item.href === "/admin/social-publisher";
+    }
+
     return item.href === "/admin/orders";
   });
 
@@ -218,7 +222,11 @@ export default function AdminClientLayout({
           <div className="flex items-center gap-2 text-gray-400">
             <UserCircle className="w-5 h-5 text-blue-600" />
             <span className="text-sm font-medium">
-              {role === "full" ? "مدير النظام" : "متابعة الطلبات"}
+              {role === "full"
+                ? "مدير النظام"
+                : role === "meta-reviewer"
+                ? "مراجع Meta"
+                : "متابعة الطلبات"}
             </span>
             <span className="text-xs font-bold text-gray-400" dir="ltr">
               {userEmail}

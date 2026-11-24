@@ -27,7 +27,11 @@ export default async function AdminLayout({
   }
 
   if (!canAccessAdminPath(pathname, access.role)) {
-    redirect("/admin/orders");
+    redirect(
+      access.role === "meta-reviewer"
+        ? "/admin/social-publisher"
+        : "/admin/orders"
+    );
   }
 
   return (
