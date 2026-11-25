@@ -56,7 +56,9 @@ export const getCachedStoreMaintenanceSchedule = unstable_cache(
   async () => loadStoreMaintenanceSchedule(createServiceRoleClient()),
   ["store-maintenance-schedule"],
   {
-    revalidate: 5,
+    // Admin changes invalidate this tag immediately. The longer fallback avoids
+    // rewriting the same cached schedule every few seconds under normal traffic.
+    revalidate: 3600,
     tags: [STORE_MAINTENANCE_CACHE_TAG],
   }
 );

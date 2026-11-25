@@ -47,7 +47,7 @@ export const getLandingShowcase = unstable_cache(
   fetchLandingShowcase,
   ["landing-showcase-v1"],
   {
-    revalidate: 300,
+    revalidate: 3600,
     tags: ["landing-showcase"],
   }
 );
