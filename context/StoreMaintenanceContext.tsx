@@ -33,6 +33,9 @@ type StoreMaintenanceValue = {
 
 const StoreMaintenanceContext = createContext<StoreMaintenanceValue | null>(null);
 
+const INACTIVE_REFRESH_INTERVAL_MS = 5 * 60_000;
+const ACTIVE_REFRESH_INTERVAL_MS = 30_000;
+
 function splitCountdown(remainingMs: number): CountdownParts {
   const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
 
@@ -95,7 +98,14 @@ export function StoreMaintenanceProvider({
       }
     };
 
-    const timer = window.setInterval(refreshSchedule, 10_000);
+    // New page loads receive the current schedule from the server. Existing
+    // tabs only need a slow background refresh while maintenance is inactive;
+    // once it becomes active, poll more frequently so stopping it is reflected
+    // quickly without keeping a Function hot every ten seconds all day.
+    const refreshInterval = isMaintenanceActive
+      ? ACTIVE_REFRESH_INTERVAL_MS
+      : INACTIVE_REFRESH_INTERVAL_MS;
+    const timer = window.setInterval(refreshSchedule, refreshInterval);
     const updateClock = () => {
       if (document.visibilityState === "visible") {
         void refreshSchedule();
@@ -109,7 +119,7 @@ export function StoreMaintenanceProvider({
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", updateClock);
     };
-  }, []);
+  }, [isMaintenanceActive]);
 
   const value = useMemo<StoreMaintenanceValue>(
     () => ({
